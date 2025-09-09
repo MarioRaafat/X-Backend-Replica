@@ -1,26 +1,41 @@
-import { Injectable } from '@nestjs/common';
-import { CreateAuthDto } from './dto/create-auth.dto';
-import { UpdateAuthDto } from './dto/update-auth.dto';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+} from '@nestjs/common';
+import { RegisterDto } from './dto/register.dto';
+import { InjectRepository } from '@nestjs/typeorm';
+import { User } from 'src/user/entities/user.entity';
+import { Repository, EntityManager } from 'typeorm';
+import * as bcrypt from 'bcrypt';
 
 @Injectable()
 export class AuthService {
-  create(createAuthDto: CreateAuthDto) {
-    return 'This action adds a new auth';
-  }
+  constructor(
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    private readonly entityManager: EntityManager,
+  ) {}
 
-  findAll() {
-    return `This action returns all auth`;
-  }
+  async register(registerDto: RegisterDto) {
+    const { confirmPassword, password, ...registerUser } = registerDto;
 
-  findOne(id: number) {
-    return `This action returns a #${id} auth`;
-  }
+    const existingUser = await this.userRepository.findOne({
+      where: { email: registerDto.email },
+    });
 
-  update(id: number, updateAuthDto: UpdateAuthDto) {
-    return `This action updates a #${id} auth`;
-  }
+    if (existingUser) {
+      throw new ConflictException('Email already exists');
+    }
 
-  remove(id: number) {
-    return `This action removes a #${id} auth`;
+    if (password !== confirmPassword) {
+      throw new BadRequestException(
+        'Confirmation password must match password',
+      );
+    }
+
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    const user = new User({ ...registerUser, password: hashedPassword });
+    return await this.entityManager.save(user);
   }
 }
