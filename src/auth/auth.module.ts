@@ -11,6 +11,10 @@ import { UserModule } from 'src/user/user.module';
 import { UserService } from 'src/user/user.service';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { RedisService } from 'src/redis/redis.service';
+import { VerificationModule } from 'src/verification/verification.module';
+import { MessageModule } from 'src/message/message.module';
+import { EmailService } from 'src/message/email.service';
+import { VerificationService } from 'src/verification/verification.service';
 
 @Module({
   imports: [
@@ -19,15 +23,26 @@ import { RedisService } from 'src/redis/redis.service';
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
         secret: configService.get('JWT_TOKEN_SECRET'),
-        signOptions: { expiresIn: configService.get('JWT_TOKEN_EXPIRATION_TIME') },
+        signOptions: {
+          expiresIn: configService.get('JWT_TOKEN_EXPIRATION_TIME'),
+        },
       }),
       inject: [ConfigService],
     }),
     PassportModule,
     UserModule,
-    RedisModule
+    RedisModule,
+    VerificationModule,
+    MessageModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, UserService, RedisService],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    UserService,
+    RedisService,
+    VerificationService,
+    EmailService,
+  ],
 })
 export class AuthModule {}

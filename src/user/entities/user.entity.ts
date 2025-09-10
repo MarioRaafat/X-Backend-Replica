@@ -20,6 +20,9 @@ export class User {
   @Column({ type: 'varchar' })
   phoneNumber: string;
 
+  @Column({ type: 'bool', default: false })
+  verified: boolean;
+
   constructor(user: Partial<User>) {
     Object.assign(this, user);
   }

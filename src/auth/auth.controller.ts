@@ -1,4 +1,11 @@
-import { BadRequestException, Controller, Post, Req, Res } from '@nestjs/common';
+import {
+  BadRequestException,
+  Controller,
+  Param,
+  Post,
+  Req,
+  Res,
+} from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
@@ -23,22 +30,34 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
-  @Post('login')
-  async login(@Body() loginDTO: LoginDTO, @Res({ passthrough: true }) response: Response) {
+  @Post('verification-otp/:userId')
+  async generateEmailVerification(@Param('userId') userId: number) {
+    return this.authService.generateEmailVerification(userId);
+  }
 
-    const { access_token, refresh_token } = await this.authService.login(loginDTO);
+  @Post('login')
+  async login(
+    @Body() loginDTO: LoginDTO,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { access_token, refresh_token } =
+      await this.authService.login(loginDTO);
 
     this.httpnOnlyRefreshToken(response, refresh_token);
     return { access_token };
   }
 
   @Post('refresh')
-  async refresh(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
+  async refresh(
+    @Req() req: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
     const refreshToken = req.cookies['refresh_token'];
     if (!refreshToken)
       throw new BadRequestException('No refresh token provided');
 
-    const { access_token, refresh_token } = await this.authService.refresh(refreshToken);
+    const { access_token, refresh_token } =
+      await this.authService.refresh(refreshToken);
     this.httpnOnlyRefreshToken(response, refresh_token);
     return { access_token };
   }

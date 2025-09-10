@@ -2,17 +2,21 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  NotFoundException,
   UnauthorizedException,
+  UnprocessableEntityException,
+  InternalServerErrorException,
 } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
-import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/entities/user.entity';
-import { Repository, EntityManager } from 'typeorm';
+import { EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
+import { VerificationService } from 'src/verification/verification.service';
+import { EmailService } from 'src/message/email.service';
 
 @Injectable()
 export class AuthService {
@@ -20,14 +24,18 @@ export class AuthService {
     private readonly entityManager: EntityManager,
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
-    private readonly redisService: RedisService
+    private readonly redisService: RedisService,
+    private readonly verificationService: VerificationService,
+    private readonly emailService: EmailService,
   ) {}
 
   async register(registerDto: RegisterDto) {
     const { confirmPassword, password, ...registerUser } = registerDto;
 
     // Check if email is in use
-    const existingUser = await this.userService.findUserByEmail(registerDto.email)
+    const existingUser = await this.userService.findUserByEmail(
+      registerDto.email,
+    );
 
     if (existingUser) {
       throw new ConflictException('Email already exists');
@@ -46,7 +54,36 @@ export class AuthService {
     const user = new User({ ...registerUser, password: hashedPassword });
     const createdUser = await this.entityManager.save(user);
 
-    return createdUser;
+    // Send verification email
+    const sendEmailRes = await this.generateEmailVerification(user.id);
+
+    return { ...sendEmailRes, user: createdUser };
+  }
+
+  async generateEmailVerification(userId: number) {
+    const user = await this.userService.findUserById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.verified) {
+      throw new UnprocessableEntityException('Account already verified');
+    }
+
+    const otp = await this.verificationService.generateOtp(user.id, 'email');
+
+    const emailSent = await this.emailService.sendEmail({
+      subject: 'MyApp - Account Verification',
+      recipients: [{ name: user.firstName ?? '', address: user.email }],
+      html: `<p>Hi${user.firstName ? ' ' + user.firstName : ''},</p><p>You may verify your MyApp account using the following OTP: <br /><span style="font-size:24px; font-weight: 700;">${otp}</span></p><p>Regards,<br />MyApp</p>`,
+    });
+
+    if (!emailSent) {
+      throw new InternalServerErrorException('Failed to send OTP email');
+    }
+
+    return emailSent;
   }
 
   async validateUser(email: string, password: string): Promise<number> {
@@ -62,10 +99,13 @@ export class AuthService {
   async login(loginDTO: LoginDTO) {
     const id = await this.validateUser(loginDTO.email, loginDTO.password);
 
-    const accessToken = this.jwtService.sign({ id }, {
-      secret: process.env.JWT_TOKEN_SECRET,
-      expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
-    });
+    const accessToken = this.jwtService.sign(
+      { id },
+      {
+        secret: process.env.JWT_TOKEN_SECRET,
+        expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
+      },
+    );
 
     const refreshPayload = { id, jti: crypto.randomUUID() };
     const refreshToken = this.jwtService.sign(refreshPayload, {
@@ -85,15 +125,20 @@ export class AuthService {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
-      const revoked = await this.redisService.get(`revoked_refresh:${payload.jti}`);
+      const revoked = await this.redisService.get(
+        `revoked_refresh:${payload.jti}`,
+      );
       if (revoked) {
         throw new UnauthorizedException('Refresh token has been revoked');
       }
 
-      const newAccessToken = this.jwtService.sign({ id: payload.id }, {
-        secret: process.env.JWT_TOKEN_SECRET,
-        expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
-      });
+      const newAccessToken = this.jwtService.sign(
+        { id: payload.id },
+        {
+          secret: process.env.JWT_TOKEN_SECRET,
+          expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
+        },
+      );
 
       const newRefreshPayload = { id: payload.id, jti: crypto.randomUUID() };
       const newRefreshToken = this.jwtService.sign(newRefreshPayload, {
@@ -113,6 +158,7 @@ export class AuthService {
         refresh_token: newRefreshToken,
       };
     } catch (e) {
+      console.log(e);
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
