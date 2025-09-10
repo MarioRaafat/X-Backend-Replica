@@ -7,6 +7,10 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { UserModule } from 'src/user/user.module';
+import { UserService } from 'src/user/user.service';
+import { RedisModule } from '@nestjs-modules/ioredis';
+import { RedisService } from 'src/redis/redis.service';
 
 @Module({
   imports: [
@@ -14,14 +18,16 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     JwtModule.registerAsync({
       imports: [ConfigModule],
       useFactory: async (configService: ConfigService) => ({
-        secret: configService.get('JWT_SECRET'),
-        signOptions: { expiresIn: configService.get('JWT_EXPIRATION_TIME') },
+        secret: configService.get('JWT_TOKEN_SECRET'),
+        signOptions: { expiresIn: configService.get('JWT_TOKEN_EXPIRATION_TIME') },
       }),
       inject: [ConfigService],
     }),
     PassportModule,
+    UserModule,
+    RedisModule
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, UserService, RedisService],
 })
 export class AuthModule {}

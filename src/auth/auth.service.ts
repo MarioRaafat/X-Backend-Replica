@@ -2,6 +2,7 @@ import {
   BadRequestException,
   ConflictException,
   Injectable,
+  UnauthorizedException,
 } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 import { InjectRepository } from '@nestjs/typeorm';
@@ -9,22 +10,24 @@ import { User } from 'src/user/entities/user.entity';
 import { Repository, EntityManager } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { UserService } from 'src/user/user.service';
+import { LoginDTO } from './dto/login.dto';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
     private readonly entityManager: EntityManager,
     private readonly jwtService: JwtService,
+    private readonly userService: UserService,
+    private readonly redisService: RedisService
   ) {}
 
   async register(registerDto: RegisterDto) {
     const { confirmPassword, password, ...registerUser } = registerDto;
 
     // Check if email is in use
-    const existingUser = await this.userRepository.findOne({
-      where: { email: registerDto.email },
-    });
+    const existingUser = await this.userService.findUserByEmail(registerDto.email)
 
     if (existingUser) {
       throw new ConflictException('Email already exists');
@@ -43,8 +46,74 @@ export class AuthService {
     const user = new User({ ...registerUser, password: hashedPassword });
     const createdUser = await this.entityManager.save(user);
 
-    // Create token
-    const payload = { id: createdUser.id, email: createdUser.email };
-    return this.jwtService.sign(payload);
+    return createdUser;
+  }
+
+  async validateUser(email: string, password: string): Promise<number> {
+    const user = await this.userService.findUserByEmail(email);
+    if (!user)
+      throw new UnauthorizedException('Something wrong with email or password');
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid)
+      throw new UnauthorizedException('Something wrong with email or password');
+    return user.id;
+  }
+
+  async login(loginDTO: LoginDTO) {
+    const id = await this.validateUser(loginDTO.email, loginDTO.password);
+
+    const accessToken = this.jwtService.sign({ id }, {
+      secret: process.env.JWT_TOKEN_SECRET,
+      expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
+    });
+
+    const refreshPayload = { id, jti: crypto.randomUUID() };
+    const refreshToken = this.jwtService.sign(refreshPayload, {
+      secret: process.env.JWT_REFRESH_SECRET,
+      expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    };
+  }
+
+  async refresh(token: string) {
+    try {
+      const payload: any = await this.jwtService.verifyAsync(token, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      const revoked = await this.redisService.get(`revoked_refresh:${payload.jti}`);
+      if (revoked) {
+        throw new UnauthorizedException('Refresh token has been revoked');
+      }
+
+      const newAccessToken = this.jwtService.sign({ id: payload.id }, {
+        secret: process.env.JWT_TOKEN_SECRET,
+        expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
+      });
+
+      const newRefreshPayload = { id: payload.id, jti: crypto.randomUUID() };
+      const newRefreshToken = this.jwtService.sign(newRefreshPayload, {
+        secret: process.env.JWT_REFRESH_SECRET,
+        expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+      });
+
+      const expiresIn = payload.exp - Math.floor(Date.now() / 1000);
+      await this.redisService.set(
+        `revoked_refresh:${payload.jti}`,
+        'revoked',
+        expiresIn,
+      );
+
+      return {
+        access_token: newAccessToken,
+        refresh_token: newRefreshToken,
+      };
+    } catch (e) {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 }
