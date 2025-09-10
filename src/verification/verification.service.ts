@@ -39,4 +39,19 @@ export class VerificationService {
 
     return otp;
   }
+
+  async validateOtp(
+    userId: number,
+    token: string,
+    type: string,
+  ): Promise<boolean> {
+    const validToken = await this.redisService.hget(`otp:${type}:${userId}`);
+
+    if (validToken && (await bcrypt.compare(token, validToken.token))) {
+      await this.redisService.del(`otp:${type}:${userId}`);
+      return true;
+    } else {
+      return false;
+    }
+  }
 }

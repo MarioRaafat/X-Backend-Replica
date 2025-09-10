@@ -35,6 +35,12 @@ export class AuthController {
     return this.authService.generateEmailVerification(userId);
   }
 
+  @Post('verify')
+  async verifyEmail(@Body() body: { userId: number; token: string }) {
+    const { userId, token } = body;
+    return this.authService.verifyEmail(userId, token);
+  }
+
   @Post('login')
   async login(
     @Body() loginDTO: LoginDTO,

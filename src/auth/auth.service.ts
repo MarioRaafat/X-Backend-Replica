@@ -86,6 +86,33 @@ export class AuthService {
     return emailSent;
   }
 
+  async verifyEmail(userId: number, token: string) {
+    const user = await this.userService.findUserById(userId);
+
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    if (user.verified) {
+      throw new UnprocessableEntityException('Account already verified');
+    }
+
+    const isValid = await this.verificationService.validateOtp(
+      userId,
+      token,
+      'email',
+    );
+
+    if (!isValid) {
+      throw new UnprocessableEntityException('Expired or incorrect token');
+    }
+
+    user.verified = true;
+    await this.entityManager.save(user);
+
+    return true;
+  }
+
   async validateUser(email: string, password: string): Promise<number> {
     const user = await this.userService.findUserByEmail(email);
     if (!user)
