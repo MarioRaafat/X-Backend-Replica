@@ -1,16 +1,19 @@
 import {
   BadRequestException,
   Controller,
+  Get,
   Param,
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { Body } from '@nestjs/common';
 import { LoginDTO } from './dto/login.dto';
+import { GoogleAuthGuard } from './guards/google-auth/google-auth.guard';
 
 @Controller('auth')
 export class AuthController {
@@ -66,5 +69,27 @@ export class AuthController {
       await this.authService.refresh(refreshToken);
     this.httpnOnlyRefreshToken(response, refresh_token);
     return { access_token };
+  }
+
+  //google oauth
+
+  @UseGuards(GoogleAuthGuard)
+  @Get('google/login')
+  googleLogin() {}
+
+  @UseGuards(GoogleAuthGuard)
+  @Get('google/callback')
+  googleLoginCallback(@Req() req, @Res() res) {
+    try {
+      const { access_token, refresh_token } = this.authService.generateToken(
+        req.user.id,
+      );
+
+      // Set refresh_token in HTTP-only cookie
+      this.httpnOnlyRefreshToken(res, refresh_token);
+
+      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      return res.redirect(`${frontendUrl}/auth/success`);
+    } catch (err) {}
   }
 }
