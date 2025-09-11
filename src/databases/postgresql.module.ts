@@ -17,6 +17,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         port: config.get<number>('POSTGRES_PORT'),
         synchronize: true, // Should be false in production
         autoLoadEntities: true,
+        ssl: {
+          rejectUnauthorized: false,
+        },
       }),
     }),
   ],
