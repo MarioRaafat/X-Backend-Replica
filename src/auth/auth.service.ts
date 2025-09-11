@@ -17,6 +17,8 @@ import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/message/email.service';
+import { CreateUserDto } from 'src/user/dto/create-user.dto';
+import { GoogleLoginDTO } from './dto/googleLogin.dto';
 
 @Injectable()
 export class AuthService {
@@ -123,9 +125,7 @@ export class AuthService {
     return user.id;
   }
 
-  async login(loginDTO: LoginDTO) {
-    const id = await this.validateUser(loginDTO.email, loginDTO.password);
-
+  generateToken(id: number) {
     const accessToken = this.jwtService.sign(
       { id },
       {
@@ -144,6 +144,11 @@ export class AuthService {
       access_token: accessToken,
       refresh_token: refreshToken,
     };
+  }
+
+  async login(loginDTO: LoginDTO) {
+    const id = await this.validateUser(loginDTO.email, loginDTO.password);
+    return this.generateToken(id);
   }
 
   async refresh(token: string) {
@@ -188,5 +193,23 @@ export class AuthService {
       console.log(e);
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
+
+  async validateGoogleUser(googleUser: GoogleLoginDTO) {
+    const user = await this.userService.findUserByEmail(googleUser.email);
+
+    if (user) return user;
+
+    //TODO: Get the phone number
+
+    //TODO: User repo or entity manager
+    return await this.entityManager.save(User, {
+      email: googleUser.email,
+      firstName: googleUser.firstName,
+      lastName: googleUser.lastName,
+      password: '',
+      confirmPassword: '',
+      phoneNumber: '',
+    });
   }
 }
