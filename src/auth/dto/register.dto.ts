@@ -4,6 +4,7 @@ import {
   MinLength,
   Matches,
   IsString,
+  IsPhoneNumber,
 } from 'class-validator';
 
 export class RegisterDto {
@@ -31,5 +32,6 @@ export class RegisterDto {
 
   @IsNotEmpty()
   @IsString()
+  @IsPhoneNumber()
   phoneNumber: string;
 }
