@@ -17,7 +17,6 @@ import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/message/email.service';
-import { CreateUserDto } from 'src/user/dto/create-user.dto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
 
 @Injectable()

@@ -3,11 +3,13 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import googleOauthConfig from '../authConfig/google-oauth.config';
 import type { ConfigType } from '@nestjs/config';
+import { AuthService } from '../auth.service';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy) {
   constructor(
     @Inject(googleOauthConfig.KEY)
     private googleConfiguration: ConfigType<typeof googleOauthConfig>,
+    private authService: AuthService,
   ) {
     if (
       !googleConfiguration.clientID ||
@@ -29,5 +31,14 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
     refreshToken: string,
     profile: any,
     done: VerifyCallback,
-  ) {}
+  ) {
+    const user = await this.authService.validateGoogleUser({
+      email: profile.emails[0].value,
+      firstName: profile.name.givenName,
+      lastName: profile.name.familyName,
+    });
+
+    //user will be appended to the request
+    done(null, user);
+  }
 }
