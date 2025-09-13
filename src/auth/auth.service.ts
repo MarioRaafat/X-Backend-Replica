@@ -52,15 +52,19 @@ export class AuthService {
     const hashedPassword = await bcrypt.hash(password, 10);
 
     const user = new User({ ...registerUser, password: hashedPassword });
-    const createdUser = await this.entityManager.save(user);
+    await this.entityManager.save(user);
 
     // Send verification email
     const sendEmailRes = await this.generateEmailVerification(user.id);
 
-    return { ...sendEmailRes, user: createdUser };
+    return { 
+          email: sendEmailRes.success,
+          userId: user.id,
+          message: 'User registered successfully'
+      };
   }
 
-  async generateEmailVerification(userId: number) {
+  async generateEmailVerification(userId: string) {
     const user = await this.userService.findUserById(userId);
 
     if (!user) {
@@ -73,6 +77,7 @@ export class AuthService {
 
     const otp = await this.verificationService.generateOtp(user.id, 'email');
 
+    // don't forget to change "MyApp"
     const emailSent = await this.emailService.sendEmail({
       subject: 'MyApp - Account Verification',
       recipients: [{ name: user.firstName ?? '', address: user.email }],
@@ -83,10 +88,13 @@ export class AuthService {
       throw new InternalServerErrorException('Failed to send OTP email');
     }
 
-    return emailSent;
+    return {
+      success: emailSent.success,
+      message: 'Verification OTP sent to email',
+    };
   }
 
-  async verifyEmail(userId: number, token: string) {
+  async verifyEmail(userId: string, token: string) {
     const user = await this.userService.findUserById(userId);
 
     if (!user) {
@@ -110,10 +118,13 @@ export class AuthService {
     user.verified = true;
     await this.entityManager.save(user);
 
-    return true;
+    return {
+      success: true,
+      message: 'Email verified successfully'
+    };
   }
 
-  async validateUser(email: string, password: string): Promise<number> {
+  async validateUser(email: string, password: string): Promise<string> {
     const user = await this.userService.findUserByEmail(email);
     if (!user)
       throw new UnauthorizedException('Something wrong with email or password');

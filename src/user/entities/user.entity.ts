@@ -2,8 +2,8 @@ import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
-  @PrimaryGeneratedColumn()
-  id: number;
+  @PrimaryGeneratedColumn('uuid')
+  id: string;
 
   @Column({ type: 'varchar', unique: true })
   email: string;
@@ -17,7 +17,7 @@ export class User {
   @Column({ type: 'varchar' })
   lastName: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar' }) // why not unique?
   phoneNumber: string;
 
   @Column({ type: 'bool', default: false })

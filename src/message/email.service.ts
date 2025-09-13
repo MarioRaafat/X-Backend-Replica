@@ -27,8 +27,8 @@ export class EmailService {
     const { sender, recipients, subject, html, text } = data;
 
     let senderAdd = {
-      name: this.configService.get('EMAIL_USER'),
-      address: this.configService.get('EMAIL_FROM_NAME'),
+      name: this.configService.get('EMAIL_FROM_NAME'),
+      address: this.configService.get('EMAIL_USER'),
     };
 
     if (sender) {

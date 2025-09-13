@@ -8,7 +8,7 @@ export class VerificationService {
   constructor(private readonly redisService: RedisService) {}
 
   async generateOtp(
-    userId: number,
+    userId: string,
     type: 'email' | 'password',
     size = 6,
   ): Promise<string> {
@@ -41,7 +41,7 @@ export class VerificationService {
   }
 
   async validateOtp(
-    userId: number,
+    userId: string,
     token: string,
     type: string,
   ): Promise<boolean> {
