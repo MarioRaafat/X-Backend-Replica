@@ -8,7 +8,7 @@ export class User {
   @Column({ type: 'varchar', unique: true })
   email: string;
 
-  @Column({ type: 'varchar' })
+  @Column({ type: 'varchar', nullable: true })
   password: string;
 
   @Column({ type: 'varchar' })
@@ -22,6 +22,15 @@ export class User {
 
   @Column({ type: 'bool', default: false })
   verified: boolean;
+
+  @Column({ type: 'varchar', nullable: true })
+  githubId?: string;
+
+  @Column({ type: 'varchar', default: 'local' })
+  provider: string; // 'local' | 'github'
+
+  @Column({ type: 'varchar', nullable: true })
+  avatarUrl?: string;
 
   constructor(user: Partial<User>) {
     Object.assign(this, user);

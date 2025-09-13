@@ -17,6 +17,8 @@ import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/message/email.service';
+import { GitHubUserDto } from './dto/github-user.dto';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -28,6 +30,27 @@ export class AuthService {
     private readonly verificationService: VerificationService,
     private readonly emailService: EmailService,
   ) {}
+
+  async generateTokens(id: string) {
+    const accessToken = this.jwtService.sign(
+      { id },
+      {
+        secret: process.env.JWT_TOKEN_SECRET,
+        expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
+      },
+    );
+
+    const refreshPayload = { id, jti: crypto.randomUUID() };
+    const refreshToken = this.jwtService.sign(refreshPayload, {
+      secret: process.env.JWT_REFRESH_SECRET,
+      expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+    });
+
+    return {
+      access_token: accessToken,
+      refresh_token: refreshToken,
+    };
+  }
 
   async register(registerDto: RegisterDto) {
     const { confirmPassword, password, ...registerUser } = registerDto;
@@ -48,20 +71,22 @@ export class AuthService {
       );
     }
 
-    // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
-
-    const user = new User({ ...registerUser, password: hashedPassword });
-    await this.entityManager.save(user);
+    const user = await this.userService.createUser({
+       ...registerUser,
+        password: hashedPassword,
+        provider: 'local',
+        verified: false
+    });
 
     // Send verification email
     const sendEmailRes = await this.generateEmailVerification(user.id);
 
     return { 
-          email: sendEmailRes.success,
-          userId: user.id,
-          message: 'User registered successfully'
-      };
+      email: sendEmailRes.success,
+      userId: user.id,
+      message: 'User registered successfully'
+    };
   }
 
   async generateEmailVerification(userId: string) {
@@ -115,8 +140,7 @@ export class AuthService {
       throw new UnprocessableEntityException('Expired or incorrect token');
     }
 
-    user.verified = true;
-    await this.entityManager.save(user);
+    await this.userService.updateUser(userId, { verified: true });
 
     return {
       success: true,
@@ -137,24 +161,7 @@ export class AuthService {
   async login(loginDTO: LoginDTO) {
     const id = await this.validateUser(loginDTO.email, loginDTO.password);
 
-    const accessToken = this.jwtService.sign(
-      { id },
-      {
-        secret: process.env.JWT_TOKEN_SECRET,
-        expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
-      },
-    );
-
-    const refreshPayload = { id, jti: crypto.randomUUID() };
-    const refreshToken = this.jwtService.sign(refreshPayload, {
-      secret: process.env.JWT_REFRESH_SECRET,
-      expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
-    });
-
-    return {
-      access_token: accessToken,
-      refresh_token: refreshToken,
-    };
+    return this.generateTokens(id);
   }
 
   async refresh(token: string) {
@@ -199,5 +206,45 @@ export class AuthService {
       console.log(e);
       throw new UnauthorizedException('Invalid refresh token');
     }
+  }
+
+  /* 
+      ######################### GitHub OAuth Routes #########################
+  */
+  async findOrCreateGitHubUser(githubData: GitHubUserDto): Promise<User> {
+    let user = await this.userService.findUserByGithubId(githubData.githubId);
+    if (user) {
+      return user;
+    }
+
+    // check same email (I think I will change it later)
+    user = await this.userService.findUserByEmail(githubData.email);
+    
+    if (user) {
+      const updatedUser = await this.userService.updateUser(user.id, {
+        githubId: githubData.githubId,
+        avatarUrl: githubData.avatarUrl,
+        provider: 'github',
+        verified: true
+      });
+      
+      if (!updatedUser) {
+        throw new InternalServerErrorException('Failed to update user');
+      }
+      
+      return updatedUser;
+    }
+
+    return await this.userService.createUser({
+      email: githubData.email,
+      firstName: githubData.firstName,
+      lastName: githubData.lastName,
+      githubId: githubData.githubId,
+      avatarUrl: githubData.avatarUrl,
+      provider: 'github',
+      verified: true, // GitHub emails are pre-verified
+      phoneNumber: '', // Will be filled later if needed
+      password: undefined // No password for OAuth users
+    });
   }
 }

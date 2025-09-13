@@ -7,6 +7,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { GitHubStrategy } from './strategies/github.strategy';
 import { UserModule } from 'src/user/user.module';
 import { UserService } from 'src/user/user.service';
 import { RedisModule } from '@nestjs-modules/ioredis';
@@ -39,6 +40,7 @@ import { VerificationService } from 'src/verification/verification.service';
   providers: [
     AuthService,
     JwtStrategy,
+    GitHubStrategy,
     UserService,
     RedisService,
     VerificationService,

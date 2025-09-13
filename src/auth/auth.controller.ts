@@ -1,10 +1,12 @@
 import {
   BadRequestException,
   Controller,
+  Get,
   Param,
   Post,
   Req,
   Res,
+  UseGuards,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Request, Response } from 'express';
@@ -19,6 +21,7 @@ import {
   ApiParam,
   ApiCookieAuth 
 } from '@nestjs/swagger';
+import { GitHubAuthGuard } from './guards/github.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -282,5 +285,44 @@ export class AuthController {
       await this.authService.refresh(refreshToken);
     this.httpnOnlyRefreshToken(response, refresh_token);
     return { access_token };
+  }
+
+  /* 
+      ######################### GitHub OAuth Routes #########################
+  */
+
+  @ApiOperation({ 
+    summary: 'Login with GitHub',
+    description: 'Initiate GitHub OAuth login. Redirects user to GitHub for authentication.'
+  })
+  @ApiResponse({ 
+    status: 302, 
+    description: 'Redirects to GitHub OAuth page'
+  })
+  @Get('github')
+  @UseGuards(GitHubAuthGuard)
+  async githubLogin() {}
+
+
+  @ApiOperation({ 
+    summary: 'GitHub OAuth callback',
+    description: 'GitHub redirects here after user authorizes the app. Sets tokens and redirects to frontend.'
+  })
+  @ApiResponse({ 
+    status: 302, 
+    description: 'Redirects to frontend with access token'
+  })
+  @Get('github/callback')
+  @UseGuards(GitHubAuthGuard)
+  async githubCallback(
+    @Req() req: any,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const { access_token, refresh_token } = await this.authService.generateTokens(req.user.id);
+    this.httpnOnlyRefreshToken(response, refresh_token);
+
+    // Redirect to frontend with access token (no front url for now)
+    const frontendUrl = `http://localhost:3001/auth/success?token=${access_token}`;
+    response.redirect(frontendUrl);
   }
 }
