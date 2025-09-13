@@ -88,6 +88,8 @@ export class AuthController {
       // Set refresh_token in HTTP-only cookie
       this.httpnOnlyRefreshToken(res, refresh_token);
 
+      //TODO: to be implemented in the next push
+
       const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
       return res.redirect(`${frontendUrl}/auth/success`);
     } catch (err) {}
