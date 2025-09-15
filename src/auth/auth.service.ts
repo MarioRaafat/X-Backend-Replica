@@ -18,6 +18,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/message/email.service';
 import { GitHubUserDto } from './dto/github-user.dto';
+import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
 
 @Injectable()
@@ -29,6 +30,7 @@ export class AuthService {
     private readonly redisService: RedisService,
     private readonly verificationService: VerificationService,
     private readonly emailService: EmailService,
+    private readonly captchaService: CaptchaService,
   ) {}
 
   async generateTokens(id: string) {
@@ -53,7 +55,14 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const { confirmPassword, password, ...registerUser } = registerDto;
+    const { confirmPassword, password, captchaToken, ...registerUser } = registerDto;
+
+    // Verify CAPTCHA first
+    try {
+      await this.captchaService.validateCaptcha(captchaToken);
+    } catch (error) {
+      throw new BadRequestException('CAPTCHA verification failed. Please try again.');
+    }
 
     // Check if email is in use
     const existingUser = await this.userService.findUserByEmail(

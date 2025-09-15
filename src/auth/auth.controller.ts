@@ -325,4 +325,28 @@ export class AuthController {
     const frontendUrl = `http://localhost:3001/auth/success?token=${access_token}`;
     response.redirect(frontendUrl);
   }
+
+  /* 
+      ######################### ReCAPTCHA Routes #########################
+  */
+
+  @ApiOperation({ 
+    summary: 'Get reCAPTCHA site key',
+    description: 'Returns the reCAPTCHA site key needed for frontend widget initialization.'
+  })
+  @ApiResponse({ 
+    status: 200, 
+    description: 'reCAPTCHA site key returned successfully',
+    schema: {
+      example: {
+        siteKey: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI'
+      }
+    }
+  })
+  @Get('captcha/site-key')
+  getCaptchaSiteKey() {
+    return {
+      siteKey: process.env.RECAPTCHA_SITE_KEY || ''
+    };
+  }
 }

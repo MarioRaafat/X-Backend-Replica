@@ -8,6 +8,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { PassportModule } from '@nestjs/passport';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { GitHubStrategy } from './strategies/github.strategy';
+import { CaptchaService } from './captcha.service';
 import { UserModule } from 'src/user/user.module';
 import { UserService } from 'src/user/user.service';
 import { RedisModule } from '@nestjs-modules/ioredis';
@@ -45,6 +46,7 @@ import { VerificationService } from 'src/verification/verification.service';
     RedisService,
     VerificationService,
     EmailService,
+    CaptchaService,
   ],
 })
 export class AuthModule {}

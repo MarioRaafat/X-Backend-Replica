@@ -59,4 +59,13 @@ export class RegisterDto {
   @IsNotEmpty()
   @IsString()
   phoneNumber: string;
+
+  @ApiProperty({
+    description: 'reCAPTCHA response token from frontend widget',
+    example: '03AGdBq25SxXT-pmSeBXjzScW-EiocHwwpwqJRCAC...',
+    required: true
+  })
+  @IsNotEmpty()
+  @IsString()
+  captchaToken: string;
 }
