@@ -308,8 +308,10 @@ export class AuthController {
 
       //TODO: to be implemented in the next push
 
-      const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      return res.redirect(`${frontendUrl}/auth/success`);
+      // const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
+      // return res.redirect(`${frontendUrl}/auth/success`);
+      const frontendUrl = `http://localhost:3001/auth/success?token=${access_token}`;
+      return res.redirect(frontendUrl);
     } catch (err) {}
   }
 

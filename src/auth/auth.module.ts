@@ -45,11 +45,12 @@ import { GoogleStrategy } from './strategies/google.strategy';
   providers: [
     AuthService,
     JwtStrategy,
-    GitHubStrategy,
+    // GitHubStrategy,
     UserService,
     RedisService,
     VerificationService,
     EmailService,
+    CaptchaService,
     GoogleStrategy,
   ],
 })
