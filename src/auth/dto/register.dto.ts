@@ -4,6 +4,7 @@ import {
   MinLength,
   Matches,
   IsString,
+  IsPhoneNumber,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -58,6 +59,7 @@ export class RegisterDto {
   })
   @IsNotEmpty()
   @IsString()
+  @IsPhoneNumber()
   phoneNumber: string;
 
   @ApiProperty({

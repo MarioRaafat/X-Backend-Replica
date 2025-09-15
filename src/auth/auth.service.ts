@@ -20,6 +20,7 @@ import { EmailService } from 'src/message/email.service';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
+import { GoogleLoginDTO } from './dto/googleLogin.dto';
 
 @Injectable()
 export class AuthService {
@@ -55,13 +56,16 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const { confirmPassword, password, captchaToken, ...registerUser } = registerDto;
+    const { confirmPassword, password, captchaToken, ...registerUser } =
+      registerDto;
 
     // Verify CAPTCHA first
     try {
       await this.captchaService.validateCaptcha(captchaToken);
     } catch (error) {
-      throw new BadRequestException('CAPTCHA verification failed. Please try again.');
+      throw new BadRequestException(
+        'CAPTCHA verification failed. Please try again.',
+      );
     }
 
     // Check if email is in use
@@ -82,19 +86,19 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await this.userService.createUser({
-       ...registerUser,
-        password: hashedPassword,
-        provider: 'local',
-        verified: false
+      ...registerUser,
+      password: hashedPassword,
+      provider: 'local',
+      verified: false,
     });
 
     // Send verification email
     const sendEmailRes = await this.generateEmailVerification(user.id);
 
-    return { 
+    return {
       email: sendEmailRes.success,
       userId: user.id,
-      message: 'User registered successfully'
+      message: 'User registered successfully',
     };
   }
 
@@ -153,7 +157,7 @@ export class AuthService {
 
     return {
       success: true,
-      message: 'Email verified successfully'
+      message: 'Email verified successfully',
     };
   }
 
@@ -217,6 +221,24 @@ export class AuthService {
     }
   }
 
+  async validateGoogleUser(googleUser: GoogleLoginDTO) {
+    const user = await this.userService.findUserByEmail(googleUser.email);
+
+    if (user) return user;
+
+    //TODO: Get the phone number
+
+    //TODO: User repo or entity manager
+    return await this.entityManager.save(User, {
+      email: googleUser.email,
+      firstName: googleUser.firstName,
+      lastName: googleUser.lastName,
+      password: '',
+      confirmPassword: '',
+      phoneNumber: '',
+    });
+  }
+
   /* 
       ######################### GitHub OAuth Routes #########################
   */
@@ -228,19 +250,19 @@ export class AuthService {
 
     // check same email (I think I will change it later)
     user = await this.userService.findUserByEmail(githubData.email);
-    
+
     if (user) {
       const updatedUser = await this.userService.updateUser(user.id, {
         githubId: githubData.githubId,
         avatarUrl: githubData.avatarUrl,
         provider: 'github',
-        verified: true
+        verified: true,
       });
-      
+
       if (!updatedUser) {
         throw new InternalServerErrorException('Failed to update user');
       }
-      
+
       return updatedUser;
     }
 
@@ -253,7 +275,7 @@ export class AuthService {
       provider: 'github',
       verified: true, // GitHub emails are pre-verified
       phoneNumber: '', // Will be filled later if needed
-      password: undefined // No password for OAuth users
+      password: undefined, // No password for OAuth users
     });
   }
 }

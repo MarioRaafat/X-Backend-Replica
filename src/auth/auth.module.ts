@@ -17,6 +17,8 @@ import { VerificationModule } from 'src/verification/verification.module';
 import { MessageModule } from 'src/message/message.module';
 import { EmailService } from 'src/message/email.service';
 import { VerificationService } from 'src/verification/verification.service';
+import googleOauthConfig from './authConfig/google-oauth.config';
+import { GoogleStrategy } from './strategies/google.strategy';
 
 @Module({
   imports: [
@@ -36,6 +38,8 @@ import { VerificationService } from 'src/verification/verification.service';
     RedisModule,
     VerificationModule,
     MessageModule,
+    //google oauth
+    ConfigModule.forFeature(googleOauthConfig),
   ],
   controllers: [AuthController],
   providers: [
@@ -46,7 +50,7 @@ import { VerificationService } from 'src/verification/verification.service';
     RedisService,
     VerificationService,
     EmailService,
-    CaptchaService,
+    GoogleStrategy,
   ],
 })
 export class AuthModule {}
