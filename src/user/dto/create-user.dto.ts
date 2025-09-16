@@ -68,15 +68,6 @@ export class CreateUserDto {
   @IsString()
   avatarUrl?: string;
 
-  @ApiProperty({
-    description: 'Email verification status',
-    example: false,
-    default: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  verified?: boolean;
-
   @IsOptional()
   @IsString()
   facebookId?: string;

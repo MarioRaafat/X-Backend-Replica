@@ -57,16 +57,23 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const { confirmPassword, password, captchaToken, ...registerUser } =
+    const { email, confirmPassword, password, captchaToken, ...registerUser } =
       registerDto;
 
     // Verify CAPTCHA first (comment that in case you want to test the endpoint)
-    try {
-      await this.captchaService.validateCaptcha(captchaToken);
-    } catch (error) {
-      throw new BadRequestException(
-        'CAPTCHA verification failed. Please try again.',
-      );
+    // try {
+    //   await this.captchaService.validateCaptcha(captchaToken);
+    // } catch (error) {
+    //   throw new BadRequestException(
+    //     'CAPTCHA verification failed. Please try again.',
+    //   );
+    // }
+
+    // Check if email is under verification process
+    const pendingUser = await this.redisService.hget(`user:${email}`);
+
+    if (pendingUser) {
+      throw new ConflictException('Email already exists');
     }
 
     // Check if email is in use
@@ -86,40 +93,33 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await this.userService.createUser({
+
+    await this.redisService.hset(`user:${email}`, {
       ...registerUser,
       password: hashedPassword,
-      provider: 'local',
-      verified: false,
     });
 
     // Send verification email
-    const sendEmailRes = await this.generateEmailVerification(user.id);
-
-    return {
-      email: sendEmailRes.success,
-      userId: user.id,
-      message: 'User registered successfully',
-    };
+    return await this.generateEmailVerification(email);
   }
 
-  async generateEmailVerification(userId: string) {
-    const user = await this.userService.findUserById(userId);
+  async generateEmailVerification(email: string) {
+    const user = await this.redisService.hget(`user:${email}`);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found or already verified');
     }
 
-    if (user.verified) {
-      throw new UnprocessableEntityException('Account already verified');
-    }
+    // if (user.verified) {
+    //   throw new UnprocessableEntityException('Account already verified');
+    // }
 
-    const otp = await this.verificationService.generateOtp(user.id, 'email');
+    const otp = await this.verificationService.generateOtp(email, 'email');
 
     // don't forget to change "MyApp"
     const emailSent = await this.emailService.sendEmail({
       subject: 'MyApp - Account Verification',
-      recipients: [{ name: user.firstName ?? '', address: user.email }],
+      recipients: [{ name: user.firstName ?? '', address: email }],
       html: `<p>Hi${user.firstName ? ' ' + user.firstName : ''},</p><p>You may verify your MyApp account using the following OTP: <br /><span style="font-size:24px; font-weight: 700;">${otp}</span></p><p>Regards,<br />MyApp</p>`,
     });
 
@@ -128,24 +128,19 @@ export class AuthService {
     }
 
     return {
-      success: emailSent.success,
       message: 'Verification OTP sent to email',
     };
   }
 
-  async verifyEmail(userId: string, token: string) {
-    const user = await this.userService.findUserById(userId);
+  async verifyEmail(email: string, token: string) {
+    const user = await this.redisService.hget(`user:${email}`);
 
     if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (user.verified) {
-      throw new UnprocessableEntityException('Account already verified');
+      throw new NotFoundException('User not found or already verified');
     }
 
     const isValid = await this.verificationService.validateOtp(
-      userId,
+      email,
       token,
       'email',
     );
@@ -154,10 +149,23 @@ export class AuthService {
       throw new UnprocessableEntityException('Expired or incorrect token');
     }
 
-    await this.userService.updateUser(userId, { verified: true });
+    const firstName = user.firstName;
+    const lastName = user.lastName;
+
+    const createdUser = await this.userService.createUser({
+      email,
+      provider: 'local',
+      firstName,
+      lastName,
+      ...user,
+    });
+
+    if (!createdUser) {
+      throw new InternalServerErrorException('Failed to save user to database');
+    }
 
     return {
-      success: true,
+      userId: createdUser.id,
       message: 'Email verified successfully',
     };
   }
@@ -233,7 +241,6 @@ export class AuthService {
         const updatedUser = await this.userService.updateUser(user.id, {
           googleId: googleUser.googleId,
           avatarUrl: googleUser.avatarUrl,
-          verified: true,
         });
 
         if (!updatedUser) {
@@ -252,7 +259,6 @@ export class AuthService {
       googleId: googleUser.googleId,
       password: '',
       phoneNumber: '',
-      verified: true,
     });
   }
 
@@ -273,7 +279,6 @@ export class AuthService {
         const updatedUser = await this.userService.updateUser(user.id, {
           facebookId: facebookUser.facebookId,
           avatarUrl: facebookUser.avatarUrl,
-          verified: true,
         });
 
         if (!updatedUser) {
@@ -290,7 +295,6 @@ export class AuthService {
       lastName: facebookUser.lastName,
       facebookId: facebookUser.facebookId,
 
-      verified: true,
       phoneNumber: '',
       password: '', // No password for OAuth users
     });
@@ -310,7 +314,6 @@ export class AuthService {
       const updatedUser = await this.userService.updateUser(user.id, {
         githubId: githubData.githubId,
         avatarUrl: githubData.avatarUrl,
-        verified: true,
       });
 
       if (!updatedUser) {
@@ -326,7 +329,6 @@ export class AuthService {
       lastName: githubData.lastName,
       githubId: githubData.githubId,
       avatarUrl: githubData.avatarUrl,
-      verified: true, // GitHub emails are pre-verified
       phoneNumber: '', // Will be filled later if needed
       password: undefined, // No password for OAuth users
     });

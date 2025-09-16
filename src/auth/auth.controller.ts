@@ -165,9 +165,9 @@ export class AuthController {
     },
   })
   @Post('verify')
-  async verifyEmail(@Body() body: { userId: string; token: string }) {
-    const { userId, token } = body;
-    return this.authService.verifyEmail(userId, token);
+  async verifyEmail(@Body() body: { email: string; token: string }) {
+    const { email, token } = body;
+    return this.authService.verifyEmail(email, token);
   }
 
   @ApiOperation({
@@ -375,14 +375,16 @@ export class AuthController {
         description: 'Frontend success URL with access token',
         schema: {
           type: 'string',
-          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          example:
+            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
       },
       'Set-Cookie': {
         description: 'HttpOnly refresh token cookie',
         schema: {
           type: 'string',
-          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+          example:
+            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
         },
       },
     },
@@ -505,14 +507,16 @@ export class AuthController {
         description: 'Frontend success URL with access token',
         schema: {
           type: 'string',
-          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          example:
+            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
       },
       'Set-Cookie': {
         description: 'HttpOnly refresh token cookie',
         schema: {
           type: 'string',
-          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+          example:
+            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
         },
       },
     },
@@ -635,14 +639,16 @@ export class AuthController {
         description: 'Frontend success URL with access token',
         schema: {
           type: 'string',
-          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          example:
+            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
       },
       'Set-Cookie': {
         description: 'HttpOnly refresh token cookie',
         schema: {
           type: 'string',
-          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+          example:
+            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
         },
       },
     },

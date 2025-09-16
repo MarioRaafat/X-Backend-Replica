@@ -8,11 +8,11 @@ export class VerificationService {
   constructor(private readonly redisService: RedisService) {}
 
   async generateOtp(
-    userId: string,
+    email: string,
     type: 'email' | 'password',
     size = 6,
   ): Promise<string> {
-    const recentToken = await this.redisService.hget(`otp:${type}:${userId}`);
+    const recentToken = await this.redisService.hget(`otp:${type}:${email}`);
 
     const now = new Date();
 
@@ -32,7 +32,7 @@ export class VerificationService {
     const otp = generateRandomOtp(size);
     const hashedToken = await bcrypt.hash(otp, 10);
 
-    await this.redisService.hset(`otp:${type}:${userId}`, {
+    await this.redisService.hset(`otp:${type}:${email}`, {
       token: hashedToken,
       createdAt: now.toISOString(),
     });
@@ -41,14 +41,14 @@ export class VerificationService {
   }
 
   async validateOtp(
-    userId: string,
+    email: string,
     token: string,
     type: string,
   ): Promise<boolean> {
-    const validToken = await this.redisService.hget(`otp:${type}:${userId}`);
+    const validToken = await this.redisService.hget(`otp:${type}:${email}`);
 
     if (validToken && (await bcrypt.compare(token, validToken.token))) {
-      await this.redisService.del(`otp:${type}:${userId}`);
+      await this.redisService.del(`otp:${type}:${email}`);
       return true;
     } else {
       return false;
