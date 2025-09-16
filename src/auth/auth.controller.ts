@@ -23,6 +23,7 @@ import {
 } from '@nestjs/swagger';
 import { GitHubAuthGuard } from './guards/github.guard';
 import { GoogleAuthGuard } from './guards/google-auth/google-auth.guard';
+import { FacebookAuthGuard } from './guards/facebook.guard';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -290,7 +291,9 @@ export class AuthController {
     return { access_token };
   }
 
-  //google oauth
+  /* 
+      ######################### Google OAuth Routes #########################
+  */
 
   @UseGuards(GoogleAuthGuard)
   @Get('google/login')
@@ -303,16 +306,45 @@ export class AuthController {
       const { access_token, refresh_token } =
         await this.authService.generateTokens(req.user.id);
 
-      // Set refresh_token in HTTP-only cookie
+      // Set refresh token in HTTP-only cookie
       this.httpnOnlyRefreshToken(res, refresh_token);
 
-      //TODO: to be implemented in the next push
-
-      // const frontendUrl = process.env.FRONTEND_URL || 'http://localhost:3000';
-      // return res.redirect(`${frontendUrl}/auth/success`);
-      const frontendUrl = `http://localhost:3001/auth/success?token=${access_token}`;
+      // Redirect to frontend with access token
+      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${access_token}`;
       return res.redirect(frontendUrl);
-    } catch (err) {}
+    } catch (error) {
+      console.error('Google OAuth callback error:', error);
+      return res.redirect(
+        `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+      );
+    }
+  }
+  /* 
+      ######################### Facebook OAuth Routes #########################
+  */
+  @UseGuards(FacebookAuthGuard)
+  @Get('facebook/login')
+  facebookLogin() {}
+
+  @UseGuards(FacebookAuthGuard)
+  @Get('facebook/callback')
+  async facebookLoginCallback(@Req() req, @Res() res) {
+    try {
+      const { access_token, refresh_token } =
+        await this.authService.generateTokens(req.user.id);
+
+      // Set refresh token in HTTP-only cookie
+      this.httpnOnlyRefreshToken(res, refresh_token);
+
+      // Redirect to frontend with access token
+      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${access_token}`;
+      return res.redirect(frontendUrl);
+    } catch (error) {
+      console.error('Facebook OAuth callback error:', error);
+      return res.redirect(
+        `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+      );
+    }
   }
 
   /* 

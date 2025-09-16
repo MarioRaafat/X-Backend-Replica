@@ -19,6 +19,8 @@ import { EmailService } from 'src/message/email.service';
 import { VerificationService } from 'src/verification/verification.service';
 import googleOauthConfig from './authConfig/google-oauth.config';
 import { GoogleStrategy } from './strategies/google.strategy';
+import { FacebookStrategy } from './strategies/facebook.strategy';
+import facebookOauthConfig from './authConfig/facebook-oauth.config';
 
 @Module({
   imports: [
@@ -40,6 +42,9 @@ import { GoogleStrategy } from './strategies/google.strategy';
     MessageModule,
     //google oauth
     ConfigModule.forFeature(googleOauthConfig),
+
+    //facebook oauth
+    ConfigModule.forFeature(facebookOauthConfig),
   ],
   controllers: [AuthController],
   providers: [
@@ -52,6 +57,7 @@ import { GoogleStrategy } from './strategies/google.strategy';
     EmailService,
     CaptchaService,
     GoogleStrategy,
+    FacebookStrategy,
   ],
 })
 export class AuthModule {}

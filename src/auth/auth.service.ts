@@ -21,6 +21,7 @@ import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
+import { FacebookLoginDTO } from './dto/facebookLogin.dto';
 
 @Injectable()
 export class AuthService {
@@ -236,6 +237,37 @@ export class AuthService {
       password: '',
       confirmPassword: '',
       phoneNumber: '',
+      provider: 'google',
+      verified: true,
+    });
+  }
+
+  async validateFacebookUser(facebookUser: FacebookLoginDTO) {
+    let user = await this.userService.findUserByFacebookId(
+      facebookUser.facebookId,
+    );
+
+    //user has already signed in with facebook
+    if (user) {
+      return user;
+    }
+
+    //user has already signed in with this email, so it is the same record in db
+    //TODO: Is it secure to autolink accounts?
+    if (facebookUser.email) {
+      user = await this.userService.findUserByEmail(facebookUser.email);
+      if (user) return user;
+    }
+
+    return await this.userService.createUser({
+      email: facebookUser.email,
+      firstName: facebookUser.firstName,
+      lastName: facebookUser.lastName,
+      facebookId: facebookUser.facebookId,
+      provider: 'facebook',
+      verified: true,
+      phoneNumber: '',
+      password: '', // No password for OAuth users
     });
   }
 
