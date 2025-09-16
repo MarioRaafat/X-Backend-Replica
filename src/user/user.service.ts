@@ -26,11 +26,12 @@ export class UserService {
   async findUserByFacebookId(facebookId: string) {
     return await this.userRepository.findOne({ where: { facebookId } });
   }
-
+  async findUserByGoogleId(googleId: string) {
+    return await this.userRepository.findOne({ where: { googleId } });
+  }
   async createUser(createUserDto: CreateUserDto): Promise<User> {
     const user = new User({
       ...createUserDto,
-      provider: createUserDto.provider || 'local',
       verified: createUserDto.verified || false,
     });
     return await this.userRepository.save(user);

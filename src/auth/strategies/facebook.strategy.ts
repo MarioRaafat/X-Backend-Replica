@@ -1,28 +1,19 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-facebook';
-import type { ConfigType } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
-import facebookOauthConfig from '../authConfig/facebook-oauth.config';
 import { FacebookLoginDTO } from '../dto/facebookLogin.dto';
 @Injectable()
 export class FacebookStrategy extends PassportStrategy(Strategy) {
   constructor(
-    @Inject(facebookOauthConfig.KEY)
-    private facebookConfiguration: ConfigType<typeof facebookOauthConfig>,
+    private configService: ConfigService,
     private authService: AuthService,
   ) {
-    if (
-      !facebookConfiguration.clientID ||
-      !facebookConfiguration.clientSecret ||
-      !facebookConfiguration.callbackURL
-    ) {
-      throw new Error('Facebook OAuth configuration is incomplete');
-    }
     super({
-      clientID: facebookConfiguration.clientID,
-      clientSecret: facebookConfiguration.clientSecret,
-      callbackURL: facebookConfiguration.callbackURL,
+      clientID: configService.get('FACEBOOK_CLIENT_ID') || ' ',
+      clientSecret: configService.get('FACEBOOK_SECRET') || '',
+      callbackURL: configService.get('FACEBOOK_CALLBACK_URL') || '',
       scope: ['email', 'public_profile'],
       profileFields: ['id', 'emails', 'displayName'], // to get user email
     });
@@ -35,11 +26,10 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
     done: any,
   ) {
     console.log(profile);
-    const { id, username, displayName, emails } = profile;
+    const { id, username, displayName, emails, profileUrl } = profile;
 
     // Facebook usually will not provide us with the user email (to be discussed)
     const email = emails && emails.length > 0 ? emails[0].value : null;
-
     if (!email) {
       throw new Error('No email found in Facebook profile');
     }
@@ -56,12 +46,12 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
       email: email,
       firstName: firstName,
       lastName: lastName,
+      avatarUrl: profileUrl,
     };
 
     const user = await this.authService.validateFacebookUser(facebookUser);
 
     //user will be appended to the request
     done(null, user);
-    return user;
   }
 }

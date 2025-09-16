@@ -17,10 +17,8 @@ import { VerificationModule } from 'src/verification/verification.module';
 import { MessageModule } from 'src/message/message.module';
 import { EmailService } from 'src/message/email.service';
 import { VerificationService } from 'src/verification/verification.service';
-import googleOauthConfig from './authConfig/google-oauth.config';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
-import facebookOauthConfig from './authConfig/facebook-oauth.config';
 
 @Module({
   imports: [
@@ -40,17 +38,12 @@ import facebookOauthConfig from './authConfig/facebook-oauth.config';
     RedisModule,
     VerificationModule,
     MessageModule,
-    //google oauth
-    ConfigModule.forFeature(googleOauthConfig),
-
-    //facebook oauth
-    ConfigModule.forFeature(facebookOauthConfig),
   ],
   controllers: [AuthController],
   providers: [
     AuthService,
     JwtStrategy,
-    // GitHubStrategy,
+    GitHubStrategy,
     UserService,
     RedisService,
     VerificationService,

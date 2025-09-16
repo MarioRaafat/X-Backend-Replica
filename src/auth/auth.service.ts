@@ -223,21 +223,38 @@ export class AuthService {
   }
 
   async validateGoogleUser(googleUser: GoogleLoginDTO) {
-    const user = await this.userService.findUserByEmail(googleUser.email);
+    //Did we need this?? ->google email always exists as an identifier
+    let user = await this.userService.findUserByGoogleId(googleUser.email);
 
     if (user) return user;
 
-    //TODO: Get the phone number
+    if (googleUser.email) {
+      user = await this.userService.findUserByEmail(googleUser.email);
+      if (user) {
+        const updatedUser = await this.userService.updateUser(user.id, {
+          googleId: googleUser.googleId,
+          avatarUrl: googleUser.avatarUrl,
+          verified: true,
+        });
 
-    //TODO: User repo or entity manager
-    return await this.entityManager.save(User, {
+        console.log('updated', updatedUser);
+
+        if (!updatedUser) {
+          throw new InternalServerErrorException('Failed to update user');
+        }
+
+        return updatedUser;
+      }
+    }
+
+    return await this.userService.createUser({
       email: googleUser.email,
       firstName: googleUser.firstName,
       lastName: googleUser.lastName,
+      avatarUrl: googleUser.avatarUrl,
+      googleId: googleUser.googleId,
       password: '',
-      confirmPassword: '',
       phoneNumber: '',
-      provider: 'google',
       verified: true,
     });
   }
@@ -253,10 +270,21 @@ export class AuthService {
     }
 
     //user has already signed in with this email, so it is the same record in db
-    //TODO: Is it secure to autolink accounts?
     if (facebookUser.email) {
       user = await this.userService.findUserByEmail(facebookUser.email);
-      if (user) return user;
+      if (user) {
+        const updatedUser = await this.userService.updateUser(user.id, {
+          facebookId: facebookUser.facebookId,
+          avatarUrl: facebookUser.avatarUrl,
+          verified: true,
+        });
+
+        if (!updatedUser) {
+          throw new InternalServerErrorException('Failed to update user');
+        }
+
+        return updatedUser;
+      }
     }
 
     return await this.userService.createUser({
@@ -264,7 +292,7 @@ export class AuthService {
       firstName: facebookUser.firstName,
       lastName: facebookUser.lastName,
       facebookId: facebookUser.facebookId,
-      provider: 'facebook',
+
       verified: true,
       phoneNumber: '',
       password: '', // No password for OAuth users
@@ -287,7 +315,6 @@ export class AuthService {
       const updatedUser = await this.userService.updateUser(user.id, {
         githubId: githubData.githubId,
         avatarUrl: githubData.avatarUrl,
-        provider: 'github',
         verified: true,
       });
 
@@ -304,7 +331,6 @@ export class AuthService {
       lastName: githubData.lastName,
       githubId: githubData.githubId,
       avatarUrl: githubData.avatarUrl,
-      provider: 'github',
       verified: true, // GitHub emails are pre-verified
       phoneNumber: '', // Will be filled later if needed
       password: undefined, // No password for OAuth users

@@ -1,4 +1,4 @@
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class FacebookLoginDTO {
   @IsString()
@@ -12,4 +12,8 @@ export class FacebookLoginDTO {
   @IsNotEmpty()
   @IsString()
   lastName: string;
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }

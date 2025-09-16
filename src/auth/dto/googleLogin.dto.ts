@@ -1,8 +1,10 @@
 import { PartialType } from '@nestjs/mapped-types';
 import { RegisterDto } from './register.dto';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class GoogleLoginDTO {
+  @IsString()
+  googleId: string;
   @IsEmail()
   email: string;
   @IsNotEmpty()
@@ -12,4 +14,8 @@ export class GoogleLoginDTO {
   @IsNotEmpty()
   @IsString()
   lastName: string;
+
+  @IsOptional()
+  @IsString()
+  avatarUrl?: string;
 }

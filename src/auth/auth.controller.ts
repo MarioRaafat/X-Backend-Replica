@@ -22,7 +22,7 @@ import {
   ApiCookieAuth,
 } from '@nestjs/swagger';
 import { GitHubAuthGuard } from './guards/github.guard';
-import { GoogleAuthGuard } from './guards/google-auth/google-auth.guard';
+import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook.guard';
 
 @ApiTags('Authentication')

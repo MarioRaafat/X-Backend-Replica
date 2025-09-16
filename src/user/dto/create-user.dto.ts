@@ -80,4 +80,7 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   facebookId?: string;
+  @IsOptional()
+  @IsString()
+  googleId?: string;
 }

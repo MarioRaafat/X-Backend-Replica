@@ -1,27 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
-import googleOauthConfig from '../authConfig/google-oauth.config';
-import type { ConfigType } from '@nestjs/config';
+import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy) {
   constructor(
-    @Inject(googleOauthConfig.KEY)
-    private googleConfiguration: ConfigType<typeof googleOauthConfig>,
+    private configService: ConfigService,
     private authService: AuthService,
   ) {
-    if (
-      !googleConfiguration.clientID ||
-      !googleConfiguration.clientSecret ||
-      !googleConfiguration.callbackURL
-    ) {
-      throw new Error('Google OAuth configuration is incomplete');
-    }
     super({
-      clientID: googleConfiguration.clientID,
-      clientSecret: googleConfiguration.clientSecret,
-      callbackURL: googleConfiguration.callbackURL,
+      clientID: configService.get('GOOGLE_CLIENT_ID') || '',
+      clientSecret: configService.get('GOOGLE_SECRET') || '',
+      callbackURL: configService.get('GOOGLE_CALLBACK_URL'),
       scope: ['email', 'profile'],
     });
   }
@@ -32,13 +23,21 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
     profile: any,
     done: VerifyCallback,
   ) {
+    const { id, name, emails, photos } = profile;
+    console.log(id);
+
+    const avatarUrl = photos && photos.length > 0 ? photos[0].value : undefined;
     const user = await this.authService.validateGoogleUser({
-      email: profile.emails[0].value,
-      firstName: profile.name.givenName,
-      lastName: profile.name.familyName,
+      googleId: id,
+      email: emails[0].value,
+      firstName: name.givenName,
+      lastName: name.familyName,
+      avatarUrl: avatarUrl,
     });
 
+    console.log(user);
+
     //user will be appended to the request
-    done(null, user);
+    return user;
   }
 }
