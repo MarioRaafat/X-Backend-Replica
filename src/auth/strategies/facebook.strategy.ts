@@ -37,7 +37,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
     console.log(profile);
     const { id, username, displayName, emails } = profile;
 
-    // GitHub might not always return email in the profile (for now we must have email so I will throw an error if not)
+    // Facebook usually will not provide us with the user email (to be discussed)
     const email = emails && emails.length > 0 ? emails[0].value : null;
 
     if (!email) {
