@@ -26,6 +26,9 @@ export class User {
   @Column({ type: 'varchar', nullable: true })
   githubId?: string;
 
+  @Column({ type: 'varchar', nullable: true })
+  facebookId?: string;
+
   @Column({ type: 'varchar', default: 'local' })
   provider: string; // 'local' | 'github'
 
