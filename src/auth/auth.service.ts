@@ -60,7 +60,7 @@ export class AuthService {
     const { confirmPassword, password, captchaToken, ...registerUser } =
       registerDto;
 
-    // Verify CAPTCHA first
+    // Verify CAPTCHA first (comment that in case you want to test the endpoint)
     try {
       await this.captchaService.validateCaptcha(captchaToken);
     } catch (error) {
@@ -223,8 +223,7 @@ export class AuthService {
   }
 
   async validateGoogleUser(googleUser: GoogleLoginDTO) {
-    //Did we need this?? ->google email always exists as an identifier
-    let user = await this.userService.findUserByGoogleId(googleUser.email);
+    let user = await this.userService.findUserByGoogleId(googleUser.googleId);
 
     if (user) return user;
 
@@ -236,8 +235,6 @@ export class AuthService {
           avatarUrl: googleUser.avatarUrl,
           verified: true,
         });
-
-        console.log('updated', updatedUser);
 
         if (!updatedUser) {
           throw new InternalServerErrorException('Failed to update user');
@@ -308,9 +305,7 @@ export class AuthService {
       return user;
     }
 
-    // check same email (I think I will change it later)
     user = await this.userService.findUserByEmail(githubData.email);
-
     if (user) {
       const updatedUser = await this.userService.updateUser(user.id, {
         githubId: githubData.githubId,

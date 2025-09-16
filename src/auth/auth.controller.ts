@@ -130,9 +130,9 @@ export class AuthController {
       type: 'object',
       properties: {
         userId: {
-          type: 'number',
+          type: 'string',
           description: 'User ID',
-          example: 1,
+          example: 'f3199dfb-8eaf-49c1-b07d-b532d6bfb3f1',
         },
         token: {
           type: 'string',
@@ -295,10 +295,111 @@ export class AuthController {
       ######################### Google OAuth Routes #########################
   */
 
+  @ApiOperation({
+    summary: 'Initiate Google OAuth Login',
+    description: `
+    **⚠️ Important: This endpoint cannot be tested in Swagger UI**
+    
+    **How to use:**
+    1. Open your browser and navigate to: \`<back url>/auth/google\`
+    2. You will be redirected to Google's OAuth consent screen
+    3. Sign in with your Google account and grant permissions
+    4. Google will redirect you back to the callback URL
+    5. You'll be automatically redirected to the frontend with an access token
+    
+    **What happens:**
+    - Redirects user to Google OAuth authorization page
+    - User signs in with Google credentials
+    - Google redirects back to /auth/google/callback
+    - System creates/finds user account and generates JWT tokens
+    - User is redirected to frontend with access token in URL
+    - Refresh token is set as httpOnly cookie
+    
+    **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
+    `,
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirects to Google OAuth authorization page',
+    headers: {
+      Location: {
+        description: 'Google OAuth URL',
+        schema: {
+          type: 'string',
+          example: 'https://accounts.google.com/oauth/authorize?client_id=...',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error - OAuth configuration issue',
+    schema: {
+      example: {
+        message: 'OAuth configuration error',
+        error: 'Internal Server Error',
+        statusCode: 500,
+      },
+    },
+  })
   @UseGuards(GoogleAuthGuard)
-  @Get('google/login')
+  @Get('google')
   googleLogin() {}
 
+  @ApiOperation({
+    summary: 'Google OAuth Callback Handler',
+    description: `
+    **⚠️ This endpoint is called automatically by Google - Do not call manually**
+    
+    **What this endpoint does:**
+    1. Receives authorization code from Google
+    2. Exchanges code for user profile information
+    3. Creates new user account OR finds existing user by email
+    4. Generates JWT access token and refresh token
+    5. Sets refresh token as httpOnly cookie
+    6. Redirects to frontend with access token
+    
+    **Automatic redirect URL:** \`<front url>/auth/success?token={jwt_access_token}\`
+    
+    **Error redirect URL:** \`<front url>/auth/error?message=Authentication%20failed\`
+    
+    **Cookies set:**
+    - \`refresh_token\`: HttpOnly, Secure, SameSite=Strict, 7 days expiry
+    `,
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Successful authentication - redirects to frontend with token',
+    headers: {
+      Location: {
+        description: 'Frontend success URL with access token',
+        schema: {
+          type: 'string',
+          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+      'Set-Cookie': {
+        description: 'HttpOnly refresh token cookie',
+        schema: {
+          type: 'string',
+          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Authentication failed - redirects to frontend error page',
+    headers: {
+      Location: {
+        description: 'Frontend error URL',
+        schema: {
+          type: 'string',
+          example: '<front url>/auth/error?message=Authentication%20failed',
+        },
+      },
+    },
+  })
   @UseGuards(GoogleAuthGuard)
   @Get('google/callback')
   async googleLoginCallback(@Req() req, @Res() res) {
@@ -319,13 +420,116 @@ export class AuthController {
       );
     }
   }
+
   /* 
       ######################### Facebook OAuth Routes #########################
   */
+
+  @ApiOperation({
+    summary: 'Initiate Facebook OAuth Login',
+    description: `
+    **⚠️ Important: This endpoint cannot be tested in Swagger UI**
+    
+    **How to use:**
+    1. Open your browser and navigate to: \`<back url>/auth/facebook\`
+    2. You will be redirected to Facebook's OAuth consent screen
+    3. Sign in with your Facebook account and grant permissions
+    4. Facebook will redirect you back to the callback URL
+    5. You'll be automatically redirected to the frontend with an access token
+    
+    **What happens:**
+    - Redirects user to Facebook OAuth authorization page
+    - User signs in with Facebook credentials
+    - Facebook redirects back to /auth/facebook/callback
+    - System creates/finds user account and generates JWT tokens
+    - User is redirected to frontend with access token in URL
+    - Refresh token is set as httpOnly cookie
+    
+    **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
+    `,
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Redirects to Facebook OAuth authorization page',
+    headers: {
+      Location: {
+        description: 'Facebook OAuth URL',
+        schema: {
+          type: 'string',
+          example: 'https://www.facebook.com/v18.0/dialog/oauth?client_id=...',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error - OAuth configuration issue',
+    schema: {
+      example: {
+        message: 'OAuth configuration error',
+        error: 'Internal Server Error',
+        statusCode: 500,
+      },
+    },
+  })
   @UseGuards(FacebookAuthGuard)
-  @Get('facebook/login')
+  @Get('facebook')
   facebookLogin() {}
 
+  @ApiOperation({
+    summary: 'Facebook OAuth Callback Handler',
+    description: `
+    **⚠️ This endpoint is called automatically by Facebook - Do not call manually**
+    
+    **What this endpoint does:**
+    1. Receives authorization code from Facebook
+    2. Exchanges code for user profile information
+    3. Creates new user account OR finds existing user by email
+    4. Generates JWT access token and refresh token
+    5. Sets refresh token as httpOnly cookie
+    6. Redirects to frontend with access token
+    
+    **Automatic redirect URL:** \`<front url>/auth/success?token={jwt_access_token}\`
+    
+    **Error redirect URL:** \`<front url>/auth/error?message=Authentication%20failed\`
+    
+    **Cookies set:**
+    - \`refresh_token\`: HttpOnly, Secure, SameSite=Strict, 7 days expiry
+    `,
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Successful authentication - redirects to frontend with token',
+    headers: {
+      Location: {
+        description: 'Frontend success URL with access token',
+        schema: {
+          type: 'string',
+          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+      'Set-Cookie': {
+        description: 'HttpOnly refresh token cookie',
+        schema: {
+          type: 'string',
+          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Authentication failed - redirects to frontend error page',
+    headers: {
+      Location: {
+        description: 'Frontend error URL',
+        schema: {
+          type: 'string',
+          example: '<front url>/auth/error?message=Authentication%20failed',
+        },
+      },
+    },
+  })
   @UseGuards(FacebookAuthGuard)
   @Get('facebook/callback')
   async facebookLoginCallback(@Req() req, @Res() res) {
@@ -352,26 +556,109 @@ export class AuthController {
   */
 
   @ApiOperation({
-    summary: 'Login with GitHub',
-    description:
-      'Initiate GitHub OAuth login. Redirects user to GitHub for authentication.',
+    summary: 'Initiate GitHub OAuth Login',
+    description: `
+    **⚠️ Important: This endpoint cannot be tested in Swagger UI**
+    
+    **How to use:**
+    1. Open your browser and navigate to: \`<back url>/auth/github\`
+    2. You will be redirected to GitHub's OAuth consent screen
+    3. Sign in with your GitHub account and authorize the application
+    4. GitHub will redirect you back to the callback URL
+    5. You'll be automatically redirected to the frontend with an access token
+    
+    **What happens:**
+    - Redirects user to GitHub OAuth authorization page
+    - User signs in with GitHub credentials and grants permissions
+    - GitHub redirects back to /auth/github/callback
+    - System creates/finds user account and generates JWT tokens
+    - User is redirected to frontend with access token in URL
+    - Refresh token is set as httpOnly cookie
+    
+    **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
+    `,
   })
   @ApiResponse({
     status: 302,
-    description: 'Redirects to GitHub OAuth page',
+    description: 'Redirects to GitHub OAuth authorization page',
+    headers: {
+      Location: {
+        description: 'GitHub OAuth URL',
+        schema: {
+          type: 'string',
+          example: 'https://github.com/login/oauth/authorize?client_id=...',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 500,
+    description: 'Internal server error - OAuth configuration issue',
+    schema: {
+      example: {
+        message: 'OAuth configuration error',
+        error: 'Internal Server Error',
+        statusCode: 500,
+      },
+    },
   })
   @Get('github')
   @UseGuards(GitHubAuthGuard)
   async githubLogin() {}
 
   @ApiOperation({
-    summary: 'GitHub OAuth callback',
-    description:
-      'GitHub redirects here after user authorizes the app. Sets tokens and redirects to frontend.',
+    summary: 'GitHub OAuth Callback Handler',
+    description: `
+    **⚠️ This endpoint is called automatically by GitHub - Do not call manually**
+    
+    **What this endpoint does:**
+    1. Receives authorization code from GitHub
+    2. Exchanges code for user profile information
+    3. Creates new user account OR finds existing user by GitHub ID/email
+    4. Generates JWT access token and refresh token
+    5. Sets refresh token as httpOnly cookie
+    6. Redirects to frontend with access token
+    
+    **Automatic redirect URL:** \`<front url>/auth/success?token={jwt_access_token}\`
+    
+    **Error redirect URL:** \`<front url>/auth/error?message=Authentication%20failed\`
+    
+    **Cookies set:**
+    - \`refresh_token\`: HttpOnly, Secure, SameSite=Strict, 7 days expiry
+    `,
   })
   @ApiResponse({
     status: 302,
-    description: 'Redirects to frontend with access token',
+    description: 'Successful authentication - redirects to frontend with token',
+    headers: {
+      Location: {
+        description: 'Frontend success URL with access token',
+        schema: {
+          type: 'string',
+          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        },
+      },
+      'Set-Cookie': {
+        description: 'HttpOnly refresh token cookie',
+        schema: {
+          type: 'string',
+          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 302,
+    description: 'Authentication failed - redirects to frontend error page',
+    headers: {
+      Location: {
+        description: 'Frontend error URL',
+        schema: {
+          type: 'string',
+          example: '<front url>/auth/error?message=Authentication%20failed',
+        },
+      },
+    },
   })
   @Get('github/callback')
   @UseGuards(GitHubAuthGuard)
@@ -379,13 +666,20 @@ export class AuthController {
     @Req() req: any,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { access_token, refresh_token } =
-      await this.authService.generateTokens(req.user.id);
-    this.httpnOnlyRefreshToken(response, refresh_token);
+    try {
+      const { access_token, refresh_token } =
+        await this.authService.generateTokens(req.user.id);
+      this.httpnOnlyRefreshToken(response, refresh_token);
 
-    // Redirect to frontend with access token (no front url for now)
-    const frontendUrl = `http://localhost:3001/auth/success?token=${access_token}`;
-    response.redirect(frontendUrl);
+      // Redirect to frontend with access token
+      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${access_token}`;
+      response.redirect(frontendUrl);
+    } catch (error) {
+      console.error('GitHub OAuth callback error:', error);
+      return response.redirect(
+        `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+      );
+    }
   }
 
   /* 
