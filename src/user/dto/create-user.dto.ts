@@ -4,7 +4,7 @@ import { ApiProperty } from '@nestjs/swagger';
 export class CreateUserDto {
   @ApiProperty({
     description: 'User email',
-    example: 'shady@example.com'
+    example: 'shady@example.com',
   })
   @IsEmail()
   email: string;
@@ -12,7 +12,7 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'User password (optional for OAuth users)',
     example: 'Mario0o0o!#$@2252004',
-    required: false
+    required: false,
   })
   @IsOptional()
   @IsString()
@@ -20,14 +20,14 @@ export class CreateUserDto {
 
   @ApiProperty({
     description: 'First name',
-    example: 'Alyaa'
+    example: 'Alyaa',
   })
   @IsString()
   firstName: string;
 
   @ApiProperty({
     description: 'Last name',
-    example: 'Amira'
+    example: 'Amira',
   })
   @IsString()
   lastName: string;
@@ -35,7 +35,7 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'Phone number (optional)',
     example: '+1234567890',
-    required: false
+    required: false,
   })
   @IsOptional()
   @IsString()
@@ -44,7 +44,7 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'GitHub ID (for OAuth users)',
     example: '12345678',
-    required: false
+    required: false,
   })
   @IsOptional()
   @IsString()
@@ -53,7 +53,7 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'Authentication provider',
     example: 'local',
-    default: 'local'
+    default: 'local',
   })
   @IsOptional()
   @IsString()
@@ -62,7 +62,7 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'Avatar URL',
     example: 'https://avatars.githubusercontent.com/u/12345?v=4',
-    required: false
+    required: false,
   })
   @IsOptional()
   @IsString()
@@ -71,9 +71,16 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'Email verification status',
     example: false,
-    default: false
+    default: false,
   })
   @IsOptional()
   @IsBoolean()
   verified?: boolean;
+
+  @IsOptional()
+  @IsString()
+  facebookId?: string;
+  @IsOptional()
+  @IsString()
+  googleId?: string;
 }

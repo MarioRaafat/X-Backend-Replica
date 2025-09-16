@@ -17,6 +17,8 @@ import { VerificationModule } from 'src/verification/verification.module';
 import { MessageModule } from 'src/message/message.module';
 import { EmailService } from 'src/message/email.service';
 import { VerificationService } from 'src/verification/verification.service';
+import { GoogleStrategy } from './strategies/google.strategy';
+import { FacebookStrategy } from './strategies/facebook.strategy';
 
 @Module({
   imports: [
@@ -47,6 +49,8 @@ import { VerificationService } from 'src/verification/verification.service';
     VerificationService,
     EmailService,
     CaptchaService,
+    GoogleStrategy,
+    FacebookStrategy,
   ],
 })
 export class AuthModule {}

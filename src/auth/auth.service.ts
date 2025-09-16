@@ -20,6 +20,8 @@ import { EmailService } from 'src/message/email.service';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
+import { GoogleLoginDTO } from './dto/googleLogin.dto';
+import { FacebookLoginDTO } from './dto/facebookLogin.dto';
 
 @Injectable()
 export class AuthService {
@@ -55,13 +57,16 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const { confirmPassword, password, captchaToken, ...registerUser } = registerDto;
+    const { confirmPassword, password, captchaToken, ...registerUser } =
+      registerDto;
 
     // Verify CAPTCHA first
     try {
       await this.captchaService.validateCaptcha(captchaToken);
     } catch (error) {
-      throw new BadRequestException('CAPTCHA verification failed. Please try again.');
+      throw new BadRequestException(
+        'CAPTCHA verification failed. Please try again.',
+      );
     }
 
     // Check if email is in use
@@ -82,19 +87,19 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
     const user = await this.userService.createUser({
-       ...registerUser,
-        password: hashedPassword,
-        provider: 'local',
-        verified: false
+      ...registerUser,
+      password: hashedPassword,
+      provider: 'local',
+      verified: false,
     });
 
     // Send verification email
     const sendEmailRes = await this.generateEmailVerification(user.id);
 
-    return { 
+    return {
       email: sendEmailRes.success,
       userId: user.id,
-      message: 'User registered successfully'
+      message: 'User registered successfully',
     };
   }
 
@@ -153,7 +158,7 @@ export class AuthService {
 
     return {
       success: true,
-      message: 'Email verified successfully'
+      message: 'Email verified successfully',
     };
   }
 
@@ -217,6 +222,83 @@ export class AuthService {
     }
   }
 
+  async validateGoogleUser(googleUser: GoogleLoginDTO) {
+    //Did we need this?? ->google email always exists as an identifier
+    let user = await this.userService.findUserByGoogleId(googleUser.email);
+
+    if (user) return user;
+
+    if (googleUser.email) {
+      user = await this.userService.findUserByEmail(googleUser.email);
+      if (user) {
+        const updatedUser = await this.userService.updateUser(user.id, {
+          googleId: googleUser.googleId,
+          avatarUrl: googleUser.avatarUrl,
+          verified: true,
+        });
+
+        console.log('updated', updatedUser);
+
+        if (!updatedUser) {
+          throw new InternalServerErrorException('Failed to update user');
+        }
+
+        return updatedUser;
+      }
+    }
+
+    return await this.userService.createUser({
+      email: googleUser.email,
+      firstName: googleUser.firstName,
+      lastName: googleUser.lastName,
+      avatarUrl: googleUser.avatarUrl,
+      googleId: googleUser.googleId,
+      password: '',
+      phoneNumber: '',
+      verified: true,
+    });
+  }
+
+  async validateFacebookUser(facebookUser: FacebookLoginDTO) {
+    let user = await this.userService.findUserByFacebookId(
+      facebookUser.facebookId,
+    );
+
+    //user has already signed in with facebook
+    if (user) {
+      return user;
+    }
+
+    //user has already signed in with this email, so it is the same record in db
+    if (facebookUser.email) {
+      user = await this.userService.findUserByEmail(facebookUser.email);
+      if (user) {
+        const updatedUser = await this.userService.updateUser(user.id, {
+          facebookId: facebookUser.facebookId,
+          avatarUrl: facebookUser.avatarUrl,
+          verified: true,
+        });
+
+        if (!updatedUser) {
+          throw new InternalServerErrorException('Failed to update user');
+        }
+
+        return updatedUser;
+      }
+    }
+
+    return await this.userService.createUser({
+      email: facebookUser.email,
+      firstName: facebookUser.firstName,
+      lastName: facebookUser.lastName,
+      facebookId: facebookUser.facebookId,
+
+      verified: true,
+      phoneNumber: '',
+      password: '', // No password for OAuth users
+    });
+  }
+
   /* 
       ######################### GitHub OAuth Routes #########################
   */
@@ -228,19 +310,18 @@ export class AuthService {
 
     // check same email (I think I will change it later)
     user = await this.userService.findUserByEmail(githubData.email);
-    
+
     if (user) {
       const updatedUser = await this.userService.updateUser(user.id, {
         githubId: githubData.githubId,
         avatarUrl: githubData.avatarUrl,
-        provider: 'github',
-        verified: true
+        verified: true,
       });
-      
+
       if (!updatedUser) {
         throw new InternalServerErrorException('Failed to update user');
       }
-      
+
       return updatedUser;
     }
 
@@ -250,10 +331,9 @@ export class AuthService {
       lastName: githubData.lastName,
       githubId: githubData.githubId,
       avatarUrl: githubData.avatarUrl,
-      provider: 'github',
       verified: true, // GitHub emails are pre-verified
       phoneNumber: '', // Will be filled later if needed
-      password: undefined // No password for OAuth users
+      password: undefined, // No password for OAuth users
     });
   }
 }
