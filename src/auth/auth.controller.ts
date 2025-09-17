@@ -24,6 +24,7 @@ import {
 import { GitHubAuthGuard } from './guards/github.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook.guard';
+import { ResponseMessage } from 'src/decorators/response-message.decorator';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -50,9 +51,24 @@ export class AuthController {
     description: 'User successfully registered. Check email for verification.',
     schema: {
       example: {
-        email: true,
-        message: 'User registered successfully',
-        userId: 1,
+        data: {
+          emailSuccess: true,
+          userId: 'cce37b13-d6de-48cd-b746-df2648457a46',
+          message: 'User registered successfully',
+          id: 'cce37b13-d6de-48cd-b746-df2648457a46',
+          email: 'amirakhaled928@gmail.com',
+          firstName: 'Amira',
+          lastName: 'Khalid',
+          phoneNumber: '+201143126545',
+          verified: false,
+          githubId: null,
+          facebookId: null,
+          googleId: null,
+          avatarUrl: null,
+          provider: 'local',
+        },
+        count: 1,
+        message: 'User successfully registered. Check email for verification',
       },
     },
   })
@@ -78,6 +94,7 @@ export class AuthController {
       },
     },
   })
+  @ResponseMessage('User successfully registered. Check email for verification')
   @Post('signup')
   async signup(@Body() registerDto: RegisterDto) {
     return this.authService.register(registerDto);
@@ -99,8 +116,11 @@ export class AuthController {
     description: 'OTP generated and sent successfully',
     schema: {
       example: {
+        data: {
+          success: true,
+        },
+        count: 1,
         message: 'Verification OTP sent to email',
-        success: true,
       },
     },
   })
@@ -115,6 +135,7 @@ export class AuthController {
       },
     },
   })
+  @ResponseMessage('OTP generated and sent successfully')
   @Post('verification-otp/:userId')
   async generateEmailVerification(@Param('userId') userId: string) {
     return this.authService.generateEmailVerification(userId);
@@ -148,8 +169,11 @@ export class AuthController {
     description: 'Email verified successfully',
     schema: {
       example: {
+        data: {
+          success: true,
+        },
+        count: 1,
         message: 'Email verified successfully',
-        verified: true,
       },
     },
   })
@@ -164,6 +188,7 @@ export class AuthController {
       },
     },
   })
+  @ResponseMessage('Email verified successfully')
   @Post('verify')
   async verifyEmail(@Body() body: { userId: string; token: string }) {
     const { userId, token } = body;
@@ -181,7 +206,24 @@ export class AuthController {
     description: 'Login successful',
     schema: {
       example: {
-        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        data: {
+          access_token:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+          user: {
+            id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
+            email: 'amirakhaled928@gmail.com',
+            firstName: 'Amira',
+            lastName: 'Khalid',
+            phoneNumber: '+201143126545',
+            verified: false,
+            githubId: null,
+            facebookId: null,
+            googleId: null,
+            avatarUrl: null,
+          },
+        },
+        count: 1,
+        message: 'Login Successfully!',
       },
     },
     headers: {
@@ -217,16 +259,17 @@ export class AuthController {
       },
     },
   })
+  @ResponseMessage('Logged in Successfully! ')
   @Post('login')
   async login(
     @Body() loginDTO: LoginDTO,
     @Res({ passthrough: true }) response: Response,
   ) {
-    const { access_token, refresh_token } =
+    const { access_token, refresh_token, user } =
       await this.authService.login(loginDTO);
 
     this.httpnOnlyRefreshToken(response, refresh_token);
-    return { access_token };
+    return { access_token, user };
   }
 
   @ApiOperation({
@@ -240,7 +283,12 @@ export class AuthController {
     description: 'New access token generated',
     schema: {
       example: {
-        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+        data: {
+          access_token:
+            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNjZTM3YjEzLWQ2ZGUtNDhjZC1iNzQ2LWRmMjY0ODQ1N2E0NiIsImlhdCI6MTc1ODE0OTI2NywiZXhwIjoxNzU4MTUyODY3fQ.M1ennV-LC8xiJpsRKCsUo9Y4o7_6mydG0SPURuNzh6I',
+        },
+        count: 1,
+        message: 'New access token generated',
       },
     },
     headers: {
@@ -276,6 +324,7 @@ export class AuthController {
       },
     },
   })
+  @ResponseMessage('New access token generated')
   @Post('refresh')
   async refresh(
     @Req() req: Request,
@@ -375,14 +424,16 @@ export class AuthController {
         description: 'Frontend success URL with access token',
         schema: {
           type: 'string',
-          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          example:
+            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
       },
       'Set-Cookie': {
         description: 'HttpOnly refresh token cookie',
         schema: {
           type: 'string',
-          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+          example:
+            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
         },
       },
     },
@@ -505,14 +556,16 @@ export class AuthController {
         description: 'Frontend success URL with access token',
         schema: {
           type: 'string',
-          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          example:
+            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
       },
       'Set-Cookie': {
         description: 'HttpOnly refresh token cookie',
         schema: {
           type: 'string',
-          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+          example:
+            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
         },
       },
     },
@@ -635,14 +688,16 @@ export class AuthController {
         description: 'Frontend success URL with access token',
         schema: {
           type: 'string',
-          example: '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+          example:
+            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
         },
       },
       'Set-Cookie': {
         description: 'HttpOnly refresh token cookie',
         schema: {
           type: 'string',
-          example: 'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+          example:
+            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
         },
       },
     },

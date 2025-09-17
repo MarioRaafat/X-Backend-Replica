@@ -22,6 +22,7 @@ import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
+import { instanceToPlain } from 'class-transformer';
 
 @Injectable()
 export class AuthService {
@@ -86,20 +87,21 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await this.userService.createUser({
+    const registeredUser = await this.userService.createUser({
       ...registerUser,
       password: hashedPassword,
       provider: 'local',
       verified: false,
     });
 
+    const user = instanceToPlain(registeredUser);
     // Send verification email
     const sendEmailRes = await this.generateEmailVerification(user.id);
 
     return {
-      email: sendEmailRes.success,
+      emailSuccess: sendEmailRes.success,
       userId: user.id,
-      message: 'User registered successfully',
+      ...user,
     };
   }
 
@@ -158,7 +160,6 @@ export class AuthService {
 
     return {
       success: true,
-      message: 'Email verified successfully',
     };
   }
 
@@ -175,7 +176,12 @@ export class AuthService {
   async login(loginDTO: LoginDTO) {
     const id = await this.validateUser(loginDTO.email, loginDTO.password);
 
-    return this.generateTokens(id);
+    const userInstance = await this.userService.findUserById(id);
+    const user = instanceToPlain(userInstance);
+
+    const { access_token, refresh_token } = await this.generateTokens(id);
+
+    return { user, access_token, refresh_token };
   }
 
   async refresh(token: string) {
