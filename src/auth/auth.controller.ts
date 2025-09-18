@@ -21,10 +21,12 @@ import {
   ApiBody,
   ApiParam,
   ApiCookieAuth,
+  ApiQuery,
 } from '@nestjs/swagger';
 import { GitHubAuthGuard } from './guards/github.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook.guard';
+import { error } from 'console';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -171,6 +173,49 @@ export class AuthController {
     return this.authService.verifyEmail(email, token);
   }
 
+  @ApiOperation({
+    summary: 'Verify a "Not Me" report for unauthorized email access',
+    description:
+      'Verifies a JWT token provided via a magic link to confirm that a user did not trigger email verification and delete the account.',
+  })
+  @ApiQuery({
+    name: 'token',
+    type: String,
+    required: true,
+    description: 'The JWT token from the magic link sent to the user’s email.',
+    example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User deleted successfully',
+    schema: {
+      example: {
+        message: 'User deleted successfully',
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Invalid or expired magic link.',
+    schema: {
+      example: {
+        message: 'Invalid or expired magic link',
+        error: 'Unauthorized',
+        statusCode: 401,
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Account was already verified',
+    schema: {
+      example: {
+        message: 'Account was already verified',
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    },
+  })
   @Get('not-me')
   async handleNotMe(@Query('token') token: string) {
     return this.authService.handleNotMe(token);

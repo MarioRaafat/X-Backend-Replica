@@ -142,7 +142,6 @@ export class AuthService {
 
   async verifyEmail(email: string, token: string) {
     const user = await this.redisService.hget(`user:${email}`);
-
     if (!user) {
       throw new NotFoundException('User not found or already verified');
     }
@@ -171,6 +170,8 @@ export class AuthService {
     if (!createdUser) {
       throw new InternalServerErrorException('Failed to save user to database');
     }
+
+    await this.redisService.del(`user:${email}`);
 
     return {
       userId: createdUser.id,
