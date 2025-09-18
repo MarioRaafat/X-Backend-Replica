@@ -7,6 +7,7 @@ import {
   Req,
   Res,
   UseGuards,
+  Query,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Request, Response } from 'express';
@@ -115,9 +116,9 @@ export class AuthController {
       },
     },
   })
-  @Post('verification-otp/:userId')
-  async generateEmailVerification(@Param('userId') userId: string) {
-    return this.authService.generateEmailVerification(userId);
+  @Post('send-otp/:userId')
+  async generateEmailVerification(@Param('email') email: string) {
+    return this.authService.generateEmailVerification(email);
   }
 
   @ApiOperation({
@@ -164,10 +165,15 @@ export class AuthController {
       },
     },
   })
-  @Post('verify')
+  @Post('verify-otp')
   async verifyEmail(@Body() body: { email: string; token: string }) {
     const { email, token } = body;
     return this.authService.verifyEmail(email, token);
+  }
+
+  @Get('not-me')
+  async handleNotMe(@Query('token') token: string) {
+    return this.authService.handleNotMe(token);
   }
 
   @ApiOperation({

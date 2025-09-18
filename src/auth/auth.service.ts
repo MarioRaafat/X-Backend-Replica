@@ -22,6 +22,7 @@ import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class AuthService {
@@ -33,6 +34,7 @@ export class AuthService {
     private readonly verificationService: VerificationService,
     private readonly emailService: EmailService,
     private readonly captchaService: CaptchaService,
+    private readonly configService: ConfigService,
   ) {}
 
   async generateTokens(id: string) {
@@ -94,10 +96,14 @@ export class AuthService {
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    await this.redisService.hset(`user:${email}`, {
-      ...registerUser,
-      password: hashedPassword,
-    });
+    await this.redisService.hset(
+      `user:${email}`,
+      {
+        ...registerUser,
+        password: hashedPassword,
+      },
+      this.configService.get('PENDING_USER_EXPIRATION_TIME') || 3600,
+    );
 
     // Send verification email
     return await this.generateEmailVerification(email);
@@ -110,17 +116,19 @@ export class AuthService {
       throw new NotFoundException('User not found or already verified');
     }
 
-    // if (user.verified) {
-    //   throw new UnprocessableEntityException('Account already verified');
-    // }
-
     const otp = await this.verificationService.generateOtp(email, 'email');
 
-    // don't forget to change "MyApp"
+    const magicLink = await this.verificationService.generateMagicLink(
+      email,
+      `${this.configService.get('API_URL') || 'http://localhost:3000'}/auth/not-me`,
+    );
+
     const emailSent = await this.emailService.sendEmail({
-      subject: 'MyApp - Account Verification',
+      subject: 'El Sab3 - Account Verification',
       recipients: [{ name: user.firstName ?? '', address: email }],
-      html: `<p>Hi${user.firstName ? ' ' + user.firstName : ''},</p><p>You may verify your MyApp account using the following OTP: <br /><span style="font-size:24px; font-weight: 700;">${otp}</span></p><p>Regards,<br />MyApp</p>`,
+      html: `<p>Hi${user.firstName ? ' ' + user.firstName : ''},</p><p>You may verify your El Sab3 account using the following OTP: <br /><span style="font-size:24px; font-weight: 700;">${otp}</span></p>
+      <a href="${magicLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">It's not me</a>
+        <p>The account is automatically deleted in 1 hour.</p><p>Regards,<br />El Sab3</p>`,
     });
 
     if (!emailSent) {
@@ -168,6 +176,25 @@ export class AuthService {
       userId: createdUser.id,
       message: 'Email verified successfully',
     };
+  }
+
+  async handleNotMe(token: string) {
+    const user = await this.verificationService.validateMagicLink(token);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired magic link');
+    }
+
+    const pendingUser = await this.redisService.hget(`user:${user.email}`);
+
+    if (!pendingUser) {
+      throw new BadRequestException('Account was already verified');
+    }
+
+    await this.redisService.del(`user:${user.email}`);
+    await this.redisService.del(`otp:email:${user.email}`);
+
+    return { message: 'deleted account successfully' };
   }
 
   async validateUser(email: string, password: string): Promise<string> {
