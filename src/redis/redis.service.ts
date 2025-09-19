@@ -42,4 +42,24 @@ export class RedisService {
     }
     return hash;
   }
+
+  async sadd(key: string, jti: string) {
+    await this.redis.sadd(key, jti);
+  }
+
+  async expire(key: string, ttl: number) {
+    await this.redis.expire(key, ttl);
+  }
+
+  async srem(key: string, jti: string) {
+    await this.redis.srem(key, jti);
+  }
+
+  async smembers(key: string): Promise<string[]> {
+    return await this.redis.smembers(key);
+  }
+
+  pipeline() {
+    return this.redis.pipeline();
+  }
 }

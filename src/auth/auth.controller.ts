@@ -291,6 +291,40 @@ export class AuthController {
     return { access_token };
   }
 
+  @Post('logout')
+  @ApiOperation({ summary: 'Logout from current device' })
+  @ApiCookieAuth('refresh_token')
+  @ApiResponse({ status: 200, description: 'Successfully logged out from this device' })
+  @ApiResponse({ status: 400, description: 'No refresh token provided' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  async logout(
+    @Req() req: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = req.cookies['refresh_token'];
+    if (!refreshToken)
+      throw new BadRequestException('No refresh token provided');
+    return await this.authService.logout(refreshToken, response);
+  }
+
+  @Post('logout-all')
+  @ApiOperation({ summary: 'Logout from all devices' })
+  @ApiCookieAuth('refresh_token')
+  @ApiResponse({ status: 200, description: 'Successfully logged out from all devices' })
+  @ApiResponse({ status: 400, description: 'No refresh token provided' })
+  @ApiResponse({ status: 401, description: 'Invalid or expired refresh token' })
+  async logoutAll(
+    @Req() req: Request,
+    @Res({ passthrough: true }) response: Response,
+  ) {
+    const refreshToken = req.cookies['refresh_token'];
+    if (!refreshToken)
+      throw new BadRequestException('No refresh token provided');
+    return await this.authService.logoutAll(refreshToken, response);
+  }
+
+
+
   /* 
       ######################### Google OAuth Routes #########################
   */
