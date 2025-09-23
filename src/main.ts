@@ -1,18 +1,25 @@
-import { NestFactory } from '@nestjs/core';
+import { NestFactory, Reflector } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
+import { ResponseInterceptor } from './interceptor/response.interceptor';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.useGlobalPipes(new ValidationPipe());
   app.use(cookieParser());
-  
+
+  // response interceptor
+
+  app.useGlobalInterceptors(new ResponseInterceptor(app.get(Reflector)));
+
   // for swagger
   const config = new DocumentBuilder()
     .setTitle('Backend API')
-    .setDescription('El-Sabe3 Documentation presented by backend team with lots of kisses for you 😘')
+    .setDescription(
+      'El-Sabe3 Documentation presented by backend team with lots of kisses for you 😘',
+    )
     .setVersion('1.0')
     .addBearerAuth(
       {
@@ -26,10 +33,10 @@ async function bootstrap() {
       'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in the controller!
     )
     .build();
-    
+
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document);
-  
+
   await app.listen(process.env.PORT ?? 3000);
 }
 bootstrap();

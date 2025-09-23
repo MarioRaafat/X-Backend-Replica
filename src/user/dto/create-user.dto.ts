@@ -42,24 +42,6 @@ export class CreateUserDto {
   phoneNumber?: string;
 
   @ApiProperty({
-    description: 'GitHub ID (for OAuth users)',
-    example: '12345678',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  githubId?: string;
-
-  @ApiProperty({
-    description: 'Authentication provider',
-    example: 'local',
-    default: 'local',
-  })
-  @IsOptional()
-  @IsString()
-  provider?: string;
-
-  @ApiProperty({
     description: 'Avatar URL',
     example: 'https://avatars.githubusercontent.com/u/12345?v=4',
     required: false,
@@ -68,10 +50,32 @@ export class CreateUserDto {
   @IsString()
   avatarUrl?: string;
 
+  @ApiProperty({
+    description: 'Facebook ID (for OAuth users)',
+    example: '12345678',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   facebookId?: string;
+
+  @ApiProperty({
+    description: 'Google ID (for OAuth users)',
+    example: '123455678',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   googleId?: string;
+  
+  
+
+  @ApiProperty({
+    description: 'GitHub ID (for OAuth users)',
+    example: '12345678',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  githubId?: string;
 }

@@ -25,11 +25,11 @@ import { FacebookLoginDTO } from './dto/facebookLogin.dto';
 import { ConfigService } from '@nestjs/config';
 import { getVerificationEmailTemplate } from 'src/templates/email-verification';
 import { API_URL } from 'src/common/constants';
+import { instanceToPlain } from 'class-transformer';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly entityManager: EntityManager,
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
     private readonly redisService: RedisService,
@@ -64,7 +64,7 @@ export class AuthService {
     const { email, confirmPassword, password, captchaToken, ...registerUser } =
       registerDto;
 
-    // Verify CAPTCHA first (comment that in case you want to test the endpoint)
+//     Verify CAPTCHA first (comment that in case you want to test the endpoint)
     try {
       await this.captchaService.validateCaptcha(captchaToken);
     } catch (error) {
@@ -108,7 +108,10 @@ export class AuthService {
     );
 
     // Send verification email
-    return await this.generateEmailVerification(email);
+    await this.generateEmailVerification(email);
+    return {
+      email: true,
+    };
   }
 
   async generateEmailVerification(email: string) {
@@ -140,10 +143,6 @@ export class AuthService {
     if (!emailSent) {
       throw new InternalServerErrorException('Failed to send OTP email');
     }
-
-    return {
-      message: 'Verification OTP sent to email',
-    };
   }
 
   async verifyEmail(email: string, token: string) {
@@ -180,7 +179,6 @@ export class AuthService {
 
     return {
       userId: createdUser.id,
-      message: 'Email verified successfully',
     };
   }
 
@@ -216,7 +214,12 @@ export class AuthService {
   async login(loginDTO: LoginDTO) {
     const id = await this.validateUser(loginDTO.email, loginDTO.password);
 
-    return this.generateTokens(id);
+    const userInstance = await this.userService.findUserById(id);
+    const user = instanceToPlain(userInstance);
+
+    const { access_token, refresh_token } = await this.generateTokens(id);
+
+    return { user, access_token, refresh_token };
   }
 
   async refresh(token: string) {
@@ -327,7 +330,7 @@ export class AuthService {
       firstName: facebookUser.firstName,
       lastName: facebookUser.lastName,
       facebookId: facebookUser.facebookId,
-
+      avatarUrl: facebookUser.avatarUrl,
       phoneNumber: '',
       password: '', // No password for OAuth users
     });
