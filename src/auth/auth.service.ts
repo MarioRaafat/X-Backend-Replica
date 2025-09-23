@@ -24,6 +24,7 @@ import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
 import { ConfigService } from '@nestjs/config';
 import { getVerificationEmailTemplate } from 'src/templates/email-verification';
+import { API_URL } from 'src/common/constants';
 
 @Injectable()
 export class AuthService {
@@ -64,13 +65,13 @@ export class AuthService {
       registerDto;
 
     // Verify CAPTCHA first (comment that in case you want to test the endpoint)
-    // try {
-    //   await this.captchaService.validateCaptcha(captchaToken);
-    // } catch (error) {
-    //   throw new BadRequestException(
-    //     'CAPTCHA verification failed. Please try again.',
-    //   );
-    // }
+    try {
+      await this.captchaService.validateCaptcha(captchaToken);
+    } catch (error) {
+      throw new BadRequestException(
+        'CAPTCHA verification failed. Please try again.',
+      );
+    }
 
     // Check if email is under verification process
     const pendingUser = await this.redisService.hget(`user:${email}`);
@@ -121,7 +122,7 @@ export class AuthService {
 
     const magicLink = await this.verificationService.generateMagicLink(
       email,
-      `${this.configService.get('API_URL') || 'http://localhost:3000'}/auth/not-me`,
+      `${API_URL}/auth/not-me`,
     );
 
     const html = getVerificationEmailTemplate({

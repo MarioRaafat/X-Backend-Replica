@@ -17,7 +17,7 @@ export class User {
   @Column({ type: 'varchar' })
   lastName: string;
 
-  @Column({ type: 'varchar', unique: true })
+  @Column({ type: 'varchar' })
   phoneNumber: string;
 
   @Column({ type: 'varchar', nullable: true })
