@@ -23,6 +23,7 @@ import * as crypto from 'crypto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
 import { ConfigService } from '@nestjs/config';
+import { getVerificationEmailTemplate } from 'src/templates/email-verification';
 
 @Injectable()
 export class AuthService {
@@ -123,12 +124,16 @@ export class AuthService {
       `${this.configService.get('API_URL') || 'http://localhost:3000'}/auth/not-me`,
     );
 
+    const html = getVerificationEmailTemplate({
+      firstName: user.firstName,
+      otp,
+      magicLink,
+    });
+
     const emailSent = await this.emailService.sendEmail({
       subject: 'El Sab3 - Account Verification',
       recipients: [{ name: user.firstName ?? '', address: email }],
-      html: `<p>Hi${user.firstName ? ' ' + user.firstName : ''},</p><p>You may verify your El Sab3 account using the following OTP: <br /><span style="font-size:24px; font-weight: 700;">${otp}</span></p>
-      <a href="${magicLink}" style="background-color: #4CAF50; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">It's not me</a>
-        <p>The account is automatically deleted in 1 hour.</p><p>Regards,<br />El Sab3</p>`,
+      html,
     });
 
     if (!emailSent) {
@@ -161,7 +166,6 @@ export class AuthService {
 
     const createdUser = await this.userService.createUser({
       email,
-      provider: 'local',
       firstName,
       lastName,
       ...user,
@@ -183,7 +187,7 @@ export class AuthService {
     const user = await this.verificationService.validateMagicLink(token);
 
     if (!user) {
-      throw new UnauthorizedException('Invalid or expired magic link');
+      throw new UnauthorizedException('Invalid or expired link');
     }
 
     const pendingUser = await this.redisService.hget(`user:${user.email}`);
