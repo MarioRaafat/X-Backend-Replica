@@ -34,7 +34,6 @@ export class UserService {
   async createUser(createUserDto: CreateUserDto): Promise<User> {
     const user = new User({
       ...createUserDto,
-      verified: createUserDto.verified || false,
     });
     return await this.userRepository.save(user);
   }

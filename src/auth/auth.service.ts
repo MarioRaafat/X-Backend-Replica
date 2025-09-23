@@ -22,6 +22,9 @@ import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
+import { ConfigService } from '@nestjs/config';
+import { getVerificationEmailTemplate } from 'src/templates/email-verification';
+import { API_URL } from 'src/common/constants';
 import { instanceToPlain } from 'class-transformer';
 
 @Injectable()
@@ -33,6 +36,7 @@ export class AuthService {
     private readonly verificationService: VerificationService,
     private readonly emailService: EmailService,
     private readonly captchaService: CaptchaService,
+    private readonly configService: ConfigService,
   ) {}
 
   async generateTokens(id: string) {
@@ -57,17 +61,24 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const { confirmPassword, password, captchaToken, ...registerUser } =
+    const { email, confirmPassword, password, captchaToken, ...registerUser } =
       registerDto;
 
-    // Verify CAPTCHA first (comment that in case you want to test the endpoint)
-    // try {
-    //   await this.captchaService.validateCaptcha(captchaToken);
-    // } catch (error) {
-    //   throw new BadRequestException(
-    //     'CAPTCHA verification failed. Please try again.',
-    //   );
-    // }
+//     Verify CAPTCHA first (comment that in case you want to test the endpoint)
+    try {
+      await this.captchaService.validateCaptcha(captchaToken);
+    } catch (error) {
+      throw new BadRequestException(
+        'CAPTCHA verification failed. Please try again.',
+      );
+    }
+
+    // Check if email is under verification process
+    const pendingUser = await this.redisService.hget(`user:${email}`);
+
+    if (pendingUser) {
+      throw new ConflictException('Email already exists');
+    }
 
     // Check if email is in use
     const existingUser = await this.userService.findUserByEmail(
@@ -86,65 +97,62 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await this.userService.createUser({
-      ...registerUser,
-      password: hashedPassword,
-      provider: 'local',
-      verified: false,
-    });
+
+    await this.redisService.hset(
+      `user:${email}`,
+      {
+        ...registerUser,
+        password: hashedPassword,
+      },
+      this.configService.get('PENDING_USER_EXPIRATION_TIME') || 3600,
+    );
 
     // Send verification email
-    const sendEmailRes = await this.generateEmailVerification(user.id);
-
+    await this.generateEmailVerification(email);
     return {
-      email: sendEmailRes.success,
-      userId: user.id,
+      email: true,
     };
   }
 
-  async generateEmailVerification(userId: string) {
-    const user = await this.userService.findUserById(userId);
+  async generateEmailVerification(email: string) {
+    const user = await this.redisService.hget(`user:${email}`);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found or already verified');
     }
 
-    if (user.verified) {
-      throw new UnprocessableEntityException('Account already verified');
-    }
+    const otp = await this.verificationService.generateOtp(email, 'email');
 
-    const otp = await this.verificationService.generateOtp(user.id, 'email');
+    const magicLink = await this.verificationService.generateMagicLink(
+      email,
+      `${API_URL}/auth/not-me`,
+    );
 
-    // don't forget to change "MyApp"
+    const html = getVerificationEmailTemplate({
+      firstName: user.firstName,
+      otp,
+      magicLink,
+    });
+
     const emailSent = await this.emailService.sendEmail({
-      subject: 'MyApp - Account Verification',
-      recipients: [{ name: user.firstName ?? '', address: user.email }],
-      html: `<p>Hi${user.firstName ? ' ' + user.firstName : ''},</p><p>You may verify your MyApp account using the following OTP: <br /><span style="font-size:24px; font-weight: 700;">${otp}</span></p><p>Regards,<br />MyApp</p>`,
+      subject: 'El Sab3 - Account Verification',
+      recipients: [{ name: user.firstName ?? '', address: email }],
+      html,
     });
 
     if (!emailSent) {
       throw new InternalServerErrorException('Failed to send OTP email');
     }
-
-    return {
-      success: emailSent.success,
-      message: 'Verification OTP sent to email',
-    };
   }
 
-  async verifyEmail(userId: string, token: string) {
-    const user = await this.userService.findUserById(userId);
-
+  async verifyEmail(email: string, token: string) {
+    const user = await this.redisService.hget(`user:${email}`);
     if (!user) {
-      throw new NotFoundException('User not found');
-    }
-
-    if (user.verified) {
-      throw new UnprocessableEntityException('Account already verified');
+      throw new NotFoundException('User not found or already verified');
     }
 
     const isValid = await this.verificationService.validateOtp(
-      userId,
+      email,
       token,
       'email',
     );
@@ -153,11 +161,44 @@ export class AuthService {
       throw new UnprocessableEntityException('Expired or incorrect token');
     }
 
-    await this.userService.updateUser(userId, { verified: true });
+    const firstName = user.firstName;
+    const lastName = user.lastName;
+
+    const createdUser = await this.userService.createUser({
+      email,
+      firstName,
+      lastName,
+      ...user,
+    });
+
+    if (!createdUser) {
+      throw new InternalServerErrorException('Failed to save user to database');
+    }
+
+    await this.redisService.del(`user:${email}`);
 
     return {
-      success: true,
+      userId: createdUser.id,
     };
+  }
+
+  async handleNotMe(token: string) {
+    const user = await this.verificationService.validateMagicLink(token);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired link');
+    }
+
+    const pendingUser = await this.redisService.hget(`user:${user.email}`);
+
+    if (!pendingUser) {
+      throw new BadRequestException('Account was already verified');
+    }
+
+    await this.redisService.del(`user:${user.email}`);
+    await this.redisService.del(`otp:email:${user.email}`);
+
+    return { message: 'deleted account successfully' };
   }
 
   async validateUser(email: string, password: string): Promise<string> {
@@ -236,7 +277,6 @@ export class AuthService {
         const updatedUser = await this.userService.updateUser(user.id, {
           googleId: googleUser.googleId,
           avatarUrl: googleUser.avatarUrl,
-          verified: true,
         });
 
         if (!updatedUser) {
@@ -255,7 +295,6 @@ export class AuthService {
       googleId: googleUser.googleId,
       password: '',
       phoneNumber: '',
-      verified: true,
     });
   }
 
@@ -276,7 +315,6 @@ export class AuthService {
         const updatedUser = await this.userService.updateUser(user.id, {
           facebookId: facebookUser.facebookId,
           avatarUrl: facebookUser.avatarUrl,
-          verified: true,
         });
 
         if (!updatedUser) {
@@ -292,10 +330,7 @@ export class AuthService {
       firstName: facebookUser.firstName,
       lastName: facebookUser.lastName,
       facebookId: facebookUser.facebookId,
-
       avatarUrl: facebookUser.avatarUrl,
-
-      verified: true,
       phoneNumber: '',
       password: '', // No password for OAuth users
     });
@@ -315,7 +350,6 @@ export class AuthService {
       const updatedUser = await this.userService.updateUser(user.id, {
         githubId: githubData.githubId,
         avatarUrl: githubData.avatarUrl,
-        verified: true,
       });
 
       if (!updatedUser) {
@@ -331,7 +365,6 @@ export class AuthService {
       lastName: githubData.lastName,
       githubId: githubData.githubId,
       avatarUrl: githubData.avatarUrl,
-      verified: true, // GitHub emails are pre-verified
       phoneNumber: '', // Will be filled later if needed
       password: undefined, // No password for OAuth users
     });

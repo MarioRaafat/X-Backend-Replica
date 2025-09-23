@@ -19,11 +19,8 @@ export class User {
   @Column({ type: 'varchar' })
   lastName: string;
 
-  @Column({ type: 'varchar' }) // why not unique?
+  @Column({ type: 'varchar' })
   phoneNumber: string;
-
-  @Column({ type: 'bool', default: false })
-  verified: boolean;
 
   @Column({ type: 'varchar', nullable: true })
   githubId?: string;

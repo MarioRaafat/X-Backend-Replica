@@ -32,7 +32,7 @@ export class RedisService {
     ttlSeconds: number = 600,
   ) {
     await this.redis.hset(key, value);
-    await this.redis.expire(key, ttlSeconds); // Set TTL for the hash
+    await this.redis.expire(key, ttlSeconds);
   }
 
   async hget(key: string): Promise<Record<string, string> | null> {

@@ -2,17 +2,21 @@ import { BadRequestException, Injectable } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { generateRandomOtp } from './utils/otp.util';
 import * as bcrypt from 'bcrypt';
+import { JwtService } from '@nestjs/jwt';
 
 @Injectable()
 export class VerificationService {
-  constructor(private readonly redisService: RedisService) {}
+  constructor(
+    private readonly redisService: RedisService,
+    private readonly jwtService: JwtService,
+  ) {}
 
   async generateOtp(
-    userId: string,
+    email: string,
     type: 'email' | 'password',
     size = 6,
   ): Promise<string> {
-    const recentToken = await this.redisService.hget(`otp:${type}:${userId}`);
+    const recentToken = await this.redisService.hget(`otp:${type}:${email}`);
 
     const now = new Date();
 
@@ -32,7 +36,7 @@ export class VerificationService {
     const otp = generateRandomOtp(size);
     const hashedToken = await bcrypt.hash(otp, 10);
 
-    await this.redisService.hset(`otp:${type}:${userId}`, {
+    await this.redisService.hset(`otp:${type}:${email}`, {
       token: hashedToken,
       createdAt: now.toISOString(),
     });
@@ -41,17 +45,40 @@ export class VerificationService {
   }
 
   async validateOtp(
-    userId: string,
+    email: string,
     token: string,
     type: string,
   ): Promise<boolean> {
-    const validToken = await this.redisService.hget(`otp:${type}:${userId}`);
+    const validToken = await this.redisService.hget(`otp:${type}:${email}`);
 
     if (validToken && (await bcrypt.compare(token, validToken.token))) {
-      await this.redisService.del(`otp:${type}:${userId}`);
+      await this.redisService.del(`otp:${type}:${email}`);
       return true;
     } else {
       return false;
+    }
+  }
+
+  async generateMagicLink(email: string, baseUrl: string): Promise<string> {
+    const payload = { email };
+    const token = await this.jwtService.signAsync(payload, {
+      expiresIn: process.env.MAGIC_LINK_EXPIRATION_TIME,
+      secret: process.env.MAGIC_LINK_SECRET || 'secret-key',
+    });
+
+    return `${baseUrl}?token=${encodeURIComponent(token)}`;
+  }
+
+  async validateMagicLink(token: string): Promise<{ email: string } | null> {
+    try {
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.MAGIC_LINK_SECRET || 'secret-key',
+      });
+
+      return { email: payload.email };
+    } catch (error) {
+      console.log(error);
+      return null;
     }
   }
 }

@@ -12,15 +12,16 @@ export class RegisterDto {
   @ApiProperty({
     description: 'User email',
     example: 'bahgot@gmail.com',
-    format: 'email'
+    format: 'email',
   })
   @IsEmail()
   email: string;
 
   @ApiProperty({
-    description: 'User password - must contain at least one uppercase letter, one lowercase letter, and one number or special character',
+    description:
+      'User password - must contain at least one uppercase letter, one lowercase letter, and one number or special character',
     example: 'Mario0o0o!#$@2252004',
-    minLength: 8
+    minLength: 8,
   })
   @IsNotEmpty()
   @MinLength(8)
@@ -32,14 +33,14 @@ export class RegisterDto {
 
   @ApiProperty({
     description: 'Confirm password - must match the password',
-    example: 'Mario0o0o!#$@2252004'
+    example: 'Mario0o0o!#$@2252004',
   })
   @IsNotEmpty()
   confirmPassword: string;
 
   @ApiProperty({
     description: 'User first name',
-    example: 'Amira'
+    example: 'Amira',
   })
   @IsNotEmpty()
   @IsString()
@@ -47,7 +48,7 @@ export class RegisterDto {
 
   @ApiProperty({
     description: 'User last name',
-    example: 'Alyaa'
+    example: 'Alyaa',
   })
   @IsNotEmpty()
   @IsString()
@@ -55,7 +56,7 @@ export class RegisterDto {
 
   @ApiProperty({
     description: 'User phone number',
-    example: '+1234567890'
+    example: '+1234567890',
   })
   @IsNotEmpty()
   @IsString()
@@ -65,7 +66,7 @@ export class RegisterDto {
   @ApiProperty({
     description: 'reCAPTCHA response token from frontend widget',
     example: '03AGdBq25SxXT-pmSeBXjzScW-EiocHwwpwqJRCAC...',
-    required: true
+    required: true,
   })
   @IsNotEmpty()
   @IsString()

@@ -1,4 +1,4 @@
-import { IsString, IsEmail, IsOptional, IsBoolean } from 'class-validator';
+import { IsString, IsEmail, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class CreateUserDto {
@@ -42,24 +42,6 @@ export class CreateUserDto {
   phoneNumber?: string;
 
   @ApiProperty({
-    description: 'GitHub ID (for OAuth users)',
-    example: '12345678',
-    required: false,
-  })
-  @IsOptional()
-  @IsString()
-  githubId?: string;
-
-  @ApiProperty({
-    description: 'Authentication provider',
-    example: 'local',
-    default: 'local',
-  })
-  @IsOptional()
-  @IsString()
-  provider?: string;
-
-  @ApiProperty({
     description: 'Avatar URL',
     example: 'https://avatars.githubusercontent.com/u/12345?v=4',
     required: false,
@@ -68,14 +50,6 @@ export class CreateUserDto {
   @IsString()
   avatarUrl?: string;
 
-  @ApiProperty({
-    description: 'Email verification status',
-    example: false,
-    default: false,
-  })
-  @IsOptional()
-  @IsBoolean()
-  verified?: boolean;
   @ApiProperty({
     description: 'Facebook ID (for OAuth users)',
     example: '12345678',
@@ -93,4 +67,15 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   googleId?: string;
+  
+  
+
+  @ApiProperty({
+    description: 'GitHub ID (for OAuth users)',
+    example: '12345678',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  githubId?: string;
 }
