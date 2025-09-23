@@ -76,10 +76,20 @@ export class CreateUserDto {
   @IsOptional()
   @IsBoolean()
   verified?: boolean;
-
+  @ApiProperty({
+    description: 'Facebook ID (for OAuth users)',
+    example: '12345678',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   facebookId?: string;
+
+  @ApiProperty({
+    description: 'Google ID (for OAuth users)',
+    example: '123455678',
+    required: false,
+  })
   @IsOptional()
   @IsString()
   googleId?: string;
