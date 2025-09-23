@@ -27,7 +27,6 @@ import { instanceToPlain } from 'class-transformer';
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly entityManager: EntityManager,
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
     private readonly redisService: RedisService,
@@ -62,13 +61,13 @@ export class AuthService {
       registerDto;
 
     // Verify CAPTCHA first (comment that in case you want to test the endpoint)
-    try {
-      await this.captchaService.validateCaptcha(captchaToken);
-    } catch (error) {
-      throw new BadRequestException(
-        'CAPTCHA verification failed. Please try again.',
-      );
-    }
+    // try {
+    //   await this.captchaService.validateCaptcha(captchaToken);
+    // } catch (error) {
+    //   throw new BadRequestException(
+    //     'CAPTCHA verification failed. Please try again.',
+    //   );
+    // }
 
     // Check if email is in use
     const existingUser = await this.userService.findUserByEmail(
@@ -87,21 +86,19 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const registeredUser = await this.userService.createUser({
+    const user = await this.userService.createUser({
       ...registerUser,
       password: hashedPassword,
       provider: 'local',
       verified: false,
     });
 
-    const user = instanceToPlain(registeredUser);
     // Send verification email
     const sendEmailRes = await this.generateEmailVerification(user.id);
 
     return {
-      emailSuccess: sendEmailRes.success,
+      email: sendEmailRes.success,
       userId: user.id,
-      ...user,
     };
   }
 
@@ -295,6 +292,8 @@ export class AuthService {
       firstName: facebookUser.firstName,
       lastName: facebookUser.lastName,
       facebookId: facebookUser.facebookId,
+
+      avatarUrl: facebookUser.avatarUrl,
 
       verified: true,
       phoneNumber: '',
