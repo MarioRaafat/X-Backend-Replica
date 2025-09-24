@@ -15,6 +15,8 @@ import { RegisterDto } from './dto/register.dto';
 import { Body } from '@nestjs/common';
 import { LoginDTO } from './dto/login.dto';
 import { ChangePasswordAuthDTO } from './dto/change-password-auth.dto';
+import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -46,6 +48,9 @@ import {
   refreshTokenSwagger,
   registerUserSwagger,
   verifyEmailSwagger,
+  forgetPasswordSwagger,
+  verifyResetOtpSwagger,
+  resetPasswordSwagger,
 } from './auth.swagger';
 
 @ApiTags('Authentication')
@@ -91,7 +96,7 @@ export class AuthController {
   @ApiResponse(verifyEmailSwagger.responses.success)
   @ApiResponse(verifyEmailSwagger.responses.BadRequest)
   @ResponseMessage('Email verified successfully')
-  @Post('verify-otp')
+  @Post('email/verify-otp')
   async verifyEmail(@Body() body: { email: string; token: string }) {
     const { email, token } = body;
     return this.authService.verifyEmail(email, token);
@@ -167,6 +172,50 @@ export class AuthController {
   async changePassword(@Body() body: ChangePasswordAuthDTO, @GetUserId() userId: string) {
     const { oldPassword, newPassword } = body;
     return this.authService.changePassword(userId, oldPassword, newPassword);
+  }
+
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation(forgetPasswordSwagger.operation)
+  @ApiResponse(forgetPasswordSwagger.responses.success)
+  @ApiResponse(forgetPasswordSwagger.responses.NotFound)
+  @ApiResponse(forgetPasswordSwagger.responses.InternalServerError)
+  @Get('forget-password')
+  @UseGuards(JwtAuthGuard)
+  @ResponseMessage('Password reset OTP sent to your email')
+  async forgetPassword(@GetUserId() userId: string) {
+    return this.authService.sendResetPasswordEmail(userId);
+  }
+
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation(verifyResetOtpSwagger.operation)
+  @ApiBody({ type: VerifyResetOtpDto })  
+  @ApiResponse(verifyResetOtpSwagger.responses.success)
+  @ApiResponse(verifyResetOtpSwagger.responses.BadRequest)
+  @ApiResponse(verifyResetOtpSwagger.responses.NotFound)
+  @Post('password/verify-otp')
+  @ResponseMessage('OTP verified successfully, you can now reset your password')
+  @UseGuards(JwtAuthGuard)
+  async verifyResetPasswordOtp(@Body() body: { token: string }, @GetUserId() userId: string) {
+    const { token } = body;
+    return this.authService.verifyResetPasswordOtp(userId, token);
+  }
+
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation(resetPasswordSwagger.operation)
+  @ApiBody({ type: ResetPasswordDto })
+  @ApiResponse(resetPasswordSwagger.responses.success)
+  @ApiResponse(resetPasswordSwagger.responses.BadRequest)
+  @ApiResponse(resetPasswordSwagger.responses.NotFound)
+  @ApiResponse(resetPasswordSwagger.responses.UnprocessableEntity)
+  @ResponseMessage('Password reset successfully')
+  @UseGuards(JwtAuthGuard)
+  @Post('reset-password')
+  async resetPassword(
+    @GetUserId() userId: string,
+    @Body() body: ResetPasswordDto,
+  ) {
+    const { newPassword, resetToken } = body;
+    return this.authService.resetPassword(userId, newPassword, resetToken);
   }
 
   /* 

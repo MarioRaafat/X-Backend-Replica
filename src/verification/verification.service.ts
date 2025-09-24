@@ -12,11 +12,11 @@ export class VerificationService {
   ) {}
 
   async generateOtp(
-    email: string,
+    identifier: string, // email or userId
     type: 'email' | 'password',
     size = 6,
   ): Promise<string> {
-    const recentToken = await this.redisService.hget(`otp:${type}:${email}`);
+    const recentToken = await this.redisService.hget(`otp:${type}:${identifier}`);
 
     const now = new Date();
 
@@ -36,7 +36,7 @@ export class VerificationService {
     const otp = generateRandomOtp(size);
     const hashedToken = await bcrypt.hash(otp, 10);
 
-    await this.redisService.hset(`otp:${type}:${email}`, {
+    await this.redisService.hset(`otp:${type}:${identifier}`, {
       token: hashedToken,
       createdAt: now.toISOString(),
     });
@@ -45,14 +45,14 @@ export class VerificationService {
   }
 
   async validateOtp(
-    email: string,
+    identifier: string, // email or userId
     token: string,
     type: string,
   ): Promise<boolean> {
-    const validToken = await this.redisService.hget(`otp:${type}:${email}`);
+    const validToken = await this.redisService.hget(`otp:${type}:${identifier}`);
 
     if (validToken && (await bcrypt.compare(token, validToken.token))) {
-      await this.redisService.del(`otp:${type}:${email}`);
+      await this.redisService.del(`otp:${type}:${identifier}`);
       return true;
     } else {
       return false;
@@ -78,6 +78,33 @@ export class VerificationService {
       return { email: payload.email };
     } catch (error) {
       console.log(error);
+      return null;
+    }
+  }
+
+  async generatePasswordResetToken(userId: string): Promise<string> {
+    const payload = { userId, purpose: 'password-reset' };
+    const token = await this.jwtService.signAsync(payload, {
+      expiresIn: process.env.PASSWORD_RESET_TOKEN_EXPIRATION || '15m',
+      secret: process.env.PASSWORD_RESET_TOKEN_SECRET,
+    });
+
+    return token;
+  }
+
+  async validatePasswordResetToken(token: string): Promise<{ userId: string } | null> {
+    try {
+      const payload = await this.jwtService.verifyAsync(token, {
+        secret: process.env.PASSWORD_RESET_TOKEN_SECRET,
+      });
+
+      if (payload.purpose !== 'password-reset') {
+        return null;
+      }
+
+      return { userId: payload.userId };
+    } catch (error) {
+      console.log('Password reset token validation error:', error);
       return null;
     }
   }

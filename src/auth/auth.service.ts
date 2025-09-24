@@ -24,6 +24,7 @@ import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
 import { ConfigService } from '@nestjs/config';
 import { getVerificationEmailTemplate } from 'src/templates/email-verification';
+import { getPasswordResetEmailTemplate } from 'src/templates/password-reset';
 import { API_URL } from 'src/common/constants';
 import { instanceToPlain } from 'class-transformer';
 
@@ -147,6 +148,34 @@ export class AuthService {
     return { isEmailSent: true };
   }
 
+  async sendResetPasswordEmail(userId: string) {
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    
+    const otp = await this.verificationService.generateOtp(userId, 'password');
+    const email = user.email;
+    const userName = email.split('@')[0]; // just for now
+    
+    const html = getPasswordResetEmailTemplate({
+      otp: otp,
+      userName: userName || 'Mario0o0o',
+    });
+
+    const emailSent = await this.emailService.sendEmail({
+      subject: 'Password reset request',
+      recipients: [{ name: user.firstName ?? '', address: email }],
+      html,
+    });
+
+    if (!emailSent) {
+      throw new InternalServerErrorException('Failed to send password reset email');
+    }
+
+    return { isEmailSent: true };
+  }
+
   async verifyEmail(email: string, token: string) {
     const user = await this.redisService.hget(`user:${email}`);
     if (!user) {
@@ -182,6 +211,55 @@ export class AuthService {
     return {
       userId: createdUser.id,
     };
+  }
+
+  async verifyResetPasswordOtp(userId: string, token: string) {
+    const isValid = await this.verificationService.validateOtp(
+      userId,
+      token,
+      'password',
+    );
+
+    if (!isValid) {
+      throw new UnprocessableEntityException('Expired or incorrect token');
+    }
+
+    // Generate secure token for password reset step
+    const resetToken = await this.verificationService.generatePasswordResetToken(userId);
+
+    return { 
+      isValid: true,
+      resetToken // This token will be used in step 3
+    };
+  }
+
+  async resetPassword(userId: string, newPassword: string, token: string) {
+    const tokenData = await this.verificationService.validatePasswordResetToken(token);
+    
+    if (!tokenData) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+    // check that the 2 ids are same
+    if (tokenData.userId !== userId) {
+      throw new UnauthorizedException('Invalid reset token for this user');
+    }
+
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // check if new password is same as old password
+    if (user.password) {
+      const isSamePassword = await bcrypt.compare(newPassword, user.password);
+      if (isSamePassword) {
+        throw new BadRequestException('New password must be different from the current password');
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.userService.updateUserPassword(userId, hashedPassword);
+    return { success: true };
   }
 
   async handleNotMe(token: string) {

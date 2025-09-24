@@ -100,7 +100,10 @@ export const generateOTPSwagger = {
 export const verifyEmailSwagger = {
   operation: {
     summary: 'Verify email with OTP',
-    description: 'Verify user email using the OTP sent to their email address.',
+    description: `
+    Verify user email using the OTP sent to their email address.
+    The target is to check if the user owns the provided email or not by validating the OTP.        
+    `,
   },
 
   body: {
@@ -778,6 +781,157 @@ export const captchaSwagger = {
           },
           count: 1,
           message: 'ReCAPTCHA site key retrieved successfully',
+        },
+      },
+    },
+  },
+};
+
+export const forgetPasswordSwagger = {
+  operation: {
+    summary: 'Request password reset',
+    description:
+      'Initiates password reset process by sending OTP to user\'s email address.',
+  },
+
+  responses: {
+    success: {
+      status: 200,
+      description: 'Password reset email sent successfully',
+      schema: {
+        example: {
+          data: {
+            isEmailSent: true,
+          },
+          count: 1,
+          message: 'Password reset link sent to email',
+        },
+      },
+    },
+    NotFound: {
+      status: 404,
+      description: 'User not found',
+      schema: {
+        example: {
+          message: 'User not found',
+          error: 'Not Found',
+          statusCode: 404,
+        },
+      },
+    },
+    InternalServerError: {
+      status: 500,
+      description: 'Failed to send email',
+      schema: {
+        example: {
+          message: 'Failed to send password reset email',
+          error: 'Internal Server Error',
+          statusCode: 500,
+        },
+      },
+    },
+  },
+};
+
+export const verifyResetOtpSwagger = {
+  operation: {
+    summary: 'Verify password reset OTP',
+    description:
+      'Verifies the OTP code sent to user\'s email for password reset. Step 2 of the password reset flow. Returns a secure reset token for step 3.',
+  },
+
+  responses: {
+    success: {
+      status: 200,
+      description: 'OTP verified successfully, secure reset token generated',
+      schema: {
+        example: {
+          data: {
+            isValid: true,
+            resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
+          },
+          count: 1,
+          message: 'OTP verified successfully, you can now reset your password',
+        },
+      },
+    },
+    BadRequest: {
+      status: 400,
+      description: 'Invalid or expired OTP',
+      schema: {
+        example: {
+          message: 'Expired or incorrect token',
+          error: 'Unprocessable Entity',
+          statusCode: 422,
+        },
+      },
+    },
+    NotFound: {
+      status: 404,
+      description: 'User not found',
+      schema: {
+        example: {
+          message: 'User not found',
+          error: 'Not Found',
+          statusCode: 404,
+        },
+      },
+    },
+  },
+};
+
+export const resetPasswordSwagger = {
+  operation: {
+    summary: 'Reset password with secure token',
+    description:
+      `Final step of password reset flow. Changes user password using the secure reset token from step 2. 
+      Token ensures the person resetting is the same who verified the OTP.`,
+  },
+
+  responses: {
+    success: {
+      status: 200,
+      description: 'Password reset successfully',
+      schema: {
+        example: {
+          data: {
+            success: true,
+          },
+          count: 1,
+          message: 'Password reset successfully',
+        },
+      },
+    },
+    BadRequest: {
+      status: 400,
+      description: 'Validation errors or new password same as current',
+      schema: {
+        example: {
+          message: 'New password must be different from the current password',
+          error: 'Bad Request',
+          statusCode: 400,
+        },
+      },
+    },
+    NotFound: {
+      status: 404,
+      description: 'User not found',
+      schema: {
+        example: {
+          message: 'User not found',
+          error: 'Not Found',
+          statusCode: 404,
+        },
+      },
+    },
+    UnprocessableEntity: {
+      status: 422,
+      description: 'Token expired or invalid',
+      schema: {
+        example: {
+          message: 'Token has expired or is invalid',
+          error: 'Unprocessable Entity',
+          statusCode: 422,
         },
       },
     },
