@@ -14,6 +14,7 @@ import type { Request, Response } from 'express';
 import { RegisterDto } from './dto/register.dto';
 import { Body } from '@nestjs/common';
 import { LoginDTO } from './dto/login.dto';
+import { ChangePasswordAuthDTO } from './dto/change-password-auth.dto';
 import {
   ApiTags,
   ApiOperation,
@@ -22,14 +23,17 @@ import {
   ApiParam,
   ApiCookieAuth,
   ApiQuery,
+  ApiBearerAuth,
 } from '@nestjs/swagger';
 import { GitHubAuthGuard } from './guards/github.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook.guard';
-import { error } from 'console';
+import { JwtAuthGuard } from './guards/jwt.guard';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
+import { GetUserId } from 'src/decorators/get-userId.decorator';
 import {
   captchaSwagger,
+  changePasswordSwagger,
   facebookCallbackSwagger,
   facebookOauthSwagger,
   generateOTPSwagger,
@@ -38,6 +42,7 @@ import {
   googleCallbackSwagger,
   googleOauthSwagger,
   loginSwagger,
+  notMeSwagger,
   refreshTokenSwagger,
   registerUserSwagger,
   verifyEmailSwagger,
@@ -68,21 +73,19 @@ export class AuthController {
     return this.authService.register(registerDto);
   }
 
-  // edit swagger doc (no userId, no param) use body and email instead
   @ApiOperation(generateOTPSwagger.operation)
-  @ApiParam(generateOTPSwagger.params)
+  @ApiBody(generateOTPSwagger.body)
   @ApiResponse(generateOTPSwagger.responses.success)
   @ApiResponse(generateOTPSwagger.responses.NotFound)
   @ResponseMessage('OTP generated and sent successfully')
-  @Post('send-otp')
+  @Post('resend-otp')
   async generateEmailVerification(@Body() body: {
     email: string
   }) {
     const { email } = body;
     return this.authService.generateEmailVerification(email);
   }
-  
-  // check swagger doc
+
   @ApiOperation(verifyEmailSwagger.operation)
   @ApiBody(verifyEmailSwagger.body)
   @ApiResponse(verifyEmailSwagger.responses.success)
@@ -94,49 +97,18 @@ export class AuthController {
     return this.authService.verifyEmail(email, token);
   }
 
-  @ApiOperation({
-    summary: 'Verify a "Not Me" report for unauthorized email access',
-    description:
-      'Verifies a JWT token provided via a magic link to confirm that a user did not trigger email verification and delete the account.',
-  })
+  @ApiOperation(notMeSwagger.operation)
   @ApiQuery({
     name: 'token',
     type: String,
     required: true,
-    description: 'The JWT token from the magic link sent to the user’s email.',
+    description: 'The JWT token from the link sent to the user’s email.',
     example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
   })
-  @ApiResponse({
-    status: 200,
-    description: 'User deleted successfully',
-    schema: {
-      example: {
-        message: 'User deleted successfully',
-      },
-    },
-  })
-  @ApiResponse({
-    status: 401,
-    description: 'Invalid or expired magic link.',
-    schema: {
-      example: {
-        message: 'Invalid or expired magic link',
-        error: 'Unauthorized',
-        statusCode: 401,
-      },
-    },
-  })
-  @ApiResponse({
-    status: 400,
-    description: 'Account was already verified',
-    schema: {
-      example: {
-        message: 'Account was already verified',
-        error: 'Bad Request',
-        statusCode: 400,
-      },
-    },
-  })
+  @ApiResponse(notMeSwagger.responses.success)
+  @ApiResponse(notMeSwagger.responses.Unauthorized)
+  @ApiResponse(notMeSwagger.responses.BadRequest)
+  @ResponseMessage('Account successfully removed due to unauthorized access report')
   @Get('not-me')
   async handleNotMe(@Query('token') token: string) {
     return this.authService.handleNotMe(token);
@@ -179,6 +151,22 @@ export class AuthController {
       await this.authService.refresh(refreshToken);
     this.httpnOnlyRefreshToken(response, refresh_token);
     return { access_token };
+  }
+
+
+  @ApiOperation(changePasswordSwagger.operation)
+  @ApiBearerAuth('JWT-auth')
+  @ApiBody({ type: ChangePasswordAuthDTO })
+  @ApiResponse(changePasswordSwagger.responses.success)
+  @ApiResponse(changePasswordSwagger.responses.BadRequest)
+  @ApiResponse(changePasswordSwagger.responses.Unauthorized)
+  @ApiResponse(changePasswordSwagger.responses.NotFound)
+  @ResponseMessage('Password changed successfully')
+  @UseGuards(JwtAuthGuard)
+  @Post('change-password')
+  async changePassword(@Body() body: ChangePasswordAuthDTO, @GetUserId() userId: string) {
+    const { oldPassword, newPassword } = body;
+    return this.authService.changePassword(userId, oldPassword, newPassword);
   }
 
   /* 
@@ -295,6 +283,7 @@ export class AuthController {
 
   @ApiOperation(captchaSwagger.operation)
   @ApiResponse(captchaSwagger.responses.success)
+  @ResponseMessage('ReCAPTCHA site key retrieved successfully')
   @Get('captcha/site-key')
   getCaptchaSiteKey() {
     return {

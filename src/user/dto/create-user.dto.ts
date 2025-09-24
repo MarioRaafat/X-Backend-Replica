@@ -67,8 +67,6 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   googleId?: string;
-  
-  
 
   @ApiProperty({
     description: 'GitHub ID (for OAuth users)',

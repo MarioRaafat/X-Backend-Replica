@@ -13,20 +13,7 @@ export const registerUserSwagger = {
       schema: {
         example: {
           data: {
-            emailSuccess: true,
-            userId: 'cce37b13-d6de-48cd-b746-df2648457a46',
-            message: 'User registered successfully',
-            id: 'cce37b13-d6de-48cd-b746-df2648457a46',
-            email: 'amirakhaled928@gmail.com',
-            firstName: 'Amira',
-            lastName: 'Khalid',
-            phoneNumber: '+201143126545',
-            verified: false,
-            githubId: null,
-            facebookId: null,
-            googleId: null,
-            avatarUrl: null,
-            provider: 'local',
+            isEmailSent: true,
           },
           count: 1,
           message: 'User successfully registered. Check email for verification',
@@ -66,11 +53,19 @@ export const generateOTPSwagger = {
       "Generate and send a new email verification OTP to the user's email.",
   },
 
-  params: {
-    name: 'userId',
-    description: 'User ID to generate OTP for',
-    type: 'string',
-    example: '62dd7691-a048-46e4-8579-43278e1a35b6',
+  body: {
+    description: 'email to send the OTP code',
+    schema: {
+      type: 'object',
+      properties: {
+        email: {
+          type: 'string',
+          description: 'email',
+          example: 'mario0o0o@gmail.com',
+        },
+      },
+      required: ['email'],
+    },
   },
 
   responses: {
@@ -80,7 +75,7 @@ export const generateOTPSwagger = {
       schema: {
         example: {
           data: {
-            success: true,
+            isEmailSent: true,
           },
           count: 1,
           message: 'Verification OTP sent to email',
@@ -107,15 +102,16 @@ export const verifyEmailSwagger = {
     summary: 'Verify email with OTP',
     description: 'Verify user email using the OTP sent to their email address.',
   },
+
   body: {
     description: 'Verification data',
     schema: {
       type: 'object',
       properties: {
-        userId: {
+        email: {
           type: 'string',
-          description: 'User ID',
-          example: 'f3199dfb-8eaf-49c1-b07d-b532d6bfb3f1',
+          description: 'email that the OTP was sent to',
+          example: 'Amiraa@gmail.com',
         },
         token: {
           type: 'string',
@@ -123,7 +119,7 @@ export const verifyEmailSwagger = {
           example: '123456',
         },
       },
-      required: ['userId', 'token'],
+      required: ['email', 'token'],
     },
   },
 
@@ -134,7 +130,7 @@ export const verifyEmailSwagger = {
       schema: {
         example: {
           data: {
-            success: true,
+            userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
           },
           count: 1,
           message: 'Email verified successfully',
@@ -178,7 +174,6 @@ export const loginSwagger = {
               firstName: 'Amira',
               lastName: 'Khalid',
               phoneNumber: '+201143126545',
-              verified: false,
               githubId: null,
               facebookId: null,
               googleId: null,
@@ -639,6 +634,132 @@ export const githubCallbackSwagger = {
   },
 };
 
+export const notMeSwagger = {
+  operation: {
+    summary: 'Verify "Not Me" Report for Unauthorized Email Access',
+    description: `
+      **⚠️ Important: This endpoint cannot be tested in Swagger UI**
+      
+      **How it works:**
+      1. User receives an email verification request they didn't initiate
+      2. Email contains a "This wasn't me" link with a JWT token
+      3. Clicking the link calls this endpoint with the token
+      4. If valid, the system deletes the unverified user account
+      5. User is redirected to a confirmation page
+      
+      **What this endpoint does:**
+      - Verifies the JWT token from the link (not me)
+      - Confirms that the user did not trigger the email verification
+      - Deletes the unverified user account to prevent unauthorized access
+      - Returns confirmation of account deletion
+      
+      **Token format:** JWT containing user information and expiration
+      
+      **This endpoint is automatically called from email links - Do not call manually**
+      `,
+  },
+
+  responses: {
+    success: {
+      status: 200,
+      description: 'User account deleted successfully',
+      schema: {
+        example: {
+          data: {
+            message: 'User deleted successfully',
+          },
+          count: 1,
+          message: 'Account successfully removed due to unauthorized access report',
+        },
+      },
+    },
+
+    Unauthorized: {
+      status: 401,
+      description: 'Invalid or expired not me link token',
+      schema: {
+        example: {
+          message: 'Invalid or expired not me link',
+          error: 'Unauthorized',
+          statusCode: 401,
+        },
+      },
+    },
+
+    BadRequest: {
+      status: 400,
+      description: 'Account was already verified or other validation error',
+      schema: {
+        example: {
+          message: 'Account was already verified',
+          error: 'Bad Request',
+          statusCode: 400,
+        },
+      },
+    },
+  },
+};
+
+export const changePasswordSwagger = {
+  operation: {
+    summary: 'Change user password',
+    description:
+      'Change the authenticated user\'s password. Requires current password validation and JWT authentication.',
+  },
+
+  responses: {
+    success: {
+      status: 200,
+      description: 'Password changed successfully',
+      schema: {
+        example: {
+          data: {
+            success: true,
+          },
+          count: 1,
+          message: 'Password changed successfully',
+        },
+      },
+    },
+
+    BadRequest: {
+      status: 400,
+      description: 'Bad request - validation errors or same password',
+      schema: {
+        example: {
+          message: 'New password must be different from the old password',
+          error: 'Bad Request',
+          statusCode: 400,
+        },
+      },
+    },
+
+    Unauthorized: {
+      status: 401,
+      description: 'Unauthorized - invalid token or wrong current password',
+      schema: {
+        example: {
+          message: 'Wrong password',
+          error: 'Unauthorized',
+          statusCode: 401,
+        },
+      },
+    },
+
+    NotFound: {
+      status: 404,
+      description: 'User not found',
+      schema: {
+        example: {
+          message: 'User not found',
+          error: 'Not Found',
+          statusCode: 404,
+        },
+      },
+    },
+  },
+};
+
 export const captchaSwagger = {
   operation: {
     summary: 'Get reCAPTCHA site key',
@@ -652,7 +773,11 @@ export const captchaSwagger = {
       description: 'reCAPTCHA site key returned successfully',
       schema: {
         example: {
-          siteKey: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
+          data: {
+            siteKey: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
+          },
+          count: 1,
+          message: 'ReCAPTCHA site key retrieved successfully',
         },
       },
     },

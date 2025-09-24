@@ -42,4 +42,9 @@ export class UserService {
     await this.userRepository.update(id, updateData);
     return await this.findUserById(id);
   }
+
+  async updateUserPassword(id: string, newPassword: string) {
+    await this.userRepository.update(id, { password: newPassword });
+    return await this.findUserById(id);
+  }
 }

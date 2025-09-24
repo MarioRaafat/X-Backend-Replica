@@ -1,4 +1,4 @@
-export function getVerificationEmailTemplate({ firstName, otp, magicLink }) {
+export function getVerificationEmailTemplate({ firstName, otp, notMeLink }) {
   return `
    <!DOCTYPE html>
     <html lang="en">
@@ -17,7 +17,7 @@ export function getVerificationEmailTemplate({ firstName, otp, magicLink }) {
               <span style="font-size: 24px; font-weight: 700;">${otp}</span>
             </p>
             <p style="margin: 36px 0;">
-              <a href="${magicLink}" style="background-color: #4287f5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">It's not me</a>
+              <a href="${notMeLink}" style="background-color: #4287f5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">It's not me</a>
             </p>
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>

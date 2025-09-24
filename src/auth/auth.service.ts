@@ -64,7 +64,7 @@ export class AuthService {
     const { email, confirmPassword, password, captchaToken, ...registerUser } =
       registerDto;
 
-//     Verify CAPTCHA first (comment that in case you want to test the endpoint)
+    // Verify CAPTCHA first (comment that in case you want to test the endpoint)
     try {
       await this.captchaService.validateCaptcha(captchaToken);
     } catch (error) {
@@ -110,7 +110,7 @@ export class AuthService {
     // Send verification email
     await this.generateEmailVerification(email);
     return {
-      email: true,
+      isEmailSent: true,
     };
   }
 
@@ -123,7 +123,7 @@ export class AuthService {
 
     const otp = await this.verificationService.generateOtp(email, 'email');
 
-    const magicLink = await this.verificationService.generateMagicLink(
+    const notMeLink = await this.verificationService.generateNotMeLink(
       email,
       `${API_URL}/auth/not-me`,
     );
@@ -131,7 +131,7 @@ export class AuthService {
     const html = getVerificationEmailTemplate({
       firstName: user.firstName,
       otp,
-      magicLink,
+      notMeLink,
     });
 
     const emailSent = await this.emailService.sendEmail({
@@ -143,6 +143,8 @@ export class AuthService {
     if (!emailSent) {
       throw new InternalServerErrorException('Failed to send OTP email');
     }
+
+    return { isEmailSent: true };
   }
 
   async verifyEmail(email: string, token: string) {
@@ -183,7 +185,7 @@ export class AuthService {
   }
 
   async handleNotMe(token: string) {
-    const user = await this.verificationService.validateMagicLink(token);
+    const user = await this.verificationService.validateNotMeLink(token);
 
     if (!user) {
       throw new UnauthorizedException('Invalid or expired link');
@@ -204,10 +206,13 @@ export class AuthService {
   async validateUser(email: string, password: string): Promise<string> {
     const user = await this.userService.findUserByEmail(email);
     if (!user)
-      throw new UnauthorizedException('Something wrong with email or password');
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid)
-      throw new UnauthorizedException('Something wrong with email or password');
+      throw new NotFoundException('User not found');
+
+    if (user.password) {
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid)
+        throw new UnauthorizedException('Wrong password');
+    }
     return user.id;
   }
 
@@ -220,6 +225,34 @@ export class AuthService {
     const { access_token, refresh_token } = await this.generateTokens(id);
 
     return { user, access_token, refresh_token };
+  }
+
+  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+    if (newPassword === oldPassword) {
+      throw new BadRequestException(
+        'New password must be different from the old password',
+      );
+    }
+
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // for now, I will ignore users without password (OAuth users)
+    if (user.password) {
+      const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Wrong password');
+      }
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await this.userService.updateUserPassword(userId, hashedNewPassword);
+
+    return {
+      success: true,
+    }
   }
 
   async refresh(token: string) {

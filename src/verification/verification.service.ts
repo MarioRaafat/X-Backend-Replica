@@ -59,20 +59,20 @@ export class VerificationService {
     }
   }
 
-  async generateMagicLink(email: string, baseUrl: string): Promise<string> {
+  async generateNotMeLink(email: string, baseUrl: string): Promise<string> {
     const payload = { email };
     const token = await this.jwtService.signAsync(payload, {
-      expiresIn: process.env.MAGIC_LINK_EXPIRATION_TIME,
-      secret: process.env.MAGIC_LINK_SECRET || 'secret-key',
+      expiresIn: process.env.NOT_ME_LINK_EXPIRATION_TIME || '15m',
+      secret: process.env.NOT_ME_LINK_SECRET || 'secret-key',
     });
 
     return `${baseUrl}?token=${encodeURIComponent(token)}`;
   }
 
-  async validateMagicLink(token: string): Promise<{ email: string } | null> {
+  async validateNotMeLink(token: string): Promise<{ email: string } | null> {
     try {
       const payload = await this.jwtService.verifyAsync(token, {
-        secret: process.env.MAGIC_LINK_SECRET || 'secret-key',
+        secret: process.env.NOT_ME_LINK_SECRET || 'secret-key',
       });
 
       return { email: payload.email };
