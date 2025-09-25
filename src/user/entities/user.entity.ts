@@ -1,3 +1,4 @@
+import { Exclude } from 'class-transformer';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
@@ -9,6 +10,7 @@ export class User {
   email: string;
 
   @Column({ type: 'varchar', nullable: true })
+  @Exclude()
   password: string;
 
   @Column({ type: 'varchar' })
@@ -17,11 +19,8 @@ export class User {
   @Column({ type: 'varchar' })
   lastName: string;
 
-  @Column({ type: 'varchar' }) // why not unique?
+  @Column({ type: 'varchar' })
   phoneNumber: string;
-
-  @Column({ type: 'bool', default: false })
-  verified: boolean;
 
   @Column({ type: 'varchar', nullable: true })
   githubId?: string;

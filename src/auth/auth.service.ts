@@ -23,17 +23,22 @@ import * as crypto from 'crypto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
 import { Response } from 'express';
+import { ConfigService } from '@nestjs/config';
+import { getVerificationEmailTemplate } from 'src/templates/email-verification';
+import { getPasswordResetEmailTemplate } from 'src/templates/password-reset';
+import { API_URL } from 'src/common/constants';
+import { instanceToPlain } from 'class-transformer';
 
 @Injectable()
 export class AuthService {
   constructor(
-    private readonly entityManager: EntityManager,
     private readonly jwtService: JwtService,
     private readonly userService: UserService,
     private readonly redisService: RedisService,
     private readonly verificationService: VerificationService,
     private readonly emailService: EmailService,
     private readonly captchaService: CaptchaService,
+    private readonly configService: ConfigService,
   ) {}
 
   async generateTokens(id: string) {
@@ -118,7 +123,7 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const { confirmPassword, password, captchaToken, ...registerUser } =
+    const { email, confirmPassword, password, captchaToken, ...registerUser } =
       registerDto;
 
     // Verify CAPTCHA first (comment that in case you want to test the endpoint)
@@ -128,6 +133,13 @@ export class AuthService {
       throw new BadRequestException(
         'CAPTCHA verification failed. Please try again.',
       );
+    }
+
+    // Check if email is under verification process
+    const pendingUser = await this.redisService.hget(`user:${email}`);
+
+    if (pendingUser) {
+      throw new ConflictException('Email already exists');
     }
 
     // Check if email is in use
@@ -147,66 +159,92 @@ export class AuthService {
     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
-    const user = await this.userService.createUser({
-      ...registerUser,
-      password: hashedPassword,
-      provider: 'local',
-      verified: false,
-    });
+
+    await this.redisService.hset(
+      `user:${email}`,
+      {
+        ...registerUser,
+        password: hashedPassword,
+      },
+      this.configService.get('PENDING_USER_EXPIRATION_TIME') || 3600,
+    );
 
     // Send verification email
-    const sendEmailRes = await this.generateEmailVerification(user.id);
-
+    await this.generateEmailVerification(email);
     return {
-      email: sendEmailRes.success,
-      userId: user.id,
-      message: 'User registered successfully',
+      isEmailSent: true,
     };
   }
 
-  async generateEmailVerification(userId: string) {
-    const user = await this.userService.findUserById(userId);
+  async generateEmailVerification(email: string) {
+    const user = await this.redisService.hget(`user:${email}`);
 
     if (!user) {
-      throw new NotFoundException('User not found');
+      throw new NotFoundException('User not found or already verified');
     }
 
-    if (user.verified) {
-      throw new UnprocessableEntityException('Account already verified');
-    }
+    const otp = await this.verificationService.generateOtp(email, 'email');
 
-    const otp = await this.verificationService.generateOtp(user.id, 'email');
+    const notMeLink = await this.verificationService.generateNotMeLink(
+      email,
+      `${API_URL}/auth/not-me`,
+    );
 
-    // don't forget to change "MyApp"
+    const html = getVerificationEmailTemplate({
+      otp,
+    });
+
     const emailSent = await this.emailService.sendEmail({
-      subject: 'MyApp - Account Verification',
-      recipients: [{ name: user.firstName ?? '', address: user.email }],
-      html: `<p>Hi${user.firstName ? ' ' + user.firstName : ''},</p><p>You may verify your MyApp account using the following OTP: <br /><span style="font-size:24px; font-weight: 700;">${otp}</span></p><p>Regards,<br />MyApp</p>`,
+      subject: 'El Sab3 - Account Verification',
+      recipients: [{ name: user.firstName ?? '', address: email }],
+      html,
     });
 
     if (!emailSent) {
       throw new InternalServerErrorException('Failed to send OTP email');
     }
 
-    return {
-      success: emailSent.success,
-      message: 'Verification OTP sent to email',
-    };
+    return { isEmailSent: true };
   }
 
-  async verifyEmail(userId: string, token: string) {
+  async sendResetPasswordEmail(userId: string) {
     const user = await this.userService.findUserById(userId);
-
     if (!user) {
       throw new NotFoundException('User not found');
     }
 
-    if (user.verified) {
-      throw new UnprocessableEntityException('Account already verified');
+    const otp = await this.verificationService.generateOtp(userId, 'password');
+    const email = user.email;
+    const userName = email.split('@')[0]; // just for now
+
+    const html = getPasswordResetEmailTemplate({
+      otp: otp,
+      userName: userName || 'Mario0o0o',
+    });
+
+    const emailSent = await this.emailService.sendEmail({
+      subject: 'Password reset request',
+      recipients: [{ name: user.firstName ?? '', address: email }],
+      html,
+    });
+
+    if (!emailSent) {
+      throw new InternalServerErrorException(
+        'Failed to send password reset email',
+      );
+    }
+
+    return { isEmailSent: true };
+  }
+
+  async verifyEmail(email: string, token: string) {
+    const user = await this.redisService.hget(`user:${email}`);
+    if (!user) {
+      throw new NotFoundException('User not found or already verified');
     }
 
     const isValid = await this.verificationService.validateOtp(
-      userId,
+      email,
       token,
       'email',
     );
@@ -215,28 +253,151 @@ export class AuthService {
       throw new UnprocessableEntityException('Expired or incorrect token');
     }
 
-    await this.userService.updateUser(userId, { verified: true });
+    const firstName = user.firstName;
+    const lastName = user.lastName;
+
+    const createdUser = await this.userService.createUser({
+      email,
+      firstName,
+      lastName,
+      ...user,
+    });
+
+    if (!createdUser) {
+      throw new InternalServerErrorException('Failed to save user to database');
+    }
+
+    await this.redisService.del(`user:${email}`);
 
     return {
-      success: true,
-      message: 'Email verified successfully',
+      userId: createdUser.id,
     };
+  }
+
+  async verifyResetPasswordOtp(userId: string, token: string) {
+    const isValid = await this.verificationService.validateOtp(
+      userId,
+      token,
+      'password',
+    );
+
+    if (!isValid) {
+      throw new UnprocessableEntityException('Expired or incorrect token');
+    }
+
+    // Generate secure token for password reset step
+    const resetToken =
+      await this.verificationService.generatePasswordResetToken(userId);
+
+    return {
+      isValid: true,
+      resetToken, // This token will be used in step 3
+    };
+  }
+
+  async resetPassword(userId: string, newPassword: string, token: string) {
+    const tokenData =
+      await this.verificationService.validatePasswordResetToken(token);
+
+    if (!tokenData) {
+      throw new UnauthorizedException('Invalid or expired reset token');
+    }
+    // check that the 2 ids are same
+    if (tokenData.userId !== userId) {
+      throw new UnauthorizedException('Invalid reset token for this user');
+    }
+
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // check if new password is same as old password
+    if (user.password) {
+      const isSamePassword = await bcrypt.compare(newPassword, user.password);
+      if (isSamePassword) {
+        throw new BadRequestException(
+          'New password must be different from the current password',
+        );
+      }
+    }
+
+    const hashedPassword = await bcrypt.hash(newPassword, 10);
+    await this.userService.updateUserPassword(userId, hashedPassword);
+    return { success: true };
+  }
+
+  async handleNotMe(token: string) {
+    const user = await this.verificationService.validateNotMeLink(token);
+
+    if (!user) {
+      throw new UnauthorizedException('Invalid or expired link');
+    }
+
+    const pendingUser = await this.redisService.hget(`user:${user.email}`);
+
+    if (!pendingUser) {
+      throw new BadRequestException('Account was already verified');
+    }
+
+    await this.redisService.del(`user:${user.email}`);
+    await this.redisService.del(`otp:email:${user.email}`);
+
+    return { message: 'deleted account successfully' };
   }
 
   async validateUser(email: string, password: string): Promise<string> {
     const user = await this.userService.findUserByEmail(email);
-    if (!user)
-      throw new UnauthorizedException('Something wrong with email or password');
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid)
-      throw new UnauthorizedException('Something wrong with email or password');
+    if (!user) throw new NotFoundException('User not found');
+
+    if (user.password) {
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+      if (!isPasswordValid) throw new UnauthorizedException('Wrong password');
+    }
     return user.id;
   }
 
   async login(loginDTO: LoginDTO) {
     const id = await this.validateUser(loginDTO.email, loginDTO.password);
 
-    return this.generateTokens(id);
+    const userInstance = await this.userService.findUserById(id);
+    const user = instanceToPlain(userInstance);
+
+    const { access_token, refresh_token } = await this.generateTokens(id);
+
+    return { user, access_token, refresh_token };
+  }
+
+  async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+  ) {
+    if (newPassword === oldPassword) {
+      throw new BadRequestException(
+        'New password must be different from the old password',
+      );
+    }
+
+    const user = await this.userService.findUserById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    // for now, I will ignore users without password (OAuth users)
+    if (user.password) {
+      const isPasswordValid = await bcrypt.compare(oldPassword, user.password);
+      if (!isPasswordValid) {
+        throw new UnauthorizedException('Wrong password');
+      }
+    }
+
+    const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+    await this.userService.updateUserPassword(userId, hashedNewPassword);
+
+    return {
+      success: true,
+    };
   }
 
   async refresh(token: string) {
@@ -270,7 +431,6 @@ export class AuthService {
         const updatedUser = await this.userService.updateUser(user.id, {
           googleId: googleUser.googleId,
           avatarUrl: googleUser.avatarUrl,
-          verified: true,
         });
 
         if (!updatedUser) {
@@ -289,7 +449,6 @@ export class AuthService {
       googleId: googleUser.googleId,
       password: '',
       phoneNumber: '',
-      verified: true,
     });
   }
 
@@ -310,7 +469,6 @@ export class AuthService {
         const updatedUser = await this.userService.updateUser(user.id, {
           facebookId: facebookUser.facebookId,
           avatarUrl: facebookUser.avatarUrl,
-          verified: true,
         });
 
         if (!updatedUser) {
@@ -326,8 +484,7 @@ export class AuthService {
       firstName: facebookUser.firstName,
       lastName: facebookUser.lastName,
       facebookId: facebookUser.facebookId,
-
-      verified: true,
+      avatarUrl: facebookUser.avatarUrl,
       phoneNumber: '',
       password: '', // No password for OAuth users
     });
@@ -347,7 +504,6 @@ export class AuthService {
       const updatedUser = await this.userService.updateUser(user.id, {
         githubId: githubData.githubId,
         avatarUrl: githubData.avatarUrl,
-        verified: true,
       });
 
       if (!updatedUser) {
@@ -363,7 +519,6 @@ export class AuthService {
       lastName: githubData.lastName,
       githubId: githubData.githubId,
       avatarUrl: githubData.avatarUrl,
-      verified: true, // GitHub emails are pre-verified
       phoneNumber: '', // Will be filled later if needed
       password: undefined, // No password for OAuth users
     });
