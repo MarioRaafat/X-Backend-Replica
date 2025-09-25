@@ -22,6 +22,7 @@ import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
+import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { getVerificationEmailTemplate } from 'src/templates/email-verification';
 import { getPasswordResetEmailTemplate } from 'src/templates/password-reset';
@@ -55,10 +56,70 @@ export class AuthService {
       expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
     });
 
+    const ttl = 7 * 24 * 60 * 60; 
+
+    await this.redisService.set(
+      `refresh:${refreshPayload.jti}`,
+      JSON.stringify({ id }),
+      7 * 24 * 60 * 60,
+    );
+
+    await this.redisService.sadd(`user:${id}:refreshTokens`, refreshPayload.jti);
+    await this.redisService.expire(`user:${id}:refreshTokens`, ttl);
+
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
     };
+  }
+
+
+  async logout(refreshToken: string, res: Response) {
+    try {
+      const payload: any = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      await this.redisService.del(`refresh:${payload.jti}`);
+      await this.redisService.srem(`user:${payload.id}:refreshTokens`, payload.jti);
+
+      res.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+      });
+
+      return { message: 'Logged out successfully' };
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async logoutAll(refreshToken: string, res: Response) {
+    try {
+      const payload: any = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      const tokens = await this.redisService.smembers(`user:${payload.id}:refreshTokens`);
+
+      if (tokens.length > 0) {
+        const pipeline = this.redisService.pipeline();
+        tokens.forEach(jti => pipeline.del(`refresh:${jti}`));
+        pipeline.del(`user:${payload.id}:refreshTokens`);
+        await pipeline.exec();
+      }
+
+      res.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+      });
+
+      return { message: 'Logged out from all devices' };
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 
   async register(registerDto: RegisterDto) {
@@ -345,43 +406,19 @@ export class AuthService {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
-      const revoked = await this.redisService.get(
-        `revoked_refresh:${payload.jti}`,
-      );
-      if (revoked) {
-        throw new UnauthorizedException('Refresh token has been revoked');
-      }
+      const exists = await this.redisService.get(`refresh:${payload.jti}`);
+      if (!exists)
+        throw new UnauthorizedException('Refresh token is invalid or expired');
 
-      const newAccessToken = this.jwtService.sign(
-        { id: payload.id },
-        {
-          secret: process.env.JWT_TOKEN_SECRET,
-          expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
-        },
-      );
+      await this.redisService.del(`refresh:${payload.jti}`);
 
-      const newRefreshPayload = { id: payload.id, jti: crypto.randomUUID() };
-      const newRefreshToken = this.jwtService.sign(newRefreshPayload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
-      });
-
-      const expiresIn = payload.exp - Math.floor(Date.now() / 1000);
-      await this.redisService.set(
-        `revoked_refresh:${payload.jti}`,
-        'revoked',
-        expiresIn,
-      );
-
-      return {
-        access_token: newAccessToken,
-        refresh_token: newRefreshToken,
-      };
+      return await this.generateTokens(payload.id);
     } catch (e) {
       console.log(e);
       throw new UnauthorizedException('Invalid refresh token');
     }
   }
+
 
   async validateGoogleUser(googleUser: GoogleLoginDTO) {
     let user = await this.userService.findUserByGoogleId(googleUser.googleId);
