@@ -1,6 +1,9 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
-import { generateRandomOtp } from './utils/otp.util';
+import {
+  generateResetPasswordOtp,
+  generateVerificationOtp,
+} from './utils/otp.util';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 
@@ -16,7 +19,9 @@ export class VerificationService {
     type: 'email' | 'password',
     size = 6,
   ): Promise<string> {
-    const recentToken = await this.redisService.hget(`otp:${type}:${identifier}`);
+    const recentToken = await this.redisService.hget(
+      `otp:${type}:${identifier}`,
+    );
 
     const now = new Date();
 
@@ -33,7 +38,11 @@ export class VerificationService {
       }
     }
 
-    const otp = generateRandomOtp(size);
+    const otp =
+      type == 'email'
+        ? generateVerificationOtp(size)
+        : generateResetPasswordOtp(size);
+
     const hashedToken = await bcrypt.hash(otp, 10);
 
     await this.redisService.hset(`otp:${type}:${identifier}`, {
@@ -49,7 +58,9 @@ export class VerificationService {
     token: string,
     type: string,
   ): Promise<boolean> {
-    const validToken = await this.redisService.hget(`otp:${type}:${identifier}`);
+    const validToken = await this.redisService.hget(
+      `otp:${type}:${identifier}`,
+    );
 
     if (validToken && (await bcrypt.compare(token, validToken.token))) {
       await this.redisService.del(`otp:${type}:${identifier}`);
@@ -92,7 +103,9 @@ export class VerificationService {
     return token;
   }
 
-  async validatePasswordResetToken(token: string): Promise<{ userId: string } | null> {
+  async validatePasswordResetToken(
+    token: string,
+  ): Promise<{ userId: string } | null> {
     try {
       const payload = await this.jwtService.verifyAsync(token, {
         secret: process.env.PASSWORD_RESET_TOKEN_SECRET,

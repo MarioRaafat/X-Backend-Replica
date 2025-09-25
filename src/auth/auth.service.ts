@@ -130,9 +130,7 @@ export class AuthService {
     );
 
     const html = getVerificationEmailTemplate({
-      firstName: user.firstName,
       otp,
-      notMeLink,
     });
 
     const emailSent = await this.emailService.sendEmail({
@@ -153,11 +151,11 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    
+
     const otp = await this.verificationService.generateOtp(userId, 'password');
     const email = user.email;
     const userName = email.split('@')[0]; // just for now
-    
+
     const html = getPasswordResetEmailTemplate({
       otp: otp,
       userName: userName || 'Mario0o0o',
@@ -170,7 +168,9 @@ export class AuthService {
     });
 
     if (!emailSent) {
-      throw new InternalServerErrorException('Failed to send password reset email');
+      throw new InternalServerErrorException(
+        'Failed to send password reset email',
+      );
     }
 
     return { isEmailSent: true };
@@ -225,17 +225,19 @@ export class AuthService {
     }
 
     // Generate secure token for password reset step
-    const resetToken = await this.verificationService.generatePasswordResetToken(userId);
+    const resetToken =
+      await this.verificationService.generatePasswordResetToken(userId);
 
-    return { 
+    return {
       isValid: true,
-      resetToken // This token will be used in step 3
+      resetToken, // This token will be used in step 3
     };
   }
 
   async resetPassword(userId: string, newPassword: string, token: string) {
-    const tokenData = await this.verificationService.validatePasswordResetToken(token);
-    
+    const tokenData =
+      await this.verificationService.validatePasswordResetToken(token);
+
     if (!tokenData) {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
@@ -253,7 +255,9 @@ export class AuthService {
     if (user.password) {
       const isSamePassword = await bcrypt.compare(newPassword, user.password);
       if (isSamePassword) {
-        throw new BadRequestException('New password must be different from the current password');
+        throw new BadRequestException(
+          'New password must be different from the current password',
+        );
       }
     }
 
@@ -283,13 +287,11 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<string> {
     const user = await this.userService.findUserByEmail(email);
-    if (!user)
-      throw new NotFoundException('User not found');
+    if (!user) throw new NotFoundException('User not found');
 
     if (user.password) {
       const isPasswordValid = await bcrypt.compare(password, user.password);
-      if (!isPasswordValid)
-        throw new UnauthorizedException('Wrong password');
+      if (!isPasswordValid) throw new UnauthorizedException('Wrong password');
     }
     return user.id;
   }
@@ -305,7 +307,11 @@ export class AuthService {
     return { user, access_token, refresh_token };
   }
 
-  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+  ) {
     if (newPassword === oldPassword) {
       throw new BadRequestException(
         'New password must be different from the old password',
@@ -330,7 +336,7 @@ export class AuthService {
 
     return {
       success: true,
-    }
+    };
   }
 
   async refresh(token: string) {
