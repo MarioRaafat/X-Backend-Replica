@@ -363,6 +363,10 @@ export class AuthService {
     const userInstance = await this.userService.findUserById(id);
     const user = instanceToPlain(userInstance);
 
+    if(!user) {
+      throw new NotFoundException('User not found');
+    }
+
     const { access_token, refresh_token } = await this.generateTokens(id);
 
     return { user, access_token, refresh_token };

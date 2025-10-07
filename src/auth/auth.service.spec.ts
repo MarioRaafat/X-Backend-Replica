@@ -15,6 +15,7 @@ import { EmailService } from 'src/message/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
 
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -31,6 +32,7 @@ describe('AuthService', () => {
         phoneNumber: '1234567890',
       };
     }),
+    findUserById: jest.fn(), // default: undefined, set in each test as needed
   };
 
   const mockJwtService = { sign: jest.fn() };
@@ -173,7 +175,68 @@ describe('AuthService', () => {
     });
 
   
-});
+  });
 
+ describe('login', () => {
+    it('should return user and tokens on successful login', async () => {
+    const mockTokens = { access_token: 'access', refresh_token: 'refresh' };
+
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      firstName: 'Test',
+      lastName: 'User',
+      phoneNumber: '1234567890',
+    };
+    // Set up findUserById to return mockUser when called with 'user-1'
+    (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce(mockUser);
+    //mock the methods used inside login()
+    jest.spyOn(service, 'generateTokens').mockResolvedValue(mockTokens);
+    jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
+
+    const result = await service.login({email:'test@example.com',password: 'password'});
+
+    expect(service.validateUser).toHaveBeenCalledWith('test@example.com', 'password');
+
+    expect(service.generateTokens).toHaveBeenCalledWith('user-1');
+
+    expect(result).toEqual({
+      user: mockUser,
+      ...mockTokens,
+     });
+    });
+    it('should throw if validateUser throws', async () => {
+      jest.spyOn(service, 'validateUser').mockRejectedValue(new Error('some random failure'));
+
+      await expect(
+        service.login({ email: 'test@example.com', password: 'password' })
+      ).rejects.toThrow(); 
+    });
+
+    it('should throw if findUserById returns null', async () => {
+      jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
+      (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce(null);
+
+      await expect(
+        service.login({ email: 'test@example.com', password: 'password' })
+      ).rejects.toThrow('User not found');
+    });
+
+    it('should throw if generateTokens throws', async () => {
+      jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
+      (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
+        id: 'user-1',
+        email: 'test@example.com',
+        firstName: 'Test',
+        lastName: 'User',
+        phoneNumber: '1234567890',
+      });
+      jest.spyOn(service, 'generateTokens').mockRejectedValue(new Error('token error'));
+
+      await expect(
+        service.login({ email: 'test@example.com', password: 'password' })
+      ).rejects.toThrow();
+    });
+  });
 
 });
