@@ -31,6 +31,7 @@ describe('AuthService', () => {
         firstName: 'Test',
         lastName: 'User',
         phoneNumber: '1234567890',
+      
       };
     }),
     findUserById: jest.fn(), // default: undefined, set in each test as needed
@@ -45,7 +46,9 @@ describe('AuthService', () => {
     sadd: jest.fn(),
     expire: jest.fn(),
     srem: jest.fn(),
-    del: jest.fn(), // Added mock implementation for del
+    del: jest.fn(), 
+    smembers: jest.fn(), 
+    pipeline: jest.fn(),
   };
 
   const mockVerificationService = {};
@@ -384,7 +387,100 @@ describe('AuthService', () => {
       expect(mockRes.clearCookie).not.toHaveBeenCalled();
     });
   });
-  
+
+  describe('logoutAll', () => {
+    let mockRes: any;
+
+    beforeEach(() => {
+      mockRes = { clearCookie: jest.fn() };
+    });
+
+    it('should log out from all devices successfully and clear cookies', async () => {
+      const mockPayload = { id: 'user-1', jti: 'jti-123' };
+      const mockTokens = ['token1', 'token2'];
+
+      // Mock JWT + Redis
+      mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
+      mockRedisService.smembers = jest.fn().mockResolvedValueOnce(mockTokens);
+
+      // Create a mock pipeline
+      const execMock = jest.fn().mockResolvedValueOnce([]);
+      const delMock = jest.fn().mockReturnThis();
+      const mockPipeline = {
+        del: delMock,
+        exec: execMock,
+      };
+
+      mockRedisService.pipeline = jest.fn(() => mockPipeline);
+
+      const result = await service.logoutAll('valid-refresh-token', mockRes as any);
+
+      // Verify verifyAsync was called
+      expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      // Verify Redis operations
+      expect(mockRedisService.smembers).toHaveBeenCalledWith('user:user-1:refreshTokens');
+      expect(mockRedisService.pipeline).toHaveBeenCalled();
+      expect(delMock).toHaveBeenCalledTimes(3); // token1, token2, and the user set
+      expect(execMock).toHaveBeenCalled();
+
+      // Verify cookie clearing
+      expect(mockRes.clearCookie).toHaveBeenCalledWith('refresh_token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+      });
+
+      expect(result).toEqual({ message: 'Logged out from all devices' });
+    });
+
+    it('should do nothing with Redis if user has no refresh tokens', async () => {
+      const mockPayload = { id: 'user-1', jti: 'jti-123' };
+
+      mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
+      mockRedisService.smembers = jest.fn().mockResolvedValueOnce([]);
+      mockRedisService.pipeline = jest.fn();
+
+      const result = await service.logoutAll('valid-refresh-token', mockRes as any);
+
+      expect(mockRedisService.pipeline).not.toHaveBeenCalled();
+      expect(mockRes.clearCookie).toHaveBeenCalled();
+      expect(result).toEqual({ message: 'Logged out from all devices' });
+    });
+
+    it('should throw UnauthorizedException if token is invalid', async () => {
+      mockJwtService.verifyAsync.mockRejectedValueOnce(new Error('Invalid token'));
+
+      await expect(service.logoutAll('invalid-token', mockRes as any)).rejects.toThrow(
+        new UnauthorizedException('Invalid refresh token'),
+      );
+
+      expect(mockRedisService.smembers).not.toHaveBeenCalled();
+      expect(mockRedisService.pipeline).not.toHaveBeenCalled();
+      expect(mockRes.clearCookie).not.toHaveBeenCalled();
+    });
+
+    // it('should throw if Redis pipeline.exec fails', async () => {
+    //   const mockPayload = { id: 'user-1', jti: 'jti-123' };
+    //   const mockTokens = ['token1'];
+
+    //   mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
+    //   mockRedisService.smembers = jest.fn().mockResolvedValueOnce(mockTokens);
+
+    //   const mockPipeline = {
+    //     del: jest.fn().mockReturnThis(),
+    //     exec: jest.fn().mockRejectedValueOnce(new Error('Redis down')),
+    //   };
+    //   mockRedisService.pipeline = jest.fn(() => mockPipeline);
+
+    //   await expect(service.logoutAll('valid-token', mockRes as any)).rejects.toThrow('Redis down');
+
+    //   expect(mockRedisService.pipeline).toHaveBeenCalled();
+    //   expect(mockRes.clearCookie).not.toHaveBeenCalled();
+    // });
+  });
 
 
 
