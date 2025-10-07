@@ -22,6 +22,7 @@ import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
 import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
+import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { getVerificationEmailTemplate } from 'src/templates/email-verification';
 import { getPasswordResetEmailTemplate } from 'src/templates/password-reset';
@@ -55,10 +56,70 @@ export class AuthService {
       expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
     });
 
+    const ttl = 7 * 24 * 60 * 60; 
+
+    await this.redisService.set(
+      `refresh:${refreshPayload.jti}`,
+      JSON.stringify({ id }),
+      7 * 24 * 60 * 60,
+    );
+
+    await this.redisService.sadd(`user:${id}:refreshTokens`, refreshPayload.jti);
+    await this.redisService.expire(`user:${id}:refreshTokens`, ttl);
+
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
     };
+  }
+
+
+  async logout(refreshToken: string, res: Response) {
+    try {
+      const payload: any = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      await this.redisService.del(`refresh:${payload.jti}`);
+      await this.redisService.srem(`user:${payload.id}:refreshTokens`, payload.jti);
+
+      res.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+      });
+
+      return { message: 'Logged out successfully' };
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
+  }
+
+  async logoutAll(refreshToken: string, res: Response) {
+    try {
+      const payload: any = await this.jwtService.verifyAsync(refreshToken, {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      const tokens = await this.redisService.smembers(`user:${payload.id}:refreshTokens`);
+
+      if (tokens.length > 0) {
+        const pipeline = this.redisService.pipeline();
+        tokens.forEach(jti => pipeline.del(`refresh:${jti}`));
+        pipeline.del(`user:${payload.id}:refreshTokens`);
+        await pipeline.exec();
+      }
+
+      res.clearCookie('refresh_token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+      });
+
+      return { message: 'Logged out from all devices' };
+    } catch {
+      throw new UnauthorizedException('Invalid refresh token');
+    }
   }
 
   async register(registerDto: RegisterDto) {
@@ -129,11 +190,11 @@ export class AuthService {
       `${API_URL}/auth/not-me`,
     );
 
-        const html = getVerificationEmailTemplate({
-            first_name: user.firstName,
-            otp,
-            not_me_link: notMeLink,
-        });    const emailSent = await this.emailService.sendEmail({
+    const html = getVerificationEmailTemplate({
+      otp,
+    });
+
+    const emailSent = await this.emailService.sendEmail({
       subject: 'El Sab3 - Account Verification',
       recipients: [{ name: user.firstName ?? '', address: email }],
       html,
@@ -151,22 +212,26 @@ export class AuthService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    
+
     const otp = await this.verificationService.generateOtp(userId, 'password');
     const email = user.email;
     const userName = email.split('@')[0]; // just for now
-    
-        const html = getPasswordResetEmailTemplate({
-            otp: otp,
-            user_name: userName || 'Mario0o0o',
-        });    const emailSent = await this.emailService.sendEmail({
+
+    const html = getPasswordResetEmailTemplate({
+      otp: otp,
+      user_name: userName || 'Mario0o0o',
+    });
+
+    const emailSent = await this.emailService.sendEmail({
       subject: 'Password reset request',
       recipients: [{ name: user.first_name ?? '', address: email }],
       html,
     });
 
     if (!emailSent) {
-      throw new InternalServerErrorException('Failed to send password reset email');
+      throw new InternalServerErrorException(
+        'Failed to send password reset email',
+      );
     }
 
     return { isEmailSent: true };
@@ -221,17 +286,19 @@ export class AuthService {
     }
 
     // Generate secure token for password reset step
-    const resetToken = await this.verificationService.generatePasswordResetToken(userId);
+    const resetToken =
+      await this.verificationService.generatePasswordResetToken(userId);
 
-    return { 
+    return {
       isValid: true,
-      resetToken // This token will be used in step 3
+      resetToken, // This token will be used in step 3
     };
   }
 
   async resetPassword(userId: string, newPassword: string, token: string) {
-    const tokenData = await this.verificationService.validatePasswordResetToken(token);
-    
+    const tokenData =
+      await this.verificationService.validatePasswordResetToken(token);
+
     if (!tokenData) {
       throw new UnauthorizedException('Invalid or expired reset token');
     }
@@ -249,7 +316,9 @@ export class AuthService {
     if (user.password) {
       const isSamePassword = await bcrypt.compare(newPassword, user.password);
       if (isSamePassword) {
-        throw new BadRequestException('New password must be different from the current password');
+        throw new BadRequestException(
+          'New password must be different from the current password',
+        );
       }
     }
 
@@ -315,7 +384,11 @@ export class AuthService {
     return { user, access_token, refresh_token };
   }
 
-  async changePassword(userId: string, oldPassword: string, newPassword: string) {
+  async changePassword(
+    userId: string,
+    oldPassword: string,
+    newPassword: string,
+  ) {
     if (newPassword === oldPassword) {
       throw new BadRequestException(
         'New password must be different from the old password',
@@ -340,7 +413,7 @@ export class AuthService {
 
     return {
       success: true,
-    }
+    };
   }
 
   async refresh(token: string) {
@@ -349,38 +422,13 @@ export class AuthService {
         secret: process.env.JWT_REFRESH_SECRET,
       });
 
-      const revoked = await this.redisService.get(
-        `revoked_refresh:${payload.jti}`,
-      );
-      if (revoked) {
-        throw new UnauthorizedException('Refresh token has been revoked');
-      }
+      const exists = await this.redisService.get(`refresh:${payload.jti}`);
+      if (!exists)
+        throw new UnauthorizedException('Refresh token is invalid or expired');
 
-      const newAccessToken = this.jwtService.sign(
-        { id: payload.id },
-        {
-          secret: process.env.JWT_TOKEN_SECRET,
-          expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
-        },
-      );
+      await this.redisService.del(`refresh:${payload.jti}`);
 
-      const newRefreshPayload = { id: payload.id, jti: crypto.randomUUID() };
-      const newRefreshToken = this.jwtService.sign(newRefreshPayload, {
-        secret: process.env.JWT_REFRESH_SECRET,
-        expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
-      });
-
-      const expiresIn = payload.exp - Math.floor(Date.now() / 1000);
-      await this.redisService.set(
-        `revoked_refresh:${payload.jti}`,
-        'revoked',
-        expiresIn,
-      );
-
-      return {
-        access_token: newAccessToken,
-        refresh_token: newRefreshToken,
-      };
+      return await this.generateTokens(payload.id);
     } catch (e) {
       console.log(e);
       throw new UnauthorizedException('Invalid refresh token');
