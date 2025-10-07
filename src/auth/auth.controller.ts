@@ -170,8 +170,8 @@ export class AuthController {
   @UseGuards(JwtAuthGuard)
   @Post('change-password')
   async changePassword(@Body() body: ChangePasswordAuthDTO, @GetUserId() userId: string) {
-    const { oldPassword, newPassword } = body;
-    return this.authService.changePassword(userId, oldPassword, newPassword);
+    const { old_password, new_password } = body;
+    return this.authService.changePassword(userId, old_password, new_password);
   }
 
   @ApiBearerAuth('JWT-auth')
@@ -214,8 +214,8 @@ export class AuthController {
     @GetUserId() userId: string,
     @Body() body: ResetPasswordDto,
   ) {
-    const { newPassword, resetToken } = body;
-    return this.authService.resetPassword(userId, newPassword, resetToken);
+    const { new_password, reset_token } = body;
+    return this.authService.resetPassword(userId, new_password, reset_token);
   }
 
   /* 

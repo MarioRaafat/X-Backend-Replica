@@ -1,5 +1,5 @@
-export function getVerificationEmailTemplate({ firstName, otp, notMeLink }) {
-  return `
+export function getVerificationEmailTemplate({ first_name, otp, not_me_link }) {
+    return `
    <!DOCTYPE html>
     <html lang="en">
     <head>
@@ -11,13 +11,13 @@ export function getVerificationEmailTemplate({ firstName, otp, notMeLink }) {
       <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border: 1px solid #ddd;">
         <tr>
           <td style="padding: 20px;">
-            <p style="margin: 0 0 15px;">Hi${firstName ? ' ' + firstName : ''},</p>
+            <p style="margin: 0 0 15px;">Hi${first_name ? ' ' + first_name : ''},</p>
             <p style="margin: 0 0 15px;">
               You may verify your El Sab3 account using the following OTP: <br />
               <span style="font-size: 24px; font-weight: 700;">${otp}</span>
             </p>
             <p style="margin: 36px 0;">
-              <a href="${notMeLink}" style="background-color: #4287f5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">It's not me</a>
+              <a href="${not_me_link}" style="background-color: #4287f5; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">It's not me</a>
             </p>
             <table width="100%" cellpadding="0" cellspacing="0">
               <tr>

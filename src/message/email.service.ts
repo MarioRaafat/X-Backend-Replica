@@ -5,50 +5,50 @@ import { SendEmailDto } from './dto/send-email.dto';
 
 @Injectable()
 export class EmailService {
-  private mailTransport: Transporter;
+    private mail_transport: Transporter;
 
-  constructor(private configService: ConfigService) {
-    this.mailTransport = createTransport({
-      host: this.configService.get<string>('EMAIL_HOST', 'smtp.gmail.com'),
-      port: this.configService.get<number>('EMAIL_PORT', 587),
-      secure: this.configService.get<boolean>('EMAIL_SECURE', false),
-      auth: {
-        user: this.configService.get<string>('EMAIL_USER'),
-        pass: this.configService.get<string>('EMAIL_PASS'),
-      },
-      pool: true,
-      maxConnections: 5,
-    });
-  }
-
-  async sendEmail(
-    data: SendEmailDto,
-  ): Promise<{ success: boolean; message: string } | null> {
-    const { sender, recipients, subject, html, text } = data;
-
-    let senderAdd = {
-      name: this.configService.get('EMAIL_FROM_NAME'),
-      address: this.configService.get('EMAIL_USER'),
-    };
-
-    if (sender) {
-      senderAdd = sender;
+    constructor(private config_service: ConfigService) {
+        this.mail_transport = createTransport({
+            host: this.config_service.get<string>('EMAIL_HOST', 'smtp.gmail.com'),
+            port: this.config_service.get<number>('EMAIL_PORT', 587),
+            secure: this.config_service.get<boolean>('EMAIL_SECURE', false),
+            auth: {
+                user: this.config_service.get<string>('EMAIL_USER'),
+                pass: this.config_service.get<string>('EMAIL_PASS'),
+            },
+            pool: true,
+            maxConnections: 5,
+        });
     }
 
-    const mailOptions: SendMailOptions = {
-      from: senderAdd,
-      to: recipients,
-      subject,
-      html,
-      text,
-    };
+    async sendEmail(
+        email_data: SendEmailDto,
+    ): Promise<{ success: boolean; message: string } | null> {
+        const { sender, recipients, subject, html, text } = email_data;
 
-    try {
-      await this.mailTransport.sendMail(mailOptions);
-      return { success: true, message: 'Sending email in a moment' };
-    } catch (error) {
-      console.log(error);
-      return null;
+        let sender_address = {
+            name: this.config_service.get('EMAIL_FROM_NAME'),
+            address: this.config_service.get('EMAIL_USER'),
+        };
+
+        if (sender) {
+            sender_address = sender;
+        }
+
+        const mail_options: SendMailOptions = {
+            from: sender_address,
+            to: recipients,
+            subject,
+            html,
+            text,
+        };
+
+        try {
+            await this.mail_transport.sendMail(mail_options);
+            return { success: true, message: 'Sending email in a moment' };
+        } catch (error) {
+            console.log(error);
+            return null;
+        }
     }
-  }
 }

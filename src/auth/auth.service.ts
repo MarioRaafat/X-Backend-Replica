@@ -62,12 +62,12 @@ export class AuthService {
   }
 
   async register(registerDto: RegisterDto) {
-    const { email, confirmPassword, password, captchaToken, ...registerUser } =
+    const { email, confirm_password, password, captcha_token, ...registerUser } =
       registerDto;
 
     // Verify CAPTCHA first (comment that in case you want to test the endpoint)
     try {
-      await this.captchaService.validateCaptcha(captchaToken);
+      await this.captchaService.validateCaptcha(captcha_token);
     } catch (error) {
       throw new BadRequestException(
         'CAPTCHA verification failed. Please try again.',
@@ -91,7 +91,7 @@ export class AuthService {
     }
 
     // Check that passwords match
-    if (password !== confirmPassword) {
+    if (password !== confirm_password) {
       throw new BadRequestException(
         'Confirmation password must match password',
       );
@@ -129,13 +129,11 @@ export class AuthService {
       `${API_URL}/auth/not-me`,
     );
 
-    const html = getVerificationEmailTemplate({
-      firstName: user.firstName,
-      otp,
-      notMeLink,
-    });
-
-    const emailSent = await this.emailService.sendEmail({
+        const html = getVerificationEmailTemplate({
+            first_name: user.firstName,
+            otp,
+            not_me_link: notMeLink,
+        });    const emailSent = await this.emailService.sendEmail({
       subject: 'El Sab3 - Account Verification',
       recipients: [{ name: user.firstName ?? '', address: email }],
       html,
@@ -158,14 +156,12 @@ export class AuthService {
     const email = user.email;
     const userName = email.split('@')[0]; // just for now
     
-    const html = getPasswordResetEmailTemplate({
-      otp: otp,
-      userName: userName || 'Mario0o0o',
-    });
-
-    const emailSent = await this.emailService.sendEmail({
+        const html = getPasswordResetEmailTemplate({
+            otp: otp,
+            user_name: userName || 'Mario0o0o',
+        });    const emailSent = await this.emailService.sendEmail({
       subject: 'Password reset request',
-      recipients: [{ name: user.firstName ?? '', address: email }],
+      recipients: [{ name: user.first_name ?? '', address: email }],
       html,
     });
 
@@ -192,13 +188,13 @@ export class AuthService {
       throw new UnprocessableEntityException('Expired or incorrect token');
     }
 
-    const firstName = user.firstName;
-    const lastName = user.lastName;
+    const first_name = user.firstName;
+    const last_name = user.lastName;
 
     const createdUser = await this.userService.createUser({
       email,
-      firstName,
-      lastName,
+      first_name,
+      last_name,
       ...user,
     });
 
@@ -283,14 +279,28 @@ export class AuthService {
 
   async validateUser(email: string, password: string): Promise<string> {
     const user = await this.userService.findUserByEmail(email);
-    if (!user)
-      throw new NotFoundException('User not found');
+    if (!user) {
+      const unverifiedUser = await this.redisService.hget(`user:${email}`);
+      if (!unverifiedUser) {
+        throw new NotFoundException('User not found');
+      } else {
+        const isPasswordValid = await bcrypt.compare(password, unverifiedUser.password);
+        if (!isPasswordValid) {
+          throw new UnauthorizedException('Wrong password');
+        } else {
+          throw new UnauthorizedException('Email not verified yet. Please check your inbox.');
+        }
+      }
+    }
 
     if (user.password) {
       const isPasswordValid = await bcrypt.compare(password, user.password);
       if (!isPasswordValid)
         throw new UnauthorizedException('Wrong password');
+    } else {
+      throw new UnauthorizedException('User registered with social login. Please use social login to access your account.');
     }
+
     return user.id;
   }
 
@@ -377,17 +387,17 @@ export class AuthService {
     }
   }
 
-  async validateGoogleUser(googleUser: GoogleLoginDTO) {
-    let user = await this.userService.findUserByGoogleId(googleUser.googleId);
+  async validateGoogleUser(google_user: GoogleLoginDTO) {
+    let user = await this.userService.findUserByGoogleId(google_user.google_id);
 
     if (user) return user;
 
-    if (googleUser.email) {
-      user = await this.userService.findUserByEmail(googleUser.email);
+    if (google_user.email) {
+      user = await this.userService.findUserByEmail(google_user.email);
       if (user) {
         const updatedUser = await this.userService.updateUser(user.id, {
-          googleId: googleUser.googleId,
-          avatarUrl: googleUser.avatarUrl,
+          google_id: google_user.google_id,
+          avatar_url: google_user.avatar_url,
         });
 
         if (!updatedUser) {
@@ -399,19 +409,19 @@ export class AuthService {
     }
 
     return await this.userService.createUser({
-      email: googleUser.email,
-      firstName: googleUser.firstName,
-      lastName: googleUser.lastName,
-      avatarUrl: googleUser.avatarUrl,
-      googleId: googleUser.googleId,
+      email: google_user.email,
+      first_name: google_user.first_name,
+      last_name: google_user.last_name,
+      avatar_url: google_user.avatar_url,
+      google_id: google_user.google_id,
       password: '',
-      phoneNumber: '',
+      phone_number: '',
     });
   }
 
-  async validateFacebookUser(facebookUser: FacebookLoginDTO) {
+  async validateFacebookUser(facebook_user: FacebookLoginDTO) {
     let user = await this.userService.findUserByFacebookId(
-      facebookUser.facebookId,
+      facebook_user.facebook_id,
     );
 
     //user has already signed in with facebook
@@ -420,12 +430,12 @@ export class AuthService {
     }
 
     //user has already signed in with this email, so it is the same record in db
-    if (facebookUser.email) {
-      user = await this.userService.findUserByEmail(facebookUser.email);
+    if (facebook_user.email) {
+      user = await this.userService.findUserByEmail(facebook_user.email);
       if (user) {
         const updatedUser = await this.userService.updateUser(user.id, {
-          facebookId: facebookUser.facebookId,
-          avatarUrl: facebookUser.avatarUrl,
+          facebook_id: facebook_user.facebook_id,
+          avatar_url: facebook_user.avatar_url,
         });
 
         if (!updatedUser) {
@@ -437,12 +447,12 @@ export class AuthService {
     }
 
     return await this.userService.createUser({
-      email: facebookUser.email,
-      firstName: facebookUser.firstName,
-      lastName: facebookUser.lastName,
-      facebookId: facebookUser.facebookId,
-      avatarUrl: facebookUser.avatarUrl,
-      phoneNumber: '',
+      email: facebook_user.email,
+      first_name: facebook_user.first_name,
+      last_name: facebook_user.last_name,
+      facebook_id: facebook_user.facebook_id,
+      avatar_url: facebook_user.avatar_url,
+      phone_number: '',
       password: '', // No password for OAuth users
     });
   }
@@ -450,17 +460,17 @@ export class AuthService {
   /* 
       ######################### GitHub OAuth Routes #########################
   */
-  async findOrCreateGitHubUser(githubData: GitHubUserDto): Promise<User> {
-    let user = await this.userService.findUserByGithubId(githubData.githubId);
+  async validateGitHubUser(github_user: GitHubUserDto): Promise<User> {
+    let user = await this.userService.findUserByGithubId(github_user.github_id);
     if (user) {
       return user;
     }
 
-    user = await this.userService.findUserByEmail(githubData.email);
+    user = await this.userService.findUserByEmail(github_user.email);
     if (user) {
       const updatedUser = await this.userService.updateUser(user.id, {
-        githubId: githubData.githubId,
-        avatarUrl: githubData.avatarUrl,
+        github_id: github_user.github_id,
+        avatar_url: github_user.avatar_url,
       });
 
       if (!updatedUser) {
@@ -471,12 +481,12 @@ export class AuthService {
     }
 
     return await this.userService.createUser({
-      email: githubData.email,
-      firstName: githubData.firstName,
-      lastName: githubData.lastName,
-      githubId: githubData.githubId,
-      avatarUrl: githubData.avatarUrl,
-      phoneNumber: '', // Will be filled later if needed
+      email: github_user.email,
+      first_name: github_user.first_name,
+      last_name: github_user.last_name,
+      github_id: github_user.github_id,
+      avatar_url: github_user.avatar_url,
+      phone_number: '', // Will be filled later if needed
       password: undefined, // No password for OAuth users
     });
   }

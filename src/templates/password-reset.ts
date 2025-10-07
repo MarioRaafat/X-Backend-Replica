@@ -1,7 +1,7 @@
 import { X_LOGO_URL } from '../common/constants';
 
-export function getPasswordResetEmailTemplate({ otp, userName }: { otp: string; userName: string }) {
-  return `
+export function getPasswordResetEmailTemplate({ otp, user_name }: { otp: string; user_name: string }) {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,11 +33,11 @@ export function getPasswordResetEmailTemplate({ otp, userName }: { otp: string; 
       <tr>
         <td style="padding: 0;">
           <table width="100%" cellpadding="0" cellspacing="0">
-            <!-- Header with X logo -->
+            <!-- Header with Yapper logo -->
             <tr>
               <td style="padding: 32px 48px 0 48px; text-align: right;">
                 <div style="width: 40px; height: 40px; background-color: #000000; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
-                  <img src="${X_LOGO_URL}" alt="X" style="width: 40px; height: 40px; filter: brightness(0) invert(1);" />
+                  <img src="${X_LOGO_URL}" alt="Yapper" style="width: 40px; height: 40px; filter: brightness(0) invert(1);" />
                 </div>
               </td>
             </tr>
@@ -50,7 +50,7 @@ export function getPasswordResetEmailTemplate({ otp, userName }: { otp: string; 
                 </h1>
                 
                 <p style="color: #536471; font-size: 16px; line-height: 20px; margin: 0 0 32px 0;">
-                  If you requested a password reset for @${userName}, use the confirmation code below to complete the process. If you didn't make this request, ignore this email.
+                  If you requested a password reset for @${user_name}, use the confirmation code below to complete the process. If you didn't make this request, ignore this email.
                 </p>
                 
                 <!-- OTP Code -->
@@ -84,7 +84,7 @@ export function getPasswordResetEmailTemplate({ otp, userName }: { otp: string; 
                 </p>
                 
                 <p style="color: #8b98a5; font-size: 13px; line-height: 16px; margin: 0 0 8px 0;">
-                  This email was meant for @${userName}
+                  This email was meant for @${user_name}
                 </p>
                 
                 <p style="color: #8b98a5; font-size: 13px; line-height: 16px; margin: 0;">

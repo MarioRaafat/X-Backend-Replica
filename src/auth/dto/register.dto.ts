@@ -36,7 +36,7 @@ export class RegisterDto {
     example: 'Mario0o0o!#$@2252004',
   })
   @IsNotEmpty()
-  confirmPassword: string;
+  confirm_password: string;
 
   @ApiProperty({
     description: 'User first name',
@@ -44,7 +44,7 @@ export class RegisterDto {
   })
   @IsNotEmpty()
   @IsString()
-  firstName: string;
+  first_name: string;
 
   @ApiProperty({
     description: 'User last name',
@@ -52,7 +52,7 @@ export class RegisterDto {
   })
   @IsNotEmpty()
   @IsString()
-  lastName: string;
+  last_name: string;
 
   @ApiProperty({
     description: 'User phone number',
@@ -61,7 +61,7 @@ export class RegisterDto {
   @IsNotEmpty()
   @IsString()
   @IsPhoneNumber()
-  phoneNumber: string;
+  phone_number: string;
 
   @ApiProperty({
     description: 'reCAPTCHA response token from frontend widget',
@@ -70,5 +70,5 @@ export class RegisterDto {
   })
   @IsNotEmpty()
   @IsString()
-  captchaToken: string;
+  captcha_token: string;
 }

@@ -7,44 +7,44 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class UserService {
-  constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
-  ) {}
+    constructor(
+        @InjectRepository(User) private readonly user_repository: Repository<User>,
+    ) {}
 
-  async findUserById(id: string) {
-    return await this.userRepository.findOne({ where: { id } });
-  }
+    async findUserById(id: string) {
+        return await this.user_repository.findOne({ where: { id } });
+    }
 
-  async findUserByEmail(email: string) {
-    return await this.userRepository.findOne({ where: { email } });
-  }
+    async findUserByEmail(email: string) {
+        return await this.user_repository.findOne({ where: { email } });
+    }
 
-  async findUserByGithubId(githubId: string) {
-    return await this.userRepository.findOne({ where: { githubId } });
-  }
+    async findUserByGithubId(github_id: string) {
+        return await this.user_repository.findOne({ where: { github_id: github_id } });
+    }
 
-  async findUserByFacebookId(facebookId: string) {
-    return await this.userRepository.findOne({ where: { facebookId } });
-  }
+    async findUserByFacebookId(facebook_id: string) {
+        return await this.user_repository.findOne({ where: { facebook_id: facebook_id } });
+    }
 
-  async findUserByGoogleId(googleId: string) {
-    return await this.userRepository.findOne({ where: { googleId } });
-  }
+    async findUserByGoogleId(google_id: string) {
+        return await this.user_repository.findOne({ where: { google_id: google_id } });
+    }
 
   async createUser(createUserDto: CreateUserDto): Promise<User> {
     const user = new User({
       ...createUserDto,
     });
-    return await this.userRepository.save(user);
+    return await this.user_repository.save(user);
   }
 
-  async updateUser(id: string, updateData: Partial<User>) {
-    await this.userRepository.update(id, updateData);
-    return await this.findUserById(id);
-  }
+    async updateUser(id: string, update_data: Partial<User>) {
+        await this.user_repository.update(id, update_data);
+        return await this.findUserById(id);
+    }
 
-  async updateUserPassword(id: string, newPassword: string) {
-    await this.userRepository.update(id, { password: newPassword });
-    return await this.findUserById(id);
-  }
+    async updateUserPassword(id: string, new_password: string) {
+        await this.user_repository.update(id, { password: new_password });
+        return await this.findUserById(id);
+    }
 }

@@ -21,36 +21,36 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([User]),
-    JwtModule.registerAsync({
-      imports: [ConfigModule],
-      useFactory: async (configService: ConfigService) => ({
-        secret: configService.get('JWT_TOKEN_SECRET'),
-        signOptions: {
-          expiresIn: configService.get('JWT_TOKEN_EXPIRATION_TIME'),
-        },
-      }),
-      inject: [ConfigService],
-    }),
-    PassportModule,
-    UserModule,
-    RedisModule,
-    VerificationModule,
-    MessageModule,
-  ],
-  controllers: [AuthController],
-  providers: [
-    AuthService,
-    JwtStrategy,
-    GitHubStrategy,
-    UserService,
-    RedisService,
-    VerificationService,
-    EmailService,
-    CaptchaService,
-    GoogleStrategy,
-    FacebookStrategy,
-  ],
+    imports: [
+        TypeOrmModule.forFeature([User]),
+        JwtModule.registerAsync({
+            imports: [ConfigModule],
+            useFactory: async (config_service: ConfigService) => ({
+                secret: config_service.get('JWT_TOKEN_SECRET'),
+                signOptions: {
+                    expiresIn: config_service.get('JWT_TOKEN_EXPIRATION_TIME'),
+                },
+            }),
+            inject: [ConfigService],
+        }),
+        PassportModule,
+        UserModule,
+        RedisModule,
+        VerificationModule,
+        MessageModule,
+    ],
+    controllers: [AuthController],
+    providers: [
+        AuthService,
+        JwtStrategy,
+        GitHubStrategy,
+        UserService,
+        RedisService,
+        VerificationService,
+        EmailService,
+        CaptchaService,
+        GoogleStrategy,
+        FacebookStrategy,
+    ],
 })
 export class AuthModule {}

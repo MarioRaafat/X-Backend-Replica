@@ -10,19 +10,19 @@ import { VerificationModule } from './verification/verification.module';
 import { MessageModule } from './message/message.module';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: 'config/.env',
-    }),
-    PostgreSQLModule,
-    RedisModuleConfig,
-    AuthModule,
-    UserModule,
-    VerificationModule,
-    MessageModule,
-  ],
-  controllers: [AppController],
-  providers: [AppService],
+    imports: [
+        ConfigModule.forRoot({
+            isGlobal: true,
+            envFilePath: 'config/.env',
+        }),
+        PostgreSQLModule,
+        RedisModuleConfig,
+        AuthModule,
+        UserModule,
+        VerificationModule,
+        MessageModule,
+    ],
+    controllers: [AppController],
+    providers: [AppService],
 })
 export class AppModule {}

@@ -3,41 +3,42 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, VerifyCallback } from 'passport-google-oauth20';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
+
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy) {
-  constructor(
-    private configService: ConfigService,
-    private authService: AuthService,
-  ) {
-    super({
-      clientID: configService.get('GOOGLE_CLIENT_ID') || '',
-      clientSecret: configService.get('GOOGLE_SECRET') || '',
-      callbackURL: configService.get('GOOGLE_CALLBACK_URL'),
-      scope: ['email', 'profile'],
-    });
-  }
+    constructor(
+        private config_service: ConfigService,
+        private auth_service: AuthService,
+    ) {
+        super({
+            clientID: config_service.get('GOOGLE_CLIENT_ID') || '',
+            clientSecret: config_service.get('GOOGLE_SECRET') || '',
+            callbackURL: config_service.get('GOOGLE_CALLBACK_URL'),
+            scope: ['email', 'profile'],
+        });
+    }
 
-  async validate(
-    accesToken: string,
-    refreshToken: string,
-    profile: any,
-    done: VerifyCallback,
-  ) {
-    const { id, name, emails, photos } = profile;
-    console.log(id);
+    async validate(
+        access_token: string,
+        refresh_token: string,
+        profile: any,
+        done: VerifyCallback,
+    ) {
+        const { id, name, emails, photos } = profile;
+        console.log(id);
 
-    const avatarUrl = photos && photos.length > 0 ? photos[0].value : undefined;
-    const user = await this.authService.validateGoogleUser({
-      googleId: id,
-      email: emails[0].value,
-      firstName: name.givenName,
-      lastName: name.familyName,
-      avatarUrl: avatarUrl,
-    });
+        const avatar_url = photos && photos.length > 0 ? photos[0].value : undefined;
+        const user = await this.auth_service.validateGoogleUser({
+            google_id: id,
+            email: emails[0].value,
+            first_name: name.givenName,
+            last_name: name.familyName,
+            avatar_url: avatar_url,
+        });
 
-    console.log(user);
+        console.log(user);
 
-    //user will be appended to the request
-    return user;
-  }
+        //user will be appended to the request
+        return user;
+    }
 }

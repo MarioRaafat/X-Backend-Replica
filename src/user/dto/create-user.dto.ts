@@ -23,14 +23,14 @@ export class CreateUserDto {
     example: 'Alyaa',
   })
   @IsString()
-  firstName: string;
+  first_name: string;
 
   @ApiProperty({
     description: 'Last name',
     example: 'Amira',
   })
   @IsString()
-  lastName: string;
+  last_name: string;
 
   @ApiProperty({
     description: 'Phone number (optional)',
@@ -39,7 +39,7 @@ export class CreateUserDto {
   })
   @IsOptional()
   @IsString()
-  phoneNumber?: string;
+  phone_number?: string;
 
   @ApiProperty({
     description: 'Avatar URL',
@@ -48,7 +48,7 @@ export class CreateUserDto {
   })
   @IsOptional()
   @IsString()
-  avatarUrl?: string;
+  avatar_url?: string;
 
   @ApiProperty({
     description: 'Facebook ID (for OAuth users)',
@@ -57,7 +57,7 @@ export class CreateUserDto {
   })
   @IsOptional()
   @IsString()
-  facebookId?: string;
+  facebook_id?: string;
 
   @ApiProperty({
     description: 'Google ID (for OAuth users)',
@@ -66,7 +66,7 @@ export class CreateUserDto {
   })
   @IsOptional()
   @IsString()
-  googleId?: string;
+  google_id?: string;
 
   @ApiProperty({
     description: 'GitHub ID (for OAuth users)',
@@ -75,5 +75,5 @@ export class CreateUserDto {
   })
   @IsOptional()
   @IsString()
-  githubId?: string;
+  github_id?: string;
 }
