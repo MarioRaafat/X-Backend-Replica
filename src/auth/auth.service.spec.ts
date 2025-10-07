@@ -14,6 +14,7 @@ import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/message/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
+import { UnauthorizedException } from '@nestjs/common';
 
 
 describe('AuthService', () => {
@@ -35,11 +36,16 @@ describe('AuthService', () => {
     findUserById: jest.fn(), // default: undefined, set in each test as needed
   };
 
-  const mockJwtService = { sign: jest.fn() };
+  const mockJwtService = { 
+    sign: jest.fn(),
+    verifyAsync: jest.fn(), // Add mock implementation for verifyAsync
+  };
   const mockRedisService = {
     set: jest.fn(),
     sadd: jest.fn(),
     expire: jest.fn(),
+    srem: jest.fn(),
+    del: jest.fn(), // Added mock implementation for del
   };
 
   const mockVerificationService = {};
@@ -86,6 +92,11 @@ describe('AuthService', () => {
 
   // -------- validateUser() tests --------
   describe('validateUser', () => {
+
+    it('should be defined', () => {
+      expect(service.validateUser).toBeDefined();
+    });
+
     it('should return id when email and password are correct', async () => {
       const id = await service.validateUser('test@example.com', 'password');
       expect(id).toBe('1');
@@ -105,6 +116,11 @@ describe('AuthService', () => {
 
   // -------- generateTokens() tests --------
   describe('generateTokens', () => {
+
+    it('should be defined', () => {
+      expect(service.generateTokens).toBeDefined();
+    });
+
     it('should generate access and refresh tokens and store them in Redis', async () => {
       const mockAccessToken = 'mock-access-token';
       const mockRefreshToken = 'mock-refresh-token';
@@ -178,6 +194,11 @@ describe('AuthService', () => {
   });
 
  describe('login', () => {
+
+    it('should be defined', () => {
+      expect(service.login).toBeDefined();
+    });
+
     it('should return user and tokens on successful login', async () => {
     const mockTokens = { access_token: 'access', refresh_token: 'refresh' };
 
@@ -237,6 +258,134 @@ describe('AuthService', () => {
         service.login({ email: 'test@example.com', password: 'password' })
       ).rejects.toThrow();
     });
+
+    // it('should throw if redisService.sadd throws', async () => {
+    //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
+    //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
+    //     id: 'user-1',
+    //     email: 'test@example.com',
+    //     firstName: 'Test',
+    //     lastName: 'User',
+    //     phoneNumber: '1234567890',
+    //   });
+    //   jest.spyOn(service, 'generateTokens').mockResolvedValue({
+    //     access_token: 'access',
+    //     refresh_token: 'refresh',
+    //   });
+    //   mockRedisService.sadd.mockRejectedValueOnce(new Error('Redis error'));
+
+    //   await expect(
+    //     service.login({ email: 'test@example.com', password: 'password' })
+    //   ).rejects.toThrow('Redis error');
+    //   });
+
+    // it('should throw if redisService.expire throws', async () => {
+    //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
+    //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
+    //     id: 'user-1',
+    //     email: 'test@example.com',
+    //     firstName: 'Test',
+    //     lastName: 'User',
+    //     phoneNumber: '1234567890',
+    //   });
+    //   jest.spyOn(service, 'generateTokens').mockResolvedValue({
+    //     access_token: 'access',
+    //     refresh_token: 'refresh',
+    //   });
+    //   mockRedisService.expire.mockRejectedValueOnce(new Error('Redis error'));
+
+    //   await expect(
+    //     service.login({ email: 'test@example.com', password: 'password' })
+    //   ).rejects.toThrow('Redis error');
+    // });
+
+    // it('should throw if redisService.srem throws', async () => {
+    //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
+    //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
+    //     id: 'user-1',
+    //     email: 'test@example.com',
+    //     firstName: 'Test',
+    //     lastName: 'User',
+    //     phoneNumber: '1234567890',
+    //   });
+    //   jest.spyOn(service, 'generateTokens').mockResolvedValue({
+    //     access_token: 'access',
+    //     refresh_token: 'refresh',
+    //   });
+    //   mockRedisService.srem.mockRejectedValueOnce(new Error('Redis error'));
+
+    //   await expect(
+    //     service.login({ email: 'test@example.com', password: 'password' })
+    //   ).rejects.toThrow('Redis error');
+    // });
+
   });
+
+
+  describe('logout', () => {
+    let mockRes: any;
+
+    beforeEach(() => {
+      mockRes = { clearCookie: jest.fn() };
+    });
+
+    it('should logout successfully and clear cookies', async () => {
+      const mockPayload = { id: 'user-1', jti: 'jti-123' };
+
+      mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
+      mockRedisService.del.mockResolvedValueOnce(1);
+      mockRedisService.srem.mockResolvedValueOnce(1);
+
+      const result = await service.logout('valid-refresh-token', mockRes as any);
+
+      // verify jwt call
+      expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+
+      // verify redis cleanup
+      expect(mockRedisService.del).toHaveBeenCalledWith(`refresh:${mockPayload.jti}`);
+      expect(mockRedisService.srem).toHaveBeenCalledWith(
+        `user:${mockPayload.id}:refreshTokens`,
+        mockPayload.jti,
+      );
+
+      // verify cookie cleared
+      expect(mockRes.clearCookie).toHaveBeenCalledWith('refresh_token', {
+        httpOnly: true,
+        secure: true,
+        sameSite: 'strict',
+      });
+
+      expect(result).toEqual({ message: 'Logged out successfully' });
+    });
+
+    it('should throw UnauthorizedException if token is invalid', async () => {
+      mockJwtService.verifyAsync.mockRejectedValueOnce(new Error('Invalid token'));
+
+      await expect(service.logout('invalid-token', mockRes as any)).rejects.toThrow(
+        new UnauthorizedException('Invalid refresh token'),
+      );
+
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+      expect(mockRedisService.srem).not.toHaveBeenCalled();
+      expect(mockRes.clearCookie).not.toHaveBeenCalled();
+    });
+
+    it('should throw UnauthorizedException if redis throws an error', async () => {
+      const mockPayload = { id: 'user-1', jti: 'jti-123' };
+      mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
+      mockRedisService.del.mockRejectedValueOnce(new Error('Redis down'));
+
+      await expect(service.logout('valid-refresh-token', mockRes as any)).rejects.toThrow();
+
+      // jwt verified but redis failed
+      expect(mockJwtService.verifyAsync).toHaveBeenCalled();
+      expect(mockRes.clearCookie).not.toHaveBeenCalled();
+    });
+  });
+  
+
+
 
 });
