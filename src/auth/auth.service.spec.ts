@@ -20,7 +20,7 @@ import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/message/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
-import { BadRequestException, ConflictException, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, InternalServerErrorException, NotFoundException, UnauthorizedException, UnprocessableEntityException } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
 
 
@@ -39,6 +39,7 @@ describe('AuthService', () => {
         };
       }),
       findUserById: jest.fn(),
+      createUser: jest.fn(),
     };
 
   const mockJwtService = { 
@@ -59,6 +60,7 @@ describe('AuthService', () => {
   const mockVerificationService = {
     generateOtp: jest.fn(),
     generateNotMeLink: jest.fn(),
+    validateOtp: jest.fn(),
   };
   const mockEmailService = {
     sendEmail: jest.fn(),
@@ -720,6 +722,101 @@ describe('AuthService', () => {
     });
   });
 
+
+  describe('verifyEmail', () => {
+    const email = 'test@example.com';
+    const token = '123456';
+    const mockUserData = { firstName: 'John', lastName: 'Doe', password: 'hashedPass' };
+    const mockCreatedUser = { id: 'user-1' };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should verify email successfully and return userId', async () => {
+      mockRedisService.hget.mockResolvedValueOnce(mockUserData);
+      mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
+      mockUserService.createUser = jest.fn().mockResolvedValueOnce(mockCreatedUser);
+      mockRedisService.del.mockResolvedValueOnce(1);
+
+      const result = await service.verifyEmail(email, token);
+
+      expect(mockRedisService.hget).toHaveBeenCalledWith(`user:${email}`);
+      expect(mockVerificationService.validateOtp).toHaveBeenCalledWith(email, token, 'email');
+      expect(mockUserService.createUser).toHaveBeenCalledWith({
+        email,
+        ...mockUserData,
+      });
+      expect(mockRedisService.del).toHaveBeenCalledWith(`user:${email}`);
+      expect(result).toEqual({ userId: 'user-1' });
+    });
+
+    it('should throw NotFoundException if user not found in Redis', async () => {
+      mockRedisService.hget.mockResolvedValueOnce(null);
+
+      await expect(service.verifyEmail(email, token)).rejects.toThrow(new NotFoundException("User not found or already verified"));
+
+      expect(mockVerificationService.validateOtp).not.toHaveBeenCalled();
+      expect(mockUserService.createUser).not.toHaveBeenCalled();
+    });
+
+    it('should throw UnprocessableEntityException if OTP is invalid', async () => {
+      mockRedisService.hget.mockResolvedValueOnce(mockUserData);
+      mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(false);
+
+      await expect(service.verifyEmail(email, token)).rejects.toThrow(new UnprocessableEntityException('Expired or incorrect token'));
+
+      expect(mockUserService.createUser).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException if user creation fails', async () => {
+      mockRedisService.hget.mockResolvedValueOnce(mockUserData);
+      mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
+      mockUserService.createUser = jest.fn().mockResolvedValueOnce(null);
+
+      await expect(service.verifyEmail(email, token)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException if hget throws error', async () => {
+      mockRedisService.hget.mockRejectedValueOnce(new Error('Redis failure'));
+
+      await expect(service.verifyEmail(email, token)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+      expect(mockVerificationService.validateOtp).not.toHaveBeenCalled();
+      expect(mockUserService.createUser).not.toHaveBeenCalled();
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException if createUser throws error', async () => {
+      mockRedisService.hget.mockResolvedValueOnce(mockUserData);
+      mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
+      mockUserService.createUser = jest.fn().mockRejectedValueOnce(new Error('DB error'));
+
+      await expect(service.verifyEmail(email, token)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException if validateOtp throws error', async () => {
+      mockRedisService.hget.mockResolvedValueOnce(mockUserData);
+      mockVerificationService.validateOtp = jest.fn().mockRejectedValueOnce(new Error('OTP error'));
+
+      await expect(service.verifyEmail(email, token)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+
+      expect(mockUserService.createUser).not.toHaveBeenCalled();
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+    });
+  });
+
+  
 
 
 

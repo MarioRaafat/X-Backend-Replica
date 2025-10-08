@@ -238,16 +238,26 @@ export class AuthService {
   }
 
   async verifyEmail(email: string, token: string) {
-    const user = await this.redisService.hget(`user:${email}`);
+    let user: any;
+    try {
+      user = await this.redisService.hget(`user:${email}`);
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to retrieve user data');
+    }
     if (!user) {
       throw new NotFoundException('User not found or already verified');
     }
 
-    const isValid = await this.verificationService.validateOtp(
-      email,
-      token,
-      'email',
-    );
+    let isValid: boolean;
+    try {
+      isValid = await this.verificationService.validateOtp(
+        email,
+        token,
+        'email',
+      );
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to validate OTP');
+    }
 
     if (!isValid) {
       throw new UnprocessableEntityException('Expired or incorrect token');
@@ -256,12 +266,17 @@ export class AuthService {
     const firstName = user.firstName;
     const lastName = user.lastName;
 
-    const createdUser = await this.userService.createUser({
-      email,
-      firstName,
-      lastName,
-      ...user,
-    });
+    let createdUser: User;
+    try {
+      createdUser = await this.userService.createUser({
+        email,
+        firstName,
+        lastName,
+        ...user,
+      });
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to save user to database');
+    }
 
     if (!createdUser) {
       throw new InternalServerErrorException('Failed to save user to database');
