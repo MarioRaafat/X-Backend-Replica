@@ -1055,6 +1055,77 @@ describe('AuthService', () => {
   });
 
 
+  describe('changePassword', () => {
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should update password successfully when valid', async () => {
+      const mockUser = { id: 'user123', password: 'hashedOldPass' };
+      mockUserService.findUserById.mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedNewPass' as never);
+    
+      const result = await service.changePassword('user123', 'oldPass', 'newPass');
+    
+      expect(mockUserService.findUserById).toHaveBeenCalledWith('user123');
+      expect(bcrypt.compare).toHaveBeenCalledWith('oldPass', 'hashedOldPass');
+      expect(bcrypt.hash).toHaveBeenCalledWith('newPass', 10);
+      expect(mockUserService.updateUserPassword).toHaveBeenCalledWith('user123', 'hashedNewPass');
+      expect(result).toEqual({ success: true });
+    });
+  
+    it('should update password even if user has no current password (OAuth user)', async () => {
+      const mockUser = { id: 'user123', password: null };
+      mockUserService.findUserById.mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedNewPass' as never);
+    
+      const result = await service.changePassword('user123', 'oldPass', 'newPass');
+    
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+      expect(mockUserService.updateUserPassword).toHaveBeenCalledWith('user123', 'hashedNewPass');
+      expect(result).toEqual({ success: true });
+    });
+
+
+    it('should throw BadRequestException if new password equals old password', async () => {
+      await expect(
+        service.changePassword('user123', 'samePass', 'samePass'),
+      ).rejects.toThrow(BadRequestException);
+    
+      expect(mockUserService.findUserById).not.toHaveBeenCalled();
+      expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+    });
+  
+    it('should throw NotFoundException if user not found', async () => {
+      mockUserService.findUserById.mockResolvedValue(null);
+    
+      await expect(
+        service.changePassword('user123', 'oldPass', 'newPass'),
+      ).rejects.toThrow(NotFoundException);
+    
+      expect(mockUserService.findUserById).toHaveBeenCalledWith('user123');
+      expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+    });
+  
+    it('should throw UnauthorizedException if old password is wrong', async () => {
+      const mockUser = { id: 'user123', password: 'hashedOldPass' };
+      mockUserService.findUserById.mockResolvedValue(mockUser);
+      jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
+    
+      await expect(
+        service.changePassword('user123', 'wrongOldPass', 'newPass'),
+      ).rejects.toThrow(UnauthorizedException);
+    
+      expect(bcrypt.compare).toHaveBeenCalledWith('wrongOldPass', 'hashedOldPass');
+      expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+    });
+  
+    
+  });
+
+
 
 
 
