@@ -40,6 +40,7 @@ describe('AuthService', () => {
       }),
       findUserById: jest.fn(),
       createUser: jest.fn(),
+      updateUserPassword: jest.fn(),
     };
 
   const mockJwtService = { 
@@ -62,6 +63,7 @@ describe('AuthService', () => {
     generateNotMeLink: jest.fn(),
     validateOtp: jest.fn(),
     generatePasswordResetToken: jest.fn(),
+    validatePasswordResetToken: jest.fn(),
   };
   const mockEmailService = {
     sendEmail: jest.fn(),
@@ -881,6 +883,128 @@ describe('AuthService', () => {
       ).rejects.toThrow(InternalServerErrorException);
     });
   });
+
+
+  describe('resetPassword', () => {
+    const userId = 'user-123';
+    const validToken = 'valid-reset-token';
+    const newPassword = 'newPass123';
+    const hashedNewPassword = 'hashed-new-pass';
+    const existingHashedPassword = 'hashed-old-pass';
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should reset password successfully', async () => {
+      const mockTokenData = { userId };
+      const mockUser = { id: userId, password: existingHashedPassword };
+
+      mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce(
+        mockTokenData,
+      );
+      mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
+      (bcrypt.hash as jest.Mock).mockResolvedValueOnce(hashedNewPassword);
+      mockUserService.updateUserPassword.mockResolvedValueOnce(true);
+
+      const result = await service.resetPassword(userId, newPassword, validToken);
+
+      expect(
+        mockVerificationService.validatePasswordResetToken,
+      ).toHaveBeenCalledWith(validToken);
+      expect(mockUserService.findUserById).toHaveBeenCalledWith(userId);
+      expect(bcrypt.compare).toHaveBeenCalledWith(
+        newPassword,
+        existingHashedPassword,
+      );
+      expect(bcrypt.hash).toHaveBeenCalledWith(newPassword, 10);
+      expect(mockUserService.updateUserPassword).toHaveBeenCalledWith(
+        userId,
+        hashedNewPassword,
+      );
+
+      expect(result).toEqual({ success: true });
+    });
+
+    it('should throw UnauthorizedException if token is invalid or expired', async () => {
+      mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce(
+        null,
+      );
+
+      await expect(
+        service.resetPassword(userId, newPassword, validToken),
+      ).rejects.toThrow(new UnauthorizedException('Invalid or expired reset token'));
+
+      expect(mockUserService.findUserById).not.toHaveBeenCalled();
+    });
+
+    it('should throw UnauthorizedException if token userId does not match request userId', async () => {
+      mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
+        userId: 'another-user',
+      });
+
+      await expect(
+        service.resetPassword(userId, newPassword, validToken),
+      ).rejects.toThrow(
+        new UnauthorizedException('Invalid reset token for this user'),
+      );
+
+      expect(mockUserService.findUserById).not.toHaveBeenCalled();
+    });
+
+    it('should throw NotFoundException if user is not found', async () => {
+      mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
+        userId,
+      });
+      mockUserService.findUserById.mockResolvedValueOnce(null);
+
+      await expect(
+        service.resetPassword(userId, newPassword, validToken),
+      ).rejects.toThrow(new NotFoundException('User not found'));
+
+      expect(bcrypt.compare).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if new password matches current one', async () => {
+      const mockUser = { id: userId, password: existingHashedPassword };
+
+      mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
+        userId,
+      });
+      mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true); // same password
+
+      await expect(
+        service.resetPassword(userId, newPassword, validToken),
+      ).rejects.toThrow(
+        new BadRequestException(
+          'New password must be different from the current password',
+        ),
+      );
+
+      expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+    });
+
+    it('should throw if updateUserPassword fails', async () => {
+      const mockUser = { id: userId, password: existingHashedPassword };
+
+      mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
+        userId,
+      });
+      mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
+      (bcrypt.hash as jest.Mock).mockResolvedValueOnce(hashedNewPassword);
+      mockUserService.updateUserPassword.mockRejectedValueOnce(
+        new Error('DB error'),
+      );
+
+      await expect(
+        service.resetPassword(userId, newPassword, validToken),
+      ).rejects.toThrow('DB error');
+    });
+  });
+
 
 
 
