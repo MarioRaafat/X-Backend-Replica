@@ -64,6 +64,7 @@ describe('AuthService', () => {
     validateOtp: jest.fn(),
     generatePasswordResetToken: jest.fn(),
     validatePasswordResetToken: jest.fn(),
+    validateNotMeLink: jest.fn(),
   };
   const mockEmailService = {
     sendEmail: jest.fn(),
@@ -1004,6 +1005,55 @@ describe('AuthService', () => {
       ).rejects.toThrow('DB error');
     });
   });
+
+
+  describe('handleNotMe', () => {
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should delete pending user and otp if valid token', async () => {
+      const mockUser = { email: 'test@example.com' };
+
+      mockVerificationService.validateNotMeLink.mockResolvedValue(mockUser);
+      mockRedisService.hget.mockResolvedValue({ email: mockUser.email });
+      mockRedisService.del.mockResolvedValue(true);
+
+      const result = await service.handleNotMe('valid_token');
+
+      expect(mockVerificationService.validateNotMeLink).toHaveBeenCalledWith('valid_token');
+      expect(mockRedisService.hget).toHaveBeenCalledWith(`user:${mockUser.email}`);
+      expect(mockRedisService.del).toHaveBeenCalledTimes(2);
+      expect(mockRedisService.del).toHaveBeenCalledWith(`user:${mockUser.email}`);
+      expect(mockRedisService.del).toHaveBeenCalledWith(`otp:email:${mockUser.email}`);
+      expect(result).toEqual({ message: 'deleted account successfully' });
+    });
+
+    it('should throw UnauthorizedException if token is invalid or expired', async () => {
+      mockVerificationService.validateNotMeLink.mockResolvedValue(null);
+
+      await expect(service.handleNotMe('invalid_token')).rejects.toThrow(UnauthorizedException);
+
+      expect(mockVerificationService.validateNotMeLink).toHaveBeenCalledWith('invalid_token');
+      expect(mockRedisService.hget).not.toHaveBeenCalled();
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if account already verified', async () => {
+      const mockUser = { email: 'test@example.com' };
+
+      mockVerificationService.validateNotMeLink.mockResolvedValue(mockUser);
+      mockRedisService.hget.mockResolvedValue(null);
+
+      await expect(service.handleNotMe('expired_link')).rejects.toThrow(BadRequestException);
+
+      expect(mockVerificationService.validateNotMeLink).toHaveBeenCalledWith('expired_link');
+      expect(mockRedisService.hget).toHaveBeenCalledWith(`user:${mockUser.email}`);
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+    });
+  });
+
 
 
 
