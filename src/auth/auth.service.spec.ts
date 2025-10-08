@@ -4,6 +4,12 @@ jest.mock('crypto', () => ({
   randomUUID: jest.fn(() => 'mock-jti'),
 }));
 
+jest.mock('bcrypt', () => ({
+  ...jest.requireActual('bcrypt'),
+  hash: jest.fn(),
+  compare: jest.fn(),
+}));
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
 import { UserService } from '../user/user.service';
@@ -14,28 +20,26 @@ import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/message/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
-import { InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, ConflictException, InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
+import { RegisterDto } from './dto/register.dto';
 
 
 describe('AuthService', () => {
   let service: AuthService;
 
-  // ---------------- MOCKS ----------------
-  const mockUserService: Partial<UserService> = {
-    findUserByEmail: jest.fn(async (email) => {
-      const hashedPassword = await bcrypt.hash('password', 10);
-      return {
-        id: '1',
-        email,
-        password: hashedPassword,
-        firstName: 'Test',
-        lastName: 'User',
-        phoneNumber: '1234567890',
-      
-      };
-    }),
-    findUserById: jest.fn(), 
-  };
+  const mockUserService = {
+      findUserByEmail: jest.fn(async (email: string) => {
+        return {
+          id: '1',
+          email,
+          password: 'hashedPassword',
+          firstName: 'Test',
+          lastName: 'User',
+          phoneNumber: '1234567890',
+        };
+      }),
+      findUserById: jest.fn(),
+    };
 
   const mockJwtService = { 
     sign: jest.fn(),
@@ -50,6 +54,7 @@ describe('AuthService', () => {
     smembers: jest.fn(), 
     pipeline: jest.fn(),
     hget: jest.fn(),
+    hset: jest.fn(),
   };
   const mockVerificationService = {
     generateOtp: jest.fn(),
@@ -62,7 +67,9 @@ describe('AuthService', () => {
     createCaptcha: jest.fn(),
     validateCaptcha: jest.fn(),
   };
-  const mockConfigService = {};
+  const mockConfigService = {
+    get: jest.fn(),
+  };
 
   // ---------------- SETUP ----------------
   beforeAll(() => {
@@ -109,11 +116,13 @@ describe('AuthService', () => {
     });
 
     it('should return id when email and password are correct', async () => {
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
       const id = await service.validateUser('test@example.com', 'password');
       expect(id).toBe('1');
     });
 
     it('should throw "Wrong password" when password is incorrect', async () => {
+      (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
       await expect(service.validateUser('test@example.com', 'wrongpassword'))
         .rejects.toThrow('Wrong password');
     });
@@ -543,6 +552,112 @@ describe('AuthService', () => {
       );
     });
   });
+
+  describe('register', () => {
+    const mockRegisterDto:RegisterDto = {
+      email: 'test@example.com',
+      password: 'password123',
+      confirmPassword: 'password123',
+      captchaToken: 'valid-captcha',
+      firstName: 'John',
+      lastName: 'Doe',
+      phoneNumber: '1234567890',
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should register successfully and send verification email', async () => {
+      mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
+      mockRedisService.hget.mockResolvedValueOnce(null);
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashedPass');
+      mockRedisService.hset.mockResolvedValueOnce(true);
+      mockConfigService.get.mockReturnValueOnce(3600);
+      jest.spyOn(service, 'generateEmailVerification').mockResolvedValueOnce({ isEmailSent: true });
+
+      const result = await service.register(mockRegisterDto);
+
+      expect(mockCaptchaService.validateCaptcha).toHaveBeenCalledWith('valid-captcha');
+      expect(mockRedisService.hget).toHaveBeenCalledWith('user:test@example.com');
+      expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(bcrypt.hash).toHaveBeenCalledWith('password123', 10);
+      expect(mockRedisService.hset).toHaveBeenCalledWith(
+        'user:test@example.com',
+        expect.objectContaining({
+          firstName: 'John',
+          lastName: 'Doe',
+          password: 'hashedPass',
+        }),
+        3600,
+      );
+      expect(service.generateEmailVerification).toHaveBeenCalledWith('test@example.com');
+      expect(result).toEqual({ isEmailSent: true });
+    });
+
+    it('should throw BadRequestException if CAPTCHA fails', async () => {
+      mockCaptchaService.validateCaptcha.mockRejectedValueOnce(new Error('Invalid captcha'));
+
+      await expect(service.register(mockRegisterDto)).rejects.toThrow(
+        new BadRequestException('CAPTCHA verification failed. Please try again.'),
+      );
+
+      expect(mockRedisService.hget).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException if email is pending in Redis', async () => {
+      mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
+      mockRedisService.hget.mockResolvedValueOnce({ some: 'pendingUser' });
+
+      await expect(service.register(mockRegisterDto)).rejects.toThrow(
+        new ConflictException('Email already exists'),
+      );
+
+      expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+    });
+
+    it('should throw ConflictException if email already exists in DB', async () => {
+      mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
+      mockRedisService.hget.mockResolvedValueOnce(null);
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce({ id: '1' });
+
+      await expect(service.register(mockRegisterDto)).rejects.toThrow(
+        new ConflictException('Email already exists'),
+      );
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+    });
+
+    it('should throw BadRequestException if passwords do not match', async () => {
+      mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
+      mockRedisService.hget.mockResolvedValueOnce(null);
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+
+      const badDto = { ...mockRegisterDto, confirmPassword: 'wrong' };
+
+      await expect(service.register(badDto)).rejects.toThrow(
+        new BadRequestException('Confirmation password must match password'),
+      );
+
+      expect(bcrypt.hash).not.toHaveBeenCalled();
+    });
+
+    it('should propagate error if generateEmailVerification fails', async () => {
+      mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
+      mockRedisService.hget.mockResolvedValueOnce(null);
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+      (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashedPass');
+      mockRedisService.hset.mockResolvedValueOnce(true);
+      mockConfigService.get.mockReturnValueOnce(3600);
+      jest
+        .spyOn(service, 'generateEmailVerification')
+        .mockRejectedValueOnce(new Error('Mail service down'));
+
+      await expect(service.register(mockRegisterDto)).rejects.toThrow('Mail service down');
+    });
+  });
+
 
 
   
