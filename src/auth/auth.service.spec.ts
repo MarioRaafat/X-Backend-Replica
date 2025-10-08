@@ -658,9 +658,71 @@ describe('AuthService', () => {
     });
   });
 
+  describe('sendResetPasswordEmail', () => {
+    const mockUser = {
+      id: 'user-1',
+      email: 'test@example.com',
+      firstName: 'John',
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should send password reset email successfully', async () => {
+      mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+      mockVerificationService.generateOtp.mockResolvedValueOnce('123456');
+      mockEmailService.sendEmail.mockResolvedValueOnce(true);
+
+      const result = await service.sendResetPasswordEmail('user-1');
+
+      expect(mockUserService.findUserById).toHaveBeenCalledWith('user-1');
+      expect(mockVerificationService.generateOtp).toHaveBeenCalledWith('user-1', 'password');
+      expect(mockEmailService.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: 'Password reset request',
+          recipients: [{ name: 'John', address: 'test@example.com' }],
+          html: expect.stringContaining('123456'),
+        }),
+      );
+
+      expect(result).toEqual({ isEmailSent: true });
+    });
+
+    it('should throw NotFoundException if user not found', async () => {
+      mockUserService.findUserById.mockResolvedValueOnce(null);
+
+      await expect(service.sendResetPasswordEmail('missing-id')).rejects.toThrow(
+        new NotFoundException('User not found'),
+      );
+
+      expect(mockVerificationService.generateOtp).not.toHaveBeenCalled();
+      expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException if email sending fails', async () => {
+      mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+      mockVerificationService.generateOtp.mockResolvedValueOnce('123456');
+      mockEmailService.sendEmail.mockResolvedValueOnce(false);
+
+      await expect(service.sendResetPasswordEmail('user-1')).rejects.toThrow(
+        new InternalServerErrorException('Failed to send password reset email'),
+      );
+    });
+
+    it('should propagate error if OTP generation fails', async () => {
+      mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+      mockVerificationService.generateOtp.mockRejectedValueOnce(new Error('OTP service down'));
+
+      await expect(service.sendResetPasswordEmail('user-1')).rejects.toThrow('OTP service down');
+
+      expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
+    });
+  });
 
 
-  
+
+
 
 
 });
