@@ -41,6 +41,7 @@ describe('AuthService', () => {
       }),
       findUserById: jest.fn(),
       findUserByGoogleId: jest.fn(),
+      findUserByFacebookId: jest.fn(),
       createUser: jest.fn(),
       updateUserPassword: jest.fn(),
       updateUser: jest.fn(),
@@ -1255,6 +1256,88 @@ describe('AuthService', () => {
       expect(result).toEqual(createdUser);
     });
   });
+
+
+
+  describe('validateFacebookUser', () => {
+    const mockFacebookUser = {
+      facebookId: 'fb123',
+      email: 'test@example.com',
+      firstName: 'John',
+      lastName: 'Doe',
+      avatarUrl: 'http://avatar.com/john',
+    };
+  
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+  
+    it('should return user if found by facebookId', async () => {
+      const existingUser = { id: '1', email: 'test@example.com' };
+      mockUserService.findUserByFacebookId.mockResolvedValueOnce(existingUser);
+    
+      const result = await service.validateFacebookUser(mockFacebookUser);
+    
+      expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
+      expect(result).toBe(existingUser);
+      expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+      expect(mockUserService.createUser).not.toHaveBeenCalled();
+    });
+  
+    it('should update existing user with facebookId if found by email', async () => {
+      mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
+      const userByEmail = { id: '2', email: 'test@example.com' };
+      const updatedUser = { ...userByEmail, facebookId: 'fb123' };
+    
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
+      mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+    
+      const result = await service.validateFacebookUser(mockFacebookUser);
+    
+      expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
+      expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+        facebookId: 'fb123',
+        avatarUrl: 'http://avatar.com/john',
+      });
+      expect(result).toEqual(updatedUser);
+    });
+  
+    it('should throw if updateUser fails to return user', async () => {
+      mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
+      const userByEmail = { id: '2', email: 'test@example.com' };
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
+      mockUserService.updateUser.mockResolvedValueOnce(null);
+    
+      await expect(service.validateFacebookUser(mockFacebookUser)).rejects.toThrow(
+        new InternalServerErrorException('Failed to update user'),
+      );
+    });
+  
+    it('should create a new user if not found by facebookId or email', async () => {
+      mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+
+      const createdUser = { id: '3', ...mockFacebookUser };
+      mockUserService.createUser.mockResolvedValueOnce(createdUser);
+    
+      const result = await service.validateFacebookUser(mockFacebookUser);
+    
+      expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
+      expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(mockUserService.createUser).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        facebookId: 'fb123',
+        avatarUrl: 'http://avatar.com/john',
+        phoneNumber: '',
+        password: '',
+      });
+      expect(result).toEqual(createdUser);
+    });
+  });
+
 
 
 
