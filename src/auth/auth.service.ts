@@ -443,6 +443,9 @@ export class AuthService {
       return await this.generateTokens(payload.id);
     } catch (e) {
       console.log(e);
+      if (e instanceof UnauthorizedException && e.message === 'Refresh token is invalid or expired') {
+        throw e;
+      }
       throw new UnauthorizedException('Invalid refresh token');
     }
   }

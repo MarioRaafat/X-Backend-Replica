@@ -24,6 +24,7 @@ import { BadRequestException, ConflictException, InternalServerErrorException, N
 import { RegisterDto } from './dto/register.dto';
 
 
+
 describe('AuthService', () => {
   let service: AuthService;
 
@@ -39,8 +40,10 @@ describe('AuthService', () => {
         };
       }),
       findUserById: jest.fn(),
+      findUserByGoogleId: jest.fn(),
       createUser: jest.fn(),
       updateUserPassword: jest.fn(),
+      updateUser: jest.fn(),
     };
 
   const mockJwtService = { 
@@ -57,6 +60,7 @@ describe('AuthService', () => {
     pipeline: jest.fn(),
     hget: jest.fn(),
     hset: jest.fn(),
+    get: jest.fn(),
   };
   const mockVerificationService = {
     generateOtp: jest.fn(),
@@ -1125,6 +1129,132 @@ describe('AuthService', () => {
     
   });
 
+  describe('refresh', () => {
+    const mockPayload = { id: 'user123', jti: 'token123' };
+    const mockTokens = { accessToken: 'access', refreshToken: 'refresh' };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should refresh tokens successfully', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(mockPayload);
+      mockRedisService.get.mockResolvedValue('1'); // token exists
+      mockRedisService.del.mockResolvedValue(1);
+      jest.spyOn(service, 'generateTokens').mockResolvedValue(mockTokens as any);
+
+      const result = await service.refresh('valid-refresh-token');
+
+      expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
+        secret: process.env.JWT_REFRESH_SECRET,
+      });
+      expect(mockRedisService.get).toHaveBeenCalledWith('refresh:token123');
+      expect(mockRedisService.del).toHaveBeenCalledWith('refresh:token123');
+      expect(service.generateTokens).toHaveBeenCalledWith('user123');
+      expect(result).toEqual(mockTokens);
+    });
+
+    it('should throw UnauthorizedException if refresh token not in Redis', async () => {
+      mockJwtService.verifyAsync.mockResolvedValue(mockPayload);
+      mockRedisService.get.mockResolvedValue(null);
+
+      await expect(service.refresh('invalid-refresh')).rejects.toThrow(
+        new UnauthorizedException('Refresh token is invalid or expired'),
+      );
+
+      expect(mockRedisService.del).not.toHaveBeenCalled();
+    });
+
+    it('should throw UnauthorizedException if JWT verification fails', async () => {
+      mockJwtService.verifyAsync.mockRejectedValue(new Error('invalid jwt'));
+
+      await expect(service.refresh('bad-token')).rejects.toThrow(
+        new UnauthorizedException('Invalid refresh token'),
+      );
+
+      expect(mockRedisService.get).not.toHaveBeenCalled();
+    });
+  });
+
+  
+  describe('validateGoogleUser', () => {
+    const mockGoogleUser = {
+      googleId: 'google123',
+      email: 'test@example.com',
+      firstName: 'John',
+      lastName: 'Doe',
+      avatarUrl: 'http://avatar.com/john',
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should return user if found by googleId', async () => {
+      const existingUser = { id: '1', email: 'test@example.com' };
+      mockUserService.findUserByGoogleId.mockResolvedValueOnce(existingUser);
+
+      const result = await service.validateGoogleUser(mockGoogleUser);
+
+      expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
+      expect(result).toBe(existingUser);
+      expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+      expect(mockUserService.createUser).not.toHaveBeenCalled();
+    });
+
+    it('should update existing user with googleId if found by email', async () => {
+      mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
+      const userByEmail = { id: '2', email: 'test@example.com' };
+      const updatedUser = { ...userByEmail, googleId: 'google123' };
+
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail as any);
+      mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+
+      const result = await service.validateGoogleUser(mockGoogleUser);
+
+      expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
+      expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+        googleId: 'google123',
+        avatarUrl: 'http://avatar.com/john',
+      });
+      expect(result).toEqual(updatedUser);
+    });
+
+    it('should throw if updateUser fails to return user', async () => {
+      mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
+      const userByEmail = { id: '2', email: 'test@example.com' };
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail as any);
+      mockUserService.updateUser.mockResolvedValueOnce(null);
+
+      await expect(service.validateGoogleUser(mockGoogleUser)).rejects.toThrow(
+        new InternalServerErrorException('Failed to update user'),
+      );
+    });
+
+    it('should create a new user if not found by googleId or email', async () => {
+      mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+
+      const createdUser = { id: '3', ...mockGoogleUser };
+      mockUserService.createUser.mockResolvedValueOnce(createdUser);
+
+      const result = await service.validateGoogleUser(mockGoogleUser);
+
+      expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
+      expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+      expect(mockUserService.createUser).toHaveBeenCalledWith({
+        email: 'test@example.com',
+        firstName: 'John',
+        lastName: 'Doe',
+        avatarUrl: 'http://avatar.com/john',
+        googleId: 'google123',
+        password: '',
+        phoneNumber: '',
+      });
+      expect(result).toEqual(createdUser);
+    });
+  });
 
 
 
