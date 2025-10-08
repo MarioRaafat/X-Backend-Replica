@@ -61,6 +61,7 @@ describe('AuthService', () => {
     generateOtp: jest.fn(),
     generateNotMeLink: jest.fn(),
     validateOtp: jest.fn(),
+    generatePasswordResetToken: jest.fn(),
   };
   const mockEmailService = {
     sendEmail: jest.fn(),
@@ -816,7 +817,71 @@ describe('AuthService', () => {
     });
   });
 
-  
+
+  describe('verifyResetPasswordOtp', () => {
+    const userId = 'user-123';
+    const otpToken = '654321';
+    const resetToken = 'secure-reset-token';
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should verify OTP successfully and return resetToken', async () => {
+      mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
+      mockVerificationService.generatePasswordResetToken = jest
+        .fn()
+        .mockResolvedValueOnce(resetToken);
+
+      const result = await service.verifyResetPasswordOtp(userId, otpToken);
+
+      expect(mockVerificationService.validateOtp).toHaveBeenCalledWith(
+        userId,
+        otpToken,
+        'password',
+      );
+      expect(mockVerificationService.generatePasswordResetToken).toHaveBeenCalledWith(
+        userId,
+      );
+      expect(result).toEqual({ isValid: true, resetToken });
+    });
+
+    it('should throw UnprocessableEntityException if OTP is invalid', async () => {
+      mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(false);
+
+      await expect(
+        service.verifyResetPasswordOtp(userId, otpToken),
+      ).rejects.toThrow(UnprocessableEntityException);
+
+      expect(mockVerificationService.generatePasswordResetToken).not.toHaveBeenCalled();
+
+
+    });
+
+    it('should throw InternalServerErrorException if validateOtp throws', async () => {
+      mockVerificationService.validateOtp = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('OTP error'));
+
+      await expect(
+        service.verifyResetPasswordOtp(userId, otpToken),
+      ).rejects.toThrow(InternalServerErrorException);
+
+      expect(mockVerificationService.generatePasswordResetToken).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException if generatePasswordResetToken throws', async () => {
+      mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
+      mockVerificationService.generatePasswordResetToken = jest
+        .fn()
+        .mockRejectedValueOnce(new Error('Token gen failed'));
+
+      await expect(
+        service.verifyResetPasswordOtp(userId, otpToken),
+      ).rejects.toThrow(InternalServerErrorException);
+    });
+  });
+
 
 
 

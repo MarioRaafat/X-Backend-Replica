@@ -290,19 +290,28 @@ export class AuthService {
   }
 
   async verifyResetPasswordOtp(userId: string, token: string) {
-    const isValid = await this.verificationService.validateOtp(
-      userId,
-      token,
-      'password',
-    );
+    let isValid: boolean;
+    try {
+      isValid = await this.verificationService.validateOtp(
+        userId,
+        token,
+        'password',
+      );
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to validate OTP');
+    }
 
     if (!isValid) {
       throw new UnprocessableEntityException('Expired or incorrect token');
     }
 
     // Generate secure token for password reset step
-    const resetToken =
-      await this.verificationService.generatePasswordResetToken(userId);
+    let resetToken: string;
+    try {
+      resetToken = await this.verificationService.generatePasswordResetToken(userId);
+    } catch (error) {
+      throw new InternalServerErrorException('Failed to generate password reset token');
+    }
 
     return {
       isValid: true,
