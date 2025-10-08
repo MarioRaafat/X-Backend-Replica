@@ -14,7 +14,7 @@ import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/message/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException } from '@nestjs/common';
+import { InternalServerErrorException, NotFoundException, UnauthorizedException } from '@nestjs/common';
 
 
 describe('AuthService', () => {
@@ -34,12 +34,12 @@ describe('AuthService', () => {
       
       };
     }),
-    findUserById: jest.fn(), // default: undefined, set in each test as needed
+    findUserById: jest.fn(), 
   };
 
   const mockJwtService = { 
     sign: jest.fn(),
-    verifyAsync: jest.fn(), // Add mock implementation for verifyAsync
+    verifyAsync: jest.fn(), 
   };
   const mockRedisService = {
     set: jest.fn(),
@@ -49,11 +49,19 @@ describe('AuthService', () => {
     del: jest.fn(), 
     smembers: jest.fn(), 
     pipeline: jest.fn(),
+    hget: jest.fn(),
   };
-
-  const mockVerificationService = {};
-  const mockEmailService = {};
-  const mockCaptchaService = {};
+  const mockVerificationService = {
+    generateOtp: jest.fn(),
+    generateNotMeLink: jest.fn(),
+  };
+  const mockEmailService = {
+    sendEmail: jest.fn(),
+  };
+  const mockCaptchaService = {
+    createCaptcha: jest.fn(),
+    validateCaptcha: jest.fn(),
+  };
   const mockConfigService = {};
 
   // ---------------- SETUP ----------------
@@ -482,6 +490,62 @@ describe('AuthService', () => {
     // });
   });
 
+
+  describe('generateEmailVerification', () => {
+    const mockUser = { firstName: 'John', lastName: 'Doe' };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should send verification email successfully', async () => {
+      // Mock user in Redis
+      mockRedisService.hget = jest.fn().mockResolvedValueOnce(mockUser);
+      mockVerificationService.generateOtp = jest.fn().mockResolvedValueOnce('123456');
+      mockVerificationService.generateNotMeLink = jest.fn().mockResolvedValueOnce('https://notme.link');
+      mockEmailService.sendEmail = jest.fn().mockResolvedValueOnce(true);
+
+      const result = await service.generateEmailVerification('test@example.com');
+
+      expect(mockRedisService.hget).toHaveBeenCalledWith('user:test@example.com');
+      expect(mockVerificationService.generateOtp).toHaveBeenCalledWith('test@example.com', 'email');
+      expect(mockVerificationService.generateNotMeLink).toHaveBeenCalled();
+      expect(mockEmailService.sendEmail).toHaveBeenCalledWith(
+        expect.objectContaining({
+          subject: 'El Sab3 - Account Verification',
+          recipients: [{ name: 'John', address: 'test@example.com' }],
+          html: expect.stringContaining('123456'),
+        }),
+      );
+
+      expect(result).toEqual({ isEmailSent: true });
+    });
+
+    it('should throw NotFoundException if user not in Redis', async () => {
+      mockRedisService.hget = jest.fn().mockResolvedValueOnce(null);
+
+      await expect(service.generateEmailVerification('missing@example.com')).rejects.toThrow(
+        new NotFoundException('User not found or already verified'),
+      );
+
+      expect(mockVerificationService.generateOtp).not.toHaveBeenCalled();
+      expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
+    });
+
+    it('should throw InternalServerErrorException if emailService.sendEmail fails', async () => {
+      mockRedisService.hget = jest.fn().mockResolvedValueOnce(mockUser);
+      mockVerificationService.generateOtp = jest.fn().mockResolvedValueOnce('123456');
+      mockVerificationService.generateNotMeLink = jest.fn().mockResolvedValueOnce('https://notme.link');
+      mockEmailService.sendEmail = jest.fn().mockResolvedValueOnce(false);
+
+      await expect(service.generateEmailVerification('test@example.com')).rejects.toThrow(
+        new InternalServerErrorException('Failed to send OTP email'),
+      );
+    });
+  });
+
+
+  
 
 
 });
