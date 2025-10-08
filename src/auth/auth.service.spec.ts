@@ -42,6 +42,7 @@ describe('AuthService', () => {
       findUserById: jest.fn(),
       findUserByGoogleId: jest.fn(),
       findUserByFacebookId: jest.fn(),
+      findUserByGithubId: jest.fn(),
       createUser: jest.fn(),
       updateUserPassword: jest.fn(),
       updateUser: jest.fn(),
@@ -1338,6 +1339,84 @@ describe('AuthService', () => {
     });
   });
 
+  describe('findOrCreateGitHubUser', () => {
+    const mockGitHubUser = {
+      githubId: 'gh123',
+      email: 'dev@example.com',
+      firstName: 'Dev',
+      lastName: 'Coder',
+      avatarUrl: 'http://avatar.com/dev',
+    };
+
+    beforeEach(() => {
+      jest.clearAllMocks();
+    });
+
+    it('should return user if found by githubId', async () => {
+      const existingUser = { id: '1', email: 'dev@example.com' };
+      mockUserService.findUserByGithubId.mockResolvedValueOnce(existingUser);
+
+      const result = await service.findOrCreateGitHubUser(mockGitHubUser);
+
+      expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
+      expect(result).toBe(existingUser);
+      expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+      expect(mockUserService.createUser).not.toHaveBeenCalled();
+    });
+
+    it('should update existing user with githubId if found by email', async () => {
+      mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
+      const userByEmail = { id: '2', email: 'dev@example.com' };
+      const updatedUser = { ...userByEmail, githubId: 'gh123' };
+
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
+      mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+
+      const result = await service.findOrCreateGitHubUser(mockGitHubUser);
+
+      expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
+      expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('dev@example.com');
+      expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+        githubId: 'gh123',
+        avatarUrl: 'http://avatar.com/dev',
+      });
+      expect(result).toEqual(updatedUser);
+    });
+
+    it('should throw if updateUser fails to return user', async () => {
+      mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
+      const userByEmail = { id: '2', email: 'dev@example.com' };
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
+      mockUserService.updateUser.mockResolvedValueOnce(null);
+
+      await expect(service.findOrCreateGitHubUser(mockGitHubUser)).rejects.toThrow(
+        new InternalServerErrorException('Failed to update user'),
+      );
+    });
+
+    it('should create a new user if not found by githubId or email', async () => {
+      mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
+      (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+
+      const createdUser = { id: '3', ...mockGitHubUser };
+      mockUserService.createUser.mockResolvedValueOnce(createdUser);
+
+      const result = await service.findOrCreateGitHubUser(mockGitHubUser);
+
+      expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
+      expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('dev@example.com');
+      expect(mockUserService.createUser).toHaveBeenCalledWith({
+        email: 'dev@example.com',
+        firstName: 'Dev',
+        lastName: 'Coder',
+        githubId: 'gh123',
+        avatarUrl: 'http://avatar.com/dev',
+        phoneNumber: '',
+        password: undefined,
+      });
+      expect(result).toEqual(createdUser);
+    });
+  });
 
 
 
