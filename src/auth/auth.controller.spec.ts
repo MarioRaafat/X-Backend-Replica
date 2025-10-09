@@ -24,6 +24,7 @@ describe('AuthController', () => {
             logoutAll: jest.fn(),
             changePassword: jest.fn(),
             sendResetPasswordEmail: jest.fn(),
+            verifyResetPasswordOtp: jest.fn(),
           },
         },
       ],
@@ -446,6 +447,49 @@ describe('AuthController', () => {
       expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledWith(mockUserId);
     });
   });
+
+
+
+
+  describe('verifyResetPasswordOtp', () => {
+    it('should call authService.verifyResetPasswordOtp with correct arguments and return its result', async () => {
+      const mockBody = { token: 'otp123' };
+      const mockUserId = 'user-123';
+      const mockResult = { message: 'OTP verified successfully' };
+
+      mockAuthService.verifyResetPasswordOtp.mockResolvedValue(mockResult as any);
+
+      const result = await controller.verifyResetPasswordOtp(mockBody as any, mockUserId);
+
+      expect(mockAuthService.verifyResetPasswordOtp).toHaveBeenCalledWith(
+        mockUserId,
+        mockBody.token,
+      );
+      expect(mockAuthService.verifyResetPasswordOtp).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw if authService.verifyResetPasswordOtp throws', async () => {
+      const mockBody = { token: 'invalid' };
+      const mockUserId = 'user-123';
+
+      mockAuthService.verifyResetPasswordOtp.mockRejectedValue(
+        new Error('Invalid or expired OTP'),
+      );
+
+      await expect(
+        controller.verifyResetPasswordOtp(mockBody as any, mockUserId),
+      ).rejects.toThrow('Invalid or expired OTP');
+
+      expect(mockAuthService.verifyResetPasswordOtp).toHaveBeenCalledWith(
+        mockUserId,
+        mockBody.token,
+      );
+    });
+  });
+
+
+
 
 
 
