@@ -213,5 +213,77 @@ describe('AuthController', () => {
 
   });
   
+  describe('refresh', () => {
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('should generate a new access token when valid refresh token is provided', async () => {
+      const mockReq = { cookies: { refresh_token: 'valid-refresh' } } as any;
+      const mockRes = {} as any;
+
+      const mockResult = {
+        access_token: 'new-access',
+        refresh_token: 'new-refresh',
+      };
+
+      mockAuthService.refresh.mockResolvedValue(mockResult as any);
+      (controller as any).httpnOnlyRefreshToken = jest.fn();
+
+      const result = await controller.refresh(mockReq, mockRes);
+
+      expect(mockAuthService.refresh).toHaveBeenCalledWith('valid-refresh');
+      expect((controller as any).httpnOnlyRefreshToken).toHaveBeenCalledWith(
+        mockRes,
+        'new-refresh',
+      );
+      expect(result).toEqual({ access_token: 'new-access' });
+    });
+
+    it('should throw BadRequestException if no refresh token is provided', async () => {
+      const mockReq = { cookies: {} } as any;
+      const mockRes = {} as any;
+
+      await expect(controller.refresh(mockReq, mockRes)).rejects.toThrow(
+        'No refresh token provided',
+      );
+      expect(mockAuthService.refresh).not.toHaveBeenCalled();
+    });
+
+    it('should throw if authService.refresh throws', async () => {
+      const mockReq = { cookies: { refresh_token: 'invalid' } } as any;
+      const mockRes = {} as any;
+
+      mockAuthService.refresh.mockRejectedValue(
+        new Error('Invalid refresh token'),
+      );
+
+      await expect(controller.refresh(mockReq, mockRes)).rejects.toThrow(
+        'Invalid refresh token',
+      );
+
+      expect(mockAuthService.refresh).toHaveBeenCalledWith('invalid');
+    });
+
+    it('should throw if httpnOnlyRefreshToken fails', async () => {
+      const mockReq = { cookies: { refresh_token: 'valid' } } as any;
+      const mockRes = {} as any;
+
+      const mockResult = {
+        access_token: 'access123',
+        refresh_token: 'refresh123',
+      };
+      mockAuthService.refresh.mockResolvedValue(mockResult as any);
+      (controller as any).httpnOnlyRefreshToken = jest.fn(() => {
+        throw new Error('Cookie error');
+      });
+
+      await expect(controller.refresh(mockReq, mockRes)).rejects.toThrow(
+        'Cookie error',
+      );
+    });
+  });
+
+  
+
 
 });
