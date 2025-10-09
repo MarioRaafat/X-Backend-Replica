@@ -1,4 +1,4 @@
-import { X_LOGO_URL } from '../common/constants';
+import { X_LOGO_URL } from '../constants/variables';
 
 export function getPasswordResetEmailTemplate({ otp, user_name }: { otp: string; user_name: string }) {
     return `
