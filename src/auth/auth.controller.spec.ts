@@ -17,6 +17,7 @@ describe('AuthController', () => {
             register: jest.fn(),
             login: jest.fn(),
             refresh: jest.fn(),
+            generateEmailVerification: jest.fn(),
           },
         },
       ],
@@ -26,9 +27,10 @@ describe('AuthController', () => {
     mockAuthService = module.get(AuthService);
   });
 
-  afterEach(() => jest.clearAllMocks());
 
   describe('signup', () => {
+
+    beforeEach(() => jest.clearAllMocks());
 
     const dto: RegisterDto = {
        email: 'john@example.com',
@@ -62,6 +64,36 @@ describe('AuthController', () => {
     });
 
   });
+
+  describe('generateEmailVerification', () => {
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('should call authService.generateEmailVerification with the given email', async () => {
+      const mockResponse = { message: 'OTP sent' };
+      const email = 'test@example.com';
+      (mockAuthService.generateEmailVerification as jest.Mock).mockResolvedValueOnce(mockResponse);
+
+      const result = await controller.generateEmailVerification({ email });
+
+      expect(mockAuthService.generateEmailVerification).toHaveBeenCalledWith(email);
+      expect(mockAuthService.generateEmailVerification).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(mockResponse);
+    });
+
+    it('should throw if service throws', async () => {
+      const email = 'fail@example.com';
+      mockAuthService.generateEmailVerification.mockRejectedValueOnce(
+        new Error('Service failed'),
+      );
+
+      await expect(controller.generateEmailVerification({ email })).rejects.toThrow('Service failed');
+
+      expect(mockAuthService.generateEmailVerification).toHaveBeenCalledWith(email);
+      expect(mockAuthService.generateEmailVerification).toHaveBeenCalledTimes(1);
+    });
+  });
+
 
 
 
