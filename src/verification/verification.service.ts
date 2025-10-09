@@ -3,6 +3,7 @@ import { RedisService } from 'src/redis/redis.service';
 import { generateRandomOtp } from './utils/otp.util';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
+import { OTP_KEY, OTP_OBJECT } from 'src/constants/redis';
 
 @Injectable()
 export class VerificationService {
@@ -16,9 +17,8 @@ export class VerificationService {
         type: 'email' | 'password',
         size = 6,
     ): Promise<string> {
-        const recent_token = await this.redis_service.hget(
-            `otp:${type}:${identifier}`,
-        );
+        const otp_key = OTP_KEY(type, identifier);
+        const recent_token = await this.redis_service.hget(otp_key);
 
         const now = new Date();
 
@@ -38,10 +38,8 @@ export class VerificationService {
         const otp = generateRandomOtp(size);
         const hashed_token = await bcrypt.hash(otp, 10);
 
-        await this.redis_service.hset(`otp:${type}:${identifier}`, {
-            token: hashed_token,
-            createdAt: now.toISOString(),
-        });
+        const otpObject = OTP_OBJECT(type, identifier, hashed_token, now.toISOString());
+        await this.redis_service.hset(otpObject.key, otpObject.value);
 
         return otp;
     }
@@ -51,12 +49,11 @@ export class VerificationService {
         token: string,
         type: string,
     ): Promise<boolean> {
-        const valid_token = await this.redis_service.hget(
-            `otp:${type}:${identifier}`,
-        );
+        const otp_key = OTP_KEY(type as 'email' | 'password', identifier);
+        const valid_token = await this.redis_service.hget(otp_key);
 
         if (valid_token && (await bcrypt.compare(token, valid_token.token))) {
-            await this.redis_service.del(`otp:${type}:${identifier}`);
+            await this.redis_service.del(otp_key);
             return true;
         } else {
             return false;

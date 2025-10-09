@@ -275,7 +275,7 @@ export class AuthController {
       this.httpnOnlyRefreshToken(res, refresh_token);
 
       // Redirect to frontend with access token
-      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${access_token}`;
+      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
       return res.redirect(frontendUrl);
     } catch (error) {
       console.error('Google OAuth callback error:', error);
@@ -310,7 +310,7 @@ export class AuthController {
       this.httpnOnlyRefreshToken(res, refresh_token);
 
       // Redirect to frontend with access token
-      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${access_token}`;
+      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
       return res.redirect(frontendUrl);
     } catch (error) {
       console.error('Facebook OAuth callback error:', error);
@@ -347,7 +347,7 @@ export class AuthController {
       this.httpnOnlyRefreshToken(response, refresh_token);
 
       // Redirect to frontend with access token
-      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${access_token}`;
+      const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
       response.redirect(frontendUrl);
     } catch (error) {
       console.error('GitHub OAuth callback error:', error);
