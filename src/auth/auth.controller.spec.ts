@@ -121,6 +121,29 @@ describe('AuthController', () => {
   });
 
 
-
+  describe('handleNotMe', () => {
+    it('should call authService.handleNotMe with the correct token and return the result', async () => {
+      const mockResult = { message: 'deleted account successfully' };
+      mockAuthService.handleNotMe = jest.fn().mockResolvedValue(mockResult);
+    
+      const result = await controller.handleNotMe('valid-token');
+    
+      expect(mockAuthService.handleNotMe).toHaveBeenCalledWith('valid-token');
+      expect(mockAuthService.handleNotMe).toHaveBeenCalledTimes(1);
+      expect(result).toBe(mockResult);
+    });
+  
+    it('should throw if authService.handleNotMe throws', async () => {
+      mockAuthService.handleNotMe = jest
+        .fn()
+        .mockRejectedValue(new Error('Invalid or expired link'));
+    
+      await expect(controller.handleNotMe('bad-token')).rejects.toThrow(
+        'Invalid or expired link',
+      );
+      expect(mockAuthService.handleNotMe).toHaveBeenCalledWith('bad-token');
+      expect(mockAuthService.handleNotMe).toHaveBeenCalledTimes(1);      
+    });
+  });
 
 });
