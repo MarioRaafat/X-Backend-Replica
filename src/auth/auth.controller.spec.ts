@@ -21,6 +21,7 @@ describe('AuthController', () => {
             verifyEmail: jest.fn(),
             handleNotMe: jest.fn(),
             logout: jest.fn(),
+            logoutAll: jest.fn(),
           },
         },
       ],
@@ -285,6 +286,9 @@ describe('AuthController', () => {
   });
 
   describe('logout', () => {
+
+    beforeEach(() => jest.clearAllMocks());
+
     it('should call authService.logout and return its result', async () => {
       const mockReq = { cookies: { refresh_token: 'valid-refresh' } } as any;
       const mockRes = {} as any;
@@ -325,6 +329,46 @@ describe('AuthController', () => {
     });
   });
 
+  describe('logoutAll', () => {
+    it('should call authService.logoutAll and return its result', async () => {
+      const mockReq = { cookies: { refresh_token: 'valid-refresh' } } as any;
+      const mockRes = {} as any;
+      const mockResult = { message: 'Successfully logged out from all devices' };
+
+      mockAuthService.logoutAll.mockResolvedValue(mockResult as any);
+
+      const result = await controller.logoutAll(mockReq, mockRes);
+
+      expect(mockAuthService.logoutAll).toHaveBeenCalledWith('valid-refresh', mockRes);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw BadRequestException if no refresh token is provided', async () => {
+      const mockReq = { cookies: {} } as any;
+      const mockRes = {} as any;
+
+      await expect(controller.logoutAll(mockReq, mockRes)).rejects.toThrow(
+        'No refresh token provided',
+      );
+
+      expect(mockAuthService.logoutAll).not.toHaveBeenCalled();
+    });
+
+    it('should throw if authService.logoutAll throws an error', async () => {
+      const mockReq = { cookies: { refresh_token: 'expired-token' } } as any;
+      const mockRes = {} as any;
+
+      mockAuthService.logoutAll.mockRejectedValue(
+        new Error('Invalid or expired refresh token'),
+      );
+
+      await expect(controller.logoutAll(mockReq, mockRes)).rejects.toThrow(
+        'Invalid or expired refresh token',
+      );
+
+      expect(mockAuthService.logoutAll).toHaveBeenCalledWith('expired-token', mockRes);
+    });
+  });
 
 
 });
