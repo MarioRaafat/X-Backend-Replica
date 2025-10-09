@@ -630,25 +630,25 @@ describe('AuthController', () => {
 
   describe('githubCallback', () => {
     const mockFrontendUrl = 'http://localhost:3001';
-    
+
     beforeEach(() => {
       process.env.FRONTEND_URL = mockFrontendUrl;
     });
-  
+
     it('should generate tokens, set cookie, and redirect to success URL', async () => {
       const mockReq = { user: { id: 'user123' } } as any;
       const mockRes = { redirect: jest.fn() } as any;
-    
+
       const mockTokens = {
         access_token: 'access123',
         refresh_token: 'refresh123',
       };
-    
+
       mockAuthService.generateTokens.mockResolvedValue(mockTokens as any);
       (controller as any).httpnOnlyRefreshToken = jest.fn();
-    
+
       await controller.githubCallback(mockReq, mockRes);
-    
+
       expect(mockAuthService.generateTokens).toHaveBeenCalledWith('user123');
       expect((controller as any).httpnOnlyRefreshToken).toHaveBeenCalledWith(
         mockRes,
@@ -658,15 +658,15 @@ describe('AuthController', () => {
         `${mockFrontendUrl}/auth/success?token=${mockTokens.access_token}`,
       );
     });
-  
+
     it('should redirect to error page if generateTokens throws', async () => {
       const mockReq = { user: { id: 'user123' } } as any;
       const mockRes = { redirect: jest.fn() } as any;
-    
+
       mockAuthService.generateTokens.mockRejectedValue(new Error('OAuth failed'));
-    
+
       await controller.githubCallback(mockReq, mockRes);
-    
+
       expect(mockAuthService.generateTokens).toHaveBeenCalledWith('user123');
       expect(mockRes.redirect).toHaveBeenCalledWith(
         `${mockFrontendUrl}/auth/error?message=Authentication%20failed`,
@@ -674,6 +674,24 @@ describe('AuthController', () => {
     });
   });
 
+
+  describe('getCaptchaSiteKey', () => {
+    it('should return the site key from environment variables', () => {
+      process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
+    
+      const result = controller.getCaptchaSiteKey();
+    
+      expect(result).toEqual({ siteKey: 'test-site-key' });
+    });
+  
+    it('should return an empty string if RECAPTCHA_SITE_KEY is not set', () => {
+      delete process.env.RECAPTCHA_SITE_KEY;
+    
+      const result = controller.getCaptchaSiteKey();
+    
+      expect(result).toEqual({ siteKey: '' });
+    });
+  });
 
 
 
