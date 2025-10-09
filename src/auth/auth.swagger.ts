@@ -1,3 +1,5 @@
+import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
+
 export const registerUserSwagger = {
   operation: {
     summary: 'Register new user',
@@ -7,7 +9,6 @@ export const registerUserSwagger = {
 
   responses: {
     success: {
-      status: 201,
       description:
         'User successfully registered. Check email for verification.',
       schema: {
@@ -16,30 +17,7 @@ export const registerUserSwagger = {
             isEmailSent: true,
           },
           count: 1,
-          message: 'User successfully registered. Check email for verification',
-        },
-      },
-    },
-    BadRequest: {
-      status: 400,
-      description: 'Bad request - validation errors',
-      schema: {
-        example: {
-          message: ['email must be a valid email', 'password is too weak'],
-          error: 'Bad Request',
-          statusCode: 400,
-        },
-      },
-    },
-
-    conflict: {
-      status: 409,
-      description: 'Conflict - email already exists',
-      schema: {
-        example: {
-          message: 'Email already exists',
-          error: 'Conflict',
-          statusCode: 409,
+          message: SUCCESS_MESSAGES.USER_REGISTERED,
         },
       },
     },
@@ -53,24 +31,8 @@ export const generateOTPSwagger = {
       "Generate and send a new email verification OTP to the user's email.",
   },
 
-  body: {
-    description: 'email to send the OTP code',
-    schema: {
-      type: 'object',
-      properties: {
-        email: {
-          type: 'string',
-          description: 'email',
-          example: 'mario0o0o@gmail.com',
-        },
-      },
-      required: ['email'],
-    },
-  },
-
   responses: {
     success: {
-      status: 201,
       description: 'OTP generated and sent successfully',
       schema: {
         example: {
@@ -78,19 +40,7 @@ export const generateOTPSwagger = {
             isEmailSent: true,
           },
           count: 1,
-          message: 'Verification OTP sent to email',
-        },
-      },
-    },
-
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
+          message: SUCCESS_MESSAGES.OTP_GENERATED,
         },
       },
     },
@@ -106,29 +56,8 @@ export const verifyEmailSwagger = {
     `,
   },
 
-  body: {
-    description: 'Verification data',
-    schema: {
-      type: 'object',
-      properties: {
-        email: {
-          type: 'string',
-          description: 'email that the OTP was sent to',
-          example: 'Amiraa@gmail.com',
-        },
-        token: {
-          type: 'string',
-          description: 'OTP token received in email',
-          example: '123456',
-        },
-      },
-      required: ['email', 'token'],
-    },
-  },
-
   responses: {
     success: {
-      status: 200,
       description: 'Email verified successfully',
       schema: {
         example: {
@@ -136,19 +65,7 @@ export const verifyEmailSwagger = {
             userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
           },
           count: 1,
-          message: 'Email verified successfully',
-        },
-      },
-    },
-
-    BadRequest: {
-      status: 400,
-      description: 'Invalid or expired OTP',
-      schema: {
-        example: {
-          message: 'Invalid or expired OTP',
-          error: 'Bad Request',
-          statusCode: 400,
+          message: SUCCESS_MESSAGES.EMAIL_VERIFIED,
         },
       },
     },
@@ -164,7 +81,6 @@ export const loginSwagger = {
 
   responses: {
     success: {
-      status: 200,
       description: 'Login successful',
       schema: {
         example: {
@@ -184,7 +100,7 @@ export const loginSwagger = {
             },
           },
           count: 1,
-          message: 'Login Successfully!',
+          message: SUCCESS_MESSAGES.LOGGED_IN,
         },
       },
       headers: {
@@ -195,30 +111,6 @@ export const loginSwagger = {
             example:
               'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
           },
-        },
-      },
-    },
-
-    Unauthorized: {
-      status: 401,
-      description: 'Unauthorized - invalid credentials',
-      schema: {
-        example: {
-          message: 'Invalid email or password',
-          error: 'Unauthorized',
-          statusCode: 401,
-        },
-      },
-    },
-
-    Forbidden: {
-      status: 403,
-      description: 'Forbidden - email not verified',
-      schema: {
-        example: {
-          message: 'Please verify your email first',
-          error: 'Forbidden',
-          statusCode: 403,
         },
       },
     },
@@ -234,7 +126,6 @@ export const refreshTokenSwagger = {
 
   responses: {
     success: {
-      status: 200,
       description: 'New access token generated',
       schema: {
         example: {
@@ -243,7 +134,7 @@ export const refreshTokenSwagger = {
               'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNjZTM3YjEzLWQ2ZGUtNDhjZC1iNzQ2LWRmMjY0ODQ1N2E0NiIsImlhdCI6MTc1ODE0OTI2NywiZXhwIjoxNzU4MTUyODY3fQ.M1ennV-LC8xiJpsRKCsUo9Y4o7_6mydG0SPURuNzh6I',
           },
           count: 1,
-          message: 'New access token generated',
+          message: SUCCESS_MESSAGES.NEW_ACCESS_TOKEN,
         },
       },
       headers: {
@@ -254,30 +145,6 @@ export const refreshTokenSwagger = {
             example:
               'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
           },
-        },
-      },
-    },
-
-    BadRequest: {
-      status: 400,
-      description: 'Bad request - no refresh token provided',
-      schema: {
-        example: {
-          message: 'No refresh token provided',
-          error: 'Bad Request',
-          statusCode: 400,
-        },
-      },
-    },
-
-    Unauthorized: {
-      status: 401,
-      description: 'Unauthorized - invalid or expired refresh token',
-      schema: {
-        example: {
-          message: 'Invalid refresh token',
-          error: 'Unauthorized',
-          statusCode: 401,
         },
       },
     },
@@ -662,41 +529,22 @@ export const notMeSwagger = {
       `,
   },
 
+  api_query: {
+      name: 'token',
+      type: String,
+      required: true,
+      description: 'The JWT token from the link sent to the user’s email',
+      example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  },
+
   responses: {
     success: {
-      status: 200,
       description: 'User account deleted successfully',
       schema: {
         example: {
-          data: {
-            message: 'User deleted successfully',
-          },
-          count: 1,
-          message: 'Account successfully removed due to unauthorized access report',
-        },
-      },
-    },
-
-    Unauthorized: {
-      status: 401,
-      description: 'Invalid or expired not me link token',
-      schema: {
-        example: {
-          message: 'Invalid or expired not me link',
-          error: 'Unauthorized',
-          statusCode: 401,
-        },
-      },
-    },
-
-    BadRequest: {
-      status: 400,
-      description: 'Account was already verified or other validation error',
-      schema: {
-        example: {
-          message: 'Account was already verified',
-          error: 'Bad Request',
-          statusCode: 400,
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.ACCOUNT_REMOVED,
         },
       },
     },
@@ -712,51 +560,12 @@ export const changePasswordSwagger = {
 
   responses: {
     success: {
-      status: 200,
       description: 'Password changed successfully',
       schema: {
         example: {
-          data: {
-            success: true,
-          },
-          count: 1,
-          message: 'Password changed successfully',
-        },
-      },
-    },
-
-    BadRequest: {
-      status: 400,
-      description: 'Bad request - validation errors or same password',
-      schema: {
-        example: {
-          message: 'New password must be different from the old password',
-          error: 'Bad Request',
-          statusCode: 400,
-        },
-      },
-    },
-
-    Unauthorized: {
-      status: 401,
-      description: 'Unauthorized - invalid token or wrong current password',
-      schema: {
-        example: {
-          message: 'Wrong password',
-          error: 'Unauthorized',
-          statusCode: 401,
-        },
-      },
-    },
-
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.PASSWORD_CHANGED,
         },
       },
     },
@@ -772,7 +581,6 @@ export const captchaSwagger = {
 
   responses: {
     success: {
-      status: 200,
       description: 'reCAPTCHA site key returned successfully',
       schema: {
         example: {
@@ -780,7 +588,7 @@ export const captchaSwagger = {
             siteKey: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
           },
           count: 1,
-          message: 'ReCAPTCHA site key retrieved successfully',
+          message: SUCCESS_MESSAGES.CAPTCHA_SITE_KEY,
         },
       },
     },
@@ -796,7 +604,6 @@ export const forgetPasswordSwagger = {
 
   responses: {
     success: {
-      status: 200,
       description: 'Password reset email sent successfully',
       schema: {
         example: {
@@ -804,29 +611,7 @@ export const forgetPasswordSwagger = {
             isEmailSent: true,
           },
           count: 1,
-          message: 'Password reset link sent to email',
-        },
-      },
-    },
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
-        },
-      },
-    },
-    InternalServerError: {
-      status: 500,
-      description: 'Failed to send email',
-      schema: {
-        example: {
-          message: 'Failed to send password reset email',
-          error: 'Internal Server Error',
-          statusCode: 500,
+          message: SUCCESS_MESSAGES.PASSWORD_RESET_OTP_SENT,
         },
       },
     },
@@ -842,7 +627,6 @@ export const verifyResetOtpSwagger = {
 
   responses: {
     success: {
-      status: 200,
       description: 'OTP verified successfully, secure reset token generated',
       schema: {
         example: {
@@ -851,29 +635,7 @@ export const verifyResetOtpSwagger = {
             resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
           },
           count: 1,
-          message: 'OTP verified successfully, you can now reset your password',
-        },
-      },
-    },
-    BadRequest: {
-      status: 400,
-      description: 'Invalid or expired OTP',
-      schema: {
-        example: {
-          message: 'Expired or incorrect token',
-          error: 'Unprocessable Entity',
-          statusCode: 422,
-        },
-      },
-    },
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
+          message: SUCCESS_MESSAGES.OTP_VERIFIED,
         },
       },
     },
@@ -890,7 +652,6 @@ export const resetPasswordSwagger = {
 
   responses: {
     success: {
-      status: 200,
       description: 'Password reset successfully',
       schema: {
         example: {
@@ -898,40 +659,49 @@ export const resetPasswordSwagger = {
             success: true,
           },
           count: 1,
-          message: 'Password reset successfully',
+          message: SUCCESS_MESSAGES.PASSWORD_RESET,
         },
       },
     },
-    BadRequest: {
-      status: 400,
-      description: 'Validation errors or new password same as current',
+  },
+};
+
+export const logoutSwagger = {
+  operation: {
+    summary: 'Logout from current device',
+    description:
+      'Logs out the user from the current device by invalidating the refresh token. The refresh token cookie will be cleared.',
+  },
+
+  responses: {
+    success: {
+      description: 'Successfully logged out from current device',
       schema: {
         example: {
-          message: 'New password must be different from the current password',
-          error: 'Bad Request',
-          statusCode: 400,
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.LOGGED_OUT,
         },
       },
     },
-    NotFound: {
-      status: 404,
-      description: 'User not found',
+  },
+};
+
+export const logoutAllSwagger = {
+  operation: {
+    summary: 'Logout from all devices',
+    description:
+      'Logs out the user from all devices by invalidating all refresh tokens associated with the user. All active sessions will be terminated.',
+  },
+
+  responses: {
+    success: {
+      description: 'Successfully logged out from all devices',
       schema: {
         example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
-        },
-      },
-    },
-    UnprocessableEntity: {
-      status: 422,
-      description: 'Token expired or invalid',
-      schema: {
-        example: {
-          message: 'Token has expired or is invalid',
-          error: 'Unprocessable Entity',
-          statusCode: 422,
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.LOGGED_OUT_ALL,
         },
       },
     },

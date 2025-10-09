@@ -1,6 +1,6 @@
 import { X_LOGO_URL } from '../constants/variables';
 
-export function getVerificationEmailTemplate({ otp }) {
+export const getVerificationEmailTemplate = (otp: string) => {
   return `
    
 <!DOCTYPE html>

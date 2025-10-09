@@ -1,0 +1,102 @@
+import { applyDecorators } from '@nestjs/common';
+import {
+  ApiBadRequestResponse,
+  ApiUnauthorizedResponse,
+  ApiForbiddenResponse,
+  ApiNotFoundResponse,
+  ApiConflictResponse,
+  ApiUnprocessableEntityResponse,
+  ApiInternalServerErrorResponse,
+} from '@nestjs/swagger';
+
+
+export const ApiBadRequestErrorResponse = (message: string) => {
+  return applyDecorators(
+    ApiBadRequestResponse({
+      description: 'Bad Request',
+      example: {
+        message: message,
+        error: 'Bad Request',
+        statusCode: 400,
+      },
+    })
+  );
+};
+
+export const ApiUnauthorizedErrorResponse = (message: string) => {
+  return applyDecorators(
+    ApiUnauthorizedResponse({
+      description: 'Unauthorized',
+      example: {
+        message: message,
+        error: 'Unauthorized',
+        statusCode: 401,
+      },
+    })
+  );
+};
+
+export const ApiForbiddenErrorResponse = (message: string) => {
+  return applyDecorators(
+    ApiForbiddenResponse({
+      description: 'Forbidden',
+      example: {
+        message: message,
+        error: 'Forbidden',
+        statusCode: 403,
+      },
+    })
+  );
+};
+
+export const ApiNotFoundErrorResponse = (message: string) => {
+  return applyDecorators(
+    ApiNotFoundResponse({
+      description: 'Not Found',
+      example: {
+        message: message,
+        error: 'Not Found',
+        statusCode: 404,
+      },
+    })
+  );
+};
+
+export const ApiConflictErrorResponse = (message: string) => {
+  return applyDecorators(
+    ApiConflictResponse({
+      description: 'Conflict',
+      example: {
+        message: message,
+        error: 'Conflict',
+        statusCode: 409,
+      },
+    })
+  );
+};
+
+export const ApiUnprocessableEntityErrorResponse = (message: string) => {
+  return applyDecorators(
+    ApiUnprocessableEntityResponse({
+      description: 'Unprocessable Entity',
+      example: {
+        message: message,
+        error: 'Unprocessable Entity',
+        statusCode: 422,
+      },
+    })
+  );
+};
+
+export const ApiInternalServerError = (message: string) => {
+  return applyDecorators(
+    ApiInternalServerErrorResponse({
+      description: 'Internal Server Error',
+      example: {
+        message: message,
+        error: 'Internal Server Error',
+        statusCode: 500,
+      },
+    })
+  );
+};
