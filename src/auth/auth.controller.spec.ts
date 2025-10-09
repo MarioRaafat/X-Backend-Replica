@@ -18,6 +18,9 @@ describe('AuthController', () => {
             login: jest.fn(),
             refresh: jest.fn(),
             generateEmailVerification: jest.fn(),
+            verifyEmail: jest.fn(),
+            handleNotMe: jest.fn(),
+            logout: jest.fn(),
           },
         },
       ],
@@ -108,7 +111,7 @@ describe('AuthController', () => {
       const body = { email: 'test@example.com', token: '123456' };
       const mockResult = { success: true };
 
-      mockAuthService.verifyEmail = jest.fn().mockResolvedValue(mockResult);
+      mockAuthService.verifyEmail.mockResolvedValue(mockResult as any);
 
       const result = await controller.verifyEmail(body);
 
@@ -120,7 +123,7 @@ describe('AuthController', () => {
     it('should throw if authService.verifyEmail throws', async () => {
       const body = { email: 'test@example.com', token: '654321' };
 
-      mockAuthService.verifyEmail = jest.fn().mockRejectedValue(new Error('Invalid OTP'));
+      mockAuthService.verifyEmail.mockRejectedValue(new Error('Invalid OTP'));
 
       await expect(controller.verifyEmail(body)).rejects.toThrow('Invalid OTP');
       expect(mockAuthService.verifyEmail).toHaveBeenCalledWith('test@example.com', '654321');
@@ -135,7 +138,7 @@ describe('AuthController', () => {
 
     it('should call authService.handleNotMe with the correct token and return the result', async () => {
       const mockResult = { message: 'deleted account successfully' };
-      mockAuthService.handleNotMe = jest.fn().mockResolvedValue(mockResult);
+      mockAuthService.handleNotMe.mockResolvedValue(mockResult as any);
     
       const result = await controller.handleNotMe('valid-token');
     
@@ -145,9 +148,7 @@ describe('AuthController', () => {
     });
   
     it('should throw if authService.handleNotMe throws', async () => {
-      mockAuthService.handleNotMe = jest
-        .fn()
-        .mockRejectedValue(new Error('Invalid or expired link'));
+      mockAuthService.handleNotMe.mockRejectedValue(new Error('Invalid or expired link'));
     
       await expect(controller.handleNotMe('bad-token')).rejects.toThrow(
         'Invalid or expired link',
@@ -283,7 +284,47 @@ describe('AuthController', () => {
     });
   });
 
-  
+  describe('logout', () => {
+    it('should call authService.logout and return its result', async () => {
+      const mockReq = { cookies: { refresh_token: 'valid-refresh' } } as any;
+      const mockRes = {} as any;
+      const mockResult = { message: 'Successfully logged out' };
+
+      mockAuthService.logout.mockResolvedValue(mockResult as any);
+
+      const result = await controller.logout(mockReq, mockRes);
+
+      expect(mockAuthService.logout).toHaveBeenCalledWith('valid-refresh', mockRes);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw BadRequestException if no refresh token is provided', async () => {
+      const mockReq = { cookies: {} } as any;
+      const mockRes = {} as any;
+
+      await expect(controller.logout(mockReq, mockRes)).rejects.toThrow(
+        'No refresh token provided',
+      );
+
+      expect(mockAuthService.logout).not.toHaveBeenCalled();
+    });
+
+    it('should throw if authService.logout throws an error', async () => {
+      const mockReq = { cookies: { refresh_token: 'invalid' } } as any;
+      const mockRes = {} as any;
+
+      mockAuthService.logout.mockRejectedValue(
+        new Error('Invalid or expired refresh token'),
+      );
+
+      await expect(controller.logout(mockReq, mockRes)).rejects.toThrow(
+        'Invalid or expired refresh token',
+      );
+
+      expect(mockAuthService.logout).toHaveBeenCalledWith('invalid', mockRes);
+    });
+  });
+
 
 
 });
