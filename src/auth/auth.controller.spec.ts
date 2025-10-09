@@ -23,6 +23,7 @@ describe('AuthController', () => {
             logout: jest.fn(),
             logoutAll: jest.fn(),
             changePassword: jest.fn(),
+            sendResetPasswordEmail: jest.fn(),
           },
         },
       ],
@@ -373,6 +374,9 @@ describe('AuthController', () => {
 
 
   describe('changePassword', () => {
+
+    beforeEach(() => jest.clearAllMocks());
+
     it('should call authService.changePassword with correct arguments and return its result', async () => {
       const mockBody = { oldPassword: 'old123', newPassword: 'new123' };
       const mockUserId = 'user-1';
@@ -410,6 +414,39 @@ describe('AuthController', () => {
       );
     });
   });
+
+
+  describe('forgetPassword', () => {
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('should call authService.sendResetPasswordEmail with the correct userId and return its result', async () => {
+      const mockUserId = 'user-123';
+      const mockResult = { message: 'Password reset OTP sent to your email' };
+
+      mockAuthService.sendResetPasswordEmail.mockResolvedValue(mockResult as any);
+
+      const result = await controller.forgetPassword(mockUserId);
+
+      expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledWith(mockUserId);
+      expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw if authService.sendResetPasswordEmail throws', async () => {
+      const mockUserId = 'user-123';
+      mockAuthService.sendResetPasswordEmail.mockRejectedValue(
+        new Error('User not found'),
+      );
+
+      await expect(controller.forgetPassword(mockUserId)).rejects.toThrow(
+        'User not found',
+      );
+
+      expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledWith(mockUserId);
+    });
+  });
+
 
 
 
