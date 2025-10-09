@@ -25,6 +25,7 @@ describe('AuthController', () => {
             changePassword: jest.fn(),
             sendResetPasswordEmail: jest.fn(),
             verifyResetPasswordOtp: jest.fn(),
+            resetPassword: jest.fn(),
           },
         },
       ],
@@ -487,6 +488,50 @@ describe('AuthController', () => {
       );
     });
   });
+
+
+  describe('resetPassword', () => {
+
+    beforeEach(() => jest.clearAllMocks());
+
+    it('should call authService.resetPassword with correct arguments and return its result', async () => {
+      const mockUserId = 'user-123';
+      const mockBody = { newPassword: 'newPass123', resetToken: 'reset-token' };
+      const mockResult = { message: 'Password reset successfully' };
+
+      mockAuthService.resetPassword.mockResolvedValue(mockResult as any);
+
+      const result = await controller.resetPassword(mockUserId, mockBody as any);
+
+      expect(mockAuthService.resetPassword).toHaveBeenCalledWith(
+        mockUserId,
+        mockBody.newPassword,
+        mockBody.resetToken,
+      );
+      expect(mockAuthService.resetPassword).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw if authService.resetPassword throws', async () => {
+      const mockUserId = 'user-123';
+      const mockBody = { newPassword: 'failPass', resetToken: 'bad-token' };
+
+      mockAuthService.resetPassword.mockRejectedValue(
+        new Error('Invalid or expired reset token'),
+      );
+
+      await expect(
+        controller.resetPassword(mockUserId, mockBody as any),
+      ).rejects.toThrow('Invalid or expired reset token');
+
+      expect(mockAuthService.resetPassword).toHaveBeenCalledWith(
+        mockUserId,
+        mockBody.newPassword,
+        mockBody.resetToken,
+      );
+    });
+  });
+
 
 
 
