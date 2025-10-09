@@ -95,6 +95,32 @@ describe('AuthController', () => {
   });
 
 
+  describe('verifyEmail', () => {
+    it('should call authService.verifyEmail with correct arguments and return result', async () => {
+      const body = { email: 'test@example.com', token: '123456' };
+      const mockResult = { success: true };
+
+      mockAuthService.verifyEmail = jest.fn().mockResolvedValue(mockResult);
+
+      const result = await controller.verifyEmail(body);
+
+      expect(mockAuthService.verifyEmail).toHaveBeenCalledWith('test@example.com', '123456');
+      expect(mockAuthService.verifyEmail).toHaveBeenCalledTimes(1);
+      expect(result).toBe(mockResult);
+    });
+
+    it('should throw if authService.verifyEmail throws', async () => {
+      const body = { email: 'test@example.com', token: '654321' };
+
+      mockAuthService.verifyEmail = jest.fn().mockRejectedValue(new Error('Invalid OTP'));
+
+      await expect(controller.verifyEmail(body)).rejects.toThrow('Invalid OTP');
+      expect(mockAuthService.verifyEmail).toHaveBeenCalledWith('test@example.com', '654321');
+      expect(mockAuthService.verifyEmail).toHaveBeenCalledTimes(1);
+    });
+  });
+
+
 
 
 });
