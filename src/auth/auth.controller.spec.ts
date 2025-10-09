@@ -26,6 +26,7 @@ describe('AuthController', () => {
             sendResetPasswordEmail: jest.fn(),
             verifyResetPasswordOtp: jest.fn(),
             resetPassword: jest.fn(),
+            generateTokens: jest.fn(),
           },
         },
       ],
@@ -532,7 +533,146 @@ describe('AuthController', () => {
     });
   });
 
+  describe('googleLoginCallback', () => {
+    const mockFrontendUrl = 'http://localhost:3001';
 
+    beforeEach(() => {
+      process.env.FRONTEND_URL = mockFrontendUrl;
+    });
+
+    it('should generate tokens, set cookie, and redirect to success URL', async () => {
+      const mockReq = { user: { id: 'user123' } } as any;
+      const mockRes = { redirect: jest.fn() } as any;
+
+      const mockTokens = {
+        access_token: 'access123',
+        refresh_token: 'refresh123',
+      };
+
+      mockAuthService.generateTokens.mockResolvedValue(mockTokens as any);
+      (controller as any).httpnOnlyRefreshToken = jest.fn();
+
+      await controller.googleLoginCallback(mockReq, mockRes);
+
+      expect(mockAuthService.generateTokens).toHaveBeenCalledWith('user123');
+      expect((controller as any).httpnOnlyRefreshToken).toHaveBeenCalledWith(
+        mockRes,
+        mockTokens.refresh_token,
+      );
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        `${mockFrontendUrl}/auth/success?token=${mockTokens.access_token}`,
+      );
+    });
+
+    it('should redirect to error page if generateTokens throws', async () => {
+      const mockReq = { user: { id: 'user123' } } as any;
+      const mockRes = { redirect: jest.fn() } as any;
+
+      mockAuthService.generateTokens.mockRejectedValue(
+        new Error('OAuth failed'),
+      );
+
+      await controller.googleLoginCallback(mockReq, mockRes);
+
+      expect(mockAuthService.generateTokens).toHaveBeenCalledWith('user123');
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        `${mockFrontendUrl}/auth/error?message=Authentication%20failed`,
+      );
+    });
+  });
+
+
+  describe('facebookLoginCallback', () => {
+    const mockFrontendUrl = 'http://localhost:3001';
+
+    beforeEach(() => {
+      process.env.FRONTEND_URL = mockFrontendUrl;
+    });
+
+    it('should generate tokens, set cookie, and redirect to success URL', async () => {
+      const mockReq = { user: { id: 'user123' } } as any;
+      const mockRes = { redirect: jest.fn() } as any;
+
+      const mockTokens = {
+        access_token: 'access123',
+        refresh_token: 'refresh123',
+      };
+
+      mockAuthService.generateTokens.mockResolvedValue(mockTokens as any);
+      (controller as any).httpnOnlyRefreshToken = jest.fn();
+
+      await controller.facebookLoginCallback(mockReq, mockRes);
+
+      expect(mockAuthService.generateTokens).toHaveBeenCalledWith('user123');
+      expect((controller as any).httpnOnlyRefreshToken).toHaveBeenCalledWith(
+        mockRes,
+        mockTokens.refresh_token,
+      );
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        `${mockFrontendUrl}/auth/success?token=${mockTokens.access_token}`,
+      );
+    });
+
+    it('should redirect to error page if generateTokens throws', async () => {
+      const mockReq = { user: { id: 'user123' } } as any;
+      const mockRes = { redirect: jest.fn() } as any;
+
+      mockAuthService.generateTokens.mockRejectedValue(new Error('OAuth failed'));
+
+      await controller.facebookLoginCallback(mockReq, mockRes);
+
+      expect(mockAuthService.generateTokens).toHaveBeenCalledWith('user123');
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        `${mockFrontendUrl}/auth/error?message=Authentication%20failed`,
+      );
+    });
+  });
+
+  describe('githubCallback', () => {
+    const mockFrontendUrl = 'http://localhost:3001';
+    
+    beforeEach(() => {
+      process.env.FRONTEND_URL = mockFrontendUrl;
+    });
+  
+    it('should generate tokens, set cookie, and redirect to success URL', async () => {
+      const mockReq = { user: { id: 'user123' } } as any;
+      const mockRes = { redirect: jest.fn() } as any;
+    
+      const mockTokens = {
+        access_token: 'access123',
+        refresh_token: 'refresh123',
+      };
+    
+      mockAuthService.generateTokens.mockResolvedValue(mockTokens as any);
+      (controller as any).httpnOnlyRefreshToken = jest.fn();
+    
+      await controller.githubCallback(mockReq, mockRes);
+    
+      expect(mockAuthService.generateTokens).toHaveBeenCalledWith('user123');
+      expect((controller as any).httpnOnlyRefreshToken).toHaveBeenCalledWith(
+        mockRes,
+        mockTokens.refresh_token,
+      );
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        `${mockFrontendUrl}/auth/success?token=${mockTokens.access_token}`,
+      );
+    });
+  
+    it('should redirect to error page if generateTokens throws', async () => {
+      const mockReq = { user: { id: 'user123' } } as any;
+      const mockRes = { redirect: jest.fn() } as any;
+    
+      mockAuthService.generateTokens.mockRejectedValue(new Error('OAuth failed'));
+    
+      await controller.githubCallback(mockReq, mockRes);
+    
+      expect(mockAuthService.generateTokens).toHaveBeenCalledWith('user123');
+      expect(mockRes.redirect).toHaveBeenCalledWith(
+        `${mockFrontendUrl}/auth/error?message=Authentication%20failed`,
+      );
+    });
+  });
 
 
 
