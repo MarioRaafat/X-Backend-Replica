@@ -22,6 +22,7 @@ describe('AuthController', () => {
             handleNotMe: jest.fn(),
             logout: jest.fn(),
             logoutAll: jest.fn(),
+            changePassword: jest.fn(),
           },
         },
       ],
@@ -369,6 +370,47 @@ describe('AuthController', () => {
       expect(mockAuthService.logoutAll).toHaveBeenCalledWith('expired-token', mockRes);
     });
   });
+
+
+  describe('changePassword', () => {
+    it('should call authService.changePassword with correct arguments and return its result', async () => {
+      const mockBody = { oldPassword: 'old123', newPassword: 'new123' };
+      const mockUserId = 'user-1';
+      const mockResult = { message: 'Password changed successfully' };
+
+      mockAuthService.changePassword.mockResolvedValue(mockResult as any);
+
+      const result = await controller.changePassword(mockBody as any, mockUserId);
+
+      expect(mockAuthService.changePassword).toHaveBeenCalledWith(
+        mockUserId,
+        mockBody.oldPassword,
+        mockBody.newPassword,
+      );
+      expect(mockAuthService.changePassword).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(mockResult);
+    });
+
+    it('should throw if authService.changePassword throws', async () => {
+      const mockBody = { oldPassword: 'wrong', newPassword: 'new' };
+      const mockUserId = 'user-1';
+
+      mockAuthService.changePassword.mockRejectedValue(
+        new Error('Invalid old password'),
+      );
+
+      await expect(
+        controller.changePassword(mockBody as any, mockUserId),
+      ).rejects.toThrow('Invalid old password');
+
+      expect(mockAuthService.changePassword).toHaveBeenCalledWith(
+        mockUserId,
+        mockBody.oldPassword,
+        mockBody.newPassword,
+      );
+    });
+  });
+
 
 
 });
