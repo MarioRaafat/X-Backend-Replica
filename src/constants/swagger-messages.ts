@@ -1,5 +1,5 @@
 export const ERROR_MESSAGES = {
-    // Authentication
+    // auth
     WRONG_PASSWORD: 'Wrong password',
     PASSWORD_CONFIRMATION_MISMATCH: 'Confirmation password must match password',
     NEW_PASSWORD_SAME_AS_OLD: 'New password must be different from the old password',
@@ -31,6 +31,7 @@ export const ERROR_MESSAGES = {
 
 // Success Messages
 export const SUCCESS_MESSAGES = {
+    // auth
     USER_REGISTERED: 'User successfully registered. Check email for verification',
     LOGGED_IN: 'Logged in Successfully!',
     EMAIL_VERIFIED: 'Email verified successfully',

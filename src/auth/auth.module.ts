@@ -14,8 +14,8 @@ import { UserService } from 'src/user/user.service';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationModule } from 'src/verification/verification.module';
-import { MessageModule } from 'src/message/message.module';
-import { EmailService } from 'src/message/email.service';
+import { CommunicationModule } from 'src/communication/communication.module';
+import { EmailService } from 'src/communication/email.service';
 import { VerificationService } from 'src/verification/verification.service';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
@@ -37,7 +37,7 @@ import { FacebookStrategy } from './strategies/facebook.strategy';
         UserModule,
         RedisModule,
         VerificationModule,
-        MessageModule,
+        CommunicationModule,
     ],
     controllers: [AuthController],
     providers: [

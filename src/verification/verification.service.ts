@@ -39,7 +39,7 @@ export class VerificationService {
         const hashed_token = await bcrypt.hash(otp, 10);
 
         const otpObject = OTP_OBJECT(type, identifier, hashed_token, now.toISOString());
-        await this.redis_service.hset(otpObject.key, otpObject.value);
+        await this.redis_service.hset(otpObject.key, otpObject.value); // default 1 hour expiration
 
         return otp;
     }

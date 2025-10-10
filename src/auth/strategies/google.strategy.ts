@@ -25,7 +25,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
         done: VerifyCallback,
     ) {
         const { id, name, emails, photos } = profile;
-        console.log(id);
 
         const avatar_url = photos && photos.length > 0 ? photos[0].value : undefined;
         const user = await this.auth_service.validateGoogleUser({
@@ -35,8 +34,6 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
             last_name: name.familyName,
             avatar_url: avatar_url,
         });
-
-        console.log(user);
 
         //user will be appended to the request
         return user;

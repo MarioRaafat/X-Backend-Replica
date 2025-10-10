@@ -12,7 +12,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
         private auth_service: AuthService,
     ) {
         super({
-            clientID: config_service.get('FACEBOOK_CLIENT_ID') || ' ',
+            clientID: config_service.get('FACEBOOK_CLIENT_ID') || '',
             clientSecret: config_service.get('FACEBOOK_SECRET') || '',
             callbackURL: config_service.get('FACEBOOK_CALLBACK_URL') || '',
             scope: ['email', 'public_profile'],
@@ -26,33 +26,39 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
         profile: any,
         done: any,
     ) {
-        console.log(profile);
-        const { id, username, displayName, emails, profileUrl } = profile;
+        try {
+            console.log('Facebook Profile:', JSON.stringify(profile, null, 2));
+            const { id, username, displayName, emails, photos } = profile;
 
-        // Facebook usually will not provide us with the user email (to be discussed)
-        const email = emails && emails.length > 0 ? emails[0].value : null;
-        if (!email) {
-            throw new Error('No email found in Facebook profile');
+            // Facebook might not always provide email
+            const email = emails && emails.length > 0 ? emails[0].value : null;
+            if (!email) {
+                console.error('No email found in Facebook profile');
+                return done(new Error('No email found in Facebook profile'), null);
+            }
+
+            // Split display name into first and last name
+            const name_parts = displayName ? displayName.split(' ') : [username || 'User'];
+            const first_name = name_parts[0] || username || 'User';
+            const last_name = name_parts.slice(1).join(' ') || '';
+
+            console.log('Parsed names:', { first_name, last_name });
+
+            const facebook_user: FacebookLoginDTO = {
+                facebook_id: id,
+                email: email,
+                first_name: first_name,
+                last_name: last_name,
+                avatar_url: photos && photos.length > 0 ? photos[0].value : undefined,
+            };
+
+            const user = await this.auth_service.validateFacebookUser(facebook_user);
+
+            //user will be appended to the request
+            done(null, user);
+        } catch (error) {
+            console.error('Facebook validation error:', error);
+            done(error, null);
         }
-
-        // Split display name into first and last name
-        const name_parts = displayName ? displayName.split(' ') : [username];
-        const first_name = name_parts[0] || username || '';
-        const last_name = name_parts.slice(1).join(' ') || '';
-
-        console.log(first_name, last_name);
-
-        const facebook_user: FacebookLoginDTO = {
-            facebook_id: id,
-            email: email,
-            first_name: first_name,
-            last_name: last_name,
-            avatar_url: profileUrl,
-        };
-
-        const user = await this.auth_service.validateFacebookUser(facebook_user);
-
-        //user will be appended to the request
-        done(null, user);
     }
 }

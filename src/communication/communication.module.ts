@@ -4,4 +4,4 @@ import { EmailService } from './email.service';
 @Module({
     providers: [EmailService],
 })
-export class MessageModule {}
+export class CommunicationModule {}

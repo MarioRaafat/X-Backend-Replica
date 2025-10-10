@@ -7,7 +7,7 @@ import { RedisModuleConfig } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { UserModule } from './user/user.module';
 import { VerificationModule } from './verification/verification.module';
-import { MessageModule } from './message/message.module';
+import { CommunicationModule } from './communication/communication.module';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
 
 @Module({
@@ -21,7 +21,7 @@ import { LoggerMiddleware } from './middlewares/logger.middleware';
         AuthModule,
         UserModule,
         VerificationModule,
-        MessageModule,
+        CommunicationModule,
     ],
     controllers: [AppController],
     providers: [AppService],

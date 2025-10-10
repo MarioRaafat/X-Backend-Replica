@@ -29,7 +29,7 @@ export class RedisService {
     async hset(
         key: string,
         value: Record<string, string>,
-        ttl_seconds: number = 600,
+        ttl_seconds: number = 60*60*1, // 1 hour default
     ) {
         await this.redis_client.hset(key, value);
         await this.redis_client.expire(key, ttl_seconds);

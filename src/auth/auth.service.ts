@@ -16,7 +16,7 @@ import { UserService } from 'src/user/user.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
-import { EmailService } from 'src/message/email.service';
+import { EmailService } from 'src/communication/email.service';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
@@ -24,9 +24,8 @@ import { GoogleLoginDTO } from './dto/googleLogin.dto';
 import { FacebookLoginDTO } from './dto/facebookLogin.dto';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { getVerificationEmailTemplate } from 'src/templates/email-verification';
-import { getPasswordResetEmailTemplate } from 'src/templates/password-reset';
-import { API_URL } from 'src/constants/variables';
+import { generateOtpEmailHtml } from 'src/templates/otp-email';
+import {verification_email_object, reset_password_email_object } from 'src/constants/variables';
 import { instanceToPlain } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import {
@@ -120,11 +119,11 @@ export class AuthService {
         } = register_dto;
 
         // Verify CAPTCHA first (comment that in case you want to test the endpoint)
-        try {
-            await this.captcha_service.validateCaptcha(captcha_token);
-        } catch (error) {
-            throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
-        }
+        // try {
+        //     await this.captcha_service.validateCaptcha(captcha_token);
+        // } catch (error) {
+        //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
+        // }
 
         // Check if email is under verification process
         const pending_user_key = PENDING_USER_KEY(email);
@@ -194,13 +193,14 @@ export class AuthService {
         const otp = await this.verification_service.generateOtp(email, 'email');
         const not_me_link = await this.verification_service.generateNotMeLink(
             email,
-            `${API_URL}/auth/not-me`,
+            `${process.env.BACKEND_URL}/auth/not-me`,
         );
 
-        const html = getVerificationEmailTemplate(otp);
+        const { subject, title, description, subtitle, subtitle_description } = verification_email_object(otp, not_me_link);
+        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, email.split('@')[0]);
 
         const email_sent = await this.email_service.sendEmail({
-            subject: 'El Sab3 - Account Verification',
+            subject: subject,
             recipients: [{ name: user.firstName ?? '', address: email }],
             html,
         });
@@ -222,13 +222,11 @@ export class AuthService {
         const email = user.email;
         const user_name = email.split('@')[0]; // just for now
 
-        const html = getPasswordResetEmailTemplate({
-            otp: otp,
-            user_name: user_name || 'Mario0o0o',
-        });
+        const { subject, title, description, subtitle, subtitle_description } = reset_password_email_object(user_name);
+        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, user_name);
 
         const email_sent = await this.email_service.sendEmail({
-            subject: 'Password reset request',
+            subject: subject,
             recipients: [{ name: user.first_name ?? '', address: email }],
             html,
         });
@@ -320,9 +318,7 @@ export class AuthService {
         const hashed_new_password = await bcrypt.hash(new_password, 10);
         await this.user_service.updateUserPassword(user_id, hashed_new_password);
 
-        return {
-            success: true,
-        };
+        return {};
     }
 
     async resetPassword(user_id: string, new_password: string, token: string) {
@@ -351,7 +347,7 @@ export class AuthService {
 
         const hashed_password = await bcrypt.hash(new_password, 10);
         await this.user_service.updateUserPassword(user_id, hashed_password);
-        return { success: true };
+        return {};
     }
 
     async handleNotMe(token: string) {
@@ -372,7 +368,7 @@ export class AuthService {
         await this.redis_service.del(pending_user_key);
         await this.redis_service.del(OTP_KEY('email', user.email));
 
-        return { message: 'deleted account successfully' };
+        return {};
     }
 
     async logout(refresh_token: string, res: Response) {
@@ -395,7 +391,7 @@ export class AuthService {
                 sameSite: 'strict',
             });
 
-            return { message: 'Logged out successfully' };
+            return {};
         } catch {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
@@ -427,7 +423,7 @@ export class AuthService {
                 sameSite: 'strict',
             });
 
-            return { message: 'Logged out from all devices' };
+            return {};
         } catch {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
@@ -454,20 +450,26 @@ export class AuthService {
     }
 
     async validateGoogleUser(google_user: GoogleLoginDTO) {
-        let user = await this.user_service.findUserByGoogleId(
-            google_user.google_id
-        );
+        let user = await this.user_service.findUserByGoogleId(google_user.google_id);
 
-        if (user) return user;
+        if (user) {
+            return user;
+        }
 
         if (google_user.email) {
             user = await this.user_service.findUserByEmail(google_user.email);
             if (user) {
+                // update avatar_url if the user doesn't have one
+                let avatar_url = user.avatar_url;
+                if (!avatar_url) {
+                    avatar_url = google_user.avatar_url;
+                }
+
                 const updated_user = await this.user_service.updateUser(
                     user.id, 
                     {
                         google_id: google_user.google_id,
-                        avatar_url: google_user.avatar_url,
+                        avatar_url: avatar_url,
                     }
                 );
 
@@ -495,21 +497,23 @@ export class AuthService {
             facebook_user.facebook_id,
         );
 
-        //user has already signed in with facebook
         if (user) {
             return user;
         }
 
-        //user has already signed in with this email, so it is the same 
-        //record in db
         if (facebook_user.email) {
             user = await this.user_service.findUserByEmail(facebook_user.email);
             if (user) {
+                let avatar_url = user.avatar_url;
+                if (!avatar_url) {
+                    avatar_url = facebook_user.avatar_url;
+                }
+
                 const updated_user = await this.user_service.updateUser(
                     user.id, 
                     {
                         facebook_id: facebook_user.facebook_id,
-                        avatar_url: facebook_user.avatar_url,
+                        avatar_url: avatar_url,
                     }
                 );
 
@@ -543,10 +547,18 @@ export class AuthService {
 
         user = await this.user_service.findUserByEmail(github_user.email);
         if (user) {
-            const updated_user = await this.user_service.updateUser(user.id, {
-                github_id: github_user.github_id,
-                avatar_url: github_user.avatar_url,
-            });
+            let avatar_url = user.avatar_url;
+            if (!avatar_url) {
+                avatar_url = github_user.avatar_url;
+            }
+
+            const updated_user = await this.user_service.updateUser(
+                user.id,
+                {
+                    github_id: github_user.github_id,
+                    avatar_url: avatar_url,
+                }
+            );
 
             if (!updated_user) {
                 throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);

@@ -655,10 +655,8 @@ export const resetPasswordSwagger = {
       description: 'Password reset successfully',
       schema: {
         example: {
-          data: {
-            success: true,
-          },
-          count: 1,
+          data: {},
+          count: 0,
           message: SUCCESS_MESSAGES.PASSWORD_RESET,
         },
       },

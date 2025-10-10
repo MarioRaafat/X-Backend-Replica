@@ -360,7 +360,7 @@ export class AuthController {
     @Get('github/callback')
     async githubCallback(
         @Req() req: any,
-        @Res({ passthrough: true }) response: Response,
+        @Res() response: Response,
     ) {
         try {
             const { access_token, refresh_token } =

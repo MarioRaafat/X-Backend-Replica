@@ -24,7 +24,6 @@ export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
         refresh_token: string,
         profile: Profile,
     ): Promise<any> {
-        console.log('GitHub Profile:', JSON.stringify(profile, null, 2));
 
         const { id, username, displayName, emails, photos } = profile;
         
