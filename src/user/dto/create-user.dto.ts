@@ -33,6 +33,22 @@ export class CreateUserDto {
     last_name: string;
 
     @ApiProperty({
+        description: 'Username',
+        example: 'mario2252004',
+    })
+    @IsString()
+    username: string;
+
+    @ApiProperty({
+        description: 'Bio (optional)',
+        example: 'Software developer',
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    bio?: string;
+
+    @ApiProperty({
         description: 'Phone number (optional)',
         example: '+1234567890',
         required: false,
@@ -42,13 +58,30 @@ export class CreateUserDto {
     phone_number?: string;
 
     @ApiProperty({
-        description: 'Avatar URL',
-        example: 'https://avatars.githubusercontent.com/u/12345?v=4',
+        description: 'Avatar URL (optional)',
+        example: 'https://i.postimg.cc/2j7H1htR/Y-Logo.jpg',
         required: false,
     })
     @IsOptional()
     @IsString()
     avatar_url?: string;
+
+    @ApiProperty({
+        description: 'Cover URL (optional)',
+        example: 'https://i.postimg.cc/2j7H1htR/Y-Logo.jpg',
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    cover_url?: string;
+
+    @ApiProperty({
+        description: 'Birth date (not optional)',
+        example: '1990-01-01',
+        required: true,
+    })
+    @IsString()
+    birth_date: Date;
 
     @ApiProperty({
         description: 'Facebook ID (for OAuth users)',

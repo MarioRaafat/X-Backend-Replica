@@ -6,7 +6,7 @@ export function generateOtpEmailHtml(
     otp: string,
     subtitle: string,
     subtitle_description: string,
-    user_name: string
+    username: string
 ) {
     return `
 <!DOCTYPE html>
@@ -82,7 +82,7 @@ export function generateOtpEmailHtml(
               <td style="padding: 32px 48px 40px 48px; text-align: center; border-top: 1px solid #e1e8ed;">
                 
                 <p style="color: #8b98a5; font-size: 13px; line-height: 16px; margin: 0 0 8px 0;">
-                  This email was meant for @${user_name}
+                  This email was meant for @${username}
                 </p>
                 
                 <p style="color: #8b98a5; font-size: 13px; line-height: 16px; margin: 0 0 12px 0;">

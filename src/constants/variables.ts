@@ -15,10 +15,10 @@ export const verification_email_object = (otp: string, link: string) => ({
     `,
 });
 
-export const reset_password_email_object = (user_name: string) => ({
+export const reset_password_email_object = (username: string) => ({
     subject: 'Password reset request',
     title: 'Reset your password?',
-    description: `If you requested a password reset for @${user_name}, use the confirmation code below to complete the process. If you didn't make this request, ignore this email.`,
+    description: `If you requested a password reset for @${username}, use the confirmation code below to complete the process. If you didn't make this request, ignore this email.`,
     subtitle: '',
     subtitle_description: ``,
 });

@@ -31,6 +31,10 @@ export class UserService {
         return await this.user_repository.findOne({ where: { google_id: google_id } });
     }
 
+    async findUserByUsername(username: string) {
+        return await this.user_repository.findOne({ where: { username: username } });
+    }
+
   async createUser(createUserDto: CreateUserDto): Promise<User> {
     const user = new User({
       ...createUserDto,

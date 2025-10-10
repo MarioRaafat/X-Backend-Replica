@@ -5,6 +5,7 @@ import {
   Matches,
   IsString,
   IsPhoneNumber,
+  IsOptional,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
@@ -55,13 +56,30 @@ export class RegisterDto {
   last_name: string;
 
   @ApiProperty({
+    description: 'User username',
+    example: 'amira_alyaa_123',
+  })
+  @IsNotEmpty()
+  @IsString()
+  username: string;
+
+  @ApiProperty({
     description: 'User phone number',
     example: '+1234567890',
   })
   @IsNotEmpty()
   @IsString()
   @IsPhoneNumber()
+  @IsOptional()
   phone_number: string;
+
+  @ApiProperty({
+    description: 'User birth date',
+    example: '1990-01-01',
+  })
+  @IsNotEmpty()
+  @IsString()
+  birth_date: string;
 
   @ApiProperty({
     description: 'reCAPTCHA response token from frontend widget',

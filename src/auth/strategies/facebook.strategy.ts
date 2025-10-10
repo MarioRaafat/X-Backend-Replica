@@ -3,7 +3,7 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-facebook';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
-import { FacebookLoginDTO } from '../dto/facebookLogin.dto';
+import { FacebookLoginDTO } from '../dto/facebook-login.dto';
 
 @Injectable()
 export class FacebookStrategy extends PassportStrategy(Strategy) {
@@ -52,13 +52,21 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
                 avatar_url: photos && photos.length > 0 ? photos[0].value : undefined,
             };
 
-            const user = await this.auth_service.validateFacebookUser(facebook_user);
+            const result = await this.auth_service.validateFacebookUser(facebook_user);
+
+            // Type guard to check if result has user and needs_completion properties
+            const user = 'user' in result ? result.user : result;
+            const needs_completion = 'needs_completion' in result ? result.needs_completion : false;
+
+            if (needs_completion) {
+                return done(null, {needs_completion: true, user: user});
+            }
 
             //user will be appended to the request
-            done(null, user);
+            return done(null, user);
         } catch (error) {
-            console.error('Facebook validation error:', error);
-            done(error, null);
+            console.log('Facebook strategy: Error during validation:', error.message);
+            return done(error, null);
         }
     }
 }

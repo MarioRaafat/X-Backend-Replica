@@ -9,12 +9,18 @@ export const ERROR_MESSAGES = {
     CAPTCHA_VERIFICATION_FAILED: 'CAPTCHA verification failed. Please try again',
     ACCOUNT_ALREADY_VERIFIED: 'Account was already verified',
 
+    // OAuth completion
+    INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
+    USERNAME_ALREADY_TAKEN: 'Username is already taken',
+    USER_NOT_FOUND_OAUTH_COMPLETION_REQUIRED: 'User not found, OAuth completion required',
+
     // user
     USER_NOT_FOUND: 'User not found',
     USER_NOT_FOUND_OR_VERIFIED: 'User not found or already verified',
 
     // communication
     FAILED_TO_SEND_OTP_EMAIL: 'Failed to send OTP email',
+    OTP_REQUEST_WAIT: 'Please wait a minute before requesting a new code',
 
     // database
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
@@ -45,4 +51,8 @@ export const SUCCESS_MESSAGES = {
     LOGGED_OUT: 'Successfully logged out from this device',
     LOGGED_OUT_ALL: 'Successfully logged out from all devices',
     ACCOUNT_REMOVED: 'Account successfully removed due to unauthorized access report',
+
+    // OAuth completion
+    BIRTH_DATE_SET: 'Birth date set successfully',
+    OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
 } as const;

@@ -23,6 +23,7 @@ export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
         access_token: string,
         refresh_token: string,
         profile: Profile,
+        done?: any,
     ): Promise<any> {
 
         const { id, username, displayName, emails, photos } = profile;
@@ -47,8 +48,21 @@ export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
             avatar_url: photos && photos.length > 0 ? photos[0].value : undefined,
         };
 
-        const user = await this.auth_service.validateGitHubUser(github_user);
+        try {
+            const result = await this.auth_service.validateGitHubUser(github_user);
+            
+            // Type guard to check if result has user and needs_completion properties
+            const user = 'user' in result ? result.user : result;
+            const needs_completion = 'needs_completion' in result ? result.needs_completion : false;
 
-        return user;
+            if (needs_completion) {
+                return done(null, {needs_completion: true, user: user});
+            }
+            //user will be appended to the request
+            return done(null, user);
+        } catch (error) {
+            console.log('GitHub strategy: Error during validation:', error.message);
+            return done(error, null);
+        }
     }
 }

@@ -4,6 +4,7 @@ import { generateRandomOtp } from './utils/otp.util';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { OTP_KEY, OTP_OBJECT } from 'src/constants/redis';
+import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 
 @Injectable()
 export class VerificationService {
@@ -23,15 +24,13 @@ export class VerificationService {
         const now = new Date();
 
         if (recent_token) {
-            const created_at = new Date(recent_token.createdAt);
+            const created_at = new Date(recent_token.created_at);
             const one_minute_in_ms = 60 * 1000;
             const is_one_minute_passed =
                 now.getTime() - created_at.getTime() >= one_minute_in_ms;
 
             if (!is_one_minute_passed) {
-                throw new BadRequestException(
-                    'Please wait a minute before requesting a new code',
-                );
+                throw new BadRequestException(ERROR_MESSAGES.OTP_REQUEST_WAIT);
             }
         }
 

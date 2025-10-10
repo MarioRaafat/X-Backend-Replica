@@ -9,10 +9,13 @@ import {
     ForbiddenException,
 } from '@nestjs/common';
 import { RegisterDto } from './dto/register.dto';
+import { OAuthCompletionStep1Dto } from './dto/oauth-completion-step1.dto';
+import { OAuthCompletionStep2Dto } from './dto/oauth-completion-step2.dto';
 import { User } from 'src/user/entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { UserService } from 'src/user/user.service';
+import { UsernameService } from './username.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
@@ -20,8 +23,8 @@ import { EmailService } from 'src/communication/email.service';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
-import { GoogleLoginDTO } from './dto/googleLogin.dto';
-import { FacebookLoginDTO } from './dto/facebookLogin.dto';
+import { GoogleLoginDTO } from './dto/google-login.dto';
+import { FacebookLoginDTO } from './dto/facebook-login.dto';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { generateOtpEmailHtml } from 'src/templates/otp-email';
@@ -36,6 +39,8 @@ import {
   REFRESH_TOKEN_KEY,
   PENDING_USER_KEY,
   PENDING_USER_OBJECT,
+  OAUTH_SESSION_KEY,
+  OAUTH_SESSION_OBJECT,
   OTP_KEY,
 } from 'src/constants/redis';
 
@@ -44,6 +49,7 @@ export class AuthService {
     constructor(
         private readonly jwt_service: JwtService,
         private readonly user_service: UserService,
+        private readonly username_service: UsernameService,
         private readonly redis_service: RedisService,
         private readonly verification_service: VerificationService,
         private readonly email_service: EmailService,
@@ -66,12 +72,10 @@ export class AuthService {
             expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
         });
 
-        const ttl = 7 * 24 * 60 * 60; 
-
-        const refresh_redis_object = REFRESH_TOKEN_OBJECT(refresh_payload.jti, id, ttl);
+        const refresh_redis_object = REFRESH_TOKEN_OBJECT(refresh_payload.jti, id);
         await this.redis_service.set(refresh_redis_object.key, refresh_redis_object.value, refresh_redis_object.ttl);
 
-        const user_tokens_add = USER_REFRESH_TOKENS_ADD(id, refresh_payload.jti, ttl);
+        const user_tokens_add = USER_REFRESH_TOKENS_ADD(id, refresh_payload.jti);
         await this.redis_service.sadd(user_tokens_add.key, user_tokens_add.value);
         await this.redis_service.expire(user_tokens_add.key, user_tokens_add.ttl);
 
@@ -154,8 +158,8 @@ export class AuthService {
             {
                 ...register_user,
                 password: hashed_password,
-            },
-            this.config_service.get('PENDING_USER_EXPIRATION_TIME') || 3600,
+                birth_date: register_user.birth_date,
+            }
         );
 
         await this.redis_service.hset(
@@ -197,7 +201,7 @@ export class AuthService {
         );
 
         const { subject, title, description, subtitle, subtitle_description } = verification_email_object(otp, not_me_link);
-        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, email.split('@')[0]);
+        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, user.username);
 
         const email_sent = await this.email_service.sendEmail({
             subject: subject,
@@ -220,10 +224,10 @@ export class AuthService {
 
         const otp = await this.verification_service.generateOtp(user_id, 'password');
         const email = user.email;
-        const user_name = email.split('@')[0]; // just for now
+        const username = user.username;
 
-        const { subject, title, description, subtitle, subtitle_description } = reset_password_email_object(user_name);
-        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, user_name);
+        const { subject, title, description, subtitle, subtitle_description } = reset_password_email_object(username);
+        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, username);
 
         const email_sent = await this.email_service.sendEmail({
             subject: subject,
@@ -262,6 +266,8 @@ export class AuthService {
             email,
             first_name,
             last_name,
+            birth_date: new Date(user.birth_date),
+            username: user.username,
             ...user,
         });
 
@@ -477,19 +483,25 @@ export class AuthService {
                     throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
                 }
 
-                return updated_user;
+                return {
+                    user: updated_user,
+                    needs_completion: false,
+                };
             }
         }
 
-        return await this.user_service.createUser({
-            email: google_user.email,
-            first_name: google_user.first_name,
-            last_name: google_user.last_name,
-            avatar_url: google_user.avatar_url,
-            google_id: google_user.google_id,
-            password: '',
-            phone_number: '',
-        });
+        // If user doesn't exist, we need to create an OAuth completion session
+        // The frontend will need to handle this by redirecting to completion flow
+        return {
+            needs_completion: true,
+            user: {
+                email: google_user.email,
+                first_name: google_user.first_name,
+                last_name: google_user.last_name,
+                avatar_url: google_user.avatar_url,
+                google_id: google_user.google_id,
+            }   
+        };
     }
 
     async validateFacebookUser(facebook_user: FacebookLoginDTO) {
@@ -521,25 +533,29 @@ export class AuthService {
                     throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
                 }
 
-                return updated_user;
+                return {
+                    user: updated_user,
+                    needs_completion: false,
+                };
             }
         }
 
-        return await this.user_service.createUser({
-            email: facebook_user.email,
-            first_name: facebook_user.first_name,
-            last_name: facebook_user.last_name,
-            facebook_id: facebook_user.facebook_id,
-            avatar_url: facebook_user.avatar_url,
-            phone_number: '',
-            password: '', // No password for OAuth users
-        });
+        return {
+            needs_completion: true,
+            user: {
+                email: facebook_user.email,
+                first_name: facebook_user.first_name,
+                last_name: facebook_user.last_name,
+                avatar_url: facebook_user.avatar_url,
+                facebook_id: facebook_user.facebook_id,
+            }
+        };
     }
 
     /* 
         ####################### GitHub OAuth Routes ########################
     */
-    async validateGitHubUser(github_user: GitHubUserDto): Promise<User> {
+    async validateGitHubUser(github_user: GitHubUserDto) {
         let user = await this.user_service.findUserByGithubId(github_user.github_id);
         if (user) {
             return user;
@@ -564,17 +580,120 @@ export class AuthService {
                 throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
             }
 
-            return updated_user;
+            return {
+                user: updated_user,
+                needs_completion: false,
+            };
         }
 
-        return await this.user_service.createUser({
-            email: github_user.email,
-            first_name: github_user.first_name,
-            last_name: github_user.last_name,
-            github_id: github_user.github_id,
-            avatar_url: github_user.avatar_url,
-            phone_number: '', // Will be filled later if needed
-            password: undefined, // No password for OAuth users
+        return {
+            needs_completion: true,
+            user: {
+                email: github_user.email,
+                first_name: github_user.first_name,
+                last_name: github_user.last_name,
+                avatar_url: github_user.avatar_url,
+                github_id: github_user.github_id,
+            }
+        };
+    }
+
+    // ###################### OAUTH COMPLETION FLOW ######################
+
+    async createOAuthSession(user_data: Record<string, any>): Promise<string> {
+        const session_token = crypto.randomUUID();
+        const oauth_session_data = OAUTH_SESSION_OBJECT(
+            session_token,
+            user_data
+        );
+
+        await this.redis_service.hset(
+            oauth_session_data.key,
+            oauth_session_data.value,
+            oauth_session_data.ttl,
+        );
+
+        return session_token;
+    }
+
+    async oauthCompletionStep1(dto: OAuthCompletionStep1Dto) {
+        const { oauth_session_token, birth_date } = dto;
+
+        // Get OAuth session data
+        const session_data = await this.redis_service.hget(OAUTH_SESSION_KEY(oauth_session_token));
+        if (!session_data) {
+            throw new NotFoundException(ERROR_MESSAGES.INVALID_OAUTH_SESSION_TOKEN);
+        }
+
+        const user_data = JSON.parse(session_data.user_data);
+        
+        // Update session with birth_date
+        const updated_session_data = OAUTH_SESSION_OBJECT(
+            oauth_session_token,
+            { ...user_data, birth_date },
+        );
+
+        await this.redis_service.hset(
+            updated_session_data.key,
+            updated_session_data.value,
+            updated_session_data.ttl,
+        );
+
+        // Generate username recommendations
+        const recommendations = await this.username_service.generateUsernameRecommendations(
+            user_data.first_name,
+            user_data.last_name
+        );
+
+        return {
+            usernames: recommendations,
+            token: oauth_session_token,
+            nextStep: 'choose-username'
+        };
+    }
+
+    async oauthCompletionStep2(dto: OAuthCompletionStep2Dto) {
+        const { oauth_session_token, username } = dto;
+
+        // Get OAuth session data
+        const session_data = await this.redis_service.hget(OAUTH_SESSION_KEY(oauth_session_token));
+        if (!session_data) {
+            throw new NotFoundException(ERROR_MESSAGES.INVALID_OAUTH_SESSION_TOKEN);
+        }
+
+        const user_data = JSON.parse(session_data.user_data);
+
+        // Check if username is available
+        const is_username_available = await this.username_service.isUsernameAvailable(username);
+        if (!is_username_available) {
+            throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+        }
+
+        // Create the user
+        const user = await this.user_service.createUser({
+            email: user_data.email,
+            first_name: user_data.first_name,
+            last_name: user_data.last_name,
+            username: username,
+            birth_date: new Date(user_data.birth_date),
+            password: '', // OAuth users don't have passwords
+            phone_number: '',
+            google_id: user_data.google_id || null,
+            facebook_id: user_data.facebook_id || null,
+            github_id: user_data.github_id || null,
+            avatar_url: user_data.avatar_url || null,
         });
+
+        // Clean up OAuth session
+        await this.redis_service.del(OAUTH_SESSION_KEY(oauth_session_token));
+
+        // Generate tokens
+        const { access_token, refresh_token } = await this.generateTokens(user.id);
+
+        return {
+            user: instanceToPlain(user),
+            access_token,
+            refresh_token
+        };
     }
 }

@@ -27,15 +27,33 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
         const { id, name, emails, photos } = profile;
 
         const avatar_url = photos && photos.length > 0 ? photos[0].value : undefined;
-        const user = await this.auth_service.validateGoogleUser({
-            google_id: id,
-            email: emails[0].value,
-            first_name: name.givenName,
-            last_name: name.familyName,
-            avatar_url: avatar_url,
-        });
+        const first_name = name?.givenName;
+        const last_name = name?.familyName || '';
+        
+        try {
+            const result = await this.auth_service.validateGoogleUser({
+                google_id: id,
+                email: emails[0].value,
+                first_name: first_name,
+                last_name: last_name,
+                avatar_url: avatar_url,
+            });
 
-        //user will be appended to the request
-        return user;
+            // Type guard to check if result has user and needs_completion properties
+            const user = 'user' in result ? result.user : result;
+            const needs_completion = 'needs_completion' in result ? result.needs_completion : false;
+
+            if (needs_completion) {
+                console.log('Google strategy: OAuth completion required');
+                return done(null, {needs_completion: true, user: user});
+            }
+
+            console.log('Google strategy: User found, authentication successful');
+            //user will be appended to the request
+            return done(null, user);
+        } catch (error) {
+            console.log('Google strategy: Error during validation:', error.message);
+            return done(error, null);
+        }
     }
 }

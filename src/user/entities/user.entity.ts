@@ -16,11 +16,17 @@ export class User {
     @Column({ type: 'varchar' })
     first_name: string;
 
-    @Column({ type: 'varchar' })
-    last_name: string;
+    @Column({ type: 'varchar', nullable: true })
+    last_name?: string;
 
-    @Column({ type: 'varchar' })
-    phone_number: string;
+    @Column({ type: 'varchar', unique: true })
+    username: string;
+
+    @Column({ type: 'text', nullable: true })
+    bio?: string;
+
+    @Column({ type: 'varchar', nullable: true })
+    phone_number?: string;
 
     @Column({ type: 'varchar', nullable: true })
     github_id?: string;
@@ -33,6 +39,36 @@ export class User {
 
     @Column({ type: 'varchar', nullable: true })
     avatar_url?: string;
+
+    @Column({ type: 'text', nullable: true })
+    cover_url?: string;
+
+    @Column({ type: 'date'})
+    birth_date: Date;
+
+    // Role can be 'user', 'admin' only
+    @Column({ type: 'varchar', default: 'user' })
+    role: string;
+
+    @Column({ type: 'varchar', nullable: true })
+    gender?: string;
+
+    // language code like 'en', 'es', 'fr', 'ar' etc.
+    @Column({ type: 'varchar', nullable: false, default: 'en' })
+    language: string;
+
+    @Column({ type: 'boolean', default: false })
+    verified: boolean;
+
+    // TODO: country
+    // @Column({ type: 'varchar', nullable: true })
+    // country: string;
+
+    @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP'})
+    created_at: Date;
+
+    @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP'})
+    updated_at: Date;
 
     constructor(user: Partial<User>) {
         Object.assign(this, user);
