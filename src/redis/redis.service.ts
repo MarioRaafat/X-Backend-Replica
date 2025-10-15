@@ -4,62 +4,62 @@ import Redis from 'ioredis';
 
 @Injectable()
 export class RedisService {
-  constructor(@InjectRedis() private readonly redis: Redis) {}
+    constructor(@InjectRedis() private readonly redis_client: Redis) {}
 
-  async get(key: string): Promise<string | null> {
-    return this.redis.get(key);
-  }
-
-  async set(key: string, value: string, ttlSeconds?: number): Promise<'OK'> {
-    if (ttlSeconds) {
-      return this.redis.set(key, value, 'EX', ttlSeconds);
+    async get(key: string): Promise<string | null> {
+        return this.redis_client.get(key);
     }
-    return this.redis.set(key, value);
-  }
 
-  async del(key: string): Promise<number> {
-    return this.redis.del(key);
-  }
-
-  async exists(key: string): Promise<boolean> {
-    const res = await this.redis.exists(key);
-    return res === 1;
-  }
-
-  async hset(
-    key: string,
-    value: Record<string, string>,
-    ttlSeconds: number = 600,
-  ) {
-    await this.redis.hset(key, value);
-    await this.redis.expire(key, ttlSeconds);
-  }
-
-  async hget(key: string): Promise<Record<string, string> | null> {
-    const hash = await this.redis.hgetall(key);
-    if (Object.keys(hash).length === 0) {
-      return null;
+    async set(key: string, value: string, ttl_seconds?: number): Promise<'OK'> {
+        if (ttl_seconds) {
+            return this.redis_client.set(key, value, 'EX', ttl_seconds);
+        }
+        return this.redis_client.set(key, value);
     }
-    return hash;
-  }
 
-  async sadd(key: string, jti: string) {
-    await this.redis.sadd(key, jti);
-  }
+    async del(key: string): Promise<number> {
+        return this.redis_client.del(key);
+    }
 
-  async expire(key: string, ttl: number) {
-    await this.redis.expire(key, ttl);
-  }
+    async exists(key: string): Promise<boolean> {
+        const result = await this.redis_client.exists(key);
+        return result === 1;
+    }
 
-  async srem(key: string, jti: string) {
-    await this.redis.srem(key, jti);
-  }
+    async hset(
+        key: string,
+        value: Record<string, string>,
+        ttl_seconds: number = 60*60*1, // 1 hour default
+    ) {
+        await this.redis_client.hset(key, value);
+        await this.redis_client.expire(key, ttl_seconds);
+    }
 
-  async smembers(key: string): Promise<string[]> {
-    return await this.redis.smembers(key);
-  }
+    async hget(key: string): Promise<Record<string, string> | null> {
+        const hash_data = await this.redis_client.hgetall(key);
+        if (Object.keys(hash_data).length === 0) {
+            return null;
+        }
+        return hash_data;
+    }
 
-  pipeline() {
-    return this.redis.pipeline();
-  }
+    async sadd(key: string, jti: string) {
+        await this.redis_client.sadd(key, jti);
+    }
+
+    async expire(key: string, ttl: number) {
+        await this.redis_client.expire(key, ttl);
+    }
+
+    async srem(key: string, jti: string) {
+        await this.redis_client.srem(key, jti);
+    }
+
+    async smembers(key: string): Promise<string[]> {
+        return await this.redis_client.smembers(key);
+    }
+
+    pipeline() {
+        return this.redis_client.pipeline();
+    }
 }

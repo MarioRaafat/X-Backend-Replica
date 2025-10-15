@@ -26,7 +26,7 @@ import { RegisterDto } from './dto/register.dto';
 
 
 describe('AuthService', () => {
-  let service: AuthService;
+    let service: AuthService;
 
   const mockUserService = {
       findUserByEmail: jest.fn(async (email: string) => {
@@ -106,8 +106,8 @@ describe('AuthService', () => {
       ],
     }).compile();
 
-    service = module.get<AuthService>(AuthService);
-  });
+        service = module.get<AuthService>(AuthService);
+    });
 
   // Clear mocks between tests
   afterEach(() => {

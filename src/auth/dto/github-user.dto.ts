@@ -7,7 +7,7 @@ export class GitHubUserDto {
     example: '12345678'
   })
   @IsString()
-  githubId: string;
+  github_id: string;
 
   @ApiProperty({
     description: 'User email from GitHub',
@@ -22,14 +22,14 @@ export class GitHubUserDto {
   })
   @IsString()
   @IsNotEmpty()
-  firstName: string;
+  first_name: string;
 
   @ApiProperty({
     description: 'Last name from GitHub profile',
     example: 'Raafat'
   })
   @IsString()
-  lastName: string;
+  last_name: string;
 
   @ApiProperty({
     description: 'GitHub avatar URL',
@@ -38,5 +38,5 @@ export class GitHubUserDto {
   })
   @IsOptional()
   @IsString()
-  avatarUrl?: string;
+  avatar_url?: string;
 }
