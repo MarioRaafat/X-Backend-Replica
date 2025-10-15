@@ -7,10 +7,14 @@ import { MongooseModule } from '@nestjs/mongoose';
         MongooseModule.forRootAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
-            useFactory: async (config: ConfigService) => ({
-                uri: config.get<string>('MONGODB_URI'),
-            }),
+            useFactory: async (config: ConfigService) => {
+                const uri = `mongodb://${config.get('MONGODB_HOST')}:${config.get('MONGODB_PORT')}/${config.get('MONGODB_DB')}`;
+                console.log(`Connecting to MongoDB at ${uri}`);
+                return { uri };
+            },
         }),
     ],
 })
-export class MongodbModule {}
+export class MongodbModule {
+    constructor() {}
+}

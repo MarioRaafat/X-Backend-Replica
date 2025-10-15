@@ -9,7 +9,7 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   private readonly exchange = 'app_exchange';
 
   async onModuleInit() {
-    this.connection = await amqp.connect('amqp://localhost:5672');
+    this.connection = await amqp.connect(`amqp://${process.env.RABBITMQ_HOST}:${process.env.RABBITMQ_PORT}`);
     this.channel = await this.connection.createChannel();
     await this.channel.assertExchange(this.exchange, 'direct', { durable: true });
     console.log('RabbitMQ connected');
@@ -23,7 +23,7 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   async publish(key: string, message: any) {
     const buffer = Buffer.from(JSON.stringify(message));
     this.channel.publish(this.exchange, key, buffer, { persistent: true });
-    console.log(`Message published to "${key}"`, message);
+    console.log(`Message published to ${key}`, message);
   }
 
   async subscribe(key: string, callback: (msg: any) => Promise<void> | void) {
@@ -47,6 +47,6 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
       { noAck: false },
     );
     
-    console.log(`Listening on queue "${queue}"`);
+    console.log(`Listening on queue ${queue}`);
   }
 }

@@ -28,8 +28,6 @@ export class NotificationsService implements OnModuleInit {
   async handleMessage(data: NotificationMessage): Promise<void> {
     try {
       const { userId, notification } = data;
-      const existing = await this.notificationModel.findOne({ user: userId }).exec();
-      console.log('Found existing:', !!existing);
 
       await this.notificationModel.updateOne(
         { user: userId },

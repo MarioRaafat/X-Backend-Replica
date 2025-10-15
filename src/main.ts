@@ -5,7 +5,6 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { ResponseInterceptor } from './interceptor/response.interceptor';
 import { RabbitmqService } from './rabbitmq/rabbitmq.service';
-import { RabbitmqService } from './rabbitmq/rabbitmq.service';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
