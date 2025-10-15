@@ -1,14 +1,20 @@
-import { X_LOGO_URL } from '../common/constants';
+import { Y_LOGO_URL } from '../constants/variables';
 
-export function getVerificationEmailTemplate({ otp }) {
-  return `
-   
+export function generateOtpEmailHtml(
+    title: string,
+    description: string,
+    otp: string,
+    subtitle: string,
+    subtitle_description: string,
+    username: string
+) {
+    return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Confirm your email address</title>
+  <title>Reset your password?</title>
   <style>
     body {
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -34,11 +40,11 @@ export function getVerificationEmailTemplate({ otp }) {
       <tr>
         <td style="padding: 0;">
           <table width="100%" cellpadding="0" cellspacing="0">
-            <!-- Header with X logo -->
+            <!-- Header with Yapper logo -->
             <tr>
               <td style="padding: 32px 48px 0 48px; text-align: right;">
                 <div style="width: 40px; height: 40px; background-color: #000000; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
-                  <img src="${X_LOGO_URL}" alt="X" style="width: 40px; height: 40px; filter: brightness(0) invert(1);" />
+                  <img src="${Y_LOGO_URL}" alt="Yapper" style="width: 40px; height: 40px; filter: brightness(0) invert(1);" />
                 </div>
               </td>
             </tr>
@@ -47,11 +53,11 @@ export function getVerificationEmailTemplate({ otp }) {
             <tr>
               <td style="padding: 32px 48px 24px 48px;">
                 <h1 style="color: #0f1419; font-size: 32px; font-weight: 800; line-height: 36px; margin: 0 0 24px 0; letter-spacing: -0.5px;">
-                  Confirm your email address
+                  ${title}
                 </h1>
                 
                 <p style="color: #536471; font-size: 16px; line-height: 20px; margin: 0 0 32px 0;">
-                  Please enter this verification code to get started on X:
+                  ${description}
                 </p>
                 
                 <!-- OTP Code -->
@@ -61,13 +67,12 @@ export function getVerificationEmailTemplate({ otp }) {
                   </div>
                 </div>
                 
-                <p style="color: #536471; font-size: 16px; line-height: 20px; margin: 0 0 10px 0;">
-                  Verification codes expire after 10 minutes.
-                </p>
+                <h2 style="color: #0f1419; font-size: 20px; font-weight: 700; line-height: 24px; margin: 40px 0 12px 0;">
+                  ${subtitle}
+                </h2>
                 
                 <p style="color: #536471; font-size: 16px; line-height: 20px; margin: 0 0 40px 0;">
-                  Thanks, <br/>
-                  X
+                    ${subtitle_description}
                 </p>
               </td>
             </tr>
@@ -75,14 +80,17 @@ export function getVerificationEmailTemplate({ otp }) {
             <!-- Footer -->
             <tr>
               <td style="padding: 32px 48px 40px 48px; text-align: center; border-top: 1px solid #e1e8ed;">
-                <p style="color: #536471; font-size: 13px; line-height: 16px; margin: 0 0 16px 0;">
-                  <a href="#" style="color: #1d9bf0; text-decoration: none; margin: 0 8px;">Help</a>
-                  <span style="color: #cfd9de; margin: 0 4px;">|</span>
-                  <a href="#" style="color: #1d9bf0; text-decoration: none; margin: 0 8px;">Email security tips</a>
+                
+                <p style="color: #8b98a5; font-size: 13px; line-height: 16px; margin: 0 0 8px 0;">
+                  This email was meant for @${username}
                 </p>
                 
-                <p style="color: #8b98a5; font-size: 13px; line-height: 16px; margin: 0;">
-                  X Corp. 1355 Market Street, Suite 900 San Francisco, CA 94103
+                <p style="color: #8b98a5; font-size: 13px; line-height: 16px; margin: 0 0 12px 0;">
+                  Yapper Corp. Cairo Uni Street, Engineering faculty, Giza, Egypt (mabna "3" el dor el sab3)
+                </p>
+
+                <p style="color: #8b98a5; font-size: 12px; line-height: 16px; margin: 0; font-weight: 600;">
+                  The code is valid for 1 hour.
                 </p>
               </td>
             </tr>
@@ -93,6 +101,5 @@ export function getVerificationEmailTemplate({ otp }) {
   </div>
 </body>
 </html>
-}
   `;
 }

@@ -10,10 +10,9 @@ export class ChangePasswordAuthDTO {
     @IsNotEmpty()
     @MinLength(8)
     @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-      message:
-        'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',
     })
-    oldPassword: string;
+    old_password: string;
 
     @ApiProperty({
         description: 'User password - must contain at least one uppercase letter, one lowercase letter, and one number or special character',
@@ -23,8 +22,7 @@ export class ChangePasswordAuthDTO {
     @IsNotEmpty()
     @MinLength(8)
     @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-      message:
-        'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',
+        message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',
     })
-    newPassword: string;
+    new_password: string;
 }

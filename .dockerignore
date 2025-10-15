@@ -1,3 +1,55 @@
-dist
-config
+# Ignore node modules
 node_modules
+npm-debug.log
+
+# Ignore git files
+.git
+.gitignore
+
+# Ignore development files
+.env
+.env.local
+.env.development
+.env.test
+
+# Ignore test files
+test
+coverage
+*.test.js
+*.spec.js
+
+# Ignore development tools
+.eslintrc.js
+.prettierrc
+jest.config.js
+
+# Ignore documentation
+README.md
+docs
+
+# Ignore IDE files
+.vscode
+.idea
+*.swp
+*.swo
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore docker files (to avoid copying them into the image)
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Ignore logs
+logs
+*.log
+
+# Ignore build artifacts from previous builds
+dist
+
+# Ignore development database
+*.db
+*.sqlite
+dump.rdb
