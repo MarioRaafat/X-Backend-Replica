@@ -13,6 +13,7 @@ export class User {
     @Exclude()
     password: string;
 
+
     @Column({ type: 'varchar' })
     name: string;
 
