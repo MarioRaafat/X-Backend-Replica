@@ -13,14 +13,16 @@ export class User {
   @Exclude()
   password: string;
 
-  @Column({ type: 'varchar' })
+  ///////////////////// Return to nullable: false ////////////////////////
+  @Column({ type: 'varchar', nullable: true })
   firstName: string;
-
-  @Column({ type: 'varchar' })
+  
+  @Column({ type: 'varchar', nullable: true })
   lastName: string;
-
-  @Column({ type: 'varchar' })
+  
+  @Column({ type: 'varchar', nullable: true })
   phoneNumber: string;
+  ///////////////////// Return to nullable: false ////////////////////////
 
   @Column({ type: 'varchar', nullable: true })
   githubId?: string;
