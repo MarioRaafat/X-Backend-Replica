@@ -50,6 +50,17 @@ export class NotificationsService implements OnModuleInit {
     }
   }
 
+  async getUserMentionsNotifications(userId: string) {
+
+  }
+
+  async markNotificationsAsSeen(userId: string) {
+
+  }
+
+  async getUnseenCount(userId: string) {
+
+  }
 
   async getUserNotifications(userId: string): Promise<Notification | null> {
     const userNotifications = await this.notificationModel.findOne({ user: userId }).lean<Notification>().exec();
