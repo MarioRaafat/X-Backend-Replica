@@ -59,37 +59,37 @@ describe('UserService', () => {
   });
 
   describe('findUserByGithubId', () => {
-    it('should find a user by githubId', async () => {
-      const mockUser = { id: '3', githubId: 'gh123' } as User;
+    it('should find a user by github_id', async () => {
+      const mockUser = { id: '3', github_id: 'gh123' } as User;
       repo.findOne.mockResolvedValueOnce(mockUser);
 
       const result = await service.findUserByGithubId('gh123');
 
-      expect(repo.findOne).toHaveBeenCalledWith({ where: { githubId: 'gh123' } });
+      expect(repo.findOne).toHaveBeenCalledWith({ where: { github_id: 'gh123' } });
       expect(result).toBe(mockUser);
     });
   });
 
   describe('findUserByFacebookId', () => {
     it('should find a user by facebookId', async () => {
-      const mockUser = { id: '4', facebookId: 'fb123' } as User;
+      const mockUser = { id: '4', facebook_id: 'fb123' } as User;
       repo.findOne.mockResolvedValueOnce(mockUser);
 
       const result = await service.findUserByFacebookId('fb123');
 
-      expect(repo.findOne).toHaveBeenCalledWith({ where: { facebookId: 'fb123' } });
+      expect(repo.findOne).toHaveBeenCalledWith({ where: { facebook_id: 'fb123' } });
       expect(result).toBe(mockUser);
     });
   });
 
   describe('findUserByGoogleId', () => {
     it('should find a user by googleId', async () => {
-      const mockUser = { id: '5', googleId: 'g123' } as User;
+      const mockUser = { id: '5', google_id: 'g123' } as User;
       repo.findOne.mockResolvedValueOnce(mockUser);
 
       const result = await service.findUserByGoogleId('g123');
 
-      expect(repo.findOne).toHaveBeenCalledWith({ where: { googleId: 'g123' } });
+      expect(repo.findOne).toHaveBeenCalledWith({ where: { google_id: 'g123' } });
       expect(result).toBe(mockUser);
     });
   });
@@ -112,18 +112,17 @@ describe('UserService', () => {
       const updatedUser = {
         id: '1',
         name: 'Updated User',
+        username: 'updateduser',
         email: 'test@example.com',
         password: 'hashedpassword',
-        firstName: 'Test',
-        lastName: 'User',
-        phoneNumber: '1234567890'
+        phone_number: '1234567890'
       } as User;
       (repo.update as jest.Mock).mockResolvedValueOnce(undefined);
       repo.findOne.mockResolvedValueOnce(updatedUser);
 
-      const result = await service.updateUser('1', { firstName: 'Updated User' });
+      const result = await service.updateUser('1', { name: 'Updated User' });
 
-      expect(repo.update).toHaveBeenCalledWith('1', { firstName: 'Updated User' });
+      expect(repo.update).toHaveBeenCalledWith('1', { name: 'Updated User' });
       expect(result).toEqual(updatedUser);
     });
   });
