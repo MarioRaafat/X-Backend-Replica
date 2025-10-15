@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { ResponseInterceptor } from './interceptor/response.interceptor';
+import { RabbitmqService } from './rabbitmq/rabbitmq.service';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -33,6 +34,9 @@ async function bootstrap() {
       'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in the controller!
     )
     .build();
+  
+  const rabbit = app.get(RabbitmqService);
+  await rabbit.onModuleInit();
 
   const document = SwaggerModule.createDocument(app, config);
   SwaggerModule.setup('api-docs', app, document);
