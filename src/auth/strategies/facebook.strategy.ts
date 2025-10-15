@@ -3,55 +3,68 @@ import { PassportStrategy } from '@nestjs/passport';
 import { Strategy } from 'passport-facebook';
 import { ConfigService } from '@nestjs/config';
 import { AuthService } from '../auth.service';
-import { FacebookLoginDTO } from '../dto/facebookLogin.dto';
+import { FacebookLoginDTO } from '../dto/facebook-login.dto';
+
 @Injectable()
 export class FacebookStrategy extends PassportStrategy(Strategy) {
-  constructor(
-    private configService: ConfigService,
-    private authService: AuthService,
-  ) {
-    super({
-      clientID: configService.get('FACEBOOK_CLIENT_ID') || ' ',
-      clientSecret: configService.get('FACEBOOK_SECRET') || '',
-      callbackURL: configService.get('FACEBOOK_CALLBACK_URL') || '',
-      scope: ['email', 'public_profile'],
-      profileFields: ['id', 'emails', 'displayName'], // to get user email
-    });
-  }
-
-  async validate(
-    accesToken: string,
-    refreshToken: string,
-    profile: any,
-    done: any,
-  ) {
-    console.log(profile);
-    const { id, username, displayName, emails, profileUrl } = profile;
-
-    // Facebook usually will not provide us with the user email (to be discussed)
-    const email = emails && emails.length > 0 ? emails[0].value : null;
-    if (!email) {
-      throw new Error('No email found in Facebook profile');
+    constructor(
+        private config_service: ConfigService,
+        private auth_service: AuthService,
+    ) {
+        super({
+            clientID: config_service.get('FACEBOOK_CLIENT_ID') || '',
+            clientSecret: config_service.get('FACEBOOK_SECRET') || '',
+            callbackURL: config_service.get('FACEBOOK_CALLBACK_URL') || '',
+            scope: ['email', 'public_profile'],
+            profileFields: ['id', 'emails', 'displayName'], // to get user email
+        });
     }
 
-    // Split display name into first and last name
-    const nameParts = displayName ? displayName.split(' ') : [username];
-    const firstName = nameParts[0] || username || '';
-    const lastName = nameParts.slice(1).join(' ') || '';
+    async validate(
+        access_token: string,
+        refresh_token: string,
+        profile: any,
+        done: any,
+    ) {
+        try {
+            console.log('Facebook Profile:', JSON.stringify(profile, null, 2));
+            const { id, username, displayName, emails, photos } = profile;
 
-    console.log(firstName, lastName);
+            // Facebook might not always provide email
+            const email = emails && emails.length > 0 ? emails[0].value : null;
+            if (!email) {
+                console.error('No email found in Facebook profile');
+                return done(new Error('No email found in Facebook profile'), null);
+            }
 
-    const facebookUser: FacebookLoginDTO = {
-      facebookId: id,
-      email: email,
-      firstName: firstName,
-      lastName: lastName,
-      avatarUrl: profileUrl,
-    };
+            // Split display name into first and last name
+            const name_parts = displayName ? displayName.split(' ') : [username || 'User'];
+            const first_name = name_parts[0] || username || 'User';
+            const last_name = name_parts.slice(1).join(' ') || '';
 
-    const user = await this.authService.validateFacebookUser(facebookUser);
+            const facebook_user: FacebookLoginDTO = {
+                facebook_id: id,
+                email: email,
+                first_name: first_name,
+                last_name: last_name,
+                avatar_url: photos && photos.length > 0 ? photos[0].value : undefined,
+            };
 
-    //user will be appended to the request
-    done(null, user);
-  }
+            const result = await this.auth_service.validateFacebookUser(facebook_user);
+
+            // Type guard to check if result has user and needs_completion properties
+            const user = 'user' in result ? result.user : result;
+            const needs_completion = 'needs_completion' in result ? result.needs_completion : false;
+
+            if (needs_completion) {
+                return done(null, {needs_completion: true, user: user});
+            }
+
+            //user will be appended to the request
+            return done(null, user);
+        } catch (error) {
+            console.log('Facebook strategy: Error during validation:', error.message);
+            return done(error, null);
+        }
+    }
 }

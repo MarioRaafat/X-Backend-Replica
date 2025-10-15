@@ -1,293 +1,265 @@
-export const registerUserSwagger = {
-  operation: {
-    summary: 'Register new user',
-    description:
-      'Register a new user account. User will need to verify email before login.',
-  },
+import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
-  responses: {
-    success: {
-      status: 201,
-      description:
-        'User successfully registered. Check email for verification.',
-      schema: {
-        example: {
-          data: {
-            isEmailSent: true,
-          },
-          count: 1,
-          message: 'User successfully registered. Check email for verification',
-        },
-      },
-    },
-    BadRequest: {
-      status: 400,
-      description: 'Bad request - validation errors',
-      schema: {
-        example: {
-          message: ['email must be a valid email', 'password is too weak'],
-          error: 'Bad Request',
-          statusCode: 400,
-        },
-      },
+export const signup_step1_swagger = {
+    operation: {
+        summary: 'Signup Step 1 - Submit basic information',
+        description: `
+**Multi-stage Signup Flow - Step 1 of 3**
+
+Submit your basic information to begin the registration process.
+
+**What happens:**
+1. System validates that the email is not already registered
+2. Stores your information in a temporary session (valid for 1 hour)
+3. Generates OTP code
+4. Sends the OTP to your email with a "Not Me" link for security
+
+**Next step:** Use the OTP received in your email to verify ownership at \`POST /auth/signup/step2\`
+
+**Note:** The signup session expires after 1 hour. If expired, you'll need to start over.
+        `,
     },
 
-    conflict: {
-      status: 409,
-      description: 'Conflict - email already exists',
-      schema: {
-        example: {
-          message: 'Email already exists',
-          error: 'Conflict',
-          statusCode: 409,
+    responses: {
+        success: {
+            description: 'Information saved and verification email sent',
+            schema: {
+                example: {
+                    data: {
+                        isEmailSent: true,
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.SIGNUP_STEP1_COMPLETED,
+                },
+            },
         },
-      },
     },
-  },
 };
 
-export const generateOTPSwagger = {
-  operation: {
-    summary: 'Generate email verification OTP',
-    description:
-      "Generate and send a new email verification OTP to the user's email.",
-  },
+export const signup_step2_swagger = {
+    operation: {
+        summary: 'Signup Step 2 - Verify email with OTP',
+        description: `
+**Multi-stage Signup Flow - Step 2 of 3**
 
-  body: {
-    description: 'email to send the OTP code',
-    schema: {
-      type: 'object',
-      properties: {
-        email: {
-          type: 'string',
-          description: 'email',
-          example: 'mario0o0o@gmail.com',
-        },
-      },
-      required: ['email'],
-    },
-  },
+Verify your email address using the OTP code sent to your inbox.
 
-  responses: {
-    success: {
-      status: 201,
-      description: 'OTP generated and sent successfully',
-      schema: {
-        example: {
-          data: {
-            isEmailSent: true,
-          },
-          count: 1,
-          message: 'Verification OTP sent to email',
-        },
-      },
+**What happens:**
+1. System validates the OTP against the one sent to your email
+2. Marks your email as verified in the signup session
+3. OTP is valid for a limited time only
+
+**Next step:** Complete your registration by setting a password and username at \`POST /auth/signup/step3\`
+
+**Note:** You must complete this step before your signup session expires (1 hour from step 1).
+        `,
     },
 
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
+    responses: {
+        success: {
+            description: 'Email verified successfully',
+            schema: {
+                example: {
+                    data: {
+                        isVerified: true,
+                        recommendations: [
+                            'mario198',
+                            'marioraafat01743',
+                            'raafat9720',
+                        ],
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.SIGNUP_STEP2_COMPLETED,
+                },
+            },
         },
-      },
     },
-  },
 };
 
-export const verifyEmailSwagger = {
-  operation: {
-    summary: 'Verify email with OTP',
-    description: `
+export const signup_step3_swagger = {
+    operation: {
+        summary: 'Signup Step 3 - Complete registration',
+        description: `
+**Multi-stage Signup Flow - Step 3 of 3**
+
+Complete your registration by setting a password, choosing a username, and optionally providing additional preferences.
+
+**What happens:**
+1. System validates that your email was verified in step 2
+2. Validates password strength and confirmation match
+3. Creates your user account in the database
+4. Cleans up the temporary signup session
+5. Returns your new user ID
+
+**Required fields:**
+- Email (must match the one from previous steps)
+- Password (min 8 chars, must include uppercase, lowercase, and number/special char)
+- Username (unique identifier)
+
+**Optional fields:**
+- Language preference (en or ar)
+
+**After completion:** You can now login with your email and password at \`POST /auth/login\`
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'Registration completed successfully',
+            schema: {
+                example: {
+                    data: {
+                        userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED,
+                },
+            },
+            headers: {
+                'Set-Cookie': {
+                    description: 'HttpOnly cookie containing refresh token',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
+                    },
+                },
+            },
+        },
+    },
+};
+
+export const generate_otp_swagger = {
+    operation: {
+        summary: 'Generate email verification OTP',
+        description:
+            "Generate and send a new email verification OTP to the user's email.",
+    },
+
+    responses: {
+        success: {
+            description: 'OTP generated and sent successfully',
+            schema: {
+                example: {
+                    data: {
+                        isEmailSent: true,
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.OTP_GENERATED,
+                },
+            },
+        },
+    },
+};
+
+export const verify_email_swagger = {
+    operation: {
+        summary: 'Verify email with OTP',
+        description: `
     Verify user email using the OTP sent to their email address.
     The target is to check if the user owns the provided email or not by validating the OTP.        
     `,
-  },
-
-  body: {
-    description: 'Verification data',
-    schema: {
-      type: 'object',
-      properties: {
-        email: {
-          type: 'string',
-          description: 'email that the OTP was sent to',
-          example: 'Amiraa@gmail.com',
-        },
-        token: {
-          type: 'string',
-          description: 'OTP token received in email',
-          example: '123456',
-        },
-      },
-      required: ['email', 'token'],
-    },
-  },
-
-  responses: {
-    success: {
-      status: 200,
-      description: 'Email verified successfully',
-      schema: {
-        example: {
-          data: {
-            userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
-          },
-          count: 1,
-          message: 'Email verified successfully',
-        },
-      },
     },
 
-    BadRequest: {
-      status: 400,
-      description: 'Invalid or expired OTP',
-      schema: {
-        example: {
-          message: 'Invalid or expired OTP',
-          error: 'Bad Request',
-          statusCode: 400,
-        },
-      },
-    },
-  },
-};
-
-export const loginSwagger = {
-  operation: {
-    summary: 'User login',
-    description:
-      'Authenticate user and receive access token. Refresh token is set as httpOnly cookie.',
-  },
-
-  responses: {
-    success: {
-      status: 200,
-      description: 'Login successful',
-      schema: {
-        example: {
-          data: {
-            access_token:
-              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
-            user: {
-              id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
-              email: 'amirakhaled928@gmail.com',
-              firstName: 'Amira',
-              lastName: 'Khalid',
-              phoneNumber: '+201143126545',
-              githubId: null,
-              facebookId: null,
-              googleId: null,
-              avatarUrl: null,
+    responses: {
+        success: {
+            description: 'Email verified successfully',
+            schema: {
+                example: {
+                    data: {
+                        userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.EMAIL_VERIFIED,
+                },
             },
-          },
-          count: 1,
-          message: 'Login Successfully!',
         },
-      },
-      headers: {
-        'Set-Cookie': {
-          description: 'HttpOnly cookie containing refresh token',
-          schema: {
-            type: 'string',
-            example:
-              'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
-          },
-        },
-      },
     },
-
-    Unauthorized: {
-      status: 401,
-      description: 'Unauthorized - invalid credentials',
-      schema: {
-        example: {
-          message: 'Invalid email or password',
-          error: 'Unauthorized',
-          statusCode: 401,
-        },
-      },
-    },
-
-    Forbidden: {
-      status: 403,
-      description: 'Forbidden - email not verified',
-      schema: {
-        example: {
-          message: 'Please verify your email first',
-          error: 'Forbidden',
-          statusCode: 403,
-        },
-      },
-    },
-  },
 };
 
-export const refreshTokenSwagger = {
-  operation: {
-    summary: 'Refresh access token',
-    description:
-      'Use refresh token from httpOnly cookie to get a new access token.',
-  },
-
-  responses: {
-    success: {
-      status: 200,
-      description: 'New access token generated',
-      schema: {
-        example: {
-          data: {
-            access_token:
-              'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNjZTM3YjEzLWQ2ZGUtNDhjZC1iNzQ2LWRmMjY0ODQ1N2E0NiIsImlhdCI6MTc1ODE0OTI2NywiZXhwIjoxNzU4MTUyODY3fQ.M1ennV-LC8xiJpsRKCsUo9Y4o7_6mydG0SPURuNzh6I',
-          },
-          count: 1,
-          message: 'New access token generated',
-        },
-      },
-      headers: {
-        'Set-Cookie': {
-          description: 'New HttpOnly cookie containing refresh token',
-          schema: {
-            type: 'string',
-            example:
-              'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
-          },
-        },
-      },
+export const login_swagger = {
+    operation: {
+        summary: 'User login',
+        description:
+            'Authenticate user and receive access token. Refresh token is set as httpOnly cookie.',
     },
 
-    BadRequest: {
-      status: 400,
-      description: 'Bad request - no refresh token provided',
-      schema: {
-        example: {
-          message: 'No refresh token provided',
-          error: 'Bad Request',
-          statusCode: 400,
+    responses: {
+        success: {
+            description: 'Login successful',
+            schema: {
+                example: {
+                    data: {
+                        access_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        user: {
+                            id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
+                            email: 'amirakhaled928@gmail.com',
+                            name: 'Amira',
+                            phone_number: '+201143126545',
+                            github_id: null,
+                            facebook_id: null,
+                            google_id: null,
+                            avatar_url: null,
+                        },
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.LOGGED_IN,
+                },
+            },
+            headers: {
+                'Set-Cookie': {
+                    description: 'HttpOnly cookie containing refresh token',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
+                    },
+                },
+            },
         },
-      },
     },
-
-    Unauthorized: {
-      status: 401,
-      description: 'Unauthorized - invalid or expired refresh token',
-      schema: {
-        example: {
-          message: 'Invalid refresh token',
-          error: 'Unauthorized',
-          statusCode: 401,
-        },
-      },
-    },
-  },
 };
 
-export const googleOauthSwagger = {
-  operation: {
-    summary: 'Initiate Google OAuth Login',
-    description: `
+export const refresh_token_swagger = {
+    operation: {
+        summary: 'Refresh access token',
+        description:
+            'Use refresh token from httpOnly cookie to get a new access token.',
+    },
+
+    responses: {
+        success: {
+            description: 'New access token generated',
+            schema: {
+                example: {
+                    data: {
+                        access_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNjZTM3YjEzLWQ2ZGUtNDhjZC1iNzQ2LWRmMjY0ODQ1N2E0NiIsImlhdCI6MTc1ODE0OTI2NywiZXhwIjoxNzU4MTUyODY3fQ.M1ennV-LC8xiJpsRKCsUo9Y4o7_6mydG0SPURuNzh6I',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.NEW_ACCESS_TOKEN,
+                },
+            },
+            headers: {
+                'Set-Cookie': {
+                    description: 'New HttpOnly cookie containing refresh token',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
+                    },
+                },
+            },
+        },
+    },
+};
+
+export const google_oauth_swagger = {
+    operation: {
+        summary: 'Initiate Google OAuth Login',
+        description: `
       **⚠️ Important: This endpoint cannot be tested in Swagger UI**
       
       **How to use:**
@@ -307,42 +279,42 @@ export const googleOauthSwagger = {
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
-  },
-
-  responses: {
-    success: {
-      status: 302,
-      description: 'Redirects to Google OAuth authorization page',
-      headers: {
-        Location: {
-          description: 'Google OAuth URL',
-          schema: {
-            type: 'string',
-            example:
-              'https://accounts.google.com/oauth/authorize?client_id=...',
-          },
-        },
-      },
     },
 
-    InternalServerError: {
-      status: 500,
-      description: 'Internal server error - OAuth configuration issue',
-      schema: {
-        example: {
-          message: 'OAuth configuration error',
-          error: 'Internal Server Error',
-          statusCode: 500,
+    responses: {
+        success: {
+            status: 302,
+            description: 'Redirects to Google OAuth authorization page',
+            headers: {
+                Location: {
+                    description: 'Google OAuth URL',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'https://accounts.google.com/oauth/authorize?client_id=...',
+                    },
+                },
+            },
         },
-      },
+
+        InternalServerError: {
+            status: 500,
+            description: 'Internal server error - OAuth configuration issue',
+            schema: {
+                example: {
+                    message: 'OAuth configuration error',
+                    error: 'Internal Server Error',
+                    statusCode: 500,
+                },
+            },
+        },
     },
-  },
 };
 
-export const googleCallbackSwagger = {
-  operation: {
-    summary: 'Google OAuth Callback Handler',
-    description: `
+export const google_callback_swagger = {
+    operation: {
+        summary: 'Google OAuth Callback Handler',
+        description: `
       **⚠️ This endpoint is called automatically by Google - Do not call manually**
       
       **What this endpoint does:**
@@ -360,53 +332,53 @@ export const googleCallbackSwagger = {
       **Cookies set:**
       - \`refresh_token\`: HttpOnly, Secure, SameSite=Strict, 7 days expiry
       `,
-  },
-
-  responses: {
-    success: {
-      status: 302,
-      description:
-        'Successful authentication - redirects to frontend with token',
-      headers: {
-        Location: {
-          description: 'Frontend success URL with access token',
-          schema: {
-            type: 'string',
-            example:
-              '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-          },
-        },
-        'Set-Cookie': {
-          description: 'HttpOnly refresh token cookie',
-          schema: {
-            type: 'string',
-            example:
-              'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
-          },
-        },
-      },
     },
 
-    AuthFail: {
-      status: 302,
-      description: 'Authentication failed - redirects to frontend error page',
-      headers: {
-        Location: {
-          description: 'Frontend error URL',
-          schema: {
-            type: 'string',
-            example: '<front url>/auth/error?message=Authentication%20failed',
-          },
+    responses: {
+        success: {
+            status: 302,
+            description:
+                'Successful authentication - redirects to frontend with token',
+            headers: {
+                Location: {
+                    description: 'Frontend success URL with access token',
+                    schema: {
+                        type: 'string',
+                        example:
+                            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                    },
+                },
+                'Set-Cookie': {
+                    description: 'HttpOnly refresh token cookie',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+                    },
+                },
+            },
         },
-      },
+
+        AuthFail: {
+            status: 302,
+            description: 'Authentication failed - redirects to frontend error page',
+            headers: {
+                Location: {
+                    description: 'Frontend error URL',
+                    schema: {
+                        type: 'string',
+                        example: '<front url>/auth/error?message=Authentication%20failed',
+                    },
+                },
+            },
+        },
     },
-  },
 };
 
-export const facebookOauthSwagger = {
-  operation: {
-    summary: 'Initiate Facebook OAuth Login',
-    description: `
+export const facebook_oauth_swagger = {
+    operation: {
+        summary: 'Initiate Facebook OAuth Login',
+        description: `
       **⚠️ Important: This endpoint cannot be tested in Swagger UI**
       
       **How to use:**
@@ -426,42 +398,42 @@ export const facebookOauthSwagger = {
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
-  },
-
-  responses: {
-    success: {
-      status: 302,
-      description: 'Redirects to Facebook OAuth authorization page',
-      headers: {
-        Location: {
-          description: 'Facebook OAuth URL',
-          schema: {
-            type: 'string',
-            example:
-              'https://www.facebook.com/v18.0/dialog/oauth?client_id=...',
-          },
-        },
-      },
     },
 
-    InternalServerError: {
-      status: 500,
-      description: 'Internal server error - OAuth configuration issue',
-      schema: {
-        example: {
-          message: 'OAuth configuration error',
-          error: 'Internal Server Error',
-          statusCode: 500,
+    responses: {
+        success: {
+            status: 302,
+            description: 'Redirects to Facebook OAuth authorization page',
+            headers: {
+                Location: {
+                    description: 'Facebook OAuth URL',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'https://www.facebook.com/v18.0/dialog/oauth?client_id=...',
+                    },
+                },
+            },
         },
-      },
+
+        InternalServerError: {
+            status: 500,
+            description: 'Internal server error - OAuth configuration issue',
+            schema: {
+                example: {
+                    message: 'OAuth configuration error',
+                    error: 'Internal Server Error',
+                    statusCode: 500,
+                },
+            },
+        },
     },
-  },
 };
 
-export const facebookCallbackSwagger = {
-  operation: {
-    summary: 'Facebook OAuth Callback Handler',
-    description: `
+export const facebook_callback_swagger = {
+    operation: {
+        summary: 'Facebook OAuth Callback Handler',
+        description: `
       **⚠️ This endpoint is called automatically by Facebook - Do not call manually**
       
       **What this endpoint does:**
@@ -479,53 +451,53 @@ export const facebookCallbackSwagger = {
       **Cookies set:**
       - \`refresh_token\`: HttpOnly, Secure, SameSite=Strict, 7 days expiry
       `,
-  },
-
-  responses: {
-    success: {
-      status: 302,
-      description:
-        'Successful authentication - redirects to frontend with token',
-      headers: {
-        Location: {
-          description: 'Frontend success URL with access token',
-          schema: {
-            type: 'string',
-            example:
-              '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-          },
-        },
-        'Set-Cookie': {
-          description: 'HttpOnly refresh token cookie',
-          schema: {
-            type: 'string',
-            example:
-              'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
-          },
-        },
-      },
     },
 
-    AuthFail: {
-      status: 302,
-      description: 'Authentication failed - redirects to frontend error page',
-      headers: {
-        Location: {
-          description: 'Frontend error URL',
-          schema: {
-            type: 'string',
-            example: '<front url>/auth/error?message=Authentication%20failed',
-          },
+    responses: {
+        success: {
+            status: 302,
+            description:
+                'Successful authentication - redirects to frontend with token',
+            headers: {
+                Location: {
+                    description: 'Frontend success URL with access token',
+                    schema: {
+                        type: 'string',
+                        example:
+                            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                    },
+                },
+                'Set-Cookie': {
+                    description: 'HttpOnly refresh token cookie',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+                    },
+                },
+            },
         },
-      },
+
+        AuthFail: {
+            status: 302,
+            description: 'Authentication failed - redirects to frontend error page',
+            headers: {
+                Location: {
+                    description: 'Frontend error URL',
+                    schema: {
+                        type: 'string',
+                        example: '<front url>/auth/error?message=Authentication%20failed',
+                    },
+                },
+            },
+        },
     },
-  },
 };
 
-export const githubOauthSwagger = {
-  operation: {
-    summary: 'Initiate GitHub OAuth Login',
-    description: `
+export const github_oauth_swagger = {
+    operation: {
+        summary: 'Initiate GitHub OAuth Login',
+        description: `
       **⚠️ Important: This endpoint cannot be tested in Swagger UI**
       
       **How to use:**
@@ -545,40 +517,40 @@ export const githubOauthSwagger = {
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
-  },
+    },
 
-  responses: {
-    success: {
-      status: 302,
-      description: 'Redirects to GitHub OAuth authorization page',
-      headers: {
-        Location: {
-          description: 'GitHub OAuth URL',
-          schema: {
-            type: 'string',
-            example: 'https://github.com/login/oauth/authorize?client_id=...',
-          },
+    responses: {
+        success: {
+            status: 302,
+            description: 'Redirects to GitHub OAuth authorization page',
+            headers: {
+                Location: {
+                    description: 'GitHub OAuth URL',
+                    schema: {
+                        type: 'string',
+                        example: 'https://github.com/login/oauth/authorize?client_id=...',
+                    },
+                },
+            },
         },
-      },
-    },
-    InternalServerError: {
-      status: 500,
-      description: 'Internal server error - OAuth configuration issue',
-      schema: {
-        example: {
-          message: 'OAuth configuration error',
-          error: 'Internal Server Error',
-          statusCode: 500,
+        InternalServerError: {
+            status: 500,
+            description: 'Internal server error - OAuth configuration issue',
+            schema: {
+                example: {
+                    message: 'OAuth configuration error',
+                    error: 'Internal Server Error',
+                    statusCode: 500,
+                },
+            },
         },
-      },
     },
-  },
 };
 
-export const githubCallbackSwagger = {
-  operation: {
-    summary: 'GitHub OAuth Callback Handler',
-    description: `
+export const github_callback_swagger = {
+    operation: {
+        summary: 'GitHub OAuth Callback Handler',
+        description: `
       **⚠️ This endpoint is called automatically by GitHub - Do not call manually**
       
       **What this endpoint does:**
@@ -596,48 +568,48 @@ export const githubCallbackSwagger = {
       **Cookies set:**
       - \`refresh_token\`: HttpOnly, Secure, SameSite=Strict, 7 days expiry
       `,
-  },
-  responses: {
-    success: {
-      status: 302,
-      description:
-        'Successful authentication - redirects to frontend with token',
-      headers: {
-        Location: {
-          description: 'Frontend success URL with access token',
-          schema: {
-            type: 'string',
-            example:
-              '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-          },
-        },
-        'Set-Cookie': {
-          description: 'HttpOnly refresh token cookie',
-          schema: {
-            type: 'string',
-            example:
-              'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
-          },
-        },
-      },
     },
-    AuthFail: {
-      status: 302,
-      description: 'Authentication failed - redirects to frontend error page',
-      headers: {
-        Location: {
-          description: 'Frontend error URL',
-          schema: {
-            type: 'string',
-            example: '<front url>/auth/error?message=Authentication%20failed',
-          },
+    responses: {
+        success: {
+            status: 302,
+            description:
+                'Successful authentication - redirects to frontend with token',
+            headers: {
+                Location: {
+                    description: 'Frontend success URL with access token',
+                    schema: {
+                        type: 'string',
+                        example:
+                            '<front url>/auth/success?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                    },
+                },
+                'Set-Cookie': {
+                    description: 'HttpOnly refresh token cookie',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict; Max-Age=604800',
+                    },
+                },
+            },
         },
-      },
+        AuthFail: {
+            status: 302,
+            description: 'Authentication failed - redirects to frontend error page',
+            headers: {
+                Location: {
+                    description: 'Frontend error URL',
+                    schema: {
+                        type: 'string',
+                        example: '<front url>/auth/error?message=Authentication%20failed',
+                    },
+                },
+            },
+        },
     },
-  },
 };
 
-export const notMeSwagger = {
+export const not_me_swagger = {
   operation: {
     summary: 'Verify "Not Me" Report for Unauthorized Email Access',
     description: `
@@ -662,278 +634,260 @@ export const notMeSwagger = {
       `,
   },
 
+  api_query: {
+      name: 'token',
+      type: String,
+      required: true,
+      description: 'The JWT token from the link sent to the user’s email',
+      example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+  },
+
   responses: {
     success: {
-      status: 200,
       description: 'User account deleted successfully',
       schema: {
         example: {
-          data: {
-            message: 'User deleted successfully',
-          },
-          count: 1,
-          message: 'Account successfully removed due to unauthorized access report',
-        },
-      },
-    },
-
-    Unauthorized: {
-      status: 401,
-      description: 'Invalid or expired not me link token',
-      schema: {
-        example: {
-          message: 'Invalid or expired not me link',
-          error: 'Unauthorized',
-          statusCode: 401,
-        },
-      },
-    },
-
-    BadRequest: {
-      status: 400,
-      description: 'Account was already verified or other validation error',
-      schema: {
-        example: {
-          message: 'Account was already verified',
-          error: 'Bad Request',
-          statusCode: 400,
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.ACCOUNT_REMOVED,
         },
       },
     },
   },
 };
 
-export const changePasswordSwagger = {
-  operation: {
-    summary: 'Change user password',
-    description:
-      'Change the authenticated user\'s password. Requires current password validation and JWT authentication.',
-  },
-
-  responses: {
-    success: {
-      status: 200,
-      description: 'Password changed successfully',
-      schema: {
-        example: {
-          data: {
-            success: true,
-          },
-          count: 1,
-          message: 'Password changed successfully',
-        },
-      },
+export const change_password_swagger = {
+    operation: {
+        summary: 'Change user password',
+        description:
+            'Change the authenticated user\'s password. Requires current password validation and JWT authentication.',
     },
 
-    BadRequest: {
-      status: 400,
-      description: 'Bad request - validation errors or same password',
-      schema: {
-        example: {
-          message: 'New password must be different from the old password',
-          error: 'Bad Request',
-          statusCode: 400,
+    responses: {
+        success: {
+            description: 'Password changed successfully',
+            schema: {
+                example: {
+                    data: {},
+                    count: 0,
+                    message: SUCCESS_MESSAGES.PASSWORD_CHANGED,
+                },
+            },
         },
-      },
     },
-
-    Unauthorized: {
-      status: 401,
-      description: 'Unauthorized - invalid token or wrong current password',
-      schema: {
-        example: {
-          message: 'Wrong password',
-          error: 'Unauthorized',
-          statusCode: 401,
-        },
-      },
-    },
-
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
-        },
-      },
-    },
-  },
 };
 
-export const captchaSwagger = {
-  operation: {
-    summary: 'Get reCAPTCHA site key',
-    description:
-      'Returns the reCAPTCHA site key needed for frontend widget initialization.',
-  },
-
-  responses: {
-    success: {
-      status: 200,
-      description: 'reCAPTCHA site key returned successfully',
-      schema: {
-        example: {
-          data: {
-            siteKey: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
-          },
-          count: 1,
-          message: 'ReCAPTCHA site key retrieved successfully',
-        },
-      },
+export const captcha_swagger = {
+    operation: {
+        summary: 'Get reCAPTCHA site key',
+        description:
+            'Returns the reCAPTCHA site key needed for frontend widget initialization.',
     },
-  },
+
+    responses: {
+        success: {
+            description: 'reCAPTCHA site key returned successfully',
+            schema: {
+                example: {
+                    data: {
+                        siteKey: '6LeIxAcTAAAAAJcZVRqyHh71UMIEGNQ_MXjiZKhI',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.CAPTCHA_SITE_KEY,
+                },
+            },
+        },
+    },
 };
 
-export const forgetPasswordSwagger = {
-  operation: {
-    summary: 'Request password reset',
-    description:
-      'Initiates password reset process by sending OTP to user\'s email address.',
-  },
+export const forget_password_swagger = {
+    operation: {
+        summary: 'Request password reset',
+        description:
+            'Initiates password reset process by sending OTP to user\'s email address.',
+    },
 
-  responses: {
-    success: {
-      status: 200,
-      description: 'Password reset email sent successfully',
-      schema: {
-        example: {
-          data: {
-            isEmailSent: true,
-          },
-          count: 1,
-          message: 'Password reset link sent to email',
+    responses: {
+        success: {
+            description: 'Password reset email sent successfully',
+            schema: {
+                example: {
+                    data: {
+                        isEmailSent: true,
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.PASSWORD_RESET_OTP_SENT,
+                },
+            },
         },
-      },
     },
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
-        },
-      },
-    },
-    InternalServerError: {
-      status: 500,
-      description: 'Failed to send email',
-      schema: {
-        example: {
-          message: 'Failed to send password reset email',
-          error: 'Internal Server Error',
-          statusCode: 500,
-        },
-      },
-    },
-  },
 };
 
-export const verifyResetOtpSwagger = {
-  operation: {
-    summary: 'Verify password reset OTP',
-    description:
-      'Verifies the OTP code sent to user\'s email for password reset. Step 2 of the password reset flow. Returns a secure reset token for step 3.',
-  },
+export const verify_reset_otp_swagger = {
+    operation: {
+        summary: 'Verify password reset OTP',
+        description:
+            'Verifies the OTP code sent to user\'s email for password reset. Step 2 of the password reset flow. Returns a secure reset token for step 3.',
+    },
 
-  responses: {
-    success: {
-      status: 200,
-      description: 'OTP verified successfully, secure reset token generated',
-      schema: {
-        example: {
-          data: {
-            isValid: true,
-            resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
-          },
-          count: 1,
-          message: 'OTP verified successfully, you can now reset your password',
+    responses: {
+        success: {
+            description: 'OTP verified successfully, secure reset token generated',
+            schema: {
+                example: {
+                    data: {
+                        isValid: true,
+                        resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.OTP_VERIFIED,
+                },
+            },
         },
-      },
     },
-    BadRequest: {
-      status: 400,
-      description: 'Invalid or expired OTP',
-      schema: {
-        example: {
-          message: 'Expired or incorrect token',
-          error: 'Unprocessable Entity',
-          statusCode: 422,
-        },
-      },
-    },
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
-        },
-      },
-    },
-  },
 };
 
-export const resetPasswordSwagger = {
-  operation: {
-    summary: 'Reset password with secure token',
-    description:
-      `Final step of password reset flow. Changes user password using the secure reset token from step 2. 
+export const reset_password_swagger = {
+    operation: {
+        summary: 'Reset password with secure token',
+        description:
+            `Final step of password reset flow. Changes user password using the secure reset token from step 2. 
       Token ensures the person resetting is the same who verified the OTP.`,
-  },
+    },
 
-  responses: {
-    success: {
-      status: 200,
-      description: 'Password reset successfully',
-      schema: {
-        example: {
-          data: {
-            success: true,
-          },
-          count: 1,
-          message: 'Password reset successfully',
+    responses: {
+        success: {
+            description: 'Password reset successfully',
+            schema: {
+                example: {
+                    data: {},
+                    count: 0,
+                    message: SUCCESS_MESSAGES.PASSWORD_RESET,
+                },
+            },
         },
-      },
     },
-    BadRequest: {
-      status: 400,
-      description: 'Validation errors or new password same as current',
-      schema: {
-        example: {
-          message: 'New password must be different from the current password',
-          error: 'Bad Request',
-          statusCode: 400,
+};
+
+export const logout_swagger = {
+    operation: {
+        summary: 'Logout from current device',
+        description:
+            'Logs out the user from the current device by invalidating the refresh token. The refresh token cookie will be cleared.',
+    },
+
+    responses: {
+        success: {
+            description: 'Successfully logged out from current device',
+            schema: {
+                example: {
+                    data: {},
+                    count: 0,
+                    message: SUCCESS_MESSAGES.LOGGED_OUT,
+                },
+            },
         },
-      },
     },
-    NotFound: {
-      status: 404,
-      description: 'User not found',
-      schema: {
-        example: {
-          message: 'User not found',
-          error: 'Not Found',
-          statusCode: 404,
+};
+
+export const logout_All_swagger = {
+    operation: {
+        summary: 'Logout from all devices',
+        description:
+            'Logs out the user from all devices by invalidating all refresh tokens associated with the user. All active sessions will be terminated.',
+    },
+
+    responses: {
+        success: {
+            description: 'Successfully logged out from all devices',
+            schema: {
+                example: {
+                    data: {},
+                    count: 0,
+                    message: SUCCESS_MESSAGES.LOGGED_OUT_ALL,
+                },
+            },
         },
-      },
     },
-    UnprocessableEntity: {
-      status: 422,
-      description: 'Token expired or invalid',
-      schema: {
-        example: {
-          message: 'Token has expired or is invalid',
-          error: 'Unprocessable Entity',
-          statusCode: 422,
+};
+
+export const oauth_completion_step1_swagger = {
+    operation: {
+        summary: 'OAuth Step 1: Set birth date and get username recommendations',
+        description: `
+            Complete OAuth registration step 1. Sets the user's birth date and returns username recommendations.
+            Requires a valid OAuth session token obtained from the OAuth callback.
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'Birth date set successfully, username recommendations provided',
+            schema: {
+                example: {
+                    data: {
+                        usernames: [
+                            'mario_2024',
+                            'bahgot123',
+                            'shady.mo',
+                            'alyaa_official',
+                            'amira_k_2024'
+                        ],
+                        token: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                        nextStep: 'choose-username'
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.BIRTH_DATE_SET,
+                },
+            },
         },
-      },
     },
-  },
+};
+
+export const oauth_completion_step2_swagger = {
+    operation: {
+        summary: 'OAuth Step 2: Complete registration with username',
+        description: `
+            Complete OAuth registration step 2. Finalizes user account creation with the chosen username.
+            Returns access token and user data. Refresh token is set as httpOnly cookie.
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'OAuth user registered successfully',
+            schema: {
+                example: {
+                    data: {
+                        access_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        user: {
+                            id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
+                            email: 'mariorafat10@gmail.com',
+                            name: 'shady',
+                            username: 'amira_alyaa_2024',
+                            birth_date: '1990-05-15T00:00:00.000Z',
+                            phone_number: '',
+                            github_id: null,
+                            facebook_id: null,
+                            google_id: '1234567890',
+                            avatar_url: 'https://lh3.googleusercontent.com/a/avatar.jpg',
+                        },
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.OAUTH_USER_REGISTERED,
+                },
+            },
+            headers: {
+                'Set-Cookie': {
+                    description: 'HttpOnly cookie containing refresh token',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
+                    },
+                },
+            },
+        },
+    },
 };
