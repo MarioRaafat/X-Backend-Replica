@@ -30,14 +30,14 @@ export const USER_REFRESH_TOKENS_REMOVE = (userId: string, jti: string) => ({
 });
 
 
-// ------------------ PENDING USER (Registration) ------------------
-export const PENDING_USER_KEY = (email: string) => `user:${email}`;
-export const PENDING_USER_TTL = 60 * 60; // 1 hour
+// ------------------ SIGNUP SESSION (Multi-stage signup) ------------------
+export const SIGNUP_SESSION_KEY = (email: string) => `signup:session:${email}`;
+export const SIGNUP_SESSION_TTL = 60 * 60; // 1 hour
 
-export const PENDING_USER_OBJECT = (email: string, user_data: Record<string, string>) => ({
-    key: PENDING_USER_KEY(email),
-    value: user_data,
-    ttl: PENDING_USER_TTL,
+export const SIGNUP_SESSION_OBJECT = (email: string, session_data: Record<string, any>) => ({
+    key: SIGNUP_SESSION_KEY(email),
+    value: session_data,
+    ttl: SIGNUP_SESSION_TTL,
 });
 
 // ------------------ OAUTH COMPLETION SESSION ------------------

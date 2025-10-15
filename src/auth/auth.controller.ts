@@ -11,7 +11,9 @@ import {
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Request, Response } from 'express';
-import { RegisterDto } from './dto/register.dto';
+import { SignupStep1Dto } from './dto/signup-step1.dto';
+import { SignupStep2Dto } from './dto/signup-step2.dto';
+import { SignupStep3Dto } from './dto/signup-step3.dto';
 import { OAuthCompletionStep1Dto } from './dto/oauth-completion-step1.dto';
 import { OAuthCompletionStep2Dto } from './dto/oauth-completion-step2.dto';
 import { Body } from '@nestjs/common';
@@ -67,7 +69,9 @@ import {
     oauth_completion_step1_swagger,
     oauth_completion_step2_swagger,
     refresh_token_swagger,
-    register_user_swagger,
+    signup_step1_swagger,
+    signup_step2_swagger,
+    signup_step3_swagger,
     verify_email_swagger,
     forget_password_swagger,
     verify_reset_otp_swagger,
@@ -89,17 +93,44 @@ export class AuthController {
         });
     }
 
-
-    @ApiOperation(register_user_swagger.operation)
-    @ApiBody({ type: RegisterDto })
-    @ApiCreatedResponse(register_user_swagger.responses.success)
-    @ApiBadRequestErrorResponse(ERROR_MESSAGES.PASSWORD_CONFIRMATION_MISMATCH)
+    @ApiOperation(signup_step1_swagger.operation)
+    @ApiBody({ type: SignupStep1Dto })
+    @ApiCreatedResponse(signup_step1_swagger.responses.success)
     @ApiConflictErrorResponse(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS)
     @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
-    @ResponseMessage(SUCCESS_MESSAGES.USER_REGISTERED)
-    @Post('signup')
-    async signup(@Body() registerDto: RegisterDto) {
-        return this.auth_service.register(registerDto);
+    @ResponseMessage(SUCCESS_MESSAGES.SIGNUP_STEP1_COMPLETED)
+    @Post('signup/step1')
+    async signupStep1(@Body() dto: SignupStep1Dto) {
+        return this.auth_service.signupStep1(dto);
+    }
+
+    @ApiOperation(signup_step2_swagger.operation)
+    @ApiBody({ type: SignupStep2Dto })
+    @ApiOkResponse(signup_step2_swagger.responses.success)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.SIGNUP_SESSION_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.SIGNUP_STEP2_COMPLETED)
+    @Post('signup/step2')
+    async signupStep2(@Body() dto: SignupStep2Dto) {
+        return this.auth_service.signupStep2(dto);
+    }
+
+    @ApiOperation(signup_step3_swagger.operation)
+    @ApiBody({ type: SignupStep3Dto })
+    @ApiCreatedResponse(signup_step3_swagger.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.SIGNUP_SESSION_NOT_FOUND)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN)
+    @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB)
+    @ResponseMessage(SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED)
+    @Post('signup/step3')
+    async signupStep3(
+        @Body() dto: SignupStep3Dto,
+        @Res({ passthrough: true }) response: Response,
+    ) {
+        const { user_id, access_token, refresh_token } = await this.auth_service.signupStep3(dto);
+
+        this.httpOnlyRefreshToken(response, refresh_token);
+        return { user_id, access_token };
     }
 
     @ApiOperation(login_swagger.operation)
@@ -131,19 +162,6 @@ export class AuthController {
     async generateEmailVerification(@Body() resendOtpDto: ResendOtpDto) {
         const { email } = resendOtpDto;
         return this.auth_service.generateEmailVerification(email);
-    }
-
-    @ApiOperation(verify_email_swagger.operation)
-    @ApiBody({ type: VerifyEmailDto })
-    @ApiOkResponse(verify_email_swagger.responses.success)
-    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND_OR_VERIFIED)
-    @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB)
-    @ResponseMessage(SUCCESS_MESSAGES.EMAIL_VERIFIED)
-    @Post('email/verify-otp')
-    async verifyEmail(@Body() verifyEmailDto: VerifyEmailDto) {
-        const { email, token } = verifyEmailDto;
-        return this.auth_service.verifyEmail(email, token);
     }
 
     @ApiOperation(not_me_swagger.operation)

@@ -1,23 +1,129 @@
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
-export const register_user_swagger = {
+export const signup_step1_swagger = {
     operation: {
-        summary: 'Register new user',
-        description:
-            'Register a new user account. User will need to verify email before login.',
+        summary: 'Signup Step 1 - Submit basic information',
+        description: `
+**Multi-stage Signup Flow - Step 1 of 3**
+
+Submit your basic information to begin the registration process.
+
+**What happens:**
+1. System validates that the email is not already registered
+2. Stores your information in a temporary session (valid for 1 hour)
+3. Generates OTP code
+4. Sends the OTP to your email with a "Not Me" link for security
+
+**Next step:** Use the OTP received in your email to verify ownership at \`POST /auth/signup/step2\`
+
+**Note:** The signup session expires after 1 hour. If expired, you'll need to start over.
+        `,
     },
 
     responses: {
         success: {
-            description:
-                'User successfully registered. Check email for verification.',
+            description: 'Information saved and verification email sent',
             schema: {
                 example: {
                     data: {
                         isEmailSent: true,
                     },
                     count: 1,
-                    message: SUCCESS_MESSAGES.USER_REGISTERED,
+                    message: SUCCESS_MESSAGES.SIGNUP_STEP1_COMPLETED,
+                },
+            },
+        },
+    },
+};
+
+export const signup_step2_swagger = {
+    operation: {
+        summary: 'Signup Step 2 - Verify email with OTP',
+        description: `
+**Multi-stage Signup Flow - Step 2 of 3**
+
+Verify your email address using the OTP code sent to your inbox.
+
+**What happens:**
+1. System validates the OTP against the one sent to your email
+2. Marks your email as verified in the signup session
+3. OTP is valid for a limited time only
+
+**Next step:** Complete your registration by setting a password and username at \`POST /auth/signup/step3\`
+
+**Note:** You must complete this step before your signup session expires (1 hour from step 1).
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'Email verified successfully',
+            schema: {
+                example: {
+                    data: {
+                        isVerified: true,
+                        recommendations: [
+                            'mario198',
+                            'marioraafat01743',
+                            'raafat9720',
+                        ],
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.SIGNUP_STEP2_COMPLETED,
+                },
+            },
+        },
+    },
+};
+
+export const signup_step3_swagger = {
+    operation: {
+        summary: 'Signup Step 3 - Complete registration',
+        description: `
+**Multi-stage Signup Flow - Step 3 of 3**
+
+Complete your registration by setting a password, choosing a username, and optionally providing additional preferences.
+
+**What happens:**
+1. System validates that your email was verified in step 2
+2. Validates password strength and confirmation match
+3. Creates your user account in the database
+4. Cleans up the temporary signup session
+5. Returns your new user ID
+
+**Required fields:**
+- Email (must match the one from previous steps)
+- Password (min 8 chars, must include uppercase, lowercase, and number/special char)
+- Username (unique identifier)
+
+**Optional fields:**
+- Language preference (en or ar)
+
+**After completion:** You can now login with your email and password at \`POST /auth/login\`
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'Registration completed successfully',
+            schema: {
+                example: {
+                    data: {
+                        userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED,
+                },
+            },
+            headers: {
+                'Set-Cookie': {
+                    description: 'HttpOnly cookie containing refresh token',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
+                    },
                 },
             },
         },
@@ -90,13 +196,12 @@ export const login_swagger = {
                         user: {
                             id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
                             email: 'amirakhaled928@gmail.com',
-                            firstName: 'Amira',
-                            lastName: 'Khalid',
-                            phoneNumber: '+201143126545',
-                            githubId: null,
-                            facebookId: null,
-                            googleId: null,
-                            avatarUrl: null,
+                            name: 'Amira',
+                            phone_number: '+201143126545',
+                            github_id: null,
+                            facebook_id: null,
+                            google_id: null,
+                            avatar_url: null,
                         },
                     },
                     count: 1,
@@ -759,15 +864,14 @@ export const oauth_completion_step2_swagger = {
                         user: {
                             id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
                             email: 'mariorafat10@gmail.com',
-                            firstName: 'shady',
-                            lastName: 'bahgat',
+                            name: 'shady',
                             username: 'amira_alyaa_2024',
-                            birthDate: '1990-05-15T00:00:00.000Z',
-                            phoneNumber: '',
-                            githubId: null,
-                            facebookId: null,
-                            googleId: '1234567890',
-                            avatarUrl: 'https://lh3.googleusercontent.com/a/avatar.jpg',
+                            birth_date: '1990-05-15T00:00:00.000Z',
+                            phone_number: '',
+                            github_id: null,
+                            facebook_id: null,
+                            google_id: '1234567890',
+                            avatar_url: 'https://lh3.googleusercontent.com/a/avatar.jpg',
                         },
                     },
                     count: 1,

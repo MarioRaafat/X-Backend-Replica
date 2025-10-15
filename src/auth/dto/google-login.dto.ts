@@ -1,5 +1,3 @@
-import { PartialType } from '@nestjs/mapped-types';
-import { RegisterDto } from './register.dto';
 import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class GoogleLoginDTO {

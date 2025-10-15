@@ -14,10 +14,7 @@ export class User {
     password: string;
 
     @Column({ type: 'varchar' })
-    first_name: string;
-
-    @Column({ type: 'varchar', nullable: true })
-    last_name?: string;
+    name: string;
 
     @Column({ type: 'varchar', unique: true })
     username: string;

@@ -8,7 +8,9 @@ import {
     InternalServerErrorException,
     ForbiddenException,
 } from '@nestjs/common';
-import { RegisterDto } from './dto/register.dto';
+import { SignupStep1Dto } from './dto/signup-step1.dto';
+import { SignupStep2Dto } from './dto/signup-step2.dto';
+import { SignupStep3Dto } from './dto/signup-step3.dto';
 import { OAuthCompletionStep1Dto } from './dto/oauth-completion-step1.dto';
 import { OAuthCompletionStep2Dto } from './dto/oauth-completion-step2.dto';
 import { User } from 'src/user/entities/user.entity';
@@ -37,11 +39,11 @@ import {
   USER_REFRESH_TOKENS_REMOVE,
   USER_REFRESH_TOKENS_KEY,
   REFRESH_TOKEN_KEY,
-  PENDING_USER_KEY,
-  PENDING_USER_OBJECT,
   OAUTH_SESSION_KEY,
   OAUTH_SESSION_OBJECT,
   OTP_KEY,
+  SIGNUP_SESSION_KEY,
+  SIGNUP_SESSION_OBJECT,
 } from 'src/constants/redis';
 
 @Injectable()
@@ -85,11 +87,24 @@ export class AuthService {
         };
     }
 
+    async getRecommendedUsernames(name: string): Promise<string[]> {
+        const name_parts = name.split(' ');
+        const first_name = name_parts[0];
+        const last_name = name_parts.length > 1 ? name_parts.slice(1).join(' ') : '';
+
+        const recommendations = await this.username_service.generateUsernameRecommendations(
+            first_name,
+            last_name
+        );
+
+        return recommendations;
+    }
+
     async validateUser(email: string, password: string): Promise<string> {
         const user = await this.user_service.findUserByEmail(email);
         if (!user) {
-            const pending_user_key = PENDING_USER_KEY(email);
-            const unverified_user = await this.redis_service.hget(pending_user_key);
+            const signup_session_key = SIGNUP_SESSION_KEY(email);
+            const unverified_user = await this.redis_service.hget(signup_session_key);
             if (!unverified_user) {
                 throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
             } else {
@@ -113,65 +128,123 @@ export class AuthService {
         return user.id;
     }
 
-    async register(register_dto: RegisterDto) {
-        const { 
-            email, 
-            confirm_password, 
-            password, 
-            captcha_token, 
-            ...register_user 
-        } = register_dto;
+    async signupStep1(dto: SignupStep1Dto) {
+        const { name, birth_date, email, captcha_token } = dto;
 
-        // Verify CAPTCHA first (comment that in case you want to test the endpoint)
+        // Verify CAPTCHA first (uncomment in production)
         // try {
         //     await this.captcha_service.validateCaptcha(captcha_token);
         // } catch (error) {
         //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
         // }
 
-        // Check if email is under verification process
-        const pending_user_key = PENDING_USER_KEY(email);
-        const pending_user = await this.redis_service.hget(pending_user_key);
-
-        if (pending_user) {
-            throw new ConflictException(ERROR_MESSAGES.EMAIL_NOT_VERIFIED);
-        }
-
-        // Check if email is in use
-        const existing_user = await this.user_service.findUserByEmail(
-            register_dto.email,
-        );
-
+        const existing_user = await this.user_service.findUserByEmail(email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
-        // Check that passwords match
-        if (password !== confirm_password) {
-            throw new BadRequestException(ERROR_MESSAGES.PASSWORD_CONFIRMATION_MISMATCH);
+        const signup_session_key = SIGNUP_SESSION_KEY(email);
+        const existing_session = await this.redis_service.hget(signup_session_key);
+        if (existing_session) {
+            throw new ConflictException(ERROR_MESSAGES.SIGNUP_SESSION_ALREADY_EXISTS);
+        }
+
+        const signup_session_object = SIGNUP_SESSION_OBJECT(email, {
+            name,
+            birth_date,
+            email,
+            step: '1',
+            email_verified: 'false',
+        });
+
+        await this.redis_service.hset(
+            signup_session_object.key,
+            signup_session_object.value,
+            signup_session_object.ttl,
+        );
+
+        await this.generateEmailVerification(email);
+
+        return { isEmailSent: true };
+    }
+
+    async signupStep2(dto: SignupStep2Dto) {
+        const { email, token } = dto;
+
+        const signup_session_key = SIGNUP_SESSION_KEY(email);
+        const signup_session = await this.redis_service.hget(signup_session_key);
+
+        if (!signup_session) {
+            throw new NotFoundException(ERROR_MESSAGES.SIGNUP_SESSION_NOT_FOUND);
+        }
+
+        const is_valid = await this.verification_service.validateOtp(email, token, 'email');
+        if (!is_valid) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
+
+        // Update session to mark email as verified
+        const updated_session = SIGNUP_SESSION_OBJECT(email, {
+            ...signup_session,
+            step: '2',
+            email_verified: 'true',
+        });
+
+        await this.redis_service.hset(
+            updated_session.key,
+            updated_session.value,
+            updated_session.ttl,
+        );
+
+        // generate username recommendations for step 3
+        const recommendations = await this.getRecommendedUsernames(signup_session.name);
+
+        return {
+            isVerified: true,
+            recommendations,
+        };
+    }
+
+    async signupStep3(dto: SignupStep3Dto) {
+        const { email, password, username, language} = dto;
+
+        const signup_session_key = SIGNUP_SESSION_KEY(email);
+        const signup_session = await this.redis_service.hget(signup_session_key);
+
+        if (!signup_session || signup_session.email_verified !== 'true') {
+            throw new NotFoundException(ERROR_MESSAGES.SIGNUP_SESSION_NOT_FOUND);
         }
 
         const hashed_password = await bcrypt.hash(password, 10);
+        const user_data: any = {
+            email: signup_session.email,
+            name: signup_session.name,
+            birth_date: new Date(signup_session.birth_date),
+            username,
+            password: hashed_password,
+            language: language || 'en',
+        };
+        const created_user = await this.user_service.createUser(user_data);
 
-        const pending_user_object = PENDING_USER_OBJECT(
-            email,
-            {
-                ...register_user,
-                password: hashed_password,
-                birth_date: register_user.birth_date,
-            }
-        );
+        if (!created_user) {
+            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB);
+        }
 
-        await this.redis_service.hset(
-            pending_user_object.key,
-            pending_user_object.value,
-            pending_user_object.ttl,
-        );
+        // Generate tokens for automatic login
+        const { access_token, refresh_token } = await this.generateTokens(created_user.id);
 
-        // Send verification email
-        await this.generateEmailVerification(email);
+        // Clean up
+        await this.redis_service.del(signup_session_key);
+        const otp_key = OTP_KEY('email', email);
+        await this.redis_service.del(otp_key);
+
+        // Return user data with tokens for automatic login
+        const user = instanceToPlain(created_user);
+
         return {
-            isEmailSent: true,
+            user_id: created_user.id,
+            access_token,
+            refresh_token,
         };
     }
 
@@ -187,8 +260,8 @@ export class AuthService {
     }
 
     async generateEmailVerification(email: string) {
-        const pending_user_key = PENDING_USER_KEY(email);
-        const user = await this.redis_service.hget(pending_user_key);
+        const signup_session_key = SIGNUP_SESSION_KEY(email);
+        const user = await this.redis_service.hget(signup_session_key);
 
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND_OR_VERIFIED);
@@ -205,7 +278,7 @@ export class AuthService {
 
         const email_sent = await this.email_service.sendEmail({
             subject: subject,
-            recipients: [{ name: user.firstName ?? '', address: email }],
+            recipients: [{ name: user.name ?? '', address: email }],
             html,
         });
 
@@ -231,7 +304,7 @@ export class AuthService {
 
         const email_sent = await this.email_service.sendEmail({
             subject: subject,
-            recipients: [{ name: user.first_name ?? '', address: email }],
+            recipients: [{ name: user.name ?? '', address: email }],
             html,
         });
 
@@ -240,46 +313,6 @@ export class AuthService {
         }
 
         return { isEmailSent: true };
-    }
-
-    async verifyEmail(email: string, token: string) {
-        const pending_user_key = PENDING_USER_KEY(email);
-        const user = await this.redis_service.hget(pending_user_key);
-        if (!user) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND_OR_VERIFIED);
-        }
-
-        const is_valid = await this.verification_service.validateOtp(
-            email,
-            token,
-            'email',
-        );
-
-        if (!is_valid) {
-            throw new UnprocessableEntityException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
-        }
-
-        const first_name = user.firstName;
-        const last_name = user.lastName;
-
-        const created_user = await this.user_service.createUser({
-            email,
-            first_name,
-            last_name,
-            birth_date: new Date(user.birth_date),
-            username: user.username,
-            ...user,
-        });
-
-        if (!created_user) {
-            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB);
-        }
-
-        await this.redis_service.del(pending_user_key);
-
-        return {
-            userId: created_user.id,
-        };
     }
 
     async verifyResetPasswordOtp(user_id: string, token: string) {
@@ -363,15 +396,15 @@ export class AuthService {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_LINK);
         }
 
-        const pending_user_key = PENDING_USER_KEY(user.email);
-        const pending_user = await this.redis_service.hget(pending_user_key);
+        const signup_session_key = SIGNUP_SESSION_KEY(user.email);
+        const signup_session = await this.redis_service.hget(signup_session_key);
 
-        if (!pending_user) {
-            throw new BadRequestException(ERROR_MESSAGES.ACCOUNT_ALREADY_VERIFIED);
+        if (!signup_session) {
+            throw new BadRequestException(ERROR_MESSAGES.SIGNUP_SESSION_NOT_FOUND);
         }
 
-        // Clean up pending user data and OTP
-        await this.redis_service.del(pending_user_key);
+        // Clean up signup session and OTP
+        await this.redis_service.del(signup_session_key);
         await this.redis_service.del(OTP_KEY('email', user.email));
 
         return {};
@@ -490,14 +523,17 @@ export class AuthService {
             }
         }
 
+        const last_name = google_user.last_name ? google_user.last_name : '';
+        let name = google_user.first_name + ' ' + last_name;
+        name = name.trim();
+
         // If user doesn't exist, we need to create an OAuth completion session
         // The frontend will need to handle this by redirecting to completion flow
         return {
             needs_completion: true,
             user: {
                 email: google_user.email,
-                first_name: google_user.first_name,
-                last_name: google_user.last_name,
+                name: name,
                 avatar_url: google_user.avatar_url,
                 google_id: google_user.google_id,
             }   
@@ -540,12 +576,15 @@ export class AuthService {
             }
         }
 
+        const last_name = facebook_user.last_name ? facebook_user.last_name : '';
+        let name = facebook_user.first_name + ' ' + last_name;
+        name = name.trim();
+
         return {
             needs_completion: true,
             user: {
                 email: facebook_user.email,
-                first_name: facebook_user.first_name,
-                last_name: facebook_user.last_name,
+                name: name,
                 avatar_url: facebook_user.avatar_url,
                 facebook_id: facebook_user.facebook_id,
             }
@@ -586,12 +625,15 @@ export class AuthService {
             };
         }
 
+        const last_name = github_user.last_name ? github_user.last_name : '';
+        let name = github_user.first_name + ' ' + last_name;
+        name = name.trim();
+
         return {
             needs_completion: true,
             user: {
                 email: github_user.email,
-                first_name: github_user.first_name,
-                last_name: github_user.last_name,
+                name: name,
                 avatar_url: github_user.avatar_url,
                 github_id: github_user.github_id,
             }
@@ -639,11 +681,7 @@ export class AuthService {
             updated_session_data.ttl,
         );
 
-        // Generate username recommendations
-        const recommendations = await this.username_service.generateUsernameRecommendations(
-            user_data.first_name,
-            user_data.last_name
-        );
+        const recommendations = await this.getRecommendedUsernames(user_data.name);
 
         return {
             usernames: recommendations,
@@ -672,8 +710,7 @@ export class AuthService {
         // Create the user
         const user = await this.user_service.createUser({
             email: user_data.email,
-            first_name: user_data.first_name,
-            last_name: user_data.last_name,
+            name: user_data.name,
             username: username,
             birth_date: new Date(user_data.birth_date),
             password: '', // OAuth users don't have passwords

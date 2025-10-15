@@ -19,18 +19,11 @@ export class CreateUserDto {
     password?: string;
 
     @ApiProperty({
-        description: 'First name',
-        example: 'Alyaa',
+        description: 'Name',
+        example: 'Alyaa Amira',
     })
     @IsString()
-    first_name: string;
-
-    @ApiProperty({
-        description: 'Last name',
-        example: 'Amira',
-    })
-    @IsString()
-    last_name: string;
+    name: string;
 
     @ApiProperty({
         description: 'Username',

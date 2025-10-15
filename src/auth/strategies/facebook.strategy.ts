@@ -42,8 +42,6 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
             const first_name = name_parts[0] || username || 'User';
             const last_name = name_parts.slice(1).join(' ') || '';
 
-            console.log('Parsed names:', { first_name, last_name });
-
             const facebook_user: FacebookLoginDTO = {
                 facebook_id: id,
                 email: email,

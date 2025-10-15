@@ -8,6 +8,8 @@ export const ERROR_MESSAGES = {
     SOCIAL_LOGIN_REQUIRED: 'User registered with social login. Please use social login to access your account',
     CAPTCHA_VERIFICATION_FAILED: 'CAPTCHA verification failed. Please try again',
     ACCOUNT_ALREADY_VERIFIED: 'Account was already verified',
+    SIGNUP_SESSION_NOT_FOUND: 'Signup session not found or expired. Please start registration again',
+    SIGNUP_SESSION_ALREADY_EXISTS: 'Signup session already exists. Please verify your email or start over',
 
     // OAuth completion
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
@@ -39,6 +41,9 @@ export const ERROR_MESSAGES = {
 export const SUCCESS_MESSAGES = {
     // auth
     USER_REGISTERED: 'User successfully registered. Check email for verification',
+    SIGNUP_STEP1_COMPLETED: 'Information saved. Check email for verification code',
+    SIGNUP_STEP2_COMPLETED: 'Email verified successfully. Please complete your registration',
+    SIGNUP_STEP3_COMPLETED: 'Registration completed successfully. You are now logged in',
     LOGGED_IN: 'Logged in Successfully!',
     EMAIL_VERIFIED: 'Email verified successfully',
     OTP_GENERATED: 'OTP generated and sent successfully',
