@@ -11,6 +11,7 @@ import { CommunicationModule } from './communication/communication.module';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { SearchModule } from './search/search.module';
 
 @Module({
     imports: [
@@ -26,6 +27,7 @@ import { NotificationsModule } from './notifications/notifications.module';
         CommunicationModule,
         RabbitmqModule,
         NotificationsModule,
+        SearchModule,
     ],
     controllers: [AppController],
     providers: [AppService],
