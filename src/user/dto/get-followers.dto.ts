@@ -1,0 +1,14 @@
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsBoolean } from 'class-validator';
+import { PaginationParamsDto } from './pagination-params.dto';
+
+export class GetFollowersDto extends PaginationParamsDto {
+  @ApiPropertyOptional({
+    description: 'Following Filter',
+    example: 10,
+    type: Boolean,
+  })
+  @IsOptional()
+  @IsBoolean()
+  following?: boolean = false;
+}
