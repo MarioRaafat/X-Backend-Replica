@@ -1,5 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, Min, IsInt } from 'class-validator';
+import { IsNotEmpty, IsOptional, Min, IsInt, IsString } from 'class-validator';
 
 export class SearchQueryDto {
   @ApiProperty({
@@ -9,6 +9,15 @@ export class SearchQueryDto {
   })
   @IsNotEmpty({ message: 'Query is required' })
   query: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter results by username (optional)',
+    example: 'Alyaali242',
+    type: String,
+  })
+  @IsOptional()
+  @IsString()
+  username?: string;
 
   @ApiPropertyOptional({
     description: 'Page number for pagination (starting from 1)',

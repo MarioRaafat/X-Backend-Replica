@@ -56,11 +56,8 @@ import { SearchQueryDto } from './dto/search-query.dto';
 export class SearchController {
   constructor(private readonly searchService: SearchService) {}
 
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation(get_suggestions_swagger.operation)
   @ApiOkResponse(get_suggestions_swagger.responses.success)
-  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SUGGESTIONS_RETRIEVED)
   @Get('suggestions')
@@ -68,11 +65,8 @@ export class SearchController {
     return await this.searchService.getSuggestions(queryDto.query);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation(search_users_swagger.operation)
   @ApiOkResponse(search_users_swagger.responses.success)
-  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_USERS_RETRIEVED)
   @Get('users')
@@ -80,11 +74,8 @@ export class SearchController {
     return await this.searchService.searchUsers(queryDto.query);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation(search_latest_posts.operation)
   @ApiOkResponse(search_latest_posts.responses.success)
-  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
   @Get('posts')
@@ -92,11 +83,8 @@ export class SearchController {
     return await this.searchService.searchPosts(queryDto.query);
   }
 
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
   @ApiOperation(search_latest_posts.operation)
   @ApiOkResponse(search_latest_posts.responses.success)
-  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
   @Get('posts/latest')
