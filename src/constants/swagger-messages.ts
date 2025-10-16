@@ -57,6 +57,13 @@ export const SUCCESS_MESSAGES = {
     LOGGED_OUT_ALL: 'Successfully logged out from all devices',
     ACCOUNT_REMOVED: 'Account successfully removed due to unauthorized access report',
 
+    // search
+    SEARCH_HISTORY_RETRIEVED: 'Search history retrieved successfully',
+    SEARCH_HISTORY_CLEARED: 'Search history cleared successfully',
+    SEARCH_HISTORY_ITEM_DELETED: 'Search history item deleted successfully',
+    SEARCH_HISTORY_QUERY_SAVED: 'Search query saved to history successfully',
+    SEARCH_HISTORY_PEOPLE_SAVED: 'People search saved to history successfully',
+
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',
     OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
