@@ -1,15 +1,8 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, IsBoolean } from 'class-validator';
+import { SearchQueryDto } from './search-query.dto';
 
-export class SearchPostsDto {
-  @ApiProperty({
-    description: 'Query to search for',
-    example: 'cats',
-    type: String,
-  })
-  @IsNotEmpty({ message: 'Query is required' })
-  query: string;
-
+export class SearchPostsDto extends SearchQueryDto {
   @ApiPropertyOptional({
     description: 'Flag to filter posts that have media (images/videos)',
     example: true,

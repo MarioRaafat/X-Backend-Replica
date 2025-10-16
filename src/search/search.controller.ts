@@ -49,6 +49,7 @@ import {
 } from 'src/constants/swagger-messages';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { SearchPostsDto } from './dto/search-posts.dto';
+import { SearchQueryDto } from './dto/search-query.dto';
 
 @ApiTags('Search')
 @Controller('search')
@@ -58,16 +59,50 @@ export class SearchController {
   @UseGuards(JwtAuthGuard)
   @ApiBearerAuth('JWT-auth')
   @ApiOperation(get_suggestions_swagger.operation)
-  @ApiQuery(get_suggestions_swagger.api_query)
   @ApiOkResponse(get_suggestions_swagger.responses.success)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SUGGESTIONS_RETRIEVED)
   @Get('suggestions')
-  async getSuggestions(@Query('query') query: string) {
-    return await this.searchService.getSuggestions(query);
+  async getSuggestions(@Query() queryDto: SearchQueryDto) {
+    return await this.searchService.getSuggestions(queryDto.query);
   }
 
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation(search_users_swagger.operation)
+  @ApiOkResponse(search_users_swagger.responses.success)
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
+  @ResponseMessage(SUCCESS_MESSAGES.SEARCH_USERS_RETRIEVED)
+  @Get('users')
+  async searchPeople(@Query() queryDto: SearchQueryDto) {
+    return await this.searchService.searchUsers(queryDto.query);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation(search_latest_posts.operation)
+  @ApiOkResponse(search_latest_posts.responses.success)
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
+  @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
+  @Get('posts')
+  async searchPosts(@Query() queryDto: SearchPostsDto) {
+    return await this.searchService.searchPosts(queryDto.query);
+  }
+
+  @UseGuards(JwtAuthGuard)
+  @ApiBearerAuth('JWT-auth')
+  @ApiOperation(search_latest_posts.operation)
+  @ApiOkResponse(search_latest_posts.responses.success)
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
+  @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
+  @Get('posts/latest')
+  async searchLatestPosts(@Query() queryDto: SearchQueryDto) {
+    return await this.searchService.searchLatestPosts(queryDto.query);
+  }
 
   @ApiOperation(get_history_swagger.operation)
   @ApiOkResponse(get_history_swagger.responses.success)
@@ -115,43 +150,5 @@ export class SearchController {
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_HISTORY_PEOPLE_SAVED)
   async createSearchHistoryPeople(@Body() body: CreateSearchHistoryPeopleDto) {
     return await this.searchService.createSearchHistoryPeople(body);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation(search_users_swagger.operation)
-  @ApiQuery(search_users_swagger.api_query)
-  @ApiOkResponse(search_users_swagger.responses.success)
-  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
-  @ResponseMessage(SUCCESS_MESSAGES.SEARCH_USERS_RETRIEVED)
-  @Get('users')
-  async searchPeople(@Query('query') query: string) {
-    return await this.searchService.searchUsers(query);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation(search_latest_posts.operation)
-  @ApiOkResponse(search_latest_posts.responses.success)
-  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
-  @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
-  @Get('posts')
-  async searchPosts(@Query('query') queryDto: SearchPostsDto) {
-    return await this.searchService.searchPosts(queryDto.query);
-  }
-
-  @UseGuards(JwtAuthGuard)
-  @ApiBearerAuth('JWT-auth')
-  @ApiOperation(search_latest_posts.operation)
-  @ApiQuery(search_latest_posts.api_query)
-  @ApiOkResponse(search_latest_posts.responses.success)
-  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
-  @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
-  @Get('posts/latest')
-  async searchLatestPosts(@Query('query') query: string) {
-    return await this.searchService.searchLatestPosts(query);
   }
 }

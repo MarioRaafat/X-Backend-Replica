@@ -8,14 +8,6 @@ export const get_suggestions_swagger = {
     `,
   },
 
-  api_query: {
-    name: 'query',
-    type: String,
-    required: true,
-    description: 'The query to search for',
-    example: 'cat',
-  },
-
   responses: {
     success: {
       description: 'Search suggestions retrieved successfully',
@@ -60,14 +52,6 @@ export const search_users_swagger = {
     description: `
     Get users search results
     `,
-  },
-
-  api_query: {
-    name: 'query',
-    type: String,
-    required: true,
-    description: 'The query to search for',
-    example: 'cat',
   },
 
   responses: {
@@ -137,14 +121,6 @@ export const search_latest_posts = {
     `,
   },
 
-  api_query: {
-    name: 'query',
-    type: String,
-    required: true,
-    description: 'The query to search for',
-    example: 'cat',
-  },
-
   responses: {
     success: {
       description: 'Latest posts search results retrieved successfully',
@@ -164,7 +140,7 @@ export const search_latest_posts = {
 export const get_history_swagger = {
   operation: {
     summary: 'Get search history',
-    description: 'Retrieve the authenticated user\'s search history',
+    description: "Retrieve the authenticated user's search history",
   },
   responses: {
     success: {
@@ -213,12 +189,14 @@ export const delete_history_item_swagger = {
 export const create_history_query_swagger = {
   operation: {
     summary: 'Save query to search history',
-    description: 'Save a search query string to the user\'s history',
+    description: "Save a search query string to the user's history",
   },
   responses: {
     success: {
       description: 'Search query saved successfully',
-      schema: { example: { message: SUCCESS_MESSAGES.SEARCH_HISTORY_QUERY_SAVED } },
+      schema: {
+        example: { message: SUCCESS_MESSAGES.SEARCH_HISTORY_QUERY_SAVED },
+      },
     },
   },
 };
@@ -231,7 +209,9 @@ export const create_history_people_swagger = {
   responses: {
     success: {
       description: 'People search saved successfully',
-      schema: { example: { message: SUCCESS_MESSAGES.SEARCH_HISTORY_PEOPLE_SAVED } },
+      schema: {
+        example: { message: SUCCESS_MESSAGES.SEARCH_HISTORY_PEOPLE_SAVED },
+      },
     },
   },
 };
