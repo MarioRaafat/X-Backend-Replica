@@ -24,7 +24,14 @@ import {
   ApiInternalServerError,
 } from 'src/decorators/swagger-error-responses.decorator';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
-import { get_suggestions_swagger } from './search.swagger';
+import {
+  get_suggestions_swagger,
+  get_history_swagger,
+  delete_history_swagger,
+  delete_history_item_swagger,
+  create_history_query_swagger,
+  create_history_people_swagger,
+} from './search.swagger';
 import {
   SUCCESS_MESSAGES,
   ERROR_MESSAGES,
@@ -46,8 +53,8 @@ export class SearchController {
   }
 
 
-  @ApiOperation({ summary: 'Get search history' })
-  @ApiOkResponse({ description: 'Returns user search history' })
+  @ApiOperation(get_history_swagger.operation)
+  @ApiOkResponse(get_history_swagger.responses.success)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_HISTORY_RETRIEVED)
   @Get('history')
@@ -55,8 +62,8 @@ export class SearchController {
     return await this.searchService.getSearchHistory();
   }
 
-  @ApiOperation({ summary: 'Delete all search history' })
-  @ApiOkResponse({ description: 'Deletes all user search history' })
+  @ApiOperation(delete_history_swagger.operation)
+  @ApiOkResponse(delete_history_swagger.responses.success)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_HISTORY_CLEARED)
   @Delete('history')
@@ -64,8 +71,8 @@ export class SearchController {
     return await this.searchService.deleteAllSearchHistory();
   }
 
-  @ApiOperation({ summary: 'Delete a single search history item' })
-  @ApiOkResponse({ description: 'Deletes one history item by id' })
+  @ApiOperation(delete_history_item_swagger.operation)
+  @ApiOkResponse(delete_history_item_swagger.responses.success)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ApiParam({ name: 'id', required: true })
   @Delete('history/:id')
@@ -74,8 +81,8 @@ export class SearchController {
     return await this.searchService.deleteSearchHistoryById(id);
   }
 
-  @ApiOperation({ summary: 'Save a search query to history' })
-  @ApiCreatedResponse({ description: 'Creates a search history entry' })
+  @ApiOperation(create_history_query_swagger.operation)
+  @ApiCreatedResponse(create_history_query_swagger.responses.success)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ApiBody({ type: CreateSearchHistoryQueryDto })
   @Post('history/query')
@@ -84,8 +91,8 @@ export class SearchController {
     return await this.searchService.createSearchHistoryQuery(body);
   }
 
-  @ApiOperation({ summary: 'Save people search to history' })
-  @ApiCreatedResponse({ description: 'Creates a people search history entry' })
+  @ApiOperation(create_history_people_swagger.operation)
+  @ApiCreatedResponse(create_history_people_swagger.responses.success)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ApiBody({ type: CreateSearchHistoryPeopleDto })
   @Post('history/people')
