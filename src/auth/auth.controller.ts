@@ -19,10 +19,8 @@ import { OAuthCompletionStep2Dto } from './dto/oauth-completion-step2.dto';
 import { Body } from '@nestjs/common';
 import { LoginDTO } from './dto/login.dto';
 import { ChangePasswordAuthDTO } from './dto/change-password-auth.dto';
-import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
 import { VerifyPasswordResetOtpDto } from './dto/verify-password-reset-otp.dto';
 import {
     ApiTags,

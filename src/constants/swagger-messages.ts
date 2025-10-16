@@ -35,6 +35,19 @@ export const ERROR_MESSAGES = {
 
     // server
     INTERNAL_SERVER_ERROR: 'Internal server error',
+
+    // chat
+    CHAT_NOT_FOUND: 'Chat not found',
+    MESSAGE_NOT_FOUND: 'Message not found',
+    UNAUTHORIZED_ACCESS_TO_CHAT: 'Unauthorized access to chat',
+    UNAUTHORIZED_ACCESS_TO_MESSAGE: 'Unauthorized access to message',
+    RECIPIENT_NOT_FOUND: 'Recipient user not found',
+    CANNOT_MESSAGE_YOURSELF: 'Cannot send message to yourself',
+    MESSAGE_CONTENT_REQUIRED: 'Message content is required',
+    CHAT_ALREADY_EXISTS: 'Chat already exists between these users',
+    INVALID_MESSAGE_TYPE: 'Invalid message type',
+    REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
+    CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
 } as const;
 
 // Success Messages
@@ -60,4 +73,16 @@ export const SUCCESS_MESSAGES = {
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',
     OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
+
+    // chat
+    CHAT_CREATED: 'Chat created successfully',
+    MESSAGE_SENT: 'Message sent successfully',
+    MESSAGE_UPDATED: 'Message updated successfully',
+    MESSAGE_DELETED: 'Message deleted successfully',
+    CHAT_DELETED: 'Chat deleted successfully',
+    CHATS_RETRIEVED: 'Chats retrieved successfully',
+    MESSAGES_RETRIEVED: 'Messages retrieved successfully',
+    MESSAGE_RETRIEVED: 'Message retrieved successfully',
+    CHAT_RETRIEVED: 'Chat retrieved successfully',
+    MESSAGE_READ_STATUS_UPDATED: 'Message read status updated successfully',
 } as const;
