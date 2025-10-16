@@ -252,6 +252,10 @@ export class AuthService {
         const id = await this.validateUser(login_dto.email, login_dto.password);
 
         const user_instance = await this.user_service.findUserById(id);
+        if (!user_instance) {
+            throw new InternalServerErrorException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const user = instanceToPlain(user_instance);
 
         const { access_token, refresh_token } = await this.generateTokens(id);
