@@ -12,6 +12,7 @@ import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { MongooseModule } from '@nestjs/mongoose';
+import { TweetsModule } from './tweets/tweets.module';
 
 @Module({
     imports: [
@@ -27,6 +28,7 @@ import { MongooseModule } from '@nestjs/mongoose';
         CommunicationModule,
         RabbitmqModule,
         NotificationsModule,
+        TweetsModule,
     ],
     controllers: [AppController],
     providers: [AppService],
