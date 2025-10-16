@@ -22,6 +22,7 @@ import { ChangePasswordAuthDTO } from './dto/change-password-auth.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
 import { VerifyPasswordResetOtpDto } from './dto/verify-password-reset-otp.dto';
+import { CheckIdentifierDto } from './dto/check-identifier.dto';
 import {
     ApiTags,
     ApiOperation,
@@ -74,6 +75,7 @@ import {
     forget_password_swagger,
     verify_reset_otp_swagger,
     reset_password_swagger,
+    check_identifier_swagger,
 } from './auth.swagger';
 
 
@@ -301,6 +303,16 @@ export class AuthController {
         };
     }
 
+    @ApiOperation(check_identifier_swagger.operation)
+    @ApiBody({ type: CheckIdentifierDto })
+    @ApiOkResponse(check_identifier_swagger.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USERNAME_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.IDENTIFIER_AVAILABLE)
+    @Post('check-identifier')
+    async checkIdentifier(@Body() dto: CheckIdentifierDto) {
+        const { identifier } = dto;
+        return this.auth_service.checkIdentifier(identifier);
+    }
 
     /* 
         ######################### Google OAuth Routes #########################

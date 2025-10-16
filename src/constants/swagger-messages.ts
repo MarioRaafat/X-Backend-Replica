@@ -10,6 +10,9 @@ export const ERROR_MESSAGES = {
     ACCOUNT_ALREADY_VERIFIED: 'Account was already verified',
     SIGNUP_SESSION_NOT_FOUND: 'Signup session not found or expired. Please start registration again',
     SIGNUP_SESSION_ALREADY_EXISTS: 'Signup session already exists. Please verify your email or start over',
+    EMAIL_NOT_FOUND: 'Email not found',
+    PHONE_NUMBER_NOT_FOUND: 'Phone number not found',
+    USERNAME_NOT_FOUND: 'Username not found',
 
     // OAuth completion
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
@@ -69,6 +72,7 @@ export const SUCCESS_MESSAGES = {
     LOGGED_OUT: 'Successfully logged out from this device',
     LOGGED_OUT_ALL: 'Successfully logged out from all devices',
     ACCOUNT_REMOVED: 'Account successfully removed due to unauthorized access report',
+    IDENTIFIER_AVAILABLE: 'Identifier is available',
 
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',

@@ -737,4 +737,32 @@ export class AuthService {
             refresh_token
         };
     }
+
+    async checkIdentifier(identifier: string) {
+        let identifier_type: string = '';
+        let user: User | null = null;
+
+        if (identifier.includes('@')) {
+            identifier_type = 'email';
+            user = await this.user_service.findUserByEmail(identifier);
+        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
+            identifier_type = 'phone_number';
+            user = await this.user_service.findUserByPhoneNumber(identifier);
+        } else {
+            identifier_type = 'username';
+            user = await this.user_service.findUserByUsername(identifier);
+        }
+
+        if (!user) {
+            throw new NotFoundException(
+                identifier_type === 'email' ? ERROR_MESSAGES.EMAIL_NOT_FOUND 
+                : identifier_type === 'phone_number' ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND 
+                : ERROR_MESSAGES.USERNAME_NOT_FOUND
+            );
+        }
+
+        return {
+            identifier_type: identifier_type,
+        };
+    }
 }
