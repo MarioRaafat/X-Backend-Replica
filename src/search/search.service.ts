@@ -1,4 +1,6 @@
 import { Injectable } from '@nestjs/common';
+import { CreateSearchHistoryQueryDto } from './dto/create-search-history-query.dto';
+import { CreateSearchHistoryPeopleDto } from './dto/create-search-history-people.dto';
 
 @Injectable()
 export class SearchService {
@@ -9,4 +11,14 @@ export class SearchService {
   async searchPosts(query: string) {}
 
   async searchLatestPosts(query: string) {}
+
+  async getSearchHistory() {}
+
+  async deleteAllSearchHistory() {}
+
+  async deleteSearchHistoryById(id: string) {}
+
+  async createSearchHistoryQuery(body: CreateSearchHistoryQueryDto) {}
+
+  async createSearchHistoryPeople(body: CreateSearchHistoryPeopleDto) {}
 }

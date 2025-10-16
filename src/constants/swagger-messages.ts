@@ -79,4 +79,9 @@ export const SUCCESS_MESSAGES = {
   SEARCH_POSTS_RETRIEVED: 'Posts search results retrieved successfully',
   SEARCH_LATEST_POSTS_RETRIEVED:
     'Latest posts search results retrieved successfully',
+  SEARCH_HISTORY_RETRIEVED: 'Search history retrieved successfully',
+  SEARCH_HISTORY_CLEARED: 'Search history cleared successfully',
+  SEARCH_HISTORY_ITEM_DELETED: 'Search history item deleted successfully',
+  SEARCH_HISTORY_QUERY_SAVED: 'Search query saved to history successfully',
+  SEARCH_HISTORY_PEOPLE_SAVED: 'People search saved to history successfully',
 } as const;
