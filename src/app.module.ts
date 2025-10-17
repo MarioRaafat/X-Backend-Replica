@@ -11,26 +11,30 @@ import { CommunicationModule } from './communication/communication.module';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
+
+import { ChatModule } from './chat/chat.module';
 import { TimelineModule } from './timeline/timeline.module';
 
 @Module({
-  imports: [
-    ConfigModule.forRoot({
-      isGlobal: true,
-      envFilePath: 'config/.env',
-    }),
-    PostgreSQLModule,
-    RedisModuleConfig,
-    AuthModule,
-    UserModule,
-    VerificationModule,
-    CommunicationModule,
-    RabbitmqModule,
-    NotificationsModule,
-    TimelineModule,
-  ],
-  controllers: [AppController],
-  providers: [AppService],
+    imports: [
+        ConfigModule.forRoot({
+            isGlobal: true,
+            envFilePath: 'config/.env',
+        }),
+        PostgreSQLModule,
+        RedisModuleConfig,
+        AuthModule,
+        UserModule,
+        VerificationModule,
+        CommunicationModule,
+        RabbitmqModule,
+        NotificationsModule,
+        ChatModule,
+        TimelineModule,
+    ],
+    controllers: [AppController],
+    providers: [AppService],
+
 })
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
