@@ -51,6 +51,10 @@ export const ERROR_MESSAGES = {
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
     CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
+  
+  
+    //timeline
+    INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
 } as const;
 
 // Success Messages
@@ -89,4 +93,7 @@ export const SUCCESS_MESSAGES = {
     MESSAGE_RETRIEVED: 'Message retrieved successfully',
     CHAT_RETRIEVED: 'Chat retrieved successfully',
     MESSAGE_READ_STATUS_UPDATED: 'Message read status updated successfully',
+  
+    //Timeline
+    TIMELINE_RETRIEVED: 'Timeline retrieved successfully',
 } as const;

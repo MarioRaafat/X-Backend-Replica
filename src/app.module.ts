@@ -11,7 +11,9 @@ import { CommunicationModule } from './communication/communication.module';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
+
 import { ChatModule } from './chat/chat.module';
+import { TimelineModule } from './timeline/timeline.module';
 
 @Module({
     imports: [
@@ -28,11 +30,12 @@ import { ChatModule } from './chat/chat.module';
         RabbitmqModule,
         NotificationsModule,
         ChatModule,
+        TimelineModule,
     ],
     controllers: [AppController],
     providers: [AppService],
-})
 
+})
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggerMiddleware).forRoutes('*');
