@@ -14,5 +14,5 @@ export class GetUsersByIdDto {
   @ArrayNotEmpty()
   @ArrayUnique()
   @IsString({ each: true })
-  usernames: string[];
+  user_ids: string[];
 }
