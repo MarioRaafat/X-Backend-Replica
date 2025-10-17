@@ -12,6 +12,7 @@ import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SearchModule } from './search/search.module';
+import { ExploreModule } from './explore/explore.module';
 
 @Module({
     imports: [
@@ -28,6 +29,7 @@ import { SearchModule } from './search/search.module';
         RabbitmqModule,
         NotificationsModule,
         SearchModule,
+    ExploreModule,
     ],
     controllers: [AppController],
     providers: [AppService],
