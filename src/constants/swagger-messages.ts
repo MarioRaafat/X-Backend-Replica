@@ -43,6 +43,12 @@ export const ERROR_MESSAGES = {
 
   // search
   INVALID_SEARCH_QUERY: 'Invalid search query',
+
+  // tweets
+  TWEET_NOT_FOUND: 'Tweet not found',
+  TWEET_ALREADY_LIKED: 'Tweet already liked',
+  TWEET_NOT_LIKED: 'Tweet not liked yet',
+  UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
 } as const;
 
 // Success Messages
@@ -79,6 +85,11 @@ export const SUCCESS_MESSAGES = {
   SEARCH_POSTS_RETRIEVED: 'Posts search results retrieved successfully',
   SEARCH_LATEST_POSTS_RETRIEVED:
     'Latest posts search results retrieved successfully',
+  SEARCH_HISTORY_RETRIEVED: 'Search history retrieved successfully',
+  SEARCH_HISTORY_CLEARED: 'Search history cleared successfully',
+  SEARCH_HISTORY_ITEM_DELETED: 'Search history item deleted successfully',
+  SEARCH_HISTORY_QUERY_SAVED: 'Search query saved to history successfully',
+  SEARCH_HISTORY_PEOPLE_SAVED: 'People search saved to history successfully',
 
   // explore
   EXPLORE_TRENDING_RETRIEVED: 'Explore trending items retrieved successfully',
@@ -86,4 +97,16 @@ export const SUCCESS_MESSAGES = {
     'Explore who-to-follow suggestions retrieved successfully',
   EXPLORE_FOR_YOU_POSTS_RETRIEVED:
     'Explore for-you posts retrieved successfully',
+
+  // tweets
+  TWEET_CREATED: 'Tweet created successfully',
+  TWEET_UPDATED: 'Tweet updated successfully',
+  TWEET_DELETED: 'Tweet deleted successfully',
+  TWEET_RETRIEVED: 'Tweet retrieved successfully',
+  TWEETS_RETRIEVED: 'Tweets retrieved successfully',
+  TWEET_REPOSTED: 'Tweet reposted successfully',
+  TWEET_QUOTED: 'Quote tweet created successfully',
+  TWEET_LIKED: 'Tweet liked successfully',
+  TWEET_UNLIKED: 'Tweet unliked successfully',
+  TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
 } as const;

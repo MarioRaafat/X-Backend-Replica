@@ -9,17 +9,10 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   private readonly exchange = 'app_exchange';
 
   async onModuleInit() {
-    try {
-      this.connection = await amqp.connect('amqp://localhost:5672');
-      this.channel = await this.connection.createChannel();
-      await this.channel.assertExchange(this.exchange, 'direct', { durable: true });
-      console.log('RabbitMQ connected');
-    } catch (error) {
-      console.warn('RabbitMQ connection failed, continuing without message queue:', error.message);
-      // Set connection and channel to null to handle gracefully in other methods
-      this.connection = null;
-      this.channel = null;
-    }
+    this.connection = await amqp.connect(`amqp://${process.env.RABBITMQ_HOST}:${process.env.RABBITMQ_PORT}`);
+    this.channel = await this.connection.createChannel();
+    await this.channel.assertExchange(this.exchange, 'direct', { durable: true });
+    console.log('RabbitMQ connected');
   }
 
   async onModuleDestroy() {
@@ -28,20 +21,12 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
   }
 
   async publish(key: string, message: any) {
-    if (!this.channel) {
-      console.warn('RabbitMQ not available, skipping message publication');
-      return;
-    }
     const buffer = Buffer.from(JSON.stringify(message));
     this.channel.publish(this.exchange, key, buffer, { persistent: true });
-    console.log(`Message published to "${key}"`, message);
+    console.log(`Message published to ${key}`, message);
   }
 
   async subscribe(key: string, callback: (msg: any) => Promise<void> | void) {
-    if (!this.channel) {
-      console.warn('RabbitMQ not available, skipping subscription');
-      return;
-    }
     const queue = `${key}_queue`;
     await this.channel.assertQueue(queue, { durable: true });
     await this.channel.bindQueue(queue, this.exchange, key);
@@ -62,6 +47,6 @@ export class RabbitmqService implements OnModuleInit, OnModuleDestroy {
       { noAck: false },
     );
     
-    console.log(`Listening on queue "${queue}"`);
+    console.log(`Listening on queue ${queue}`);
   }
 }

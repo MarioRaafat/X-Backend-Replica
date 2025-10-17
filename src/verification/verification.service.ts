@@ -5,6 +5,7 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { OTP_KEY, OTP_OBJECT } from 'src/constants/redis';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
+import { StringValue } from 'ms';  // Add this import
 
 @Injectable()
 export class VerificationService {
@@ -62,8 +63,8 @@ export class VerificationService {
     async generateNotMeLink(email: string, base_url: string): Promise<string> {
         const payload = { email };
         const token = await this.jwt_service.signAsync(payload, {
-            expiresIn: process.env.NOT_ME_LINK_EXPIRATION_TIME || '15m',
-            secret: process.env.NOT_ME_LINK_SECRET || 'secret-key',
+            expiresIn: (process.env.NOT_ME_LINK_EXPIRATION_TIME ?? '15m') as StringValue,
+            secret: process.env.NOT_ME_LINK_SECRET ?? 'secret-key',
         });
 
         return `${base_url}?token=${encodeURIComponent(token)}`;
@@ -85,8 +86,8 @@ export class VerificationService {
     async generatePasswordResetToken(user_id: string): Promise<string> {
         const payload = { userId: user_id, purpose: 'password-reset' };
         const token = await this.jwt_service.signAsync(payload, {
-            expiresIn: process.env.PASSWORD_RESET_TOKEN_EXPIRATION || '15m',
-            secret: process.env.PASSWORD_RESET_TOKEN_SECRET,
+            expiresIn: (process.env.PASSWORD_RESET_TOKEN_EXPIRATION ?? '15m') as StringValue,
+            secret: process.env.PASSWORD_RESET_TOKEN_SECRET ?? 'password-reset-secret',
         });
 
         return token;

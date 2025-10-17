@@ -33,12 +33,8 @@ export class ExploreController {
   @ApiOperation(trending_swagger.operation)
   @ApiOkResponse(trending_swagger.responses.success)
   @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
-  @ApiQuery({
-    name: 'category',
-    required: false,
-    enum: ['none', 'sports', 'entertainment'],
-  })
-  @ApiQuery({ name: 'country', required: false })
+  @ApiQuery(trending_swagger.queries.category)
+  @ApiQuery(trending_swagger.queries.country)
   @Get('trending')
   async getTrending(
     @Query('category') category?: string,
@@ -59,11 +55,7 @@ export class ExploreController {
   @ApiOkResponse(search_latest_posts.responses.success)
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_FOR_YOU_POSTS_RETRIEVED)
-  @ApiQuery({
-    name: 'category',
-    required: false,
-    enum: ['sports', 'music', 'news', 'entertainment'],
-  })
+  @ApiQuery(search_latest_posts.queries.category)
   @Get('for-you-posts')
   async getForYouPosts(@Query('category') category?: string) {
     return await this.explore_service.getForYouPosts(category);
