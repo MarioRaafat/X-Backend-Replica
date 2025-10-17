@@ -4,7 +4,7 @@ export const get_users_by_ids = {
   operation: {
     summary: "Get users' data by their IDs",
     description: `
-    Get a list of users' data using their IDs        
+    Get a list of users' data using array of IDs  
     `,
   },
 
@@ -46,7 +46,7 @@ export const get_users_by_username = {
   operation: {
     summary: "Get users' data by their usernames",
     description: `
-    Get a list of users' data using their usernames        
+    Get a list of users' data using array of usernames       
     `,
   },
 
@@ -88,7 +88,7 @@ export const get_me = {
   operation: {
     summary: 'Get current user',
     description: `
-    Get current user data     
+    Get current user detailed data needed for displaying the profile
     `,
   },
 
@@ -121,7 +121,7 @@ export const get_user_by_id = {
   operation: {
     summary: 'Get user by id',
     description: `
-    Get user data by id    
+    Get user detailed data needed for displaying the profile by ID 
     `,
   },
 
@@ -169,7 +169,7 @@ export const get_user_by_username = {
   operation: {
     summary: 'Get user by username',
     description: `
-    Get user data by username    
+    Get user detailed data needed for displaying the profile by username
     `,
   },
 
@@ -217,7 +217,9 @@ export const get_followers = {
   operation: {
     summary: "Get user's followers",
     description: `
-    Get user's list of followers by user ID     
+    Get user's list of followers by user ID
+    
+    Optional flag 'following' for filtering followers that you only follow
     `,
   },
 
@@ -373,7 +375,7 @@ export const get_muted = {
   operation: {
     summary: "Get user's muted list",
     description: `
-    Get user's muted list by ID   
+    Get current user's muted list by ID   
     `,
   },
 
@@ -462,7 +464,7 @@ export const get_blocked = {
   operation: {
     summary: "Get user's blocked list",
     description: `
-    Get user's blocked list by ID   
+    Get current user's blocked list by ID   
     `,
   },
 
