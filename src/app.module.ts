@@ -13,6 +13,8 @@ import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { SearchModule } from './search/search.module';
 import { ExploreModule } from './explore/explore.module';
+import { MongooseModule } from '@nestjs/mongoose';
+import { TweetsModule } from './tweets/tweets.module';
 
 @Module({
     imports: [
@@ -30,6 +32,7 @@ import { ExploreModule } from './explore/explore.module';
         NotificationsModule,
         SearchModule,
     ExploreModule,
+        TweetsModule,
     ],
     controllers: [AppController],
     providers: [AppService],
