@@ -38,11 +38,8 @@ export const ERROR_MESSAGES = {
   INVALID_OR_EXPIRED_LINK: 'Invalid or expired link',
   NO_REFRESH_TOKEN_PROVIDED: 'No refresh token provided',
 
-  // server
-  INTERNAL_SERVER_ERROR: 'Internal server error',
-
-  // search
-  INVALID_SEARCH_QUERY: 'Invalid search query',
+    // server
+    INTERNAL_SERVER_ERROR: 'Internal server error',
 } as const;
 
 // Success Messages
@@ -69,21 +66,7 @@ export const SUCCESS_MESSAGES = {
   ACCOUNT_REMOVED:
     'Account successfully removed due to unauthorized access report',
 
-  // OAuth completion
-  BIRTH_DATE_SET: 'Birth date set successfully',
-  OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
-
-  // search
-  SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
-  SEARCH_USERS_RETRIEVED: 'User search results retrieved successfully',
-  SEARCH_POSTS_RETRIEVED: 'Posts search results retrieved successfully',
-  SEARCH_LATEST_POSTS_RETRIEVED:
-    'Latest posts search results retrieved successfully',
-
-  // explore
-  EXPLORE_TRENDING_RETRIEVED: 'Explore trending items retrieved successfully',
-  EXPLORE_WHO_TO_FOLLOW_RETRIEVED:
-    'Explore who-to-follow suggestions retrieved successfully',
-  EXPLORE_FOR_YOU_POSTS_RETRIEVED:
-    'Explore for-you posts retrieved successfully',
+    // OAuth completion
+    BIRTH_DATE_SET: 'Birth date set successfully',
+    OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
 } as const;
