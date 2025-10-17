@@ -1,5 +1,6 @@
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import { Tweet } from '../tweets/entities/tweet.entity';
+import { User } from '../user/entities/user.entity';
 
 export const search_latest_posts = {
   operation: {
@@ -82,7 +83,23 @@ export const who_to_follow_swagger = {
   responses: {
     success: {
       description: 'Who to follow suggestions retrieved',
-      schema: { example: { data: [], count: 0, message: SUCCESS_MESSAGES.EXPLORE_WHO_TO_FOLLOW_RETRIEVED } },
+      type: User,
+      schema: {
+        example: {
+          data: [
+            {
+              id: 12,
+              name: 'John Doe',
+              username: 'johndoe',
+              bio: 'Software developer',
+              avatar_url: 'https://example.com/avatar.jpg',
+              verified: false,
+            },
+          ],
+          count: 1,
+          message: SUCCESS_MESSAGES.EXPLORE_WHO_TO_FOLLOW_RETRIEVED,
+        },
+      },
     },
   },
 };

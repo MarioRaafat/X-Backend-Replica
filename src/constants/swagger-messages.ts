@@ -38,8 +38,17 @@ export const ERROR_MESSAGES = {
   INVALID_OR_EXPIRED_LINK: 'Invalid or expired link',
   NO_REFRESH_TOKEN_PROVIDED: 'No refresh token provided',
 
-    // server
-    INTERNAL_SERVER_ERROR: 'Internal server error',
+  // server
+  INTERNAL_SERVER_ERROR: 'Internal server error',
+
+  // search
+  INVALID_SEARCH_QUERY: 'Invalid search query',
+
+  // tweets
+  TWEET_NOT_FOUND: 'Tweet not found',
+  TWEET_ALREADY_LIKED: 'Tweet already liked',
+  TWEET_NOT_LIKED: 'Tweet not liked yet',
+  UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
 } as const;
 
 // Success Messages
@@ -66,7 +75,36 @@ export const SUCCESS_MESSAGES = {
   ACCOUNT_REMOVED:
     'Account successfully removed due to unauthorized access report',
 
-    // OAuth completion
-    BIRTH_DATE_SET: 'Birth date set successfully',
-    OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
+  // OAuth completion
+  BIRTH_DATE_SET: 'Birth date set successfully',
+  OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
+
+  // search
+  SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
+  SEARCH_USERS_RETRIEVED: 'User search results retrieved successfully',
+  SEARCH_POSTS_RETRIEVED: 'Posts search results retrieved successfully',
+  SEARCH_LATEST_POSTS_RETRIEVED:
+    'Latest posts search results retrieved successfully',
+  SEARCH_HISTORY_RETRIEVED: 'Search history retrieved successfully',
+  SEARCH_HISTORY_CLEARED: 'Search history cleared successfully',
+  SEARCH_HISTORY_ITEM_DELETED: 'Search history item deleted successfully',
+  SEARCH_HISTORY_QUERY_SAVED: 'Search query saved to history successfully',
+  SEARCH_HISTORY_PEOPLE_SAVED: 'People search saved to history successfully',
+  
+  // explore
+  EXPLORE_TRENDING_RETRIEVED: 'Explore trending items retrieved successfully',
+  EXPLORE_WHO_TO_FOLLOW_RETRIEVED: 'Explore who-to-follow suggestions retrieved successfully',
+  EXPLORE_FOR_YOU_POSTS_RETRIEVED: 'Explore for-you posts retrieved successfully',
+
+  // tweets
+  TWEET_CREATED: 'Tweet created successfully',
+  TWEET_UPDATED: 'Tweet updated successfully',
+  TWEET_DELETED: 'Tweet deleted successfully',
+  TWEET_RETRIEVED: 'Tweet retrieved successfully',
+  TWEETS_RETRIEVED: 'Tweets retrieved successfully',
+  TWEET_REPOSTED: 'Tweet reposted successfully',
+  TWEET_QUOTED: 'Quote tweet created successfully',
+  TWEET_LIKED: 'Tweet liked successfully',
+  TWEET_UNLIKED: 'Tweet unliked successfully',
+  TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
 } as const;
