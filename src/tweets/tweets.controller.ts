@@ -21,12 +21,25 @@ import {
     ApiCreatedResponse,
     ApiOkResponse,
     ApiNoContentResponse,
+    ApiBody,
 } from '@nestjs/swagger';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
 import { UpdateTweetDTO } from './dto/update-tweet.dto';
-import { CreateTweetWithQuoteDTO } from './dto/create-tweet-with-quote.dto';
 import { UpdateTweetWithQuoteDTO } from './dto/update-tweet-with-quote.dto';
-import { Tweet } from './entities/tweet.entity';
+import type { Request } from 'express';
+import {
+    create_tweet_swagger,
+    delete_tweet_swagger,
+    get_all_tweets_swagger,
+    get_tweet_by_id_swagger,
+    get_tweet_likes_swagger,
+    like_tweet_swagger,
+    quote_tweet_swagger,
+    repost_tweet_swagger,
+    unlike_tweet_swagger,
+    update_quote_tweet_swagger,
+    update_tweet_swagger,
+} from './tweets.swagger';
 
 @ApiTags('Tweets')
 @ApiBearerAuth('JWT-auth')
@@ -34,78 +47,35 @@ import { Tweet } from './entities/tweet.entity';
 export class TweetsController {
     constructor() {}
 
-    @ApiOperation({
-        summary: 'Create a new tweet',
-        description: 'Creates a new tweet with optional images and videos. User ID is extracted from the authenticated user.',
-    })
-    @ApiCreatedResponse({
-        description: 'Tweet created successfully',
-        type: Tweet,
-    })
+    @ApiOperation(create_tweet_swagger.operation)
+    @ApiBody(create_tweet_swagger.body)
+    @ApiCreatedResponse(create_tweet_swagger.responses.created)
     @Post()
     async createTweet(
         @Body() createTweetDto: CreateTweetDTO,
         @Req() req: Request,
     ) {}
 
-    @ApiOperation({
-        summary: 'Get all tweets',
-        description: 'Retrieves all tweets with pagination support.',
-    })
-    @ApiQuery({
-        name: 'page',
-        required: false,
-        type: Number,
-        description: 'Page number (default: 1)',
-        example: 1,
-    })
-    @ApiQuery({
-        name: 'limit',
-        required: false,
-        type: Number,
-        description: 'Number of items per page (default: 20)',
-        example: 20,
-    })
-    @ApiOkResponse({
-        description: 'Tweets retrieved successfully',
-    })
+    @ApiOperation(get_all_tweets_swagger.operation)
+    @ApiQuery(get_all_tweets_swagger.queries.page)
+    @ApiQuery(get_all_tweets_swagger.queries.limit)
+    @ApiOkResponse(get_all_tweets_swagger.responses.success)
     @Get()
     async getAllTweets(
         @Query('page') page: number = 1,
         @Query('limit') limit: number = 20,
     ) {}
 
-    @ApiOperation({
-        summary: 'Get a tweet by ID',
-        description: 'Retrieves a specific tweet by its unique identifier.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Tweet ID (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiOkResponse({
-        description: 'Tweet retrieved successfully',
-        type: Tweet,
-    })
+    @ApiOperation(get_tweet_by_id_swagger.operation)
+    @ApiParam(get_tweet_by_id_swagger.param)
+    @ApiOkResponse(get_tweet_by_id_swagger.responses.success)
     @Get(':id')
     async getTweetById(@Param('id', ParseUUIDPipe) id: string) {}
 
-    @ApiOperation({
-        summary: 'Update a tweet',
-        description: 'Updates an existing tweet. Only the tweet owner can update their tweet. Tweet ID is from URL param, user ID is from JWT token.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Tweet ID (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiOkResponse({
-        description: 'Tweet updated successfully',
-        type: Tweet,
-    })
+    @ApiOperation(update_tweet_swagger.operation)
+    @ApiParam(update_tweet_swagger.param)
+    @ApiBody(update_tweet_swagger.body)
+    @ApiOkResponse(update_tweet_swagger.responses.success)
     @Patch(':id')
     async updateTweet(
         @Param('id', ParseUUIDPipe) id: string,
@@ -114,19 +84,9 @@ export class TweetsController {
     ) {}
 
     @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({
-        summary: 'Delete a tweet',
-        description: 'Deletes a tweet. Only the tweet owner can delete their tweet. Tweet ID is from URL param, user ID is from JWT token.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Tweet ID (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiNoContentResponse({
-        description: 'Tweet deleted successfully',
-    })
+    @ApiOperation(delete_tweet_swagger.operation)
+    @ApiParam(delete_tweet_swagger.param)
+    @ApiNoContentResponse(delete_tweet_swagger.responses.noContent)
     @Delete(':id')
     async deleteTweet(
         @Param('id', ParseUUIDPipe) id: string,
@@ -134,19 +94,9 @@ export class TweetsController {
     ) {}
 
     @HttpCode(HttpStatus.CREATED)
-    @ApiOperation({
-        summary: 'Repost a tweet',
-        description: 'Creates a simple repost of an existing tweet without additional commentary. User ID is from JWT token.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Original tweet ID to repost (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiCreatedResponse({
-        description: 'Tweet reposted successfully (no body returned)',
-    })
+    @ApiOperation(repost_tweet_swagger.operation)
+    @ApiParam(repost_tweet_swagger.param)
+    @ApiCreatedResponse(repost_tweet_swagger.responses.created)
     @Post(':id/repost')
     async repostTweet(
         @Param('id', ParseUUIDPipe) id: string,
@@ -154,97 +104,47 @@ export class TweetsController {
     ) {}
 
     @HttpCode(HttpStatus.CREATED)
-    @ApiOperation({
-        summary: 'Quote a tweet',
-        description: 'Creates a repost with additional commentary (quote tweet). User ID is from JWT token.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Original tweet ID to quote (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiCreatedResponse({
-        description: 'Quote tweet created successfully (no body returned)',
-    })
+    @ApiOperation(quote_tweet_swagger.operation)
+    @ApiParam(quote_tweet_swagger.param)
+    @ApiBody(quote_tweet_swagger.body)
+    @ApiCreatedResponse(quote_tweet_swagger.responses.created)
     @Post(':id/quote')
     async quoteTweet(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() createQuoteDto: CreateTweetWithQuoteDTO,
+        @Body() createQuoteDto: CreateTweetDTO,
         @Req() req: Request,
     ){}
 
     @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({
-        summary: 'Like a tweet',
-        description: 'Adds a like to a tweet. A user can only like a tweet once. User ID is from JWT token.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Tweet ID to like (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiNoContentResponse({
-        description: 'Tweet liked successfully',
-    })
+    @ApiOperation(like_tweet_swagger.operation)
+    @ApiParam(like_tweet_swagger.param)
+    @ApiNoContentResponse(like_tweet_swagger.responses.noContent)
     @Post(':id/like')
     async likeTweet(
         @Param('id', ParseUUIDPipe) id: string,
         @Req() req: Request,
     ) {}
 
-    // ==================== UNLIKE TWEET ====================
     @HttpCode(HttpStatus.NO_CONTENT)
-    @ApiOperation({
-        summary: 'Unlike a tweet',
-        description: 'Removes a like from a tweet. User ID is from JWT token.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Tweet ID to unlike (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiNoContentResponse({
-        description: 'Tweet unliked successfully',
-    })
+    @ApiOperation(unlike_tweet_swagger.operation)
+    @ApiParam(unlike_tweet_swagger.param)
+    @ApiNoContentResponse(unlike_tweet_swagger.responses.noContent)
     @Delete(':id/like')
     async unlikeTweet(
         @Param('id', ParseUUIDPipe) id: string,
         @Req() req: Request,
     ) {}
 
-    @ApiOperation({
-        summary: 'Get tweet likes',
-        description: 'Retrieves all users who have liked a specific tweet, including the total count.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Tweet ID (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiOkResponse({
-        description: 'Tweet likes retrieved successfully',
-    })
+    @ApiOperation(get_tweet_likes_swagger.operation)
+    @ApiParam(get_tweet_likes_swagger.param)
+    @ApiOkResponse(get_tweet_likes_swagger.responses.success)
     @Get(':id/likes')
     async getTweetLikes(@Param('id', ParseUUIDPipe) id: string) {}
 
-    @ApiOperation({
-        summary: 'Update a quote tweet',
-        description: 'Updates an existing quote tweet. Only the quote tweet owner can update it. Quote tweet ID is from URL param, user ID is from JWT token.',
-    })
-    @ApiParam({
-        name: 'id',
-        type: String,
-        description: 'Quote Tweet ID (UUID format)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-    })
-    @ApiOkResponse({
-        description: 'Quote tweet updated successfully',
-        type: Tweet,
-    })
+    @ApiOperation(update_quote_tweet_swagger.operation)
+    @ApiParam(update_quote_tweet_swagger.param)
+    @ApiBody(update_quote_tweet_swagger.body)
+    @ApiOkResponse(update_quote_tweet_swagger.responses.success)
     @Patch(':id/quote')
     async updateQuoteTweet(
         @Param('id', ParseUUIDPipe) id: string,

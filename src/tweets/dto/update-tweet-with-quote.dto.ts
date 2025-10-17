@@ -1,4 +1,4 @@
 import { PartialType } from "@nestjs/swagger";
-import { CreateTweetWithQuoteDTO } from "./create-tweet-with-quote.dto";
+import { CreateTweetDTO } from "./create-tweet.dto";
 
-export class UpdateTweetWithQuoteDTO extends PartialType(CreateTweetWithQuoteDTO) {}
+export class UpdateTweetWithQuoteDTO extends PartialType(CreateTweetDTO) {}
