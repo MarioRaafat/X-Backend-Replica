@@ -21,7 +21,7 @@ export const get_users_by_ids = {
                 name: 'Alyaa Ali',
                 username: 'Alyaali242',
                 bio: 'hi there!',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 is_following: true,
                 is_follower: false,
                 is_muted: false,
@@ -63,7 +63,7 @@ export const get_users_by_username = {
                 name: 'Alyaa Ali',
                 username: 'Alyaali242',
                 bio: 'hi there!',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 is_following: true,
                 is_follower: false,
                 is_muted: false,
@@ -102,8 +102,8 @@ export const get_me = {
             name: 'Alyaa Ali',
             username: 'Alyaali242',
             bio: 'hi there!',
-            profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
-            cover_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+            cover_url: 'https://cdn.app.com/profiles/u877.jpg',
             followers_count: 5,
             following_count: 15,
             country: 'Egypt',
@@ -135,8 +135,8 @@ export const get_user_by_id = {
             name: 'Alyaa Ali',
             username: 'Alyaali242',
             bio: 'hi there!',
-            profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
-            cover_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+            cover_url: 'https://cdn.app.com/profiles/u877.jpg',
             followers_count: 5,
             following_count: 15,
             country: 'Egypt',
@@ -148,11 +148,11 @@ export const get_user_by_id = {
             top_mutual_followers: [
               {
                 name: 'Mario Raafat',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               },
               {
                 name: 'Amira Khalid',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               },
             ],
             mutual_followers_count: 5,
@@ -183,8 +183,8 @@ export const get_user_by_username = {
             name: 'Alyaa Ali',
             username: 'Alyaali242',
             bio: 'hi there!',
-            profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
-            cover_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+            cover_url: 'https://cdn.app.com/profiles/u877.jpg',
             followers_count: 5,
             following_count: 15,
             country: 'Egypt',
@@ -196,11 +196,11 @@ export const get_user_by_username = {
             top_mutual_followers: [
               {
                 name: 'Mario Raafat',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               },
               {
                 name: 'Amira Khalid',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               },
             ],
             mutual_followers_count: 5,
@@ -234,7 +234,7 @@ export const get_followers = {
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               is_following: false,
               is_follower: false,
               is_muted: false,
@@ -245,7 +245,7 @@ export const get_followers = {
               name: 'Amira Khalid',
               username: 'amira2342',
               bio: 'hi there!',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               is_following: true,
               is_follower: false,
               is_muted: true,
@@ -301,7 +301,7 @@ export const get_following = {
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               is_following: false,
               is_follower: false,
               is_muted: false,
@@ -312,7 +312,7 @@ export const get_following = {
               name: 'Amira Khalid',
               username: 'amira2342',
               bio: 'hi there!',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               is_following: true,
               is_follower: false,
               is_muted: true,
@@ -390,7 +390,7 @@ export const get_muted = {
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               is_following: false,
               is_follower: false,
               is_muted: false,
@@ -401,7 +401,7 @@ export const get_muted = {
               name: 'Amira Khalid',
               username: 'amira2342',
               bio: 'hi there!',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               is_following: true,
               is_follower: false,
               is_muted: true,
@@ -479,7 +479,7 @@ export const get_blocked = {
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               is_following: false,
               is_follower: false,
               is_muted: false,
@@ -490,7 +490,7 @@ export const get_blocked = {
               name: 'Amira Khalid',
               username: 'amira2342',
               bio: 'hi there!',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               is_following: true,
               is_follower: false,
               is_muted: true,
@@ -583,7 +583,7 @@ export const get_liked_posts = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -601,7 +601,7 @@ export const get_liked_posts = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -618,7 +618,7 @@ export const get_liked_posts = {
               referenced_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 username: 'alyaa242',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
                 media: [
@@ -631,7 +631,7 @@ export const get_liked_posts = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -690,7 +690,7 @@ export const get_user_posts = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -708,7 +708,7 @@ export const get_user_posts = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -726,7 +726,7 @@ export const get_user_posts = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -743,7 +743,7 @@ export const get_user_posts = {
               referenced_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 username: 'alyaa242',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
                 media: [
@@ -798,7 +798,7 @@ export const get_user_replies = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -815,7 +815,7 @@ export const get_user_replies = {
               reference_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 username: 'alyaa242',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
                 media: [
@@ -832,7 +832,7 @@ export const get_user_replies = {
                 referenced_post: {
                   user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                   username: 'alyaa242',
-                  profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                  avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                   post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                   content: 'blah blah',
                   media: [
@@ -891,7 +891,7 @@ export const get_user_media = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -909,7 +909,7 @@ export const get_user_media = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
@@ -926,7 +926,7 @@ export const get_user_media = {
               referenced_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 username: 'alyaa242',
-                profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
                 media: [
@@ -939,7 +939,7 @@ export const get_user_media = {
             {
               user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profile_image_url: 'https://cdn.app.com/profiles/u877.jpg',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
