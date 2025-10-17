@@ -5,7 +5,7 @@ import { PaginationParamsDto } from './pagination-params.dto';
 export class GetFollowersDto extends PaginationParamsDto {
   @ApiPropertyOptional({
     description: 'Following Filter',
-    example: 10,
+    example: false,
     type: Boolean,
   })
   @IsOptional()

@@ -15,7 +15,7 @@ export const get_users_by_ids = {
         example: {
           data: [
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
@@ -26,7 +26,7 @@ export const get_users_by_ids = {
               isBlocked: true,
             },
             {
-              userId: 5,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Amira Khalid',
               username: 'amira#222',
               bio: 'computer engineer',
@@ -60,7 +60,7 @@ export const get_users_by_username = {
         example: {
           data: [
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
@@ -71,7 +71,7 @@ export const get_users_by_username = {
               isBlocked: true,
             },
             {
-              userId: 5,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Amira Khalid',
               username: 'amira#222',
               bio: 'computer engineer',
@@ -104,7 +104,7 @@ export const get_me = {
       schema: {
         example: {
           data: {
-            userId: 1,
+            userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
             name: 'Alyaa Ali',
             username: 'Alyaali242',
             bio: 'hi there!',
@@ -137,7 +137,7 @@ export const get_user_by_id = {
       schema: {
         example: {
           data: {
-            userId: 1,
+            userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
             name: 'Alyaa Ali',
             username: 'Alyaali242',
             bio: 'hi there!',
@@ -154,11 +154,11 @@ export const get_user_by_id = {
             topMutualFollowers: [
               {
                 name: 'Mario Raafat',
-                profileImage: 'https://cdn.app.com/profiles/u877.jpg',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
               },
               {
                 name: 'Amira Khalid',
-                profileImage: 'https://cdn.app.com/profiles/u877.jpg',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
               },
             ],
             mutualFollowersCount: 5,
@@ -185,7 +185,7 @@ export const get_user_by_username = {
       schema: {
         example: {
           data: {
-            userId: 1,
+            userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
             name: 'Alyaa Ali',
             username: 'Alyaali242',
             bio: 'hi there!',
@@ -202,11 +202,11 @@ export const get_user_by_username = {
             topMutualFollowers: [
               {
                 name: 'Mario Raafat',
-                profileImage: 'https://cdn.app.com/profiles/u877.jpg',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
               },
               {
                 name: 'Amira Khalid',
-                profileImage: 'https://cdn.app.com/profiles/u877.jpg',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
               },
             ],
             mutualFollowersCount: 5,
@@ -234,7 +234,7 @@ export const get_followers = {
         example: {
           data: [
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
@@ -245,7 +245,7 @@ export const get_followers = {
               isBlocked: true,
             },
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Amira Khalid',
               username: 'amira2342',
               bio: 'hi there!',
@@ -301,7 +301,7 @@ export const get_following = {
         example: {
           data: [
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
@@ -312,7 +312,7 @@ export const get_following = {
               isBlocked: true,
             },
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Amira Khalid',
               username: 'amira2342',
               bio: 'hi there!',
@@ -390,7 +390,7 @@ export const get_muted = {
         example: {
           data: [
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
@@ -401,7 +401,7 @@ export const get_muted = {
               isBlocked: true,
             },
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Amira Khalid',
               username: 'amira2342',
               bio: 'hi there!',
@@ -479,7 +479,7 @@ export const get_blocked = {
         example: {
           data: [
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Alyaa Ali',
               username: 'Alyaali242',
               bio: 'hi there!',
@@ -490,7 +490,7 @@ export const get_blocked = {
               isBlocked: true,
             },
             {
-              userId: 1,
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               name: 'Amira Khalid',
               username: 'amira2342',
               bio: 'hi there!',
@@ -557,7 +557,24 @@ export const get_liked_posts = {
   operation: {
     summary: 'Get liked posts',
     description: `
-    Get current user's liked posts
+    Retrieve a list of posts that the authenticated user has liked.
+
+    Each returned post includes its author, content, engagement counts, and creation date.
+
+    A post can be one of the following types:
+
+    - **Normal Post:**  
+      A standalone post with no reference to another post.
+
+    - **Quote Post:**  
+      A post that quotes another post.  
+      The quoted post is returned in the \`referencedPost\` field, containing its author and content.
+
+    - **Reply Post:**  
+      A post that replies to one or more users.  
+      The usernames being replied to are listed in the \`replyingTo\` array,  
+      
+    Each post also includes engagement metrics such as \`likesCount\`, \`repostsCount\`, and \`viewsCount\`.
     `,
   },
 
@@ -567,10 +584,75 @@ export const get_liked_posts = {
       schema: {
         example: {
           data: [
-            { postId: 1, content: 'blah blah' },
-            { postId: 3, content: 'test test' },
-          ], // Temporarily until post's data is known
-          count: 1,
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'post',
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'quote',
+              referencedPost: {
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'alyaa242',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'blah blah',
+                media: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                date: '2023-03-12',
+              },
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'reply',
+              replyingTo: ['amira#2424', 'mohamed998'],
+            },
+          ],
+          count: 3,
           message: SUCCESS_MESSAGES.LIKED_POSTS_RETRIEVED,
         },
       },
@@ -582,7 +664,24 @@ export const get_user_posts = {
   operation: {
     summary: "Get user's posts",
     description: `
-    Get user's posts by user ID
+    Retrieve a list of posts that a user have.
+
+    Each returned post includes its author, content, engagement counts, and creation date.
+
+    A post can be one of the following types:
+
+    - **Normal Post:**  
+      A standalone post with no reference to another post.
+
+    - **Repost:**  
+      A post that simply re-shares another post without adding any new content.  
+      same data as normal post for the original post.
+
+    - **Quote Post:**  
+      A post that quotes another post.  
+      The quoted post is returned in the \`referencedPost\` field, containing its author and content.
+
+    Each post also includes engagement metrics such as \`likesCount\`, \`repostsCount\`, and \`viewsCount\`.
     `,
   },
 
@@ -592,10 +691,74 @@ export const get_user_posts = {
       schema: {
         example: {
           data: [
-            { postId: 1, content: 'blah blah' },
-            { postId: 3, content: 'test test' },
-          ], // Temporarily until post's data is known
-          count: 1,
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'post',
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'repost',
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'quote',
+              referencedPost: {
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'alyaa242',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'blah blah',
+                media: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                date: '2023-03-12',
+              },
+            },
+          ],
+          count: 3,
           message: SUCCESS_MESSAGES.POSTS_RETRIEVED,
         },
       },
@@ -607,7 +770,26 @@ export const get_user_replies = {
   operation: {
     summary: "Get user's replies",
     description: `
-    Get user's replies by user ID
+    Retrieve a list of posts that the authenticated user has liked.
+
+    Each returned post includes its author, content, engagement counts, and creation date.
+
+    A post can be one of the following types:
+
+    - **Normal Post:**  
+      A standalone post with no reference to another post.
+
+    - **Quote Post:**  
+      A post that quotes another post.  
+      The quoted post is returned in the \`referencedPost\` field, containing its author and content.
+
+    - **Reply Post:**  
+      A post that replies to another post.  
+      The replied post is returned in the \`referencedPost\` field, containing all its data.
+      If the referenced post is also a reply, then it also has its own referenced post (nested).
+
+      
+    Each post also includes engagement metrics such as \`likesCount\`, \`repostsCount\`, and \`viewsCount\`.
     `,
   },
 
@@ -617,10 +799,92 @@ export const get_user_replies = {
       schema: {
         example: {
           data: [
-            { postId: 1, content: 'blah blah' },
-            { postId: 3, content: 'test test' },
-          ], // Temporarily until post's data is known
-          count: 1,
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'post',
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'quote',
+              referencedPost: {
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'alyaa242',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'blah blah',
+                media: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                date: '2023-03-12',
+              },
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'reply',
+              referencePost: {
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'alyaa242',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'blah blah',
+                media: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                date: '2023-03-12',
+                likesCount: 10,
+                repliesCount: 5,
+                repostsCount: 2,
+                views: 5,
+                isReposted: true,
+                type: 'post',
+              },
+            },
+          ],
+          count: 3,
           message: SUCCESS_MESSAGES.REPLIES_RETRIEVED,
         },
       },
@@ -632,8 +896,24 @@ export const get_user_media = {
   operation: {
     summary: "Get user's media",
     description: `
-    Get user's media by user ID
-    `,
+    Retrieve a list of posts that include media.
+
+    Each returned post includes its author, content, engagement counts, and creation date.
+
+    A post can be one of the following types:
+
+    - **Normal Post:**  
+      A standalone post with no reference to another post.
+
+    - **Quote Post:**  
+      A post that quotes another post.  
+      The quoted post is returned in the \`referencedPost\` field, containing its author and content.
+
+    - **Reply Post:**  
+      A post that replies to one or more users.  
+      The usernames being replied to are listed in the \`replyingTo\` array,  
+      
+    Each post also includes engagement metrics such as \`likesCount\`, \`repostsCount\`, and \`viewsCount\`.    `,
   },
 
   responses: {
@@ -642,10 +922,75 @@ export const get_user_media = {
       schema: {
         example: {
           data: [
-            { postId: 1, content: 'blah blah' },
-            { postId: 3, content: 'test test' },
-          ], // Temporarily until post's data is known
-          count: 1,
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'post',
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'quote',
+              referencedPost: {
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'alyaa242',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'blah blah',
+                media: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                date: '2023-03-12',
+              },
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'reply',
+              replyingTo: ['amira#2424', 'mohamed998'],
+            },
+          ],
+          count: 3,
           message: SUCCESS_MESSAGES.MEDIA_RETRIEVED,
         },
       },

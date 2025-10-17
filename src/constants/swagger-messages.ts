@@ -40,9 +40,6 @@ export const ERROR_MESSAGES = {
 
   // server
   INTERNAL_SERVER_ERROR: 'Internal server error',
-
-  // user
-  USERS_NOT_FOUND: 'One or more users not found',
 } as const;
 
 // Success Messages
