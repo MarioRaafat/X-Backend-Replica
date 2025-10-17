@@ -774,7 +774,7 @@ export const get_user_replies = {
 
     Each returned post includes its author, content, engagement counts, and creation date.
 
-    A post can be one of the following types:
+    A referenced post can be one of the following types:
 
     - **Normal Post:**  
       A standalone post with no reference to another post.
@@ -815,54 +815,6 @@ export const get_user_replies = {
               repostsCount: 2,
               views: 5,
               isReposted: true,
-              type: 'post',
-            },
-            {
-              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-              username: 'alyaa242',
-              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-              content: 'blah blah',
-              media: [
-                'https://cdn.app.com/profiles/u877.jpg',
-                'https://cdn.app.com/profiles/u877.jpg',
-              ],
-              date: '2023-03-12',
-              likesCount: 10,
-              repliesCount: 5,
-              repostsCount: 2,
-              views: 5,
-              isReposted: true,
-              type: 'quote',
-              referencedPost: {
-                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                username: 'alyaa242',
-                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                content: 'blah blah',
-                media: [
-                  'https://cdn.app.com/profiles/u877.jpg',
-                  'https://cdn.app.com/profiles/u877.jpg',
-                ],
-                date: '2023-03-12',
-              },
-            },
-            {
-              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-              username: 'alyaa242',
-              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-              content: 'blah blah',
-              media: [
-                'https://cdn.app.com/profiles/u877.jpg',
-                'https://cdn.app.com/profiles/u877.jpg',
-              ],
-              date: '2023-03-12',
-              likesCount: 10,
-              repliesCount: 5,
-              repostsCount: 2,
-              views: 5,
-              isReposted: true,
               type: 'reply',
               referencePost: {
                 userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -880,7 +832,25 @@ export const get_user_replies = {
                 repostsCount: 2,
                 views: 5,
                 isReposted: true,
-                type: 'post',
+                type: 'reply',
+                referencedPost: {
+                  userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                  username: 'alyaa242',
+                  profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+                  postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                  content: 'blah blah',
+                  media: [
+                    'https://cdn.app.com/profiles/u877.jpg',
+                    'https://cdn.app.com/profiles/u877.jpg',
+                  ],
+                  date: '2023-03-12',
+                  likesCount: 10,
+                  repliesCount: 5,
+                  repostsCount: 2,
+                  views: 5,
+                  isReposted: true,
+                  type: 'post',
+                },
               },
             },
           ],
