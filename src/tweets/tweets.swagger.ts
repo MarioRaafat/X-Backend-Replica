@@ -14,12 +14,29 @@ export const create_tweet_swagger = {
 
     body: {
         type: CreateTweetDTO,
+        // example of the payload expected when creating a tweet
+        example: {
+            content: 'Hello world from API',
+            images: [],
+            videos: [],
+        },
     },
 
     responses: {
         created: {
             description: 'Tweet created successfully',
             type: Tweet,
+            schema: {
+                example: {
+                    tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                    user_id: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                    content: 'Hello world from API',
+                    images: [],
+                    videos: [],
+                    created_at: new Date().toISOString(),
+                    updated_at: new Date().toISOString(),
+                },
+            },
         },
     },
 };
@@ -50,6 +67,23 @@ export const get_all_tweets_swagger = {
     responses: {
         success: {
             description: 'Tweets retrieved successfully',
+            type: Tweet,
+            schema: {
+                example: {
+                    data: [
+                        {
+                            tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                            user_id: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                            content: 'Example tweet',
+                            images: [],
+                            videos: [],
+                            created_at: new Date().toISOString(),
+                            updated_at: new Date().toISOString(),
+                        },
+                    ],
+                    count: 1,
+                },
+            },
         },
     },
 };
