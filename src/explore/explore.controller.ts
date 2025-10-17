@@ -30,7 +30,6 @@ export class ExploreController {
     return this.explore_service.root();
   }
 
-  @ApiOperation({ summary: 'Get trending items' })
   @ApiOperation(trending_swagger.operation)
   @ApiOkResponse(trending_swagger.responses.success)
   @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
