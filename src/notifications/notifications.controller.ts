@@ -1,11 +1,10 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
-import { NOTIFICATIONS_WEBSOCKET } from './notification.swagger';
+import { notifications_websocket } from './notification.swagger';
 
 @ApiTags('Notifications')
 @Controller('notifications')
 export class NotificationsController {
-  @Get('docs')
   @ApiOperation({
     summary: 'WebSocket API Documentation',
     description: `
@@ -37,11 +36,11 @@ export class NotificationsController {
     description: 'WebSocket event structure',
     schema: {
       type: 'object',
-      example: NOTIFICATIONS_WEBSOCKET,
+      example: notifications_websocket,
     },
   })
+  @Get('docs')
   getDocs() {
-    return NOTIFICATIONS_WEBSOCKET;
+    return notifications_websocket;
   }
 }
-
