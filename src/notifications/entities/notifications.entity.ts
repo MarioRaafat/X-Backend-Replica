@@ -10,8 +10,8 @@ export class Notification extends Document {
   @Prop({ default: [], required: true, type: [BaseNotificationSchema], maxLength: 50 })
   notifications: BaseNotificationEntity[];
 
-  @Prop({ type: Date, name: "newest_date", default: Date.now() })
-  newestDate: Date;
+  @Prop({ type: Number, name: "newest_date", default: Date.now() })
+  newestCount: number;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);
