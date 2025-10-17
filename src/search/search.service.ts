@@ -1,24 +1,15 @@
 import { Injectable } from '@nestjs/common';
-import { CreateSearchHistoryQueryDto } from './dto/create-search-history-query.dto';
-import { CreateSearchHistoryPeopleDto } from './dto/create-search-history-people.dto';
+import { BasicQueryDto } from './dto/basic-query.dto';
+import { SearchQueryDto } from './dto/search-query.dto';
+import { PostsSearchDto } from './dto/post-search.dto';
 
 @Injectable()
 export class SearchService {
-  async getSuggestions(query: string) {}
+  async getSuggestions(queryDto: BasicQueryDto) {}
 
-  async searchUsers(query: string) {}
+  async searchUsers(query: SearchQueryDto) {}
 
-  async searchPosts(query: string) {}
+  async searchPosts(query: PostsSearchDto) {}
 
-  async searchLatestPosts(query: string) {}
-
-  async getSearchHistory() {}
-
-  async deleteAllSearchHistory() {}
-
-  async deleteSearchHistoryById(id: string) {}
-
-  async createSearchHistoryQuery(body: CreateSearchHistoryQueryDto) {}
-
-  async createSearchHistoryPeople(body: CreateSearchHistoryPeopleDto) {}
+  async searchLatestPosts(query: SearchQueryDto) {}
 }

@@ -1,23 +1,35 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, Min, IsInt, IsString } from 'class-validator';
+import { ApiPropertyOptional } from '@nestjs/swagger';
+import { IsOptional, Min, IsInt, IsEnum } from 'class-validator';
+import { BasicQueryDto } from './basic-query.dto';
 
-export class SearchQueryDto {
-  @ApiProperty({
-    description: 'Query to search for',
-    example: 'cats',
-    type: String,
-  })
-  @IsNotEmpty({ message: 'Query is required' })
-  query: string;
+export enum PeopleFilter {
+  ANYONE = 'anyone',
+  FOLLOWING = 'following',
+}
 
+export enum LocationFilter {
+  ANYWHERE = 'anywhere',
+  NEAR_YOU = 'near_you',
+}
+
+export class SearchQueryDto extends BasicQueryDto {
   @ApiPropertyOptional({
-    description: 'Filter results by username (optional)',
-    example: 'Alyaali242',
-    type: String,
+    description: 'Filter by people (anyone or only people you follow)',
+    enum: PeopleFilter,
+    example: PeopleFilter.ANYONE,
   })
   @IsOptional()
-  @IsString()
-  username?: string;
+  @IsEnum(PeopleFilter)
+  people?: PeopleFilter;
+
+  @ApiPropertyOptional({
+    description: 'Filter by location (anywhere or near your current location)',
+    enum: LocationFilter,
+    example: LocationFilter.ANYWHERE,
+  })
+  @IsOptional()
+  @IsEnum(LocationFilter)
+  location?: LocationFilter;
 
   @ApiPropertyOptional({
     description: 'Page number for pagination (starting from 1)',

@@ -79,14 +79,11 @@ export const SUCCESS_MESSAGES = {
   SEARCH_POSTS_RETRIEVED: 'Posts search results retrieved successfully',
   SEARCH_LATEST_POSTS_RETRIEVED:
     'Latest posts search results retrieved successfully',
-  
+
   // explore
   EXPLORE_TRENDING_RETRIEVED: 'Explore trending items retrieved successfully',
-  EXPLORE_WHO_TO_FOLLOW_RETRIEVED: 'Explore who-to-follow suggestions retrieved successfully',
-  EXPLORE_FOR_YOU_POSTS_RETRIEVED: 'Explore for-you posts retrieved successfully',
-  SEARCH_HISTORY_RETRIEVED: 'Search history retrieved successfully',
-  SEARCH_HISTORY_CLEARED: 'Search history cleared successfully',
-  SEARCH_HISTORY_ITEM_DELETED: 'Search history item deleted successfully',
-  SEARCH_HISTORY_QUERY_SAVED: 'Search query saved to history successfully',
-  SEARCH_HISTORY_PEOPLE_SAVED: 'People search saved to history successfully',
+  EXPLORE_WHO_TO_FOLLOW_RETRIEVED:
+    'Explore who-to-follow suggestions retrieved successfully',
+  EXPLORE_FOR_YOU_POSTS_RETRIEVED:
+    'Explore for-you posts retrieved successfully',
 } as const;

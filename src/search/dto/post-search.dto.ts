@@ -2,7 +2,7 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsOptional, IsBoolean } from 'class-validator';
 import { SearchQueryDto } from './search-query.dto';
 
-export class SearchPostsDto extends SearchQueryDto {
+export class PostsSearchDto extends SearchQueryDto {
   @ApiPropertyOptional({
     description: 'Flag to filter posts that have media (images/videos)',
     example: true,

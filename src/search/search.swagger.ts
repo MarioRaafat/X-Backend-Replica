@@ -21,7 +21,7 @@ export const get_suggestions_swagger = {
             ],
             suggestedUsers: [
               {
-                userId: 1,
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 name: 'Alyaa Ali',
                 username: 'Alyaali242',
                 profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
@@ -29,7 +29,7 @@ export const get_suggestions_swagger = {
                 followsMe: false,
               },
               {
-                userId: 5,
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 name: 'Alia Mohamed',
                 username: 'alyaa#222',
                 profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
@@ -62,7 +62,7 @@ export const search_users_swagger = {
           data: {
             users: [
               {
-                userId: 1,
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 name: 'Amira Khalid',
                 username: 'Amirakhalid9',
                 bio: 'computer engineering student',
@@ -93,7 +93,24 @@ export const search_posts = {
   operation: {
     summary: 'Search posts',
     description: `
-    Get posts search results
+    Retrieve posts result of a search query.
+
+    Each returned post includes its author, content, engagement counts, and creation date.
+
+    A post can be one of the following types:
+
+    - **Normal Post:**  
+      A standalone post with no reference to another post.
+
+    - **Quote Post:**  
+      A post that quotes another post.  
+      The quoted post is returned in the \`referencedPost\` field, containing its author and content.
+
+    - **Reply Post:**  
+      A post that replies to one or more users.  
+      The usernames being replied to are listed in the \`replyingTo\` array,  
+      
+    Each post also includes engagement metrics such as \`likesCount\`, \`repostsCount\`, and \`viewsCount\`.
     `,
   },
 
@@ -102,10 +119,76 @@ export const search_posts = {
       description: 'Posts search results retrieved successfully',
       schema: {
         example: {
-          data: {
-            yapIds: [1, 3, 5],
-          },
-          count: 1,
+          data: [
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'post',
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'quote',
+              referencedPost: {
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'alyaa242',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'blah blah',
+                media: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                date: '2023-03-12',
+              },
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'reply',
+              replyingTo: ['amira#2424', 'mohamed998'],
+            },
+          ],
+          count: 3,
           message: SUCCESS_MESSAGES.SEARCH_POSTS_RETRIEVED,
         },
       },
@@ -117,8 +200,24 @@ export const search_latest_posts = {
   operation: {
     summary: 'Search latest posts',
     description: `
-    Get latest posts search results
-    `,
+  Retrieve a list of latest posts.
+
+    Each returned post includes its author, content, engagement counts, and creation date.
+
+    A post can be one of the following types:
+
+    - **Normal Post:**  
+      A standalone post with no reference to another post.
+
+    - **Quote Post:**  
+      A post that quotes another post.  
+      The quoted post is returned in the \`referencedPost\` field, containing its author and content.
+
+    - **Reply Post:**  
+      A post that replies to one or more users.  
+      The usernames being replied to are listed in the \`replyingTo\` array,  
+      
+    Each post also includes engagement metrics such as \`likesCount\`, \`repostsCount\`, and \`viewsCount\`.    `,
   },
 
   responses: {
@@ -126,91 +225,78 @@ export const search_latest_posts = {
       description: 'Latest posts search results retrieved successfully',
       schema: {
         example: {
-          data: {
-            yapIds: [1, 3, 5],
-          },
-          count: 1,
+          data: [
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'post',
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'quote',
+              referencedPost: {
+                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'alyaa242',
+                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'blah blah',
+                media: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                date: '2023-03-12',
+              },
+            },
+            {
+              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              username: 'alyaa242',
+              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
+              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              content: 'blah blah',
+              media: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              date: '2023-03-12',
+              likesCount: 10,
+              repliesCount: 5,
+              repostsCount: 2,
+              views: 5,
+              isReposted: true,
+              type: 'reply',
+              replyingTo: ['amira#2424', 'mohamed998'],
+            },
+          ],
+          count: 3,
           message: SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED,
         },
-      },
-    },
-  },
-};
-
-export const get_history_swagger = {
-  operation: {
-    summary: 'Get search history',
-    description: "Retrieve the authenticated user's search history",
-  },
-  responses: {
-    success: {
-      description: 'Search history retrieved successfully',
-      schema: {
-        example: {
-          data: [],
-          count: 0,
-          message: SUCCESS_MESSAGES.SEARCH_HISTORY_RETRIEVED,
-        },
-      },
-    },
-  },
-};
-
-export const delete_history_swagger = {
-  operation: {
-    summary: 'Delete all search history',
-    description: 'Delete all search entries for the authenticated user',
-  },
-  responses: {
-    success: {
-      description: 'Search history cleared successfully',
-      schema: {
-        example: { message: SUCCESS_MESSAGES.SEARCH_HISTORY_CLEARED },
-      },
-    },
-  },
-};
-
-export const delete_history_item_swagger = {
-  operation: {
-    summary: 'Delete a search history item',
-    description: 'Delete single search history item by id',
-  },
-  responses: {
-    success: {
-      description: 'Search history item deleted successfully',
-      schema: {
-        example: { message: SUCCESS_MESSAGES.SEARCH_HISTORY_ITEM_DELETED },
-      },
-    },
-  },
-};
-
-export const create_history_query_swagger = {
-  operation: {
-    summary: 'Save query to search history',
-    description: "Save a search query string to the user's history",
-  },
-  responses: {
-    success: {
-      description: 'Search query saved successfully',
-      schema: {
-        example: { message: SUCCESS_MESSAGES.SEARCH_HISTORY_QUERY_SAVED },
-      },
-    },
-  },
-};
-
-export const create_history_people_swagger = {
-  operation: {
-    summary: 'Save people search to history',
-    description: 'Save a people search (userId) to history',
-  },
-  responses: {
-    success: {
-      description: 'People search saved successfully',
-      schema: {
-        example: { message: SUCCESS_MESSAGES.SEARCH_HISTORY_PEOPLE_SAVED },
       },
     },
   },
