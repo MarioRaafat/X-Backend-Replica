@@ -14,27 +14,27 @@ export const get_suggestions_swagger = {
       schema: {
         example: {
           data: {
-            suggestedQueries: [
+            suggested_queries: [
               { query: 'alyaa', isTrending: true },
               { query: 'alia', isTrending: true },
               { query: 'ali', isTrending: true },
             ],
-            suggestedUsers: [
+            suggested_users: [
               {
-                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 name: 'Alyaa Ali',
                 username: 'Alyaali242',
-                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-                isFollowing: true,
-                followsMe: false,
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                is_following: true,
+                follows_me: false,
               },
               {
-                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 name: 'Alia Mohamed',
                 username: 'alyaa#222',
-                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-                isFollowing: false,
-                followsMe: false,
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                is_following: false,
+                follows_me: false,
               },
             ],
           },
@@ -62,22 +62,22 @@ export const search_users_swagger = {
           data: {
             users: [
               {
-                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 name: 'Amira Khalid',
                 username: 'Amirakhalid9',
                 bio: 'computer engineering student',
-                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-                isFollowing: true,
-                followsMe: false,
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                is_following: true,
+                follows_me: false,
               },
               {
-                userId: 5,
+                user_id: 5,
                 name: 'Amira Mohamed',
                 username: 'amira#222',
                 bio: 'computer engineer',
-                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-                isFollowing: false,
-                followsMe: false,
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                is_following: false,
+                follows_me: false,
               },
             ],
           },
@@ -104,13 +104,13 @@ export const search_posts = {
 
     - **Quote Post:**  
       A post that quotes another post.  
-      The quoted post is returned in the \`referencedPost\` field, containing its author and content.
+      The quoted post is returned in the \`referenced_post\` field, containing its author and content.
 
     - **Reply Post:**  
       A post that replies to one or more users.  
-      The usernames being replied to are listed in the \`replyingTo\` array,  
+      The usernames being replied to are listed in the \`replying_to\` array,  
       
-    Each post also includes engagement metrics such as \`likesCount\`, \`repostsCount\`, and \`viewsCount\`.
+    Each post also includes engagement metrics such as \`likes_count\`, \`reposts_count\`, and \`viewsCount\`.
     `,
   },
 
@@ -121,45 +121,45 @@ export const search_posts = {
         example: {
           data: [
             {
-              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+              post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
               date: '2023-03-12',
-              likesCount: 10,
-              repliesCount: 5,
-              repostsCount: 2,
+              likes_count: 10,
+              replies_count: 5,
+              reposts_count: 2,
               views: 5,
-              isReposted: true,
+              is_reposted: true,
               type: 'post',
             },
             {
-              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+              post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
               date: '2023-03-12',
-              likesCount: 10,
-              repliesCount: 5,
-              repostsCount: 2,
+              likes_count: 10,
+              replies_count: 5,
+              reposts_count: 2,
               views: 5,
-              isReposted: true,
+              is_reposted: true,
               type: 'quote',
-              referencedPost: {
-                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              referenced_post: {
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 username: 'alyaa242',
-                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
                 media: [
                   'https://cdn.app.com/profiles/u877.jpg',
@@ -169,23 +169,23 @@ export const search_posts = {
               },
             },
             {
-              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+              post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
               date: '2023-03-12',
-              likesCount: 10,
-              repliesCount: 5,
-              repostsCount: 2,
+              likes_count: 10,
+              replies_count: 5,
+              reposts_count: 2,
               views: 5,
-              isReposted: true,
+              is_reposted: true,
               type: 'reply',
-              replyingTo: ['amira#2424', 'mohamed998'],
+              replying_to: ['amira#2424', 'mohamed998'],
             },
           ],
           count: 3,
@@ -211,13 +211,13 @@ export const search_latest_posts = {
 
     - **Quote Post:**  
       A post that quotes another post.  
-      The quoted post is returned in the \`referencedPost\` field, containing its author and content.
+      The quoted post is returned in the \`referenced_post\` field, containing its author and content.
 
     - **Reply Post:**  
       A post that replies to one or more users.  
-      The usernames being replied to are listed in the \`replyingTo\` array,  
+      The usernames being replied to are listed in the \`replying_to\` array,  
       
-    Each post also includes engagement metrics such as \`likesCount\`, \`repostsCount\`, and \`viewsCount\`.    `,
+    Each post also includes engagement metrics such as \`likes_count\`, \`reposts_count\`, and \`viewsCount\`.    `,
   },
 
   responses: {
@@ -227,45 +227,45 @@ export const search_latest_posts = {
         example: {
           data: [
             {
-              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+              post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
               date: '2023-03-12',
-              likesCount: 10,
-              repliesCount: 5,
-              repostsCount: 2,
+              likes_count: 10,
+              replies_count: 5,
+              reposts_count: 2,
               views: 5,
-              isReposted: true,
+              is_reposted: true,
               type: 'post',
             },
             {
-              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+              post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
               date: '2023-03-12',
-              likesCount: 10,
-              repliesCount: 5,
-              repostsCount: 2,
+              likes_count: 10,
+              replies_count: 5,
+              reposts_count: 2,
               views: 5,
-              isReposted: true,
+              is_reposted: true,
               type: 'quote',
-              referencedPost: {
-                userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              referenced_post: {
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 username: 'alyaa242',
-                profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-                postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
                 media: [
                   'https://cdn.app.com/profiles/u877.jpg',
@@ -275,23 +275,23 @@ export const search_latest_posts = {
               },
             },
             {
-              userId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               username: 'alyaa242',
-              profileImgUrl: 'https://cdn.app.com/profiles/u877.jpg',
-              postId: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+              avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+              post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
               media: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
               date: '2023-03-12',
-              likesCount: 10,
-              repliesCount: 5,
-              repostsCount: 2,
+              likes_count: 10,
+              replies_count: 5,
+              reposts_count: 2,
               views: 5,
-              isReposted: true,
+              is_reposted: true,
               type: 'reply',
-              replyingTo: ['amira#2424', 'mohamed998'],
+              replying_to: ['amira#2424', 'mohamed998'],
             },
           ],
           count: 3,

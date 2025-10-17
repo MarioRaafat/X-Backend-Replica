@@ -5,11 +5,11 @@ import { PostsSearchDto } from './dto/post-search.dto';
 
 @Injectable()
 export class SearchService {
-  async getSuggestions(queryDto: BasicQueryDto) {}
+  async getSuggestions(query_dto: BasicQueryDto) {}
 
-  async searchUsers(query: SearchQueryDto) {}
+  async searchUsers(query_dto: SearchQueryDto) {}
 
-  async searchPosts(query: PostsSearchDto) {}
+  async searchPosts(query_dto: PostsSearchDto) {}
 
-  async searchLatestPosts(query: SearchQueryDto) {}
+  async searchLatestPosts(query_dto: SearchQueryDto) {}
 }

@@ -26,8 +26,8 @@ export class SearchController {
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SUGGESTIONS_RETRIEVED)
   @Get('suggestions')
-  async getSuggestions(@Query() queryDto: BasicQueryDto) {
-    return await this.searchService.getSuggestions(queryDto);
+  async getSuggestions(@Query() query_dto: BasicQueryDto) {
+    return await this.searchService.getSuggestions(query_dto);
   }
 
   @ApiOperation(search_users_swagger.operation)
@@ -35,8 +35,8 @@ export class SearchController {
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_USERS_RETRIEVED)
   @Get('users')
-  async searchPeople(@Query() queryDto: SearchQueryDto) {
-    return await this.searchService.searchUsers(queryDto);
+  async searchPeople(@Query() query_dto: SearchQueryDto) {
+    return await this.searchService.searchUsers(query_dto);
   }
 
   @ApiOperation(search_latest_posts.operation)
@@ -44,8 +44,8 @@ export class SearchController {
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
   @Get('posts')
-  async searchPosts(@Query() queryDto: PostsSearchDto) {
-    return await this.searchService.searchPosts(queryDto);
+  async searchPosts(@Query() query_dto: PostsSearchDto) {
+    return await this.searchService.searchPosts(query_dto);
   }
 
   @ApiOperation(search_latest_posts.operation)
@@ -53,7 +53,7 @@ export class SearchController {
   @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
   @Get('posts/latest')
-  async searchLatestPosts(@Query() queryDto: SearchQueryDto) {
-    return await this.searchService.searchLatestPosts(queryDto);
+  async searchLatestPosts(@Query() query_dto: SearchQueryDto) {
+    return await this.searchService.searchLatestPosts(query_dto);
   }
 }

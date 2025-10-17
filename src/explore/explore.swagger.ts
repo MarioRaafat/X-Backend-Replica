@@ -27,7 +27,13 @@ export const trending_swagger = {
   responses: {
     success: {
       description: 'Trending items retrieved successfully',
-      schema: { example: { data: [], count: 0, message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED } },
+      schema: {
+        example: {
+          data: [],
+          count: 0,
+          message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED,
+        },
+      },
     },
   },
 };
@@ -40,7 +46,13 @@ export const who_to_follow_swagger = {
   responses: {
     success: {
       description: 'Who to follow suggestions retrieved',
-      schema: { example: { data: [], count: 0, message: SUCCESS_MESSAGES.EXPLORE_WHO_TO_FOLLOW_RETRIEVED } },
+      schema: {
+        example: {
+          data: [],
+          count: 0,
+          message: SUCCESS_MESSAGES.EXPLORE_WHO_TO_FOLLOW_RETRIEVED,
+        },
+      },
     },
   },
 };
