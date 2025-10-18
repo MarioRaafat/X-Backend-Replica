@@ -32,6 +32,11 @@ export const ERROR_MESSAGES = {
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
 
+    // file upload
+    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
+    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
+    NO_FILE_PROVIDED: 'No file provided',
+
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
     INVALID_OR_EXPIRED_LINK: 'Invalid or expired link',
@@ -62,6 +67,14 @@ export const ERROR_MESSAGES = {
     // file
     FILE_NOT_FOUND: 'File not found',
     INVALID_FILE_FORMAT: 'Invalid file format',
+     // search
+    INVALID_SEARCH_QUERY: 'Invalid search query',
+
+  // tweets
+  TWEET_NOT_FOUND: 'Tweet not found',
+  TWEET_ALREADY_LIKED: 'Tweet already liked',
+  TWEET_NOT_LIKED: 'Tweet not liked yet',
+  UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
 
 } as const;
 
@@ -111,7 +124,7 @@ export const SUCCESS_MESSAGES = {
     MENTIONS_RETRIEVED: 'Mentions retrieved successfully',
     TRENDS_RETRIEVED: 'Trends retrieved successfully',
 
-     // user
+    // user
     USERS_RETRIEVED: 'Users retrieved successfully',
     USER_RETRIEVED: 'User retrieved successfully',
     FOLLOWERS_LIST_RETRIEVED: 'Followers retrieved successfully',
@@ -137,4 +150,40 @@ export const SUCCESS_MESSAGES = {
     COVER_UPLOADED: 'Cover uploaded successfully',
     AVATAR_DELETED: 'Avatar deleted successfully',
     COVER_DELETED: 'Cover deleted successfully',
+  
+    // search
+    SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
+    SEARCH_USERS_RETRIEVED: 'User search results retrieved successfully',
+    SEARCH_POSTS_RETRIEVED: 'Posts search results retrieved successfully',
+    SEARCH_LATEST_POSTS_RETRIEVED:
+        'Latest posts search results retrieved successfully',
+    SEARCH_HISTORY_RETRIEVED: 'Search history retrieved successfully',
+    SEARCH_HISTORY_CLEARED: 'Search history cleared successfully',
+    SEARCH_HISTORY_ITEM_DELETED: 'Search history item deleted successfully',
+    SEARCH_HISTORY_QUERY_SAVED: 'Search query saved to history successfully',
+    SEARCH_HISTORY_PEOPLE_SAVED: 'People search saved to history successfully',
+
+    // explore
+    EXPLORE_TRENDING_RETRIEVED: 'Explore trending items retrieved successfully',
+    EXPLORE_WHO_TO_FOLLOW_RETRIEVED:
+        'Explore who-to-follow suggestions retrieved successfully',
+    EXPLORE_FOR_YOU_POSTS_RETRIEVED:
+        'Explore for-you posts retrieved successfully',
+
+    // file upload
+    IMAGE_UPLOADED: 'Image uploaded successfully',
+    VIDEO_UPLOADED: 'Video uploaded successfully',
+
+    // tweets
+    TWEET_CREATED: 'Tweet created successfully',
+    TWEETS_RETRIEVED: 'Tweets retrieved successfully',
+    TWEET_RETRIEVED: 'Tweet retrieved successfully',
+    TWEET_UPDATED: 'Tweet updated successfully',
+    TWEET_DELETED: 'Tweet deleted successfully',
+    TWEET_REPOSTED: 'Tweet reposted successfully',
+    TWEET_QUOTED: 'Tweet quoted successfully',
+    TWEET_LIKED: 'Tweet liked successfully',
+    TWEET_UNLIKED: 'Tweet unliked successfully',
+    TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
+    QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
 } as const;
