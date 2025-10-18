@@ -45,6 +45,7 @@ import {
   SIGNUP_SESSION_KEY,
   SIGNUP_SESSION_OBJECT,
 } from 'src/constants/redis';
+import { StringValue } from 'ms';  // Add this import
 
 @Injectable()
 export class AuthService {
@@ -63,15 +64,15 @@ export class AuthService {
         const access_token = this.jwt_service.sign(
             { id },
             {
-                secret: process.env.JWT_TOKEN_SECRET,
-                expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
+                secret: process.env.JWT_TOKEN_SECRET ?? 'fallback-secret',  // Optional: Add fallback for safety
+                expiresIn: (process.env.JWT_TOKEN_EXPIRATION_TIME ?? '1h') as StringValue,  // Fix here
             },
         );
 
         const refresh_payload = { id, jti: crypto.randomUUID() };
         const refresh_token = this.jwt_service.sign(refresh_payload, {
-            secret: process.env.JWT_REFRESH_SECRET,
-            expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+            secret: process.env.JWT_REFRESH_SECRET ?? 'fallback-refresh-secret',
+            expiresIn: (process.env.JWT_REFRESH_EXPIRATION_TIME ?? '7d') as StringValue,
         });
 
         const refresh_redis_object = REFRESH_TOKEN_OBJECT(refresh_payload.jti, id);

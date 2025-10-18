@@ -1,14 +1,46 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { NotificationsService } from './notifications.service';
+import { Controller, Get } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { notifications_websocket } from './notification.swagger';
 
+@ApiTags('Notifications')
 @Controller('notifications')
 export class NotificationsController {
-    constructor(
-        private readonly notificationsService: NotificationsService
-    ) {}
+  @ApiOperation({
+    summary: 'WebSocket API Documentation',
+    description: `
+        WebSocket Only - No REST endpoints available.
 
-    @Get('enqueue')
-    async enqueue(@Query('email') email: string, @Query('msg') msg: string) {
-        return await this.notificationsService.sendNotification(email, msg);
-    }
+        Server Events
+        - "notifications:all" - All notifications list
+        - "notifications:mentions" - Mentions list
+        - "notifications:new" - Real-time push
+        - "notifications:count" - Unseen count update
+
+        newestData Field
+        - Type: "string | null"
+        - Value: ISO8601 timestamp of last unseen notification
+        - "null" when all seen
+
+        Example
+        const socket = io('ws://server/notifications', {
+            auth: { token: jwt }
+        });
+
+        socket.on('notifications:all', (data) => {
+            data.notifications, data.unseenCount, data.newestData
+        });
+    `,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'WebSocket event structure',
+    schema: {
+      type: 'object',
+      example: notifications_websocket,
+    },
+  })
+  @Get('docs')
+  getDocs() {
+    return notifications_websocket;
+  }
 }

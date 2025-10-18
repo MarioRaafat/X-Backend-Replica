@@ -11,6 +11,7 @@ import { CommunicationModule } from './communication/communication.module';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { MongooseModule } from '@nestjs/mongoose';
 
 import { ChatModule } from './chat/chat.module';
 import { TimelineModule } from './timeline/timeline.module';
