@@ -32,6 +32,11 @@ export const ERROR_MESSAGES = {
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
 
+    // file upload
+    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
+    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
+    NO_FILE_PROVIDED: 'No file provided',
+
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
     INVALID_OR_EXPIRED_LINK: 'Invalid or expired link',
@@ -158,16 +163,21 @@ export const SUCCESS_MESSAGES = {
   EXPLORE_FOR_YOU_POSTS_RETRIEVED:
     'Explore for-you posts retrieved successfully',
 
-  // tweets
-  TWEET_CREATED: 'Tweet created successfully',
-  TWEET_UPDATED: 'Tweet updated successfully',
-  TWEET_DELETED: 'Tweet deleted successfully',
-  TWEET_RETRIEVED: 'Tweet retrieved successfully',
-  TWEETS_RETRIEVED: 'Tweets retrieved successfully',
-  TWEET_REPOSTED: 'Tweet reposted successfully',
-  TWEET_QUOTED: 'Quote tweet created successfully',
-  TWEET_LIKED: 'Tweet liked successfully',
-  TWEET_UNLIKED: 'Tweet unliked successfully',
-  TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
+   // file upload
+    IMAGE_UPLOADED: 'Image uploaded successfully',
+    VIDEO_UPLOADED: 'Video uploaded successfully',
+
+    // tweets
+    TWEET_CREATED: 'Tweet created successfully',
+    TWEETS_RETRIEVED: 'Tweets retrieved successfully',
+    TWEET_RETRIEVED: 'Tweet retrieved successfully',
+    TWEET_UPDATED: 'Tweet updated successfully',
+    TWEET_DELETED: 'Tweet deleted successfully',
+    TWEET_REPOSTED: 'Tweet reposted successfully',
+    TWEET_QUOTED: 'Tweet quoted successfully',
+    TWEET_LIKED: 'Tweet liked successfully',
+    TWEET_UNLIKED: 'Tweet unliked successfully',
+    TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
+    QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
 
 } as const;

@@ -7,8 +7,8 @@ import {
 import { Tweet } from './tweet.entity';
 import { User } from 'src/user/entities/user.entity';
 
-@Entity('tweet_reposts')
-export class TweetRepost {
+@Entity('tweet_likes')
+export class TweetLike {
     @PrimaryColumn({ type: 'uuid' })
     user_id: string;
 

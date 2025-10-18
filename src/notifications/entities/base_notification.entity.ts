@@ -7,11 +7,11 @@ export class BaseNotificationEntity {
     type: NotificationTypes;
 
     @Prop({ type: Date, default: Date.now })
-    createdAt: Date;
+    created_at: Date;
 
     // not sure if this is important
     @Prop({ type: Date, default: Date.now })
-    updatedAt: Date;
+    updated_at: Date;
 }
 
 export const BaseNotificationSchema = SchemaFactory.createForClass(BaseNotificationEntity);

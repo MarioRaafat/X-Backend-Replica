@@ -5,11 +5,9 @@ import {
     CreateDateColumn, 
     UpdateDateColumn, 
     ManyToOne, 
-    JoinColumn,
-    OneToMany
+    JoinColumn
 } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
-import { TweetRelation } from './tweet-relation.entity';
 
 @Entity('tweets')
 export class Tweet {
@@ -37,10 +35,4 @@ export class Tweet {
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })
     user: User;
-
-    @OneToMany(() => TweetRelation, relation => relation.sourceTweet)
-    relationsAsSource: TweetRelation[];
-
-    @OneToMany(() => TweetRelation, relation => relation.destinationTweet)
-    relationsAsDestination: TweetRelation[];
 }
