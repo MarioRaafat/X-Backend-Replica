@@ -27,7 +27,7 @@ export class UpdateUserDto {
   })
   @IsOptional()
   @IsString()
-  profileImage?: string;
+  avatar_url?: string;
 
   @ApiProperty({
     example: 'https://example.com/images/cover.jpg',
@@ -36,7 +36,7 @@ export class UpdateUserDto {
   })
   @IsOptional()
   @IsString()
-  coverImage?: string;
+  cover_url?: string;
 
   @ApiProperty({
     example: 'Cairo, Egypt',
@@ -49,10 +49,10 @@ export class UpdateUserDto {
 
   @ApiProperty({
     example: '2003-05-14',
-    description: 'User’s birthdate in ISO 8601 format (YYYY-MM-DD)',
+    description: 'User’s birth date in ISO 8601 format (YYYY-MM-DD)',
     required: false,
   })
   @IsOptional()
   @IsDateString()
-  birthdate?: string;
+  birth_date?: string;
 }

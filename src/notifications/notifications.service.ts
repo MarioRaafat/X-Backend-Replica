@@ -3,9 +3,9 @@ import { RabbitmqService } from 'src/rabbitmq/rabbitmq.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Notification } from './entities/notifications.entity';
-import { BaseNotificationEntity } from './entities/base_notification.entity';
+import { BaseNotificationEntity } from './entities/base-notification.entity';
 import { Not } from 'typeorm';
-import { NotificationTypes } from './enums/notidication_types';
+import { NotificationType } from './enums/notification-types';
 
 interface NotificationMessage {
   userId: string;
@@ -17,7 +17,8 @@ export class NotificationsService implements OnModuleInit {
   private readonly key = 'notifications';
 
   constructor(
-    @InjectModel(Notification.name) private readonly notificationModel: Model<Notification>,
+    @InjectModel(Notification.name)
+    private readonly notificationModel: Model<Notification>,
     private readonly rabbit: RabbitmqService,
   ) {}
 
@@ -48,26 +49,23 @@ export class NotificationsService implements OnModuleInit {
     }
   }
 
-  async getUserMentionsNotifications(userId: string) {
+  async getUserMentionsNotifications(userId: string) {}
 
-  }
+  async markNotificationsAsSeen(userId: string) {}
 
-  async markNotificationsAsSeen(userId: string) {
-
-  }
-
-  async getUnseenCount(userId: string) {
-
-  }
+  async getUnseenCount(userId: string) {}
 
   async getUserNotifications(userId: string): Promise<Notification | null> {
-    const userNotifications = await this.notificationModel.findOne({ user: userId }).lean<Notification>().exec();
+    const userNotifications = await this.notificationModel
+      .findOne({ user: userId })
+      .lean<Notification>()
+      .exec();
     return userNotifications;
   }
 
   // Just for testing, but notifications messages will be sent from other services
   async sendNotification(notification: NotificationMessage): Promise<void> {
-    console.log("Send");
+    console.log('Send');
 
     await this.rabbit.publish(this.key, notification);
   }
@@ -76,11 +74,18 @@ export class NotificationsService implements OnModuleInit {
   async temp(object: any) {
     console.log(object);
     const baseNotification: BaseNotificationEntity = {
-      type: NotificationTypes.LIKE,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+      type: NotificationType.LIKE,
+      created_at: new Date(),
+      updated_at: new Date(),
+      trigger_ids: [],
+      user_ids: [],
+      seen: false,
+      content: 'Alyaa liked your post',
     };
 
-    await this.sendNotification({ userId: object.user, notification: baseNotification });
+    await this.sendNotification({
+      userId: object.user,
+      notification: baseNotification,
+    });
   }
 }
