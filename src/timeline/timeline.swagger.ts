@@ -5,15 +5,44 @@ export const timeline_swagger = {
   for_you: {
     operation: {
       summary: 'Get For You timeline',
-      description:
-        'Fetches personalized algorithmic timeline with recommended tweets',
+      description: `**Fetches personalized algorithmic timeline with recommended tweet
+                   . We have 3 catogeries that appear on timeline** 
+
+             1. **Normal Post:**  
+                  A standalone post with no reference to another post.
+
+             2.  **Quote Post:**  
+                   A post that quotes another post.  
+                  The quoted post is returned in the \`referenced_post\` field, containing its author and content.
+
+             3. **Reply Post:**  
+                   A post that replies to another post.  
+                   The replied post is returned in the \`referenced_post\` field, containing all its data.
+                   If the referenced post is also a reply, then it also has its own referenced post (nested).
+                   
+        Each post also includes engagement metrics such as \`likes_count\`, \`reposts_count\`, and \`viewsCount\`.`,
     },
   },
 
   following: {
     operation: {
       summary: 'Get following timeline',
-      description: 'Fetches  timeline from accounts you follow',
+      description: ` **Fetches timeline from your followings tweets (Reverse chronological)
+                   . We have 3 catogeries that appear on timeline** 
+
+             1. **Normal Post:**  
+                  A standalone post with no reference to another post.
+
+             2.  **Quote Post:**  
+                   A post that quotes another post.  
+                  The quoted post is returned in the \`referenced_post\` field, containing its author and content.
+
+             3. **Reply Post:**  
+                   A post that replies to another post.  
+                   The replied post is returned in the \`referenced_post\` field, containing all its data.
+                   If the referenced post is also a reply, then it also has its own referenced post (nested).
+               
+         Each post also includes engagement metrics such as \`likes_count\`, \`reposts_count\`, and \`viewsCount\`.  `,
     },
   },
 
@@ -23,7 +52,158 @@ export const timeline_swagger = {
       schema: {
         example: {
           data: {
-            tweets: [], // TODO: Uncomment after tweet implementation
+            tweets: [
+              {
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'amira',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Post content',
+                images: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u878.png',
+                ],
+                videos: [
+                  'https://cdn.app.com/videos/v101.mp4',
+                  'https://cdn.app.com/videos/v102.webm',
+                ],
+                date: '2023-03-12',
+                likes_count: 10,
+                replies_count: 5,
+                reposts_count: 2,
+                views: 5,
+                is_reposted: true,
+                type: 'post',
+              },
+              {
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'amira',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Post content',
+                images: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u878.png',
+                ],
+                videos: [
+                  'https://cdn.app.com/videos/v101.mp4',
+                  'https://cdn.app.com/videos/v102.webm',
+                ],
+                date: '2023-03-12',
+                likes_count: 10,
+                replies_count: 5,
+                reposts_count: 2,
+                views: 5,
+                is_reposted: true,
+                type: 'repost',
+              },
+              {
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'esraa',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Hello X',
+                images: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u878.png',
+                ],
+                videos: [
+                  'https://cdn.app.com/videos/v101.mp4',
+                  'https://cdn.app.com/videos/v102.webm',
+                ],
+                date: '2023-03-12',
+                likes_count: 10,
+                replies_count: 5,
+                reposts_count: 2,
+                views: 5,
+                is_reposted: true,
+                type: 'quote',
+                referenced_post: {
+                  user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                  username: 'hagar',
+                  avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                  post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                  content: 'Hello Yapper',
+                  images: [
+                    'https://cdn.app.com/profiles/u877.jpg',
+                    'https://cdn.app.com/profiles/u878.png',
+                  ],
+                  videos: [
+                    'https://cdn.app.com/videos/v101.mp4',
+                    'https://cdn.app.com/videos/v102.webm',
+                  ],
+                  date: '2023-03-12',
+                },
+              },
+              ///REPLIES ON TWEETS ---> ALL FEED REPLIES ARE NESTED FOR NOW///
+
+              {
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                username: 'alyaa242',
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'blah blah',
+                images: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u878.png',
+                ],
+                videos: [
+                  'https://cdn.app.com/videos/v101.mp4',
+                  'https://cdn.app.com/videos/v102.webm',
+                ],
+                date: '2023-03-12',
+                likes_count: 10,
+                replies_count: 5,
+                reposts_count: 2,
+                views: 5,
+                is_reposted: true,
+                type: 'reply',
+                reference_post: {
+                  user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                  username: 'alyaa242',
+                  avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                  post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                  content: 'blah blah',
+                  images: [
+                    'https://cdn.app.com/profiles/u877.jpg',
+                    'https://cdn.app.com/profiles/u878.png',
+                  ],
+                  videos: [
+                    'https://cdn.app.com/videos/v101.mp4',
+                    'https://cdn.app.com/videos/v102.webm',
+                  ],
+                  date: '2023-03-12',
+                  likes_count: 10,
+                  replies_count: 5,
+                  reposts_count: 2,
+                  views: 5,
+                  is_reposted: true,
+                  type: 'reply',
+                  referenced_post: {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    username: 'alyaa242',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    content: 'blah blah',
+                    images: [
+                      'https://cdn.app.com/profiles/u877.jpg',
+                      'https://cdn.app.com/profiles/u878.png',
+                    ],
+                    videos: [
+                      'https://cdn.app.com/videos/v101.mp4',
+                      'https://cdn.app.com/videos/v102.webm',
+                    ],
+                    date: '2023-03-12',
+                    likes_count: 10,
+                    replies_count: 5,
+                    reposts_count: 2,
+                    views: 5,
+                    is_reposted: true,
+                    type: 'post',
+                  },
+                },
+              },
+            ], // TODO: Uncomment after tweet implementation
             pagination: {
               next_cursor: 'dHdlZXRfMTIzXzE3MDUzMjA2MDA=',
               has_more: true,
@@ -32,7 +212,7 @@ export const timeline_swagger = {
           },
 
           message: SUCCESS_MESSAGES.TIMELINE_RETRIEVED,
-          count: 100, //length of tweets array
+          count: 4, //length of tweets array
         },
       },
     },
