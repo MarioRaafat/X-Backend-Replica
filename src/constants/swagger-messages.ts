@@ -1,4 +1,5 @@
 export const ERROR_MESSAGES = {
+
     // auth
     WRONG_PASSWORD: 'Wrong password',
     PASSWORD_CONFIRMATION_MISMATCH: 'Confirmation password must match password',
@@ -55,10 +56,17 @@ export const ERROR_MESSAGES = {
   
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
+  
+  
+   // file
+    FILE_NOT_FOUND: 'File not found',
+    INVALID_FILE_FORMAT: 'Invalid file format',
+
 } as const;
 
 // Success Messages
 export const SUCCESS_MESSAGES = {
+
     // auth
     USER_REGISTERED: 'User successfully registered. Check email for verification',
     SIGNUP_STEP1_COMPLETED: 'Information saved. Check email for verification code',
@@ -96,4 +104,31 @@ export const SUCCESS_MESSAGES = {
   
     //Timeline
     TIMELINE_RETRIEVED: 'Timeline retrieved successfully',
+     // user
+  USERS_RETRIEVED: 'Users retrieved successfully',
+  USER_RETRIEVED: 'User retrieved successfully',
+  FOLLOWERS_LIST_RETRIEVED: 'Followers retrieved successfully',
+  FOLLOWER_REMOVED: 'Followers removed successfully',
+  FOLLOWING_LIST_RETRIEVED: 'Following list retrieved successfully',
+  FOLLOW_USER: 'Followed user successfully',
+  UNFOLLOW_USER: 'Unfollowed user successfully',
+  MUTED_LIST_RETRIEVED: 'Muted list retrieved successfully',
+  BLOCKED_LIST_RETRIEVED: 'Muted list retrieved successfully',
+  MUTE_USER: 'Muted user successfully',
+  UNMUTE_USER: 'Unmuted user successfully',
+  BLOCK_USER: 'Blocked user successfully',
+  UNBLOCK_USER: 'Unblocked user successfully',
+  LIKED_POSTS_RETRIEVED: 'Retrieved like posts successfully',
+  POSTS_RETRIEVED: 'Retrieved posts successfully',
+  REPLIES_RETRIEVED: 'Retrieved replies successfully',
+  MEDIA_RETRIEVED: 'Retrieved media successfully',
+  USER_UPDATED: 'Updated user successfully',
+  PHONE_NUMBER_CHANGED: 'Phone number changed successfully',
+  ACCOUNT_DEACTIVATED: 'Account deactivated successfully',
+  ACCOUNT_REACTIVATED: 'Account reactivated successfully',
+  AVATAR_UPLOADED: 'Avatar uploaded successfully',
+  COVER_UPLOADED: 'Cover uploaded successfully',
+  AVATAR_DELETED: 'Avatar deleted successfully',
+  COVER_DELETED: 'Cover deleted successfully',
+
 } as const;
