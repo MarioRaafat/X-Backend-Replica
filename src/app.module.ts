@@ -12,13 +12,10 @@ import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TimelineModule } from './timeline/timeline.module';
-
 import { SearchModule } from './search/search.module';
 import { ExploreModule } from './explore/explore.module';
-import { MongooseModule } from '@nestjs/mongoose';
 import { TweetsModule } from './tweets/tweets.module';
 import { ChatModule } from './chat/chat.module';
-import { TimelineModule } from './timeline/timeline.module';
 
 
 @Module({
