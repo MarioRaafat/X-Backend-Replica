@@ -76,22 +76,22 @@ export class TweetsController {
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweet created successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_CREATED)
     @Post()
     async createTweet(
-        @Body() createTweetDto: CreateTweetDTO,
-        @GetUserId() userId: string,
+        @Body() create_tweet_dto: CreateTweetDTO,
+        @GetUserId() user_id: string,
     ) {}
 
     @ApiOperation(get_all_tweets_swagger.operation)
     @ApiOkResponse(get_all_tweets_swagger.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweets retrieved successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEETS_RETRIEVED)
     @Get()
     async getAllTweets(
         @Query() query: GetTweetsQueryDto,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {}
 
     @ApiOperation(get_tweet_by_id_swagger.operation)
@@ -100,11 +100,11 @@ export class TweetsController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweet retrieved successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_RETRIEVED)
     @Get(':id')
     async getTweetById(
         @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {}
 
     @ApiOperation(update_tweet_swagger.operation)
@@ -115,12 +115,12 @@ export class TweetsController {
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
-    @ResponseMessage('Tweet updated successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_UPDATED)
     @Patch(':id')
     async updateTweet(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() updateTweetDto: UpdateTweetDTO,
-        @GetUserId() userId: string,
+        @Body() update_tweet_dto: UpdateTweetDTO,
+        @GetUserId() user_id: string,
     ) {}
 
     @HttpCode(HttpStatus.NO_CONTENT)
@@ -131,11 +131,11 @@ export class TweetsController {
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweet deleted successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_DELETED)
     @Delete(':id')
     async deleteTweet(
         @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {}
 
     @HttpCode(HttpStatus.CREATED)
@@ -145,11 +145,11 @@ export class TweetsController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweet reposted successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_REPOSTED)
     @Post(':id/repost')
     async repostTweet(
         @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {}
 
     @HttpCode(HttpStatus.CREATED)
@@ -160,12 +160,12 @@ export class TweetsController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweet quoted successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_QUOTED)
     @Post(':id/quote')
     async quoteTweet(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() createQuoteDto: CreateTweetDTO,
-        @GetUserId() userId: string,
+        @Body() create_quote_dto: CreateTweetDTO,
+        @GetUserId() user_id: string,
     ) {}
 
     @HttpCode(HttpStatus.NO_CONTENT)
@@ -175,11 +175,11 @@ export class TweetsController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweet liked successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_LIKED)
     @Post(':id/like')
     async likeTweet(
         @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {}
 
     @HttpCode(HttpStatus.NO_CONTENT)
@@ -189,11 +189,11 @@ export class TweetsController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweet unliked successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_UNLIKED)
     @Delete(':id/like')
     async unlikeTweet(
         @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {}
 
     @ApiOperation(get_tweet_likes_swagger.operation)
@@ -202,11 +202,11 @@ export class TweetsController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage('Tweet likes retrieved successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_LIKES_RETRIEVED)
     @Get(':id/likes')
     async getTweetLikes(
         @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {}
 
     @ApiOperation(update_quote_tweet_swagger.operation)
@@ -217,15 +217,15 @@ export class TweetsController {
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
-    @ResponseMessage('Quote tweet updated successfully')
+    @ResponseMessage(SUCCESS_MESSAGES.QUOTE_TWEET_UPDATED)
     @Patch(':id/quote')
     async updateQuoteTweet(
         @Param('id', ParseUUIDPipe) id: string,
-        @Body() updateQuoteDto: UpdateTweetWithQuoteDTO,
-        @GetUserId() userId: string,
+        @Body() update_quote_dto: UpdateTweetWithQuoteDTO,
+        @GetUserId() user_id: string,
     ) {}
 
-    @HttpCode(HttpStatus.CREATED)
+        @HttpCode(HttpStatus.CREATED)
     @ApiOperation(upload_image_swagger.operation)
     @ApiConsumes('multipart/form-data')
     @ApiBody(upload_image_swagger.body)
@@ -238,16 +238,16 @@ export class TweetsController {
     @Post('upload/image')
     async uploadImage(
         @UploadedFile() file: Express.Multer.File,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {
         if (!file) {
             throw new BadRequestException(ERROR_MESSAGES.NO_FILE_PROVIDED);
         }
 
-        return this.tweets_service.uploadImage(file, userId);
+        return this.tweets_service.uploadImage(file, user_id);
     }
 
-    @HttpCode(HttpStatus.CREATED)
+        @HttpCode(HttpStatus.CREATED)
     @ApiOperation(upload_video_swagger.operation)
     @ApiConsumes('multipart/form-data')
     @ApiBody(upload_video_swagger.body)
@@ -260,13 +260,13 @@ export class TweetsController {
     @Post('upload/video')
     async uploadVideo(
         @UploadedFile() file: Express.Multer.File,
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
     ) {
         if (!file) {
             throw new BadRequestException(ERROR_MESSAGES.NO_FILE_PROVIDED);
         }
 
-        return this.tweets_service.uploadVideo(file, userId);
+        return this.tweets_service.uploadVideo(file, user_id);
     }
 }
 

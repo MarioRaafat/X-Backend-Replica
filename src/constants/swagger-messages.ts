@@ -69,4 +69,17 @@ export const SUCCESS_MESSAGES = {
     // file upload
     IMAGE_UPLOADED: 'Image uploaded successfully',
     VIDEO_UPLOADED: 'Video uploaded successfully',
+
+    // tweets
+    TWEET_CREATED: 'Tweet created successfully',
+    TWEETS_RETRIEVED: 'Tweets retrieved successfully',
+    TWEET_RETRIEVED: 'Tweet retrieved successfully',
+    TWEET_UPDATED: 'Tweet updated successfully',
+    TWEET_DELETED: 'Tweet deleted successfully',
+    TWEET_REPOSTED: 'Tweet reposted successfully',
+    TWEET_QUOTED: 'Tweet quoted successfully',
+    TWEET_LIKED: 'Tweet liked successfully',
+    TWEET_UNLIKED: 'Tweet unliked successfully',
+    TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
+    QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
 } as const;

@@ -1,8 +1,29 @@
 import { Injectable } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
+import { 
+    Tweet, 
+    TweetLike, 
+    TweetRepost, 
+    TweetQuote, 
+    TweetReply 
+} from './entities';
 
 @Injectable()
 export class TweetsService {
+    constructor(
+        @InjectRepository(Tweet)
+        private readonly tweet_repository: Repository<Tweet>,
+        @InjectRepository(TweetLike)
+        private readonly tweet_like_repository: Repository<TweetLike>,
+        @InjectRepository(TweetRepost)
+        private readonly tweet_repost_repository: Repository<TweetRepost>,
+        @InjectRepository(TweetQuote)
+        private readonly tweet_quote_repository: Repository<TweetQuote>,
+        @InjectRepository(TweetReply)
+        private readonly tweet_reply_repository: Repository<TweetReply>,
+    ) {}
     /**
      * Handles image upload processing
      * @param file - The uploaded image file (in memory, not saved to disk)
@@ -26,7 +47,7 @@ export class TweetsService {
             url: `https://your-cdn.com/placeholder-url`, // Placeholder URL
             filename: file.originalname,
             size: file.size,
-            mimetype: file.mimetype,
+            mime_type: file.mimetype,
         };
     }
 
@@ -53,7 +74,7 @@ export class TweetsService {
             url: `https://your-cdn.com/placeholder-url`, // Placeholder URL
             filename: file.originalname,
             size: file.size,
-            mimetype: file.mimetype,
+            mime_type: file.mimetype,
         };
     }
 }

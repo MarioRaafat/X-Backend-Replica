@@ -7,19 +7,26 @@ import {
 import { Tweet } from './tweet.entity';
 import { User } from 'src/user/entities/user.entity';
 
-@Entity('tweet_reposts')
-export class TweetRepost {
+@Entity('tweet_replies')
+export class TweetReply {
     @PrimaryColumn({ type: 'uuid' })
     user_id: string;
 
     @PrimaryColumn({ type: 'uuid' })
-    tweet_id: string;
+    reply_tweet_id: string;
+
+    @PrimaryColumn({ type: 'uuid' })
+    parent_tweet_id: string;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })
     user: User;
 
     @ManyToOne(() => Tweet, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'tweet_id' })
-    tweet: Tweet;
+    @JoinColumn({ name: 'reply_tweet_id' })
+    reply_tweet: Tweet;
+
+    @ManyToOne(() => Tweet, { onDelete: 'CASCADE' })
+    @JoinColumn({ name: 'parent_tweet_id' })
+    parent_tweet: Tweet;
 }
