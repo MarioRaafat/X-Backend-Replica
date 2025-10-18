@@ -19,11 +19,13 @@ import { OAuthCompletionStep2Dto } from './dto/oauth-completion-step2.dto';
 import { Body } from '@nestjs/common';
 import { LoginDTO } from './dto/login.dto';
 import { ChangePasswordAuthDTO } from './dto/change-password-auth.dto';
-import { VerifyResetOtpDto } from './dto/verify-reset-otp.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { ResendOtpDto } from './dto/resend-otp.dto';
-import { VerifyEmailDto } from './dto/verify-email.dto';
 import { VerifyPasswordResetOtpDto } from './dto/verify-password-reset-otp.dto';
+import { CheckIdentifierDto } from './dto/check-identifier.dto';
+import { UpdateUsernameDto } from './dto/update-username.dto';
+import { UpdateEmailDto } from './dto/update-email.dto';
+import { VerifyUpdateEmailDto } from './dto/verify-update-email.dto';
 import {
     ApiTags,
     ApiOperation,
@@ -76,6 +78,10 @@ import {
     forget_password_swagger,
     verify_reset_otp_swagger,
     reset_password_swagger,
+    check_identifier_swagger,
+    update_username_swagger,
+    update_email_swagger,
+    verify_update_email_swagger,
 } from './auth.swagger';
 
 
@@ -185,9 +191,9 @@ export class AuthController {
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_CHANGED)
     @Post('change-password')
-    async changePassword(@Body() body: ChangePasswordAuthDTO, @GetUserId() userId: string) {
+    async changePassword(@Body() body: ChangePasswordAuthDTO, @GetUserId() user_id: string) {
         const { old_password, new_password } = body;
-        return this.auth_service.changePassword(userId, old_password, new_password);
+        return this.auth_service.changePassword(user_id, old_password, new_password);
     }
 
     @ApiBearerAuth('JWT-auth')
@@ -198,8 +204,8 @@ export class AuthController {
     @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
     @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_RESET_OTP_SENT)
     @Get('forget-password')
-    async forgetPassword(@GetUserId() userId: string) {
-        return this.auth_service.sendResetPasswordEmail(userId);
+    async forgetPassword(@GetUserId() user_id: string) {
+        return this.auth_service.sendResetPasswordEmail(user_id);
     }
 
     @ApiBearerAuth('JWT-auth')
@@ -211,9 +217,9 @@ export class AuthController {
     @ApiUnprocessableEntityErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.OTP_VERIFIED)
     @Post('password/verify-otp')
-    async verifyResetPasswordOtp(@Body() verifyPasswordResetOtpDto: VerifyPasswordResetOtpDto, @GetUserId() userId: string) {
+    async verifyResetPasswordOtp(@Body() verifyPasswordResetOtpDto: VerifyPasswordResetOtpDto, @GetUserId() user_id: string) {
         const { token } = verifyPasswordResetOtpDto;
-        return this.auth_service.verifyResetPasswordOtp(userId, token);
+        return this.auth_service.verifyResetPasswordOtp(user_id, token);
     }
 
     @ApiBearerAuth('JWT-auth')
@@ -227,11 +233,11 @@ export class AuthController {
     @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_RESET)
     @Post('reset-password')
     async resetPassword(
-        @GetUserId() userId: string,
+        @GetUserId() user_id: string,
         @Body() body: ResetPasswordDto,
     ) {
         const { new_password, reset_token } = body;
-        return this.auth_service.resetPassword(userId, new_password, reset_token);
+        return this.auth_service.resetPassword(user_id, new_password, reset_token);
     }
 
     @ApiBearerAuth('JWT-auth')
@@ -303,6 +309,59 @@ export class AuthController {
         };
     }
 
+    @ApiOperation(check_identifier_swagger.operation)
+    @ApiBody({ type: CheckIdentifierDto })
+    @ApiOkResponse(check_identifier_swagger.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USERNAME_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.IDENTIFIER_AVAILABLE)
+    @Post('check-identifier')
+    async checkIdentifier(@Body() dto: CheckIdentifierDto) {
+        const { identifier } = dto;
+        return this.auth_service.checkIdentifier(identifier);
+    }
+
+    @ApiBearerAuth('JWT-auth')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation(update_username_swagger.operation)
+    @ApiBody({ type: UpdateUsernameDto })
+    @ApiOkResponse(update_username_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.USERNAME_UPDATED)
+    @Post('update-username')
+    async updateUsername(@Body() dto: UpdateUsernameDto, @GetUserId() user_id: string) {
+        return this.auth_service.updateUsername(user_id, dto.username);
+    }
+
+    @ApiBearerAuth('JWT-auth')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation(update_email_swagger.operation)
+    @ApiBody({ type: UpdateEmailDto })
+    @ApiOkResponse(update_email_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
+    @ResponseMessage(SUCCESS_MESSAGES.EMAIL_UPDATE_INITIATED)
+    @Post('update-email')
+    async updateEmail(@Body() dto: UpdateEmailDto, @GetUserId() user_id: string) {
+        return this.auth_service.updateEmail(user_id, dto.new_email);
+    }
+
+    @ApiBearerAuth('JWT-auth')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation(verify_update_email_swagger.operation)
+    @ApiBody({ type: VerifyUpdateEmailDto })
+    @ApiOkResponse(verify_update_email_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.EMAIL_UPDATED)
+    @Post('update-email/verify')
+    async verifyUpdateEmail(@Body() dto: VerifyUpdateEmailDto, @GetUserId() user_id: string) {
+        return this.auth_service.verifyUpdateEmail(user_id, dto.new_email, dto.otp);
+    }
 
     /* 
         ######################### Google OAuth Routes #########################

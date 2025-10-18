@@ -11,6 +11,12 @@ import { CommunicationModule } from './communication/communication.module';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
 import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { TimelineModule } from './timeline/timeline.module';
+import { SearchModule } from './search/search.module';
+import { ExploreModule } from './explore/explore.module';
+import { TweetsModule } from './tweets/tweets.module';
+import { ChatModule } from './chat/chat.module';
+
 
 @Module({
     imports: [
@@ -26,11 +32,19 @@ import { NotificationsModule } from './notifications/notifications.module';
         CommunicationModule,
         RabbitmqModule,
         NotificationsModule,
+
+        SearchModule,
+        ExploreModule,
+        TweetsModule,
+
+        ChatModule,
+        TimelineModule,
+
     ],
     controllers: [AppController],
     providers: [AppService],
-})
 
+})
 export class AppModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
     consumer.apply(LoggerMiddleware).forRoutes('*');

@@ -23,7 +23,7 @@ export class User {
     @Column({ type: 'text', nullable: true })
     bio?: string;
 
-    @Column({ type: 'varchar', nullable: true })
+    @Column({ type: 'varchar', nullable: true, unique: true })
     phone_number?: string;
 
     @Column({ type: 'varchar', nullable: true })

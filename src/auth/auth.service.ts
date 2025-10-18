@@ -45,6 +45,7 @@ import {
   SIGNUP_SESSION_KEY,
   SIGNUP_SESSION_OBJECT,
 } from 'src/constants/redis';
+import { StringValue } from 'ms';  // Add this import
 
 @Injectable()
 export class AuthService {
@@ -63,15 +64,15 @@ export class AuthService {
         const access_token = this.jwt_service.sign(
             { id },
             {
-                secret: process.env.JWT_TOKEN_SECRET,
-                expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
+                secret: process.env.JWT_TOKEN_SECRET ?? 'fallback-secret',  // Optional: Add fallback for safety
+                expiresIn: (process.env.JWT_TOKEN_EXPIRATION_TIME ?? '1h') as StringValue,  // Fix here
             },
         );
 
         const refresh_payload = { id, jti: crypto.randomUUID() };
         const refresh_token = this.jwt_service.sign(refresh_payload, {
-            secret: process.env.JWT_REFRESH_SECRET,
-            expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+            secret: process.env.JWT_REFRESH_SECRET ?? 'fallback-refresh-secret',
+            expiresIn: (process.env.JWT_REFRESH_EXPIRATION_TIME ?? '7d') as StringValue,
         });
 
         const refresh_redis_object = REFRESH_TOKEN_OBJECT(refresh_payload.jti, id);
@@ -735,6 +736,132 @@ export class AuthService {
             user: instanceToPlain(user),
             access_token,
             refresh_token
+        };
+    }
+
+    async checkIdentifier(identifier: string) {
+        let identifier_type: string = '';
+        let user: User | null = null;
+
+        if (identifier.includes('@')) {
+            identifier_type = 'email';
+            user = await this.user_service.findUserByEmail(identifier);
+        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
+            identifier_type = 'phone_number';
+            user = await this.user_service.findUserByPhoneNumber(identifier);
+        } else {
+            identifier_type = 'username';
+            user = await this.user_service.findUserByUsername(identifier);
+        }
+
+        if (!user) {
+            throw new NotFoundException(
+                identifier_type === 'email' ? ERROR_MESSAGES.EMAIL_NOT_FOUND 
+                : identifier_type === 'phone_number' ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND 
+                : ERROR_MESSAGES.USERNAME_NOT_FOUND
+            );
+        }
+
+        return {
+            identifier_type: identifier_type,
+        };
+    }
+
+    async updateUsername(user_id: string, new_username: string) {
+        const user = await this.user_service.findUserById(user_id);
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        // Check if username is already taken
+        const is_available = await this.username_service.isUsernameAvailable(new_username);
+        if (!is_available) {
+            throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+        }
+
+        await this.user_service.updateUser(user_id, { username: new_username });
+        return {
+            username: new_username,
+        };
+    }
+
+    async updateEmail(user_id: string, new_email: string) {
+        const user = await this.user_service.findUserById(user_id);
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const existing_user = await this.user_service.findUserByEmail(new_email);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
+        }
+
+        // I will not use the old key here to avoid conflicts with signup flow (if there is one ongoing)
+        const otp = await this.verification_service.generateOtp(user_id + '_email_update', 'email');
+        const email_update_session_key = `email_update:${user_id}`;
+        await this.redis_service.set(email_update_session_key, new_email, 3600); // 1 hour
+
+        // Send OTP email
+        const { subject, title, description, subtitle, subtitle_description } = {
+            subject: 'Email Update Verification',
+            title: 'Verify Your New Email Address',
+            description: `Please use the following code to verify your new email address:`,
+            subtitle: 'Security Notice',
+            subtitle_description: 'If you didn\'t request this email change, please ignore this message.'
+        };
+
+        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, user.username || user.name);
+
+        const email_sent = await this.email_service.sendEmail({
+            subject: subject,
+            recipients: [{ name: user.name ?? '', address: new_email }],
+            html,
+        });
+
+        if (!email_sent) {
+            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
+        }
+
+        return {
+            new_email,
+            verification_sent: true,
+        };
+    }
+
+    async verifyUpdateEmail(user_id: string, new_email: string, otp: string) {
+        const user = await this.user_service.findUserById(user_id);
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const is_valid = await this.verification_service.validateOtp(user_id + '_email_update', otp, 'email');
+        if (!is_valid) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
+
+        // Check if the new_email matches what was stored
+        const email_update_session_key = `email_update:${user_id}`;
+        const stored_email = await this.redis_service.get(email_update_session_key);
+        if (!stored_email || stored_email !== new_email) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
+
+        // Check if email is still available
+        const existing_user = await this.user_service.findUserByEmail(new_email);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
+        }
+
+        // Update user email
+        await this.user_service.updateUser(user_id, { email: new_email });
+
+        // Clean up
+        await this.redis_service.del(email_update_session_key);
+        const otp_key = OTP_KEY('email', user_id + '_email_update');
+        await this.redis_service.del(otp_key);
+
+        return {
+            email: new_email,
         };
     }
 }

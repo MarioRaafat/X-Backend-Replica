@@ -1,0 +1,35 @@
+import { ApiProperty } from '@nestjs/swagger';
+import { IsString, IsArray, IsOptional, MaxLength, IsUrl } from 'class-validator';
+
+export class CreateReplyDTO {
+    @ApiProperty({
+        description: 'The text content of the reply',
+        example: 'Great tweet! I totally agree.',
+        maxLength: 280,
+    })
+    @IsString()
+    @MaxLength(280)
+    content: string;
+
+    @ApiProperty({
+        description: 'Array of image URLs attached to the reply',
+        example: ['https://example.com/image1.jpg'],
+        required: false,
+        type: [String],
+    })
+    @IsOptional()
+    @IsArray()
+    @IsUrl({}, { each: true })
+    images?: string[];
+
+    @ApiProperty({
+        description: 'Array of video URLs attached to the reply',
+        example: ['https://example.com/video1.mp4'],
+        required: false,
+        type: [String],
+    })
+    @IsOptional()
+    @IsArray()
+    @IsUrl({}, { each: true })
+    videos?: string[];
+}
