@@ -891,3 +891,40 @@ export const oauth_completion_step2_swagger = {
         },
     },
 };
+
+export const check_identifier_swagger = {
+    operation: {
+        summary: 'Check identifier availability',
+        description: `
+Check if an email, phone number, or username already exists in the database.
+
+**What happens:**
+1. System automatically detects the type of identifier based on format:
+   - Contains '@'  treated as email
+   - Contains only digits, +, -, (), spaces  treated as phone number  
+   - Otherwise  treated as username
+2. Searches the database for existing users with that identifier
+3. Returns whether it exists and what type it was detected as
+
+**Types of identifiers:**
+- email
+- phone_number
+- username
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'Identifier checked successfully',
+            schema: {
+                example: {
+                    data: {
+                        identifier_type: 'email',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.IDENTIFIER_AVAILABLE,
+                },
+            },
+        },
+    },
+};

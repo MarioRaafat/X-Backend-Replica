@@ -45,6 +45,7 @@ import {
   SIGNUP_SESSION_KEY,
   SIGNUP_SESSION_OBJECT,
 } from 'src/constants/redis';
+import { StringValue } from 'ms';  // Add this import
 
 @Injectable()
 export class AuthService {
@@ -63,15 +64,15 @@ export class AuthService {
         const access_token = this.jwt_service.sign(
             { id },
             {
-                secret: process.env.JWT_TOKEN_SECRET,
-                expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
+                secret: process.env.JWT_TOKEN_SECRET ?? 'fallback-secret',  // Optional: Add fallback for safety
+                expiresIn: (process.env.JWT_TOKEN_EXPIRATION_TIME ?? '1h') as StringValue,  // Fix here
             },
         );
 
         const refresh_payload = { id, jti: crypto.randomUUID() };
         const refresh_token = this.jwt_service.sign(refresh_payload, {
-            secret: process.env.JWT_REFRESH_SECRET,
-            expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
+            secret: process.env.JWT_REFRESH_SECRET ?? 'fallback-refresh-secret',
+            expiresIn: (process.env.JWT_REFRESH_EXPIRATION_TIME ?? '7d') as StringValue,
         });
 
         const refresh_redis_object = REFRESH_TOKEN_OBJECT(refresh_payload.jti, id);
@@ -735,6 +736,34 @@ export class AuthService {
             user: instanceToPlain(user),
             access_token,
             refresh_token
+        };
+    }
+
+    async checkIdentifier(identifier: string) {
+        let identifier_type: string = '';
+        let user: User | null = null;
+
+        if (identifier.includes('@')) {
+            identifier_type = 'email';
+            user = await this.user_service.findUserByEmail(identifier);
+        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
+            identifier_type = 'phone_number';
+            user = await this.user_service.findUserByPhoneNumber(identifier);
+        } else {
+            identifier_type = 'username';
+            user = await this.user_service.findUserByUsername(identifier);
+        }
+
+        if (!user) {
+            throw new NotFoundException(
+                identifier_type === 'email' ? ERROR_MESSAGES.EMAIL_NOT_FOUND 
+                : identifier_type === 'phone_number' ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND 
+                : ERROR_MESSAGES.USERNAME_NOT_FOUND
+            );
+        }
+
+        return {
+            identifier_type: identifier_type,
         };
     }
 }

@@ -35,6 +35,10 @@ export class UserService {
         return await this.user_repository.findOne({ where: { username: username } });
     }
 
+    async findUserByPhoneNumber(phone_number: string) {
+        return await this.user_repository.findOne({ where: { phone_number: phone_number } });
+    }
+
   async createUser(createUserDto: CreateUserDto): Promise<User> {
     const user = new User({
       ...createUserDto,
