@@ -29,7 +29,6 @@ export const USER_REFRESH_TOKENS_REMOVE = (userId: string, jti: string) => ({
     value: jti,
 });
 
-
 // ------------------ SIGNUP SESSION (Multi-stage signup) ------------------
 export const SIGNUP_SESSION_KEY = (email: string) => `signup:session:${email}`;
 export const SIGNUP_SESSION_TTL = 60 * 60; // 1 hour
@@ -53,15 +52,19 @@ export const OAUTH_SESSION_OBJECT = (session_token: string, user_data: Record<st
     ttl: OAUTH_SESSION_TTL,
 });
 
-
-
 /* 
     ######################### OTPs Section #########################
 */
-export const OTP_KEY = (type: 'email' | 'password', identifier: string) => `otp:${type}:${identifier}`;
+export const OTP_KEY = (type: 'email' | 'password', identifier: string) =>
+    `otp:${type}:${identifier}`;
 
 // OTPs use the default TTL (1 hour)
-export const OTP_OBJECT = (type: 'email' | 'password', identifier: string, hashedToken: string, created_at: string) => ({
+export const OTP_OBJECT = (
+    type: 'email' | 'password',
+    identifier: string,
+    hashedToken: string,
+    created_at: string
+) => ({
     key: OTP_KEY(type, identifier),
     value: {
         token: hashedToken,

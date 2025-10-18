@@ -5,11 +5,14 @@ export const ERROR_MESSAGES = {
     NEW_PASSWORD_SAME_AS_OLD: 'New password must be different from the old password',
     EMAIL_ALREADY_EXISTS: 'Email already exists',
     EMAIL_NOT_VERIFIED: 'Email not verified yet. Please check your inbox',
-    SOCIAL_LOGIN_REQUIRED: 'User registered with social login. Please use social login to access your account',
+    SOCIAL_LOGIN_REQUIRED:
+        'User registered with social login. Please use social login to access your account',
     CAPTCHA_VERIFICATION_FAILED: 'CAPTCHA verification failed. Please try again',
     ACCOUNT_ALREADY_VERIFIED: 'Account was already verified',
-    SIGNUP_SESSION_NOT_FOUND: 'Signup session not found or expired. Please start registration again',
-    SIGNUP_SESSION_ALREADY_EXISTS: 'Signup session already exists. Please verify your email or start over',
+    SIGNUP_SESSION_NOT_FOUND:
+        'Signup session not found or expired. Please start registration again',
+    SIGNUP_SESSION_ALREADY_EXISTS:
+        'Signup session already exists. Please verify your email or start over',
     EMAIL_NOT_FOUND: 'Email not found',
     PHONE_NUMBER_NOT_FOUND: 'Phone number not found',
     USERNAME_NOT_FOUND: 'Username not found',
@@ -51,8 +54,7 @@ export const ERROR_MESSAGES = {
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
     CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
-  
-  
+
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
 } as const;
@@ -93,7 +95,7 @@ export const SUCCESS_MESSAGES = {
     MESSAGE_RETRIEVED: 'Message retrieved successfully',
     CHAT_RETRIEVED: 'Chat retrieved successfully',
     MESSAGE_READ_STATUS_UPDATED: 'Message read status updated successfully',
-  
+
     //Timeline
     TIMELINE_RETRIEVED: 'Timeline retrieved successfully',
 } as const;

@@ -1,12 +1,12 @@
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     Injectable,
+    InternalServerErrorException,
     NotFoundException,
     UnauthorizedException,
     UnprocessableEntityException,
-    InternalServerErrorException,
-    ForbiddenException,
 } from '@nestjs/common';
 import { SignupStep1Dto } from './dto/signup-step1.dto';
 import { SignupStep2Dto } from './dto/signup-step2.dto';
@@ -30,20 +30,20 @@ import { FacebookLoginDTO } from './dto/facebook-login.dto';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
 import { generateOtpEmailHtml } from 'src/templates/otp-email';
-import {verification_email_object, reset_password_email_object } from 'src/constants/variables';
+import { reset_password_email_object, verification_email_object } from 'src/constants/variables';
 import { instanceToPlain } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import {
-  REFRESH_TOKEN_OBJECT,
-  USER_REFRESH_TOKENS_ADD,
-  USER_REFRESH_TOKENS_REMOVE,
-  USER_REFRESH_TOKENS_KEY,
-  REFRESH_TOKEN_KEY,
-  OAUTH_SESSION_KEY,
-  OAUTH_SESSION_OBJECT,
-  OTP_KEY,
-  SIGNUP_SESSION_KEY,
-  SIGNUP_SESSION_OBJECT,
+    OAUTH_SESSION_KEY,
+    OAUTH_SESSION_OBJECT,
+    OTP_KEY,
+    REFRESH_TOKEN_KEY,
+    REFRESH_TOKEN_OBJECT,
+    SIGNUP_SESSION_KEY,
+    SIGNUP_SESSION_OBJECT,
+    USER_REFRESH_TOKENS_ADD,
+    USER_REFRESH_TOKENS_KEY,
+    USER_REFRESH_TOKENS_REMOVE,
 } from 'src/constants/redis';
 
 @Injectable()
@@ -56,7 +56,7 @@ export class AuthService {
         private readonly verification_service: VerificationService,
         private readonly email_service: EmailService,
         private readonly captcha_service: CaptchaService,
-        private readonly config_service: ConfigService,
+        private readonly config_service: ConfigService
     ) {}
 
     async generateTokens(id: string) {
@@ -65,7 +65,7 @@ export class AuthService {
             {
                 secret: process.env.JWT_TOKEN_SECRET,
                 expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
-            },
+            }
         );
 
         const refresh_payload = { id, jti: crypto.randomUUID() };
@@ -75,7 +75,11 @@ export class AuthService {
         });
 
         const refresh_redis_object = REFRESH_TOKEN_OBJECT(refresh_payload.jti, id);
-        await this.redis_service.set(refresh_redis_object.key, refresh_redis_object.value, refresh_redis_object.ttl);
+        await this.redis_service.set(
+            refresh_redis_object.key,
+            refresh_redis_object.value,
+            refresh_redis_object.ttl
+        );
 
         const user_tokens_add = USER_REFRESH_TOKENS_ADD(id, refresh_payload.jti);
         await this.redis_service.sadd(user_tokens_add.key, user_tokens_add.value);
@@ -119,8 +123,7 @@ export class AuthService {
 
         if (user.password) {
             const is_password_valid = await bcrypt.compare(password, user.password);
-            if (!is_password_valid)
-                throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
+            if (!is_password_valid) throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
         } else {
             throw new UnauthorizedException(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED);
         }
@@ -160,7 +163,7 @@ export class AuthService {
         await this.redis_service.hset(
             signup_session_object.key,
             signup_session_object.value,
-            signup_session_object.ttl,
+            signup_session_object.ttl
         );
 
         await this.generateEmailVerification(email);
@@ -193,7 +196,7 @@ export class AuthService {
         await this.redis_service.hset(
             updated_session.key,
             updated_session.value,
-            updated_session.ttl,
+            updated_session.ttl
         );
 
         // generate username recommendations for step 3
@@ -206,7 +209,7 @@ export class AuthService {
     }
 
     async signupStep3(dto: SignupStep3Dto) {
-        const { email, password, username, language} = dto;
+        const { email, password, username, language } = dto;
 
         const signup_session_key = SIGNUP_SESSION_KEY(email);
         const signup_session = await this.redis_service.hget(signup_session_key);
@@ -274,11 +277,19 @@ export class AuthService {
         const otp = await this.verification_service.generateOtp(email, 'email');
         const not_me_link = await this.verification_service.generateNotMeLink(
             email,
-            `${process.env.BACKEND_URL}/auth/not-me`,
+            `${process.env.BACKEND_URL}/auth/not-me`
         );
 
-        const { subject, title, description, subtitle, subtitle_description } = verification_email_object(otp, not_me_link);
-        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, user.username);
+        const { subject, title, description, subtitle, subtitle_description } =
+            verification_email_object(otp, not_me_link);
+        const html = generateOtpEmailHtml(
+            title,
+            description,
+            otp,
+            subtitle,
+            subtitle_description,
+            user.username
+        );
 
         const email_sent = await this.email_service.sendEmail({
             subject: subject,
@@ -303,8 +314,16 @@ export class AuthService {
         const email = user.email;
         const username = user.username;
 
-        const { subject, title, description, subtitle, subtitle_description } = reset_password_email_object(username);
-        const html = generateOtpEmailHtml(title, description, otp, subtitle, subtitle_description, username);
+        const { subject, title, description, subtitle, subtitle_description } =
+            reset_password_email_object(username);
+        const html = generateOtpEmailHtml(
+            title,
+            description,
+            otp,
+            subtitle,
+            subtitle_description,
+            username
+        );
 
         const email_sent = await this.email_service.sendEmail({
             subject: subject,
@@ -320,11 +339,7 @@ export class AuthService {
     }
 
     async verifyResetPasswordOtp(user_id: string, token: string) {
-        const is_valid = await this.verification_service.validateOtp(
-            user_id,
-            token,
-            'password',
-        );
+        const is_valid = await this.verification_service.validateOtp(user_id, token, 'password');
 
         if (!is_valid) {
             throw new UnprocessableEntityException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
@@ -338,7 +353,6 @@ export class AuthService {
             resetToken: reset_token, // This token will be used in step 3
         };
     }
-
 
     async changePassword(user_id: string, old_password: string, new_password: string) {
         if (new_password === old_password) {
@@ -369,7 +383,7 @@ export class AuthService {
 
         if (!token_data) {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
-        }    
+        }
         // check that the 2 ids are same
         if (token_data.userId !== user_id) {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
@@ -416,12 +430,9 @@ export class AuthService {
 
     async logout(refresh_token: string, res: Response) {
         try {
-            const payload: any = await this.jwt_service.verifyAsync(
-                refresh_token, 
-                {
-                    secret: process.env.JWT_REFRESH_SECRET,
-                }
-            );
+            const payload: any = await this.jwt_service.verifyAsync(refresh_token, {
+                secret: process.env.JWT_REFRESH_SECRET,
+            });
 
             await this.redis_service.del(REFRESH_TOKEN_KEY(payload.jti));
             // Also remove from user's set
@@ -442,12 +453,9 @@ export class AuthService {
 
     async logoutAll(refresh_token: string, res: Response) {
         try {
-            const payload: any = await this.jwt_service.verifyAsync(
-                refresh_token, 
-                {
-                    secret: process.env.JWT_REFRESH_SECRET,
-                }
-            );
+            const payload: any = await this.jwt_service.verifyAsync(refresh_token, {
+                secret: process.env.JWT_REFRESH_SECRET,
+            });
 
             // to logout from all devices, we need to get all JTIs for this user and delete them
             const user_tokens_key = USER_REFRESH_TOKENS_KEY(payload.id);
@@ -455,7 +463,7 @@ export class AuthService {
 
             if (tokens.length > 0) {
                 const pipeline = this.redis_service.pipeline();
-                tokens.forEach(jti => pipeline.del(REFRESH_TOKEN_KEY(jti)));
+                tokens.forEach((jti) => pipeline.del(REFRESH_TOKEN_KEY(jti)));
                 pipeline.del(user_tokens_key);
                 await pipeline.exec();
             }
@@ -480,8 +488,7 @@ export class AuthService {
 
             const refresh_token_key = REFRESH_TOKEN_KEY(payload.jti);
             const exists = await this.redis_service.get(refresh_token_key);
-            if (!exists)
-                throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+            if (!exists) throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
 
             await this.redis_service.del(refresh_token_key);
 
@@ -508,13 +515,10 @@ export class AuthService {
                     avatar_url = google_user.avatar_url;
                 }
 
-                const updated_user = await this.user_service.updateUser(
-                    user.id, 
-                    {
-                        google_id: google_user.google_id,
-                        avatar_url: avatar_url,
-                    }
-                );
+                const updated_user = await this.user_service.updateUser(user.id, {
+                    google_id: google_user.google_id,
+                    avatar_url: avatar_url,
+                });
 
                 if (!updated_user) {
                     throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
@@ -540,14 +544,12 @@ export class AuthService {
                 name: name,
                 avatar_url: google_user.avatar_url,
                 google_id: google_user.google_id,
-            }   
+            },
         };
     }
 
     async validateFacebookUser(facebook_user: FacebookLoginDTO) {
-        let user = await this.user_service.findUserByFacebookId(
-            facebook_user.facebook_id,
-        );
+        let user = await this.user_service.findUserByFacebookId(facebook_user.facebook_id);
 
         if (user) {
             return user;
@@ -561,13 +563,10 @@ export class AuthService {
                     avatar_url = facebook_user.avatar_url;
                 }
 
-                const updated_user = await this.user_service.updateUser(
-                    user.id, 
-                    {
-                        facebook_id: facebook_user.facebook_id,
-                        avatar_url: avatar_url,
-                    }
-                );
+                const updated_user = await this.user_service.updateUser(user.id, {
+                    facebook_id: facebook_user.facebook_id,
+                    avatar_url: avatar_url,
+                });
 
                 if (!updated_user) {
                     throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
@@ -591,7 +590,7 @@ export class AuthService {
                 name: name,
                 avatar_url: facebook_user.avatar_url,
                 facebook_id: facebook_user.facebook_id,
-            }
+            },
         };
     }
 
@@ -611,13 +610,10 @@ export class AuthService {
                 avatar_url = github_user.avatar_url;
             }
 
-            const updated_user = await this.user_service.updateUser(
-                user.id,
-                {
-                    github_id: github_user.github_id,
-                    avatar_url: avatar_url,
-                }
-            );
+            const updated_user = await this.user_service.updateUser(user.id, {
+                github_id: github_user.github_id,
+                avatar_url: avatar_url,
+            });
 
             if (!updated_user) {
                 throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
@@ -640,7 +636,7 @@ export class AuthService {
                 name: name,
                 avatar_url: github_user.avatar_url,
                 github_id: github_user.github_id,
-            }
+            },
         };
     }
 
@@ -648,15 +644,12 @@ export class AuthService {
 
     async createOAuthSession(user_data: Record<string, any>): Promise<string> {
         const session_token = crypto.randomUUID();
-        const oauth_session_data = OAUTH_SESSION_OBJECT(
-            session_token,
-            user_data
-        );
+        const oauth_session_data = OAUTH_SESSION_OBJECT(session_token, user_data);
 
         await this.redis_service.hset(
             oauth_session_data.key,
             oauth_session_data.value,
-            oauth_session_data.ttl,
+            oauth_session_data.ttl
         );
 
         return session_token;
@@ -672,17 +665,17 @@ export class AuthService {
         }
 
         const user_data = JSON.parse(session_data.user_data);
-        
+
         // Update session with birth_date
-        const updated_session_data = OAUTH_SESSION_OBJECT(
-            oauth_session_token,
-            { ...user_data, birth_date },
-        );
+        const updated_session_data = OAUTH_SESSION_OBJECT(oauth_session_token, {
+            ...user_data,
+            birth_date,
+        });
 
         await this.redis_service.hset(
             updated_session_data.key,
             updated_session_data.value,
-            updated_session_data.ttl,
+            updated_session_data.ttl
         );
 
         const recommendations = await this.getRecommendedUsernames(user_data.name);
@@ -690,7 +683,7 @@ export class AuthService {
         return {
             usernames: recommendations,
             token: oauth_session_token,
-            nextStep: 'choose-username'
+            nextStep: 'choose-username',
         };
     }
 
@@ -734,7 +727,7 @@ export class AuthService {
         return {
             user: instanceToPlain(user),
             access_token,
-            refresh_token
+            refresh_token,
         };
     }
 
@@ -755,9 +748,11 @@ export class AuthService {
 
         if (!user) {
             throw new NotFoundException(
-                identifier_type === 'email' ? ERROR_MESSAGES.EMAIL_NOT_FOUND 
-                : identifier_type === 'phone_number' ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND 
-                : ERROR_MESSAGES.USERNAME_NOT_FOUND
+                identifier_type === 'email'
+                    ? ERROR_MESSAGES.EMAIL_NOT_FOUND
+                    : identifier_type === 'phone_number'
+                      ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND
+                      : ERROR_MESSAGES.USERNAME_NOT_FOUND
             );
         }
 

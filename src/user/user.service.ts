@@ -7,9 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class UserService {
-    constructor(
-        @InjectRepository(User) private readonly user_repository: Repository<User>,
-    ) {}
+    constructor(@InjectRepository(User) private readonly user_repository: Repository<User>) {}
 
     async findUserById(id: string) {
         return await this.user_repository.findOne({ where: { id } });
@@ -20,31 +18,41 @@ export class UserService {
     }
 
     async findUserByGithubId(github_id: string) {
-        return await this.user_repository.findOne({ where: { github_id: github_id } });
+        return await this.user_repository.findOne({
+            where: { github_id: github_id },
+        });
     }
 
     async findUserByFacebookId(facebook_id: string) {
-        return await this.user_repository.findOne({ where: { facebook_id: facebook_id } });
+        return await this.user_repository.findOne({
+            where: { facebook_id: facebook_id },
+        });
     }
 
     async findUserByGoogleId(google_id: string) {
-        return await this.user_repository.findOne({ where: { google_id: google_id } });
+        return await this.user_repository.findOne({
+            where: { google_id: google_id },
+        });
     }
 
     async findUserByUsername(username: string) {
-        return await this.user_repository.findOne({ where: { username: username } });
+        return await this.user_repository.findOne({
+            where: { username: username },
+        });
     }
 
     async findUserByPhoneNumber(phone_number: string) {
-        return await this.user_repository.findOne({ where: { phone_number: phone_number } });
+        return await this.user_repository.findOne({
+            where: { phone_number: phone_number },
+        });
     }
 
-  async createUser(createUserDto: CreateUserDto): Promise<User> {
-    const user = new User({
-      ...createUserDto,
-    });
-    return await this.user_repository.save(user);
-  }
+    async createUser(createUserDto: CreateUserDto): Promise<User> {
+        const user = new User({
+            ...createUserDto,
+        });
+        return await this.user_repository.save(user);
+    }
 
     async updateUser(id: string, update_data: Partial<User>) {
         await this.user_repository.update(id, update_data);

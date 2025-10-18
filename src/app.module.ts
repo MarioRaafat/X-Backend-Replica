@@ -34,10 +34,9 @@ import { TimelineModule } from './timeline/timeline.module';
     ],
     controllers: [AppController],
     providers: [AppService],
-
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LoggerMiddleware).forRoutes('*');
-  }
+    configure(consumer: MiddlewareConsumer) {
+        consumer.apply(LoggerMiddleware).forRoutes('*');
+    }
 }

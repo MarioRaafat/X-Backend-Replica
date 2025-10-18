@@ -11,7 +11,10 @@ export default new DataSource({
     username: process.env.POSTGRES_USERNAME || configService.get<string>('POSTGRES_USERNAME'),
     password: process.env.POSTGRES_PASSWORD || configService.get<string>('POSTGRES_PASSWORD'),
     database: process.env.POSTGRES_DB || configService.get<string>('POSTGRES_DB'),
-    port: parseInt(process.env.POSTGRES_PORT || '5432') || configService.get<number>('POSTGRES_PORT') || 5432,
+    port:
+        parseInt(process.env.POSTGRES_PORT || '5432') ||
+        configService.get<number>('POSTGRES_PORT') ||
+        5432,
     entities: [User, Verification],
     migrations: ['src/migrations/*{.ts,.js}'],
     synchronize: false,

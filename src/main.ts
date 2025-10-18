@@ -18,7 +18,7 @@ async function bootstrap() {
     const config = new DocumentBuilder()
         .setTitle('Backend API')
         .setDescription(
-            'El-Sabe3 Documentation presented by backend team with lots of kisses for you 😘',
+            'El-Sabe3 Documentation presented by backend team with lots of kisses for you 😘'
         )
         .setVersion('1.0')
         .addBearerAuth(
@@ -30,7 +30,7 @@ async function bootstrap() {
                 description: 'Enter JWT token',
                 in: 'header',
             },
-            'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in the controller!
+            'JWT-auth' // This name here is important for matching up with @ApiBearerAuth() in the controller!
         )
         .build();
 

@@ -62,11 +62,7 @@ Verify your email address using the OTP code sent to your inbox.
                 example: {
                     data: {
                         isVerified: true,
-                        recommendations: [
-                            'mario198',
-                            'marioraafat01743',
-                            'raafat9720',
-                        ],
+                        recommendations: ['mario198', 'marioraafat01743', 'raafat9720'],
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.SIGNUP_STEP2_COMPLETED,
@@ -110,7 +106,8 @@ Complete your registration by setting a password, choosing a username, and optio
                 example: {
                     data: {
                         userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
-                        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        access_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED,
@@ -133,8 +130,7 @@ Complete your registration by setting a password, choosing a username, and optio
 export const generate_otp_swagger = {
     operation: {
         summary: 'Generate email verification OTP',
-        description:
-            "Generate and send a new email verification OTP to the user's email.",
+        description: "Generate and send a new email verification OTP to the user's email.",
     },
 
     responses: {
@@ -225,8 +221,7 @@ export const login_swagger = {
 export const refresh_token_swagger = {
     operation: {
         summary: 'Refresh access token',
-        description:
-            'Use refresh token from httpOnly cookie to get a new access token.',
+        description: 'Use refresh token from httpOnly cookie to get a new access token.',
     },
 
     responses: {
@@ -290,8 +285,7 @@ export const google_oauth_swagger = {
                     description: 'Google OAuth URL',
                     schema: {
                         type: 'string',
-                        example:
-                            'https://accounts.google.com/oauth/authorize?client_id=...',
+                        example: 'https://accounts.google.com/oauth/authorize?client_id=...',
                     },
                 },
             },
@@ -337,8 +331,7 @@ export const google_callback_swagger = {
     responses: {
         success: {
             status: 302,
-            description:
-                'Successful authentication - redirects to frontend with token',
+            description: 'Successful authentication - redirects to frontend with token',
             headers: {
                 Location: {
                     description: 'Frontend success URL with access token',
@@ -409,8 +402,7 @@ export const facebook_oauth_swagger = {
                     description: 'Facebook OAuth URL',
                     schema: {
                         type: 'string',
-                        example:
-                            'https://www.facebook.com/v18.0/dialog/oauth?client_id=...',
+                        example: 'https://www.facebook.com/v18.0/dialog/oauth?client_id=...',
                     },
                 },
             },
@@ -456,8 +448,7 @@ export const facebook_callback_swagger = {
     responses: {
         success: {
             status: 302,
-            description:
-                'Successful authentication - redirects to frontend with token',
+            description: 'Successful authentication - redirects to frontend with token',
             headers: {
                 Location: {
                     description: 'Frontend success URL with access token',
@@ -572,8 +563,7 @@ export const github_callback_swagger = {
     responses: {
         success: {
             status: 302,
-            description:
-                'Successful authentication - redirects to frontend with token',
+            description: 'Successful authentication - redirects to frontend with token',
             headers: {
                 Location: {
                     description: 'Frontend success URL with access token',
@@ -610,9 +600,9 @@ export const github_callback_swagger = {
 };
 
 export const not_me_swagger = {
-  operation: {
-    summary: 'Verify "Not Me" Report for Unauthorized Email Access',
-    description: `
+    operation: {
+        summary: 'Verify "Not Me" Report for Unauthorized Email Access',
+        description: `
       **⚠️ Important: This endpoint cannot be tested in Swagger UI**
       
       **How it works:**
@@ -632,35 +622,35 @@ export const not_me_swagger = {
       
       **This endpoint is automatically called from email links - Do not call manually**
       `,
-  },
-
-  api_query: {
-      name: 'token',
-      type: String,
-      required: true,
-      description: 'The JWT token from the link sent to the user’s email',
-      example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-  },
-
-  responses: {
-    success: {
-      description: 'User account deleted successfully',
-      schema: {
-        example: {
-          data: {},
-          count: 0,
-          message: SUCCESS_MESSAGES.ACCOUNT_REMOVED,
-        },
-      },
     },
-  },
+
+    api_query: {
+        name: 'token',
+        type: String,
+        required: true,
+        description: 'The JWT token from the link sent to the user’s email',
+        example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    },
+
+    responses: {
+        success: {
+            description: 'User account deleted successfully',
+            schema: {
+                example: {
+                    data: {},
+                    count: 0,
+                    message: SUCCESS_MESSAGES.ACCOUNT_REMOVED,
+                },
+            },
+        },
+    },
 };
 
 export const change_password_swagger = {
     operation: {
         summary: 'Change user password',
         description:
-            'Change the authenticated user\'s password. Requires current password validation and JWT authentication.',
+            "Change the authenticated user's password. Requires current password validation and JWT authentication.",
     },
 
     responses: {
@@ -680,8 +670,7 @@ export const change_password_swagger = {
 export const captcha_swagger = {
     operation: {
         summary: 'Get reCAPTCHA site key',
-        description:
-            'Returns the reCAPTCHA site key needed for frontend widget initialization.',
+        description: 'Returns the reCAPTCHA site key needed for frontend widget initialization.',
     },
 
     responses: {
@@ -703,8 +692,7 @@ export const captcha_swagger = {
 export const forget_password_swagger = {
     operation: {
         summary: 'Request password reset',
-        description:
-            'Initiates password reset process by sending OTP to user\'s email address.',
+        description: "Initiates password reset process by sending OTP to user's email address.",
     },
 
     responses: {
@@ -727,7 +715,7 @@ export const verify_reset_otp_swagger = {
     operation: {
         summary: 'Verify password reset OTP',
         description:
-            'Verifies the OTP code sent to user\'s email for password reset. Step 2 of the password reset flow. Returns a secure reset token for step 3.',
+            "Verifies the OTP code sent to user's email for password reset. Step 2 of the password reset flow. Returns a secure reset token for step 3.",
     },
 
     responses: {
@@ -737,7 +725,8 @@ export const verify_reset_otp_swagger = {
                 example: {
                     data: {
                         isValid: true,
-                        resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
+                        resetToken:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.OTP_VERIFIED,
@@ -750,8 +739,7 @@ export const verify_reset_otp_swagger = {
 export const reset_password_swagger = {
     operation: {
         summary: 'Reset password with secure token',
-        description:
-            `Final step of password reset flow. Changes user password using the secure reset token from step 2. 
+        description: `Final step of password reset flow. Changes user password using the secure reset token from step 2. 
       Token ensures the person resetting is the same who verified the OTP.`,
     },
 
@@ -831,10 +819,10 @@ export const oauth_completion_step1_swagger = {
                             'bahgot123',
                             'shady.mo',
                             'alyaa_official',
-                            'amira_k_2024'
+                            'amira_k_2024',
                         ],
                         token: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                        nextStep: 'choose-username'
+                        nextStep: 'choose-username',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.BIRTH_DATE_SET,

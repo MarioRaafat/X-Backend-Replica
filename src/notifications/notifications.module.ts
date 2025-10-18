@@ -4,8 +4,8 @@ import { RabbitmqService } from 'src/rabbitmq/rabbitmq.service';
 import { NotificationsController } from './notifications.controller';
 
 @Module({
-  providers: [NotificationsService],
-  exports: [NotificationsService],
-  controllers: [NotificationsController],
+    providers: [NotificationsService],
+    exports: [NotificationsService],
+    controllers: [NotificationsController],
 })
-export class NotificationsModule{}
+export class NotificationsModule {}
