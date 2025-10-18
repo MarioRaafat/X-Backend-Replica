@@ -5,14 +5,9 @@ import {
     CreateDateColumn, 
     UpdateDateColumn, 
     ManyToOne, 
-    JoinColumn,
-    OneToMany
+    JoinColumn
 } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
-import { TweetLike } from './tweet-like.entity';
-import { TweetRepost } from './tweet-repost.entity';
-import { TweetQuote } from './tweet-quote.entity';
-import { TweetReply } from './tweet-reply.entity';
 
 @Entity('tweets')
 export class Tweet {
@@ -21,9 +16,6 @@ export class Tweet {
 
     @Column({ type: 'uuid' })
     user_id: string;
-
-    @Column({ type: 'uuid', nullable: true })
-    parent_tweet_id: string;
 
     @Column({ type: 'varchar', length: 280 })
     content: string;
@@ -43,29 +35,4 @@ export class Tweet {
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })
     user: User;
-
-    @ManyToOne(() => Tweet, { onDelete: 'CASCADE', nullable: true })
-    @JoinColumn({ name: 'parent_tweet_id' })
-    parent_tweet: Tweet;
-
-    @OneToMany(() => Tweet, tweet => tweet.parent_tweet)
-    child_tweets: Tweet[];
-
-    @OneToMany(() => TweetLike, like => like.tweet)
-    likes: TweetLike[];
-
-    @OneToMany(() => TweetRepost, repost => repost.tweet)
-    reposts: TweetRepost[];
-
-    @OneToMany(() => TweetQuote, quote => quote.quote_tweet)
-    quotes_as_quote: TweetQuote[];
-
-    @OneToMany(() => TweetQuote, quote => quote.original_tweet)
-    quotes_as_original: TweetQuote[];
-
-    @OneToMany(() => TweetReply, reply => reply.reply_tweet)
-    replies_as_reply: TweetReply[];
-
-    @OneToMany(() => TweetReply, reply => reply.parent_tweet)
-    replies_as_parent: TweetReply[];
 }

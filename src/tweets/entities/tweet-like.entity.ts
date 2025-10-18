@@ -1,8 +1,8 @@
 import { 
     Entity, 
-    PrimaryColumn, 
-    ManyToOne, 
-    JoinColumn 
+    PrimaryColumn,
+    ManyToOne,
+    JoinColumn
 } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from 'src/user/entities/user.entity';

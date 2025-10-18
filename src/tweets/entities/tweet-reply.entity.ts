@@ -1,8 +1,8 @@
 import { 
     Entity, 
-    PrimaryColumn, 
-    ManyToOne, 
-    JoinColumn 
+    PrimaryColumn,
+    ManyToOne,
+    JoinColumn
 } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from 'src/user/entities/user.entity';
@@ -16,7 +16,7 @@ export class TweetReply {
     reply_tweet_id: string;
 
     @PrimaryColumn({ type: 'uuid' })
-    parent_tweet_id: string;
+    original_tweet_id: string;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })
@@ -27,6 +27,6 @@ export class TweetReply {
     reply_tweet: Tweet;
 
     @ManyToOne(() => Tweet, { onDelete: 'CASCADE' })
-    @JoinColumn({ name: 'parent_tweet_id' })
-    parent_tweet: Tweet;
+    @JoinColumn({ name: 'original_tweet_id' })
+    original_tweet: Tweet;
 }
