@@ -23,5 +23,5 @@ export class UploadMediaResponseDTO {
         description: 'The MIME type of the uploaded file',
         example: 'image/jpeg',
     })
-    mimetype: string;
+    mime_type: string;
 }
