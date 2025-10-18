@@ -1,0 +1,49 @@
+name: Deploy to Dev VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Docker image version to deploy (e.g., v1.0)'
+        required: true
+      confirm:
+        description: 'Type YES to confirm deployment'
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'YES' }}
+
+    steps:
+      - name: SSH into Dev VM and deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.DEV_SERVER_HOST }}
+          username: ${{ secrets.DEV_SERVER_USER }}
+          key: ${{ secrets.DEV_SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/yapper  # path to your app on VM
+
+            echo "🧭 Getting current running image tag..."
+            CURRENT_TAG=$(docker compose ps -q api | xargs docker inspect -f '{{ index .Config.Labels "com.docker.compose.image" }}' | cut -d':' -f2)
+
+            echo "🐳 Setting new image tag for deployment..."
+            export IMAGE_TAG=${{ github.event.inputs.version }}
+
+            echo "🔄 Pulling new image and restarting app container..."
+            docker compose pull api
+            docker compose up -d api
+
+            echo "⏳ Waiting for health check..."
+            sleep 10
+
+            if curl -fs ${{ secrets.DEV_HEALTHCHECK_URL }} >/dev/null; then
+              echo "✅ Dev deployment successful for version $IMAGE_TAG"
+            else
+              echo "❌ Health check failed! Rolling back app container..."
+              export IMAGE_TAG=$CURRENT_TAG
+              docker compose up -d api
+              exit 1
+            fi
