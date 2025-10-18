@@ -126,7 +126,11 @@ export const search_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -135,7 +139,7 @@ export const search_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'post',
             },
             {
@@ -144,7 +148,11 @@ export const search_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -153,7 +161,7 @@ export const search_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'quote',
               referenced_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -161,7 +169,7 @@ export const search_posts = {
                 avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
-                media: [
+                images_url: [
                   'https://cdn.app.com/profiles/u877.jpg',
                   'https://cdn.app.com/profiles/u877.jpg',
                 ],
@@ -174,7 +182,11 @@ export const search_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -183,7 +195,7 @@ export const search_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'reply',
               replying_to: ['amira#2424', 'mohamed998'],
             },
@@ -232,7 +244,11 @@ export const search_latest_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -241,7 +257,7 @@ export const search_latest_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'post',
             },
             {
@@ -250,7 +266,11 @@ export const search_latest_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -259,7 +279,7 @@ export const search_latest_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'quote',
               referenced_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -267,7 +287,7 @@ export const search_latest_posts = {
                 avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
-                media: [
+                images_url: [
                   'https://cdn.app.com/profiles/u877.jpg',
                   'https://cdn.app.com/profiles/u877.jpg',
                 ],
@@ -280,7 +300,11 @@ export const search_latest_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -289,7 +313,7 @@ export const search_latest_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'reply',
               replying_to: ['amira#2424', 'mohamed998'],
             },

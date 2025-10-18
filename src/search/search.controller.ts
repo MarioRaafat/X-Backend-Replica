@@ -19,7 +19,7 @@ import { SearchQueryDto } from './dto/search-query.dto';
 @ApiTags('Search')
 @Controller('search')
 export class SearchController {
-  constructor(private readonly searchService: SearchService) {}
+  constructor(private readonly search_service: SearchService) {}
 
   @ApiOperation(get_suggestions_swagger.operation)
   @ApiOkResponse(get_suggestions_swagger.responses.success)
@@ -27,7 +27,7 @@ export class SearchController {
   @ResponseMessage(SUCCESS_MESSAGES.SUGGESTIONS_RETRIEVED)
   @Get('suggestions')
   async getSuggestions(@Query() query_dto: BasicQueryDto) {
-    return await this.searchService.getSuggestions(query_dto);
+    return await this.search_service.getSuggestions(query_dto);
   }
 
   @ApiOperation(search_users_swagger.operation)
@@ -36,7 +36,7 @@ export class SearchController {
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_USERS_RETRIEVED)
   @Get('users')
   async searchPeople(@Query() query_dto: SearchQueryDto) {
-    return await this.searchService.searchUsers(query_dto);
+    return await this.search_service.searchUsers(query_dto);
   }
 
   @ApiOperation(search_latest_posts.operation)
@@ -45,7 +45,7 @@ export class SearchController {
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
   @Get('posts')
   async searchPosts(@Query() query_dto: PostsSearchDto) {
-    return await this.searchService.searchPosts(query_dto);
+    return await this.search_service.searchPosts(query_dto);
   }
 
   @ApiOperation(search_latest_posts.operation)
@@ -54,6 +54,6 @@ export class SearchController {
   @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
   @Get('posts/latest')
   async searchLatestPosts(@Query() query_dto: SearchQueryDto) {
-    return await this.searchService.searchLatestPosts(query_dto);
+    return await this.search_service.searchLatestPosts(query_dto);
   }
 }
