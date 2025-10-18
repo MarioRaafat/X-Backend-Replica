@@ -56,9 +56,10 @@ export const ERROR_MESSAGES = {
   
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
+    INVALID_CATEGORY_PARAMETER: 'Invalid category parameter',
   
   
-   // file
+    // file
     FILE_NOT_FOUND: 'File not found',
     INVALID_FILE_FORMAT: 'Invalid file format',
 
@@ -85,6 +86,9 @@ export const SUCCESS_MESSAGES = {
     LOGGED_OUT_ALL: 'Successfully logged out from all devices',
     ACCOUNT_REMOVED: 'Account successfully removed due to unauthorized access report',
     IDENTIFIER_AVAILABLE: 'Identifier is available',
+    USERNAME_UPDATED: 'Username updated successfully',
+    EMAIL_UPDATE_INITIATED: 'Email update process initiated. Check your new email for verification',
+    EMAIL_UPDATED: 'Email updated successfully',
 
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',
@@ -104,31 +108,33 @@ export const SUCCESS_MESSAGES = {
   
     //Timeline
     TIMELINE_RETRIEVED: 'Timeline retrieved successfully',
-     // user
-  USERS_RETRIEVED: 'Users retrieved successfully',
-  USER_RETRIEVED: 'User retrieved successfully',
-  FOLLOWERS_LIST_RETRIEVED: 'Followers retrieved successfully',
-  FOLLOWER_REMOVED: 'Followers removed successfully',
-  FOLLOWING_LIST_RETRIEVED: 'Following list retrieved successfully',
-  FOLLOW_USER: 'Followed user successfully',
-  UNFOLLOW_USER: 'Unfollowed user successfully',
-  MUTED_LIST_RETRIEVED: 'Muted list retrieved successfully',
-  BLOCKED_LIST_RETRIEVED: 'Muted list retrieved successfully',
-  MUTE_USER: 'Muted user successfully',
-  UNMUTE_USER: 'Unmuted user successfully',
-  BLOCK_USER: 'Blocked user successfully',
-  UNBLOCK_USER: 'Unblocked user successfully',
-  LIKED_POSTS_RETRIEVED: 'Retrieved like posts successfully',
-  POSTS_RETRIEVED: 'Retrieved posts successfully',
-  REPLIES_RETRIEVED: 'Retrieved replies successfully',
-  MEDIA_RETRIEVED: 'Retrieved media successfully',
-  USER_UPDATED: 'Updated user successfully',
-  PHONE_NUMBER_CHANGED: 'Phone number changed successfully',
-  ACCOUNT_DEACTIVATED: 'Account deactivated successfully',
-  ACCOUNT_REACTIVATED: 'Account reactivated successfully',
-  AVATAR_UPLOADED: 'Avatar uploaded successfully',
-  COVER_UPLOADED: 'Cover uploaded successfully',
-  AVATAR_DELETED: 'Avatar deleted successfully',
-  COVER_DELETED: 'Cover deleted successfully',
+    MENTIONS_RETRIEVED: 'Mentions retrieved successfully',
+    TRENDS_RETRIEVED: 'Trends retrieved successfully',
 
+     // user
+    USERS_RETRIEVED: 'Users retrieved successfully',
+    USER_RETRIEVED: 'User retrieved successfully',
+    FOLLOWERS_LIST_RETRIEVED: 'Followers retrieved successfully',
+    FOLLOWER_REMOVED: 'Followers removed successfully',
+    FOLLOWING_LIST_RETRIEVED: 'Following list retrieved successfully',
+    FOLLOW_USER: 'Followed user successfully',
+    UNFOLLOW_USER: 'Unfollowed user successfully',
+    MUTED_LIST_RETRIEVED: 'Muted list retrieved successfully',
+    BLOCKED_LIST_RETRIEVED: 'Muted list retrieved successfully',
+    MUTE_USER: 'Muted user successfully',
+    UNMUTE_USER: 'Unmuted user successfully',
+    BLOCK_USER: 'Blocked user successfully',
+    UNBLOCK_USER: 'Unblocked user successfully',
+    LIKED_POSTS_RETRIEVED: 'Retrieved like posts successfully',
+    POSTS_RETRIEVED: 'Retrieved posts successfully',
+    REPLIES_RETRIEVED: 'Retrieved replies successfully',
+    MEDIA_RETRIEVED: 'Retrieved media successfully',
+    USER_UPDATED: 'Updated user successfully',
+    PHONE_NUMBER_CHANGED: 'Phone number changed successfully',
+    ACCOUNT_DEACTIVATED: 'Account deactivated successfully',
+    ACCOUNT_REACTIVATED: 'Account reactivated successfully',
+    AVATAR_UPLOADED: 'Avatar uploaded successfully',
+    COVER_UPLOADED: 'Cover uploaded successfully',
+    AVATAR_DELETED: 'Avatar deleted successfully',
+    COVER_DELETED: 'Cover deleted successfully',
 } as const;

@@ -10,6 +10,8 @@ import {
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { TimelinePaginationDto } from './dto/timeline-pagination.dto';
+import { MentionsDto } from './dto/mentions.dto';
+import { TrendsDto } from './dto/trends.dto';
 import { GetUserId } from 'src/decorators/get-userId.decorator';
 import { TimelineResponseDto } from './dto/timeline-response.dto';
 import {
@@ -56,5 +58,27 @@ export class TimelineController {
   async getFollowingTimeline(
     @GetUserId() user_id: string,
     @Query() pagination: TimelinePaginationDto,
+  ) {}
+
+  @ApiOperation(timeline_swagger.mentions.operation)
+  @ApiOkResponse(timeline_swagger.responses.mentions_success)
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_PAGINATION_PARAMETERS)
+  @ResponseMessage(SUCCESS_MESSAGES.MENTIONS_RETRIEVED)
+  @Get('/mentions')
+  async getMentions(
+    @GetUserId() user_id: string,
+    @Query() mentions: MentionsDto,
+  ) {}
+
+  @ApiOperation(timeline_swagger.trends.operation)
+  @ApiQuery(timeline_swagger.api_query.category)
+  @ApiOkResponse(timeline_swagger.responses.trends_success)
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_CATEGORY_PARAMETER)
+  @ResponseMessage(SUCCESS_MESSAGES.TRENDS_RETRIEVED)
+  @Get('/trends')
+  async getTrends(
+    @Query() trends: TrendsDto,
   ) {}
 }

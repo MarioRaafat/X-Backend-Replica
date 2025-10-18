@@ -928,3 +928,84 @@ Check if an email, phone number, or username already exists in the database.
         },
     },
 };
+
+export const update_username_swagger = {
+    operation: {
+        summary: 'Update user username',
+        description: `
+Update the authenticated user's username.
+
+**What happens:**
+1. System validates the new username format and requirements
+2. Checks if the username is already taken by another user
+3. Updates the user's username in the database
+
+**Username requirements:**
+- Must be 3-30 characters long
+- Can only contain letters, numbers, and underscores
+- Must be unique across all users
+
+**Authentication required:** Bearer JWT token
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'Username updated successfully',
+            schema: {
+                example: {
+                    data: {
+                        username: 'mario_raafat123',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.USERNAME_UPDATED,
+                },
+            },
+        },
+    },
+};
+
+export const update_email_swagger = {
+    operation: {
+        summary: 'Send OTP to new email',
+        description: 'Send OTP to the new email address for verification.',
+    },
+
+    responses: {
+        success: {
+            description: 'OTP sent to new email successfully',
+            schema: {
+                example: {
+                    data: {
+                        new_email: 'newemail@example.com',
+                        verification_sent: true,
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.EMAIL_UPDATE_INITIATED,
+                },
+            },
+        },
+    },
+};
+
+export const verify_update_email_swagger = {
+    operation: {
+        summary: 'Verify OTP and update email',
+        description: 'Verify the OTP sent to new email and update user email address.',
+    },
+
+    responses: {
+        success: {
+            description: 'Email updated successfully',
+            schema: {
+                example: {
+                    data: {
+                        email: 'newemail@example.com',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.EMAIL_UPDATED,
+                },
+            },
+        },
+    },
+};
