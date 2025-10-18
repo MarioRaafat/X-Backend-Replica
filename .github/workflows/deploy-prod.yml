@@ -1,0 +1,57 @@
+name: 🚀 Deploy to Production VM
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to deploy (e.g. v1.0, v2.4)'
+        required: true
+        default: 'v1.0'
+      confirm:
+        description: 'Type YES to confirm production deployment'
+        required: true
+        default: 'NO'
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.inputs.confirm == 'YES' }}
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: SSH into Production VM and deploy
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.PROD_SERVER_HOST }}
+          username: ${{ secrets.PROD_SERVER_USER }}
+          key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+          script: |
+            set -e
+            cd ~/yapper  # your app path on the production VM
+
+            echo "🧭 Creating backup of docker-compose.yml..."
+            cp docker-compose.yml docker-compose.yml.bak
+
+            echo "🔄 Pulling latest compose file..."
+            git pull || true
+
+            echo "🧩 Updating Docker image version..."
+            sed -i "s|\(${{ secrets.DOCKER_USERNAME }}/yapper-api:\).*|\1${{ github.event.inputs.version }}|" docker-compose.yml
+
+            echo "🐳 Restarting containers..."
+            docker compose pull
+            docker compose up -d
+
+            echo "⏳ Waiting for health check..."
+            sleep 15
+
+            if curl -fs ${{ secrets.PROD_HEALTHCHECK_URL }} >/dev/null; then
+              echo "✅ Production deployment successful for version ${{ github.event.inputs.version }}"
+            else
+              echo "❌ Health check failed! Rolling back..."
+              mv docker-compose.yml.bak docker-compose.yml
+              docker compose up -d
+              exit 1
+            fi
