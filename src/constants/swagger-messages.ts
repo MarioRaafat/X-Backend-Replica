@@ -40,6 +40,10 @@ export const ERROR_MESSAGES = {
 
   // server
   INTERNAL_SERVER_ERROR: 'Internal server error',
+
+  // file
+  FILE_NOT_FOUND: 'File not found',
+  INVALID_FILE_FORMAT: 'Invalid file format',
 } as const;
 
 // Success Messages
@@ -92,4 +96,8 @@ export const SUCCESS_MESSAGES = {
   PHONE_NUMBER_CHANGED: 'Phone number changed successfully',
   ACCOUNT_DEACTIVATED: 'Account deactivated successfully',
   ACCOUNT_REACTIVATED: 'Account reactivated successfully',
+  AVATAR_UPLOADED: 'Avatar uploaded successfully',
+  COVER_UPLOADED: 'Cover uploaded successfully',
+  AVATAR_DELETED: 'Avatar deleted successfully',
+  COVER_DELETED: 'Cover deleted successfully',
 } as const;

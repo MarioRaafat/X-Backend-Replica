@@ -8,6 +8,8 @@ import {
   Delete,
   Query,
   UseGuards,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
 import {
@@ -15,16 +17,20 @@ import {
   ApiOperation,
   ApiBearerAuth,
   ApiOkResponse,
+  ApiBody,
 } from '@nestjs/swagger';
 import {
   ApiUnauthorizedErrorResponse,
   ApiNotFoundErrorResponse,
+  ApiBadRequestErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
   block_user,
   change_phone_number,
   deactivate_account,
+  delete_avatar,
+  delete_cover,
   follow_user,
   get_blocked,
   get_followers,
@@ -45,6 +51,8 @@ import {
   unfollow_user,
   unmute_user,
   update_user,
+  upload_avatar,
+  upload_cover,
 } from './user.swagger';
 import {
   SUCCESS_MESSAGES,
@@ -58,6 +66,8 @@ import { PaginationParamsDto } from './dto/pagination-params.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePhoneNumberDto } from './dto/update_phone_number.dto';
 import { GetUserId } from 'src/decorators/get-userId.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { DeleteFileDto } from './dto/delete-file.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -92,8 +102,8 @@ export class UserController {
   @ApiOkResponse(get_user_by_id.responses.success)
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ResponseMessage(SUCCESS_MESSAGES.USER_RETRIEVED)
-  @Get(':userId')
-  async getUserById(@Param('userId') user_id: string) {}
+  @Get(':user_id')
+  async getUserById(@Param('user_id') user_id: string) {}
 
   @ApiOperation(get_users_by_username.operation)
   @ApiOkResponse(get_users_by_username.responses.success)
@@ -106,7 +116,7 @@ export class UserController {
   @ApiOkResponse(get_followers.responses.success)
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ResponseMessage(SUCCESS_MESSAGES.FOLLOWERS_LIST_RETRIEVED)
-  @Get(':userId/followers')
+  @Get(':user_id/followers')
   async getFollowers(
     @Param('id') id: string,
     @Query() query_dto: GetFollowersDto,
@@ -119,9 +129,9 @@ export class UserController {
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.FOLLOWER_REMOVED)
-  @Delete(':targetUserId/remove-follower')
+  @Delete(':target_user_id/remove-follower')
   async removeFollower(
-    @Param('targetUserId') target_user_id: string,
+    @Param('target_user_id') target_user_id: string,
     @GetUserId() user_id: string,
   ) {}
 
@@ -129,7 +139,7 @@ export class UserController {
   @ApiOkResponse(get_following.responses.success)
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ResponseMessage(SUCCESS_MESSAGES.FOLLOWING_LIST_RETRIEVED)
-  @Get(':userId/following')
+  @Get(':user_id/following')
   async getFollowing(
     @Param('id') id: string,
     @Query() query_dto: PaginationParamsDto,
@@ -142,9 +152,9 @@ export class UserController {
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.FOLLOW_USER)
-  @Post(':targetUserId/follow')
+  @Post(':target_user_id/follow')
   async followUser(
-    @Param('targetUserId') target_user_id: string,
+    @Param('target_user_id') target_user_id: string,
     @GetUserId() user_id: string,
   ) {}
 
@@ -155,9 +165,9 @@ export class UserController {
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.UNFOLLOW_USER)
-  @Delete(':targetUserId/unfollow')
+  @Delete(':target_user_id/unfollow')
   async unfollowUser(
-    @Param('targetUserId') target_user_id: string,
+    @Param('target_user_id') target_user_id: string,
     @GetUserId() user_id: string,
   ) {}
 
@@ -180,9 +190,9 @@ export class UserController {
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.MUTE_USER)
-  @Post(':targetUserId/mute')
+  @Post(':target_user_id/mute')
   async muteUser(
-    @Param('targetUserId') target_user_id: string,
+    @Param('target_user_id') target_user_id: string,
     @GetUserId() user_id: string,
   ) {}
 
@@ -193,9 +203,9 @@ export class UserController {
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.UNMUTE_USER)
-  @Delete(':targetUserId/unmute')
+  @Delete(':target_user_id/unmute')
   async unmuteUser(
-    @Param('targetUserId') target_user_id: string,
+    @Param('target_user_id') target_user_id: string,
     @GetUserId() user_id: string,
   ) {}
 
@@ -218,9 +228,9 @@ export class UserController {
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.BLOCK_USER)
-  @Post(':targetUserId/block')
+  @Post(':target_user_id/block')
   async blockUser(
-    @Param('targetUserId') target_user_id: string,
+    @Param('target_user_id') target_user_id: string,
     @GetUserId() user_id: string,
   ) {}
 
@@ -231,9 +241,9 @@ export class UserController {
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.UNBLOCK_USER)
-  @Delete(':targetUserId/unblock')
+  @Delete(':target_user_id/unblock')
   async unblockUser(
-    @Param('targetUserId') target_user_id: string,
+    @Param('target_user_id') target_user_id: string,
     @GetUserId() user_id: string,
   ) {}
 
@@ -263,9 +273,9 @@ export class UserController {
   @ApiOkResponse(get_user_replies.responses.success)
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ResponseMessage(SUCCESS_MESSAGES.REPLIES_RETRIEVED)
-  @Get(':userId/replies')
+  @Get(':user_id/replies')
   async getReplies(
-    @Param('userId') user_id: string,
+    @Param('user_id') user_id: string,
     @Query() query_dto: PaginationParamsDto,
   ) {}
 
@@ -273,9 +283,9 @@ export class UserController {
   @ApiOkResponse(get_user_media.responses.success)
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ResponseMessage(SUCCESS_MESSAGES.MEDIA_RETRIEVED)
-  @Get(':userId/media')
+  @Get(':user_id/media')
   async getMedia(
-    @Param('userId') user_id: string,
+    @Param('user_id') user_id: string,
     @Query() query_dto: PaginationParamsDto,
   ) {}
 
@@ -320,4 +330,50 @@ export class UserController {
   @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_REACTIVATED)
   @Patch('me/reactivate')
   async reactivateAccount(@GetUserId() user_id: string) {}
+
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation(upload_avatar.operation)
+  @ApiBody(upload_avatar.body)
+  @ApiOkResponse(upload_avatar.responses.success)
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
+  @ResponseMessage(SUCCESS_MESSAGES.AVATAR_UPLOADED)
+  @Post('me/upload-avatar')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadAvatar(@UploadedFile() file: Express.Multer.File) {}
+
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation(delete_avatar.operation)
+  @ApiOkResponse(delete_avatar.responses.success)
+  @ApiBody({ type: DeleteFileDto })
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiNotFoundErrorResponse(ERROR_MESSAGES.FILE_NOT_FOUND)
+  @ResponseMessage(SUCCESS_MESSAGES.AVATAR_DELETED)
+  @Delete('me/delete-avatar')
+  async deleteAvatar(@Body() file_url: DeleteFileDto) {}
+
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation(upload_cover.operation)
+  @ApiBody(upload_cover.body)
+  @ApiOkResponse(upload_cover.responses.success)
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
+  @ResponseMessage(SUCCESS_MESSAGES.COVER_UPLOADED)
+  @Post('me/upload-cover')
+  @UseInterceptors(FileInterceptor('file'))
+  async uploadCover(@UploadedFile() file: Express.Multer.File) {}
+
+  @ApiBearerAuth('JWT-auth')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation(delete_cover.operation)
+  @ApiBody({ type: DeleteFileDto })
+  @ApiOkResponse(delete_cover.responses.success)
+  @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+  @ApiNotFoundErrorResponse(ERROR_MESSAGES.FILE_NOT_FOUND)
+  @ResponseMessage(SUCCESS_MESSAGES.COVER_DELETED)
+  @Delete('me/delete-cover')
+  async deleteCover(@Body() file_url: DeleteFileDto) {}
 }

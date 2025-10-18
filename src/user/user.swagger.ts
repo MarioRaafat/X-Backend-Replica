@@ -568,7 +568,7 @@ export const get_liked_posts = {
 
     - **Reply Post:**  
       A post that replies to one or more users.  
-      The usernames being replied to are listed in the \`replyingTo\` array,  
+      The usernames being replied to are listed in the \`replying_to\` array,  
       
     Each post also includes engagement metrics such as \`likes_count\`, \`reposts_count\`, and \`viewsCount\`.
     `,
@@ -586,7 +586,11 @@ export const get_liked_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -595,7 +599,7 @@ export const get_liked_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'post',
             },
             {
@@ -604,7 +608,11 @@ export const get_liked_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -613,7 +621,7 @@ export const get_liked_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'quote',
               referenced_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -621,7 +629,11 @@ export const get_liked_posts = {
                 avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
-                media: [
+                images_url: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                videos_url: [
                   'https://cdn.app.com/profiles/u877.jpg',
                   'https://cdn.app.com/profiles/u877.jpg',
                 ],
@@ -634,7 +646,11 @@ export const get_liked_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -643,9 +659,9 @@ export const get_liked_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'reply',
-              replyingTo: ['amira#2424', 'mohamed998'],
+              replying_to: ['amira#2424', 'mohamed998'],
             },
           ],
           count: 3,
@@ -693,7 +709,11 @@ export const get_user_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -702,7 +722,7 @@ export const get_user_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'post',
             },
             {
@@ -711,7 +731,11 @@ export const get_user_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -720,7 +744,7 @@ export const get_user_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'repost',
             },
             {
@@ -729,7 +753,11 @@ export const get_user_posts = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -738,7 +766,7 @@ export const get_user_posts = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'quote',
               referenced_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -746,7 +774,11 @@ export const get_user_posts = {
                 avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
-                media: [
+                images_url: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                videos_url: [
                   'https://cdn.app.com/profiles/u877.jpg',
                   'https://cdn.app.com/profiles/u877.jpg',
                 ],
@@ -801,7 +833,11 @@ export const get_user_replies = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -810,7 +846,7 @@ export const get_user_replies = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'reply',
               reference_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -818,7 +854,11 @@ export const get_user_replies = {
                 avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
-                media: [
+                images_url: [
+                  'https://cdn.app.com/profiles/u877.jpg',
+                  'https://cdn.app.com/profiles/u877.jpg',
+                ],
+                videos_url: [
                   'https://cdn.app.com/profiles/u877.jpg',
                   'https://cdn.app.com/profiles/u877.jpg',
                 ],
@@ -827,7 +867,7 @@ export const get_user_replies = {
                 replies_count: 5,
                 reposts_count: 2,
                 views: 5,
-                is_reposted: true,
+                reposted_by_me: true,
                 type: 'reply',
                 referenced_post: {
                   user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -835,7 +875,11 @@ export const get_user_replies = {
                   avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                   post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                   content: 'blah blah',
-                  media: [
+                  images_url: [
+                    'https://cdn.app.com/profiles/u877.jpg',
+                    'https://cdn.app.com/profiles/u877.jpg',
+                  ],
+                  videos_url: [
                     'https://cdn.app.com/profiles/u877.jpg',
                     'https://cdn.app.com/profiles/u877.jpg',
                   ],
@@ -844,7 +888,7 @@ export const get_user_replies = {
                   replies_count: 5,
                   reposts_count: 2,
                   views: 5,
-                  is_reposted: true,
+                  reposted_by_me: true,
                   type: 'post',
                 },
               },
@@ -877,7 +921,7 @@ export const get_user_media = {
 
     - **Reply Post:**  
       A post that replies to one or more users.  
-      The usernames being replied to are listed in the \`replyingTo\` array,  
+      The usernames being replied to are listed in the \`replying_to\` array,  
       
     Each post also includes engagement metrics such as \`likes_count\`, \`reposts_count\`, and \`viewsCount\`.    `,
   },
@@ -894,7 +938,11 @@ export const get_user_media = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -903,7 +951,7 @@ export const get_user_media = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'post',
             },
             {
@@ -912,7 +960,11 @@ export const get_user_media = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -921,7 +973,7 @@ export const get_user_media = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'quote',
               referenced_post: {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -929,7 +981,7 @@ export const get_user_media = {
                 avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                 post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'blah blah',
-                media: [
+                images_url: [
                   'https://cdn.app.com/profiles/u877.jpg',
                   'https://cdn.app.com/profiles/u877.jpg',
                 ],
@@ -942,7 +994,11 @@ export const get_user_media = {
               avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
               post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
               content: 'blah blah',
-              media: [
+              images_url: [
+                'https://cdn.app.com/profiles/u877.jpg',
+                'https://cdn.app.com/profiles/u877.jpg',
+              ],
+              videos_url: [
                 'https://cdn.app.com/profiles/u877.jpg',
                 'https://cdn.app.com/profiles/u877.jpg',
               ],
@@ -951,9 +1007,9 @@ export const get_user_media = {
               replies_count: 5,
               reposts_count: 2,
               views: 5,
-              is_reposted: true,
+              reposted_by_me: true,
               type: 'reply',
-              replyingTo: ['amira#2424', 'mohamed998'],
+              replying_to: ['amira#2424', 'mohamed998'],
             },
           ],
           count: 3,
@@ -1046,6 +1102,126 @@ export const reactivate_account = {
           data: {},
           count: 0,
           message: SUCCESS_MESSAGES.ACCOUNT_REACTIVATED,
+        },
+      },
+    },
+  },
+};
+
+export const upload_avatar = {
+  operation: {
+    summary: 'Upload avatar picture',
+    description: `
+    Upload avatar picture using binary image from the request body
+    `,
+  },
+
+  responses: {
+    success: {
+      description: 'Avatar uploaded successfully',
+      schema: {
+        example: {
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.AVATAR_UPLOADED,
+        },
+      },
+    },
+  },
+
+  body: {
+    description: 'Avatar image file',
+    type: 'multipart/form-data',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Avatar image file (JPEG, PNG, etc.)',
+        },
+      },
+      required: ['file'],
+    },
+  },
+};
+
+export const delete_avatar = {
+  operation: {
+    summary: 'Delete avatar picture',
+    description: `
+    Delete avatar picture using file url
+    `,
+  },
+
+  responses: {
+    success: {
+      description: 'Avatar deleted successfully',
+      schema: {
+        example: {
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.AVATAR_DELETED,
+        },
+      },
+    },
+  },
+};
+
+export const upload_cover = {
+  operation: {
+    summary: 'Upload cover picture',
+    description: `
+    Upload cover picture using binary image from the request body
+    `,
+  },
+
+  responses: {
+    success: {
+      description: 'Cover uploaded successfully',
+      schema: {
+        example: {
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.COVER_UPLOADED,
+        },
+      },
+    },
+  },
+
+  body: {
+    description: 'Avatar image file',
+    type: 'multipart/form-data',
+    schema: {
+      type: 'object',
+      properties: {
+        file: {
+          type: 'string',
+          format: 'binary',
+          description: 'Avatar image file (JPEG, PNG, etc.)',
+        },
+      },
+      required: ['file'],
+    },
+  },
+};
+
+export const delete_cover = {
+  operation: {
+    summary: 'Delete cover picture',
+    description: `
+    Delete cover picture using file url
+    `,
+  },
+
+  responses: {
+    success: {
+      description: 'Cover uploaded successfully',
+      schema: {
+        example: {
+          data: {},
+          count: 0,
+          message: SUCCESS_MESSAGES.COVER_DELETED,
         },
       },
     },
