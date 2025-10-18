@@ -28,6 +28,11 @@ export const ERROR_MESSAGES = {
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
 
+    // file upload
+    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
+    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
+    NO_FILE_PROVIDED: 'No file provided',
+
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
     INVALID_OR_EXPIRED_LINK: 'Invalid or expired link',
@@ -60,4 +65,8 @@ export const SUCCESS_MESSAGES = {
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',
     OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
+
+    // file upload
+    IMAGE_UPLOADED: 'Image uploaded successfully',
+    VIDEO_UPLOADED: 'Video uploaded successfully',
 } as const;

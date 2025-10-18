@@ -11,6 +11,9 @@ import {
     HttpStatus,
     ParseUUIDPipe,
     UseGuards,
+    UseInterceptors,
+    UploadedFile,
+    BadRequestException,
 } from '@nestjs/common';
 import {
     ApiTags,
@@ -21,11 +24,14 @@ import {
     ApiOkResponse,
     ApiNoContentResponse,
     ApiBody,
+    ApiConsumes,
 } from '@nestjs/swagger';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
 import { UpdateTweetDTO } from './dto/update-tweet.dto';
 import { UpdateTweetWithQuoteDTO } from './dto/update-tweet-with-quote.dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
+import { UploadMediaResponseDTO } from './dto/upload-media.dto';
+import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { GetUserId } from '../decorators/get-userId.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
@@ -49,14 +55,20 @@ import {
     unlike_tweet_swagger,
     update_quote_tweet_swagger,
     update_tweet_swagger,
+    upload_image_swagger,
+    upload_video_swagger,
 } from './tweets.swagger';
+import {
+    ImageUploadInterceptor,
+    VideoUploadInterceptor,
+} from './utils/upload.interceptors';
 
 @ApiTags('Tweets')
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard)
 @Controller('tweets')
 export class TweetsController {
-    constructor() {}
+    constructor(private readonly tweets_service: TweetsService) {}
 
     @ApiOperation(create_tweet_swagger.operation)
     @ApiBody({ type: CreateTweetDTO })
@@ -212,5 +224,49 @@ export class TweetsController {
         @Body() updateQuoteDto: UpdateTweetWithQuoteDTO,
         @GetUserId() userId: string,
     ) {}
+
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation(upload_image_swagger.operation)
+    @ApiConsumes('multipart/form-data')
+    @ApiBody(upload_image_swagger.body)
+    @ApiCreatedResponse(upload_image_swagger.responses.created)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_TYPE)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(SUCCESS_MESSAGES.IMAGE_UPLOADED)
+    @UseInterceptors(ImageUploadInterceptor)
+    @Post('upload/image')
+    async uploadImage(
+        @UploadedFile() file: Express.Multer.File,
+        @GetUserId() userId: string,
+    ) {
+        if (!file) {
+            throw new BadRequestException(ERROR_MESSAGES.NO_FILE_PROVIDED);
+        }
+
+        return this.tweets_service.uploadImage(file, userId);
+    }
+
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation(upload_video_swagger.operation)
+    @ApiConsumes('multipart/form-data')
+    @ApiBody(upload_video_swagger.body)
+    @ApiCreatedResponse(upload_video_swagger.responses.created)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_TYPE)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(SUCCESS_MESSAGES.VIDEO_UPLOADED)
+    @UseInterceptors(VideoUploadInterceptor)
+    @Post('upload/video')
+    async uploadVideo(
+        @UploadedFile() file: Express.Multer.File,
+        @GetUserId() userId: string,
+    ) {
+        if (!file) {
+            throw new BadRequestException(ERROR_MESSAGES.NO_FILE_PROVIDED);
+        }
+
+        return this.tweets_service.uploadVideo(file, userId);
+    }
 }
 
