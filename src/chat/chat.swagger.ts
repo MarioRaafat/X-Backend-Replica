@@ -1,6 +1,5 @@
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
-
 const chat_id_param = {
     name: 'chat_id',
     description: 'Unique identifier of the chat',
@@ -58,7 +57,7 @@ Create a new chat between the authenticated user and another user.
                                 username: '3m el nas Messi',
                                 name: 'The GOAT',
                                 avatar_url: 'https://messi.jpg',
-                            }
+                            },
                         ],
                         created_at: '2025-10-16T10:30:00.000Z',
                         updated_at: '2025-10-16T10:30:00.000Z',
@@ -141,7 +140,7 @@ Get a paginated list of chats that the authenticated user is part of, ordered by
                             unread_count: 0,
                             created_at: '2025-10-15T15:00:00.000Z',
                             updated_at: '2025-10-15T18:20:00.000Z',
-                        }
+                        },
                     ],
                     count: 2,
                     message: SUCCESS_MESSAGES.CHATS_RETRIEVED,
@@ -195,7 +194,7 @@ Get detailed information about a specific chat including participant information
                                 avatar_url: 'https://jhVW.jpg',
                                 is_online: true,
                                 last_seen: '2025-10-16T10:46:00.000Z',
-                            }
+                            },
                         ],
                         created_at: '2025-10-16T10:30:00.000Z',
                         updated_at: '2025-10-16T10:45:00.000Z',
@@ -273,7 +272,7 @@ Get a paginated list of messages from a specific chat, ordered by creation time.
     },
 
     params: {
-            chat_id: chat_id_param,
+        chat_id: chat_id_param,
     },
 
     responses: {
@@ -288,23 +287,26 @@ Get a paginated list of messages from a specific chat, ordered by creation time.
                             name: 'Mario Raafat',
                             avatar_url: 'https://wqjblkqbw.jpg',
                         },
-                        messages: [ {
-                            id: 'msg_789def-012abc-345ghi',
-                            content: 'take a kiss my friend 😘',
-                            message_type: 'text',
-                            reply_to: null,
-                            is_read: false,
-                            created_at: '2025-10-16T10:45:00.000Z',
-                            updated_at: '2025-10-16T10:45:00.000Z',
-                        }, {
-                            id: 'msg_456abc-789def-012ghi',
-                            content: 'el back team is top el top',
-                            message_type: 'reply',
-                            reply_to: 'msg_789def-012abc-345ghi',
-                            is_read: true,
-                            created_at: '2025-10-16T10:46:00.000Z',
-                            updated_at: '2025-10-16T10:46:00.000Z',
-                        }],
+                        messages: [
+                            {
+                                id: 'msg_789def-012abc-345ghi',
+                                content: 'take a kiss my friend 😘',
+                                message_type: 'text',
+                                reply_to: null,
+                                is_read: false,
+                                created_at: '2025-10-16T10:45:00.000Z',
+                                updated_at: '2025-10-16T10:45:00.000Z',
+                            },
+                            {
+                                id: 'msg_456abc-789def-012ghi',
+                                content: 'el back team is top el top',
+                                message_type: 'reply',
+                                reply_to: 'msg_789def-012abc-345ghi',
+                                is_read: true,
+                                created_at: '2025-10-16T10:46:00.000Z',
+                                updated_at: '2025-10-16T10:46:00.000Z',
+                            },
+                        ],
                     },
                     count: 2,
                     message: SUCCESS_MESSAGES.MESSAGES_RETRIEVED,
@@ -615,7 +617,7 @@ Search through the authenticated user's chats based on participant information.
                             unread_count: 3,
                             created_at: '2025-10-16T10:30:00.000Z',
                             updated_at: '2025-10-16T10:45:00.000Z',
-                        }
+                        },
                     ],
                     count: 1,
                     message: SUCCESS_MESSAGES.CHATS_RETRIEVED,

@@ -6,9 +6,12 @@ import { Notification, NotificationSchema } from './entities/notifications.entit
 import { MongodbModule } from 'src/databases/mongodb.module';
 
 @Module({
-  imports: [MongodbModule, MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }])],
-  providers: [NotificationsService],
-  exports: [NotificationsService],
-  controllers: [NotificationsController],
+    imports: [
+        MongodbModule,
+        MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }]),
+    ],
+    providers: [NotificationsService],
+    exports: [NotificationsService],
+    controllers: [NotificationsController],
 })
 export class NotificationsModule {}

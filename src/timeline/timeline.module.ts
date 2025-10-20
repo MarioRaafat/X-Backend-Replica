@@ -3,7 +3,7 @@ import { TimelineService } from './timeline.service';
 import { TimelineController } from './timeline.controller';
 
 @Module({
-  controllers: [TimelineController],
-  providers: [TimelineService],
+    controllers: [TimelineController],
+    providers: [TimelineService],
 })
 export class TimelineModule {}

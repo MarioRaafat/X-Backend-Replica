@@ -17,7 +17,6 @@ import { ExploreModule } from './explore/explore.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { ChatModule } from './chat/chat.module';
 
-
 @Module({
     imports: [
         ConfigModule.forRoot({
@@ -39,14 +38,12 @@ import { ChatModule } from './chat/chat.module';
 
         ChatModule,
         TimelineModule,
-
     ],
     controllers: [AppController],
     providers: [AppService],
-
 })
 export class AppModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(LoggerMiddleware).forRoutes('*');
-  }
+    configure(consumer: MiddlewareConsumer) {
+        consumer.apply(LoggerMiddleware).forRoutes('*');
+    }
 }

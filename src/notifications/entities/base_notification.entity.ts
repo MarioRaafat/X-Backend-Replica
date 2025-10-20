@@ -1,5 +1,5 @@
-import { Prop, Schema, SchemaFactory } from "@nestjs/mongoose";
-import { NotificationTypes } from "../enums/notidication_types";
+import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
+import { NotificationTypes } from '../enums/notidication_types';
 
 @Schema({ _id: false })
 export class BaseNotificationEntity {
