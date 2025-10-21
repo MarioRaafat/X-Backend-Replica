@@ -96,7 +96,9 @@ export class UserController {
   @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
   @ResponseMessage(SUCCESS_MESSAGES.USER_RETRIEVED)
   @Get('me')
-  async getMe(@GetUserId() user_id: string) {}
+  async getMe(@GetUserId() user_id: string) {
+    return await this.user_service.getMe(user_id);
+  }
 
   @ApiOperation(get_user_by_id.operation)
   @ApiOkResponse(get_user_by_id.responses.success)

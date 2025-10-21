@@ -1,4 +1,4 @@
-import { Entity, PrimaryColumn, ManyToMany, JoinColumn } from 'typeorm';
+import { Entity, PrimaryColumn, JoinColumn, ManyToOne } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 
 @Entity('user_follows')
@@ -9,11 +9,11 @@ export class UserFollows {
   @PrimaryColumn({ type: 'uuid' })
   followed_id: string;
 
-  @ManyToMany(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'follower_id' })
   follower: User;
 
-  @ManyToMany(() => User, { onDelete: 'CASCADE' })
+  @ManyToOne(() => User, { onDelete: 'CASCADE' })
   @JoinColumn({ name: 'followed_id' })
   followed: User;
 }

@@ -1,9 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { UserProfileDto } from './dto/user-profile.dto';
+import { plainToInstance } from 'class-transformer';
+import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 
 @Injectable()
 export class UserService {
@@ -66,5 +68,42 @@ export class UserService {
   async updateUserPassword(id: string, new_password: string) {
     await this.user_repository.update(id, { password: new_password });
     return await this.findUserById(id);
+  }
+
+  async getMe(user_id: string): Promise<UserProfileDto> {
+    const result = await this.user_repository
+      .createQueryBuilder('user')
+      .leftJoin('user_follows', 'followers', 'followers.followed_id = user.id')
+      .leftJoin('user_follows', 'following', 'following.follower_id = user.id')
+      .select([
+        'user.id AS user_id',
+        'user.name AS name',
+        'user.username AS username',
+        'user.bio AS bio',
+        'user.avatar_url AS avatar_url',
+        'user.cover_url AS cover_url',
+        // 'user.country AS country', // To be added later
+        'user.created_at AS created_at',
+        'COUNT(DISTINCT followers.follower_id) AS followers_count',
+        'COUNT(DISTINCT following.followed_id) AS following_count',
+      ])
+      .where('user.id = :user_id', { user_id })
+      .groupBy('user.id')
+      .addGroupBy('user.name')
+      .addGroupBy('user.username')
+      .addGroupBy('user.bio')
+      .addGroupBy('user.avatar_url')
+      .addGroupBy('user.cover_url')
+      // .addGroupBy('user.country')  // To be added later
+      .addGroupBy('user.created_at')
+      .getRawOne<UserProfileDto>();
+
+    if (!result) {
+      throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+    }
+
+    return plainToInstance(UserProfileDto, result, {
+      enableImplicitConversion: true,
+    });
   }
 }
