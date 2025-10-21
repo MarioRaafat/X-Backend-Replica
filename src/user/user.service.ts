@@ -7,37 +7,49 @@ import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class UserService {
-    constructor(
-        @InjectRepository(User) private readonly user_repository: Repository<User>,
-    ) {}
+  constructor(
+    @InjectRepository(User) private readonly user_repository: Repository<User>,
+  ) {}
 
-    async findUserById(id: string) {
-        return await this.user_repository.findOne({ where: { id } });
-    }
+  // Auth
 
-    async findUserByEmail(email: string) {
-        return await this.user_repository.findOne({ where: { email } });
-    }
+  async findUserById(id: string) {
+    return await this.user_repository.findOne({ where: { id } });
+  }
 
-    async findUserByGithubId(github_id: string) {
-        return await this.user_repository.findOne({ where: { github_id: github_id } });
-    }
+  async findUserByEmail(email: string) {
+    return await this.user_repository.findOne({ where: { email } });
+  }
 
-    async findUserByFacebookId(facebook_id: string) {
-        return await this.user_repository.findOne({ where: { facebook_id: facebook_id } });
-    }
+  async findUserByGithubId(github_id: string) {
+    return await this.user_repository.findOne({
+      where: { github_id: github_id },
+    });
+  }
 
-    async findUserByGoogleId(google_id: string) {
-        return await this.user_repository.findOne({ where: { google_id: google_id } });
-    }
+  async findUserByFacebookId(facebook_id: string) {
+    return await this.user_repository.findOne({
+      where: { facebook_id: facebook_id },
+    });
+  }
 
-    async findUserByUsername(username: string) {
-        return await this.user_repository.findOne({ where: { username: username } });
-    }
+  async findUserByGoogleId(google_id: string) {
+    return await this.user_repository.findOne({
+      where: { google_id: google_id },
+    });
+  }
 
-    async findUserByPhoneNumber(phone_number: string) {
-        return await this.user_repository.findOne({ where: { phone_number: phone_number } });
-    }
+  async findUserByUsername(username: string) {
+    return await this.user_repository.findOne({
+      where: { username: username },
+    });
+  }
+
+  async findUserByPhoneNumber(phone_number: string) {
+    return await this.user_repository.findOne({
+      where: { phone_number: phone_number },
+    });
+  }
 
   async createUser(createUserDto: CreateUserDto): Promise<User> {
     const user = new User({
@@ -46,13 +58,13 @@ export class UserService {
     return await this.user_repository.save(user);
   }
 
-    async updateUser(id: string, update_data: Partial<User>) {
-        await this.user_repository.update(id, update_data);
-        return await this.findUserById(id);
-    }
+  async updateUser(id: string, update_data: Partial<User>) {
+    await this.user_repository.update(id, update_data);
+    return await this.findUserById(id);
+  }
 
-    async updateUserPassword(id: string, new_password: string) {
-        await this.user_repository.update(id, { password: new_password });
-        return await this.findUserById(id);
-    }
+  async updateUserPassword(id: string, new_password: string) {
+    await this.user_repository.update(id, { password: new_password });
+    return await this.findUserById(id);
+  }
 }
