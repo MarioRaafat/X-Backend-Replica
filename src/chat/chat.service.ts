@@ -1,12 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import {
     CreateChatDto,
+    GetChatsQueryDto,
+    GetMessagesQueryDto,
+    MarkMessagesReadDto,
+    SearchChatsQueryDto,
     SendMessageDto,
     UpdateMessageDto,
-    MarkMessagesReadDto,
-    GetMessagesQueryDto,
-    GetChatsQueryDto,
-    SearchChatsQueryDto,
 } from './dto';
 
 @Injectable()
@@ -43,7 +43,12 @@ export class ChatService {
         throw new Error('Method not implemented');
     }
 
-    async updateMessage(user_id: string, chat_id: string, message_id: string, dto: UpdateMessageDto) {
+    async updateMessage(
+        user_id: string,
+        chat_id: string,
+        message_id: string,
+        dto: UpdateMessageDto
+    ) {
         throw new Error('Method not implemented');
     }
 

@@ -4,10 +4,10 @@ import {
     Get,
     Param,
     Post,
+    Query,
     Req,
     Res,
     UseGuards,
-    Query,
 } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import type { Request, Response } from 'express';
@@ -27,16 +27,16 @@ import { UpdateUsernameDto } from './dto/update-username.dto';
 import { UpdateEmailDto } from './dto/update-email.dto';
 import { VerifyUpdateEmailDto } from './dto/verify-update-email.dto';
 import {
-    ApiTags,
-    ApiOperation,
-    ApiResponse,
-    ApiBody,
-    ApiParam,
-    ApiCookieAuth,
-    ApiQuery,
     ApiBearerAuth,
-    ApiOkResponse,
+    ApiBody,
+    ApiCookieAuth,
     ApiCreatedResponse,
+    ApiOkResponse,
+    ApiOperation,
+    ApiParam,
+    ApiQuery,
+    ApiResponse,
+    ApiTags,
 } from '@nestjs/swagger';
 import { GitHubAuthGuard } from './guards/github.guard';
 import { GoogleAuthGuard } from './guards/google-auth.guard';
@@ -46,44 +46,43 @@ import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import { GetUserId } from 'src/decorators/get-userId.decorator';
 import {
     ApiBadRequestErrorResponse,
-    ApiUnauthorizedErrorResponse,
-    ApiForbiddenErrorResponse,
-    ApiNotFoundErrorResponse,
     ApiConflictErrorResponse,
-    ApiUnprocessableEntityErrorResponse,
+    ApiForbiddenErrorResponse,
     ApiInternalServerError,
+    ApiNotFoundErrorResponse,
+    ApiUnauthorizedErrorResponse,
+    ApiUnprocessableEntityErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from 'src/constants/swagger-messages';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import {
     captcha_swagger,
     change_password_swagger,
+    check_identifier_swagger,
     facebook_callback_swagger,
     facebook_oauth_swagger,
+    forget_password_swagger,
     generate_otp_swagger,
     github_callback_swagger,
     github_oauth_swagger,
     google_callback_swagger,
     google_oauth_swagger,
     login_swagger,
-    logout_swagger,
     logout_All_swagger,
+    logout_swagger,
     not_me_swagger,
     oauth_completion_step1_swagger,
     oauth_completion_step2_swagger,
     refresh_token_swagger,
+    reset_password_swagger,
     signup_step1_swagger,
     signup_step2_swagger,
     signup_step3_swagger,
-    verify_email_swagger,
-    forget_password_swagger,
-    verify_reset_otp_swagger,
-    reset_password_swagger,
-    check_identifier_swagger,
-    update_username_swagger,
     update_email_swagger,
+    update_username_swagger,
+    verify_email_swagger,
+    verify_reset_otp_swagger,
     verify_update_email_swagger,
 } from './auth.swagger';
-
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -129,10 +128,7 @@ export class AuthController {
     @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB)
     @ResponseMessage(SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED)
     @Post('signup/step3')
-    async signupStep3(
-        @Body() dto: SignupStep3Dto,
-        @Res({ passthrough: true }) response: Response,
-    ) {
+    async signupStep3(@Body() dto: SignupStep3Dto, @Res({ passthrough: true }) response: Response) {
         const { user_id, access_token, refresh_token } = await this.auth_service.signupStep3(dto);
 
         this.httpOnlyRefreshToken(response, refresh_token);
@@ -147,10 +143,7 @@ export class AuthController {
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.EMAIL_NOT_VERIFIED)
     @ResponseMessage(SUCCESS_MESSAGES.LOGGED_IN)
     @Post('login')
-    async login(
-        @Body() loginDTO: LoginDTO,
-        @Res({ passthrough: true }) response: Response,
-    ) {
+    async login(@Body() loginDTO: LoginDTO, @Res({ passthrough: true }) response: Response) {
         const { access_token, refresh_token, user } = await this.auth_service.login(loginDTO);
 
         this.httpOnlyRefreshToken(response, refresh_token);
@@ -217,7 +210,10 @@ export class AuthController {
     @ApiUnprocessableEntityErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.OTP_VERIFIED)
     @Post('password/verify-otp')
-    async verifyResetPasswordOtp(@Body() verifyPasswordResetOtpDto: VerifyPasswordResetOtpDto, @GetUserId() user_id: string) {
+    async verifyResetPasswordOtp(
+        @Body() verifyPasswordResetOtpDto: VerifyPasswordResetOtpDto,
+        @GetUserId() user_id: string
+    ) {
         const { token } = verifyPasswordResetOtpDto;
         return this.auth_service.verifyResetPasswordOtp(user_id, token);
     }
@@ -232,10 +228,7 @@ export class AuthController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_RESET)
     @Post('reset-password')
-    async resetPassword(
-        @GetUserId() user_id: string,
-        @Body() body: ResetPasswordDto,
-    ) {
+    async resetPassword(@GetUserId() user_id: string, @Body() body: ResetPasswordDto) {
         const { new_password, reset_token } = body;
         return this.auth_service.resetPassword(user_id, new_password, reset_token);
     }
@@ -249,13 +242,9 @@ export class AuthController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.LOGGED_OUT)
     @Post('logout')
-    async logout(
-        @Req() req: Request,
-        @Res({ passthrough: true }) response: Response,
-    ) {
+    async logout(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
         const refreshToken = req.cookies['refresh_token'];
-        if (!refreshToken)
-          throw new BadRequestException('No refresh token provided');
+        if (!refreshToken) throw new BadRequestException('No refresh token provided');
         return await this.auth_service.logout(refreshToken, response);
     }
 
@@ -268,13 +257,9 @@ export class AuthController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.LOGGED_OUT_ALL)
     @Post('logout-all')
-    async logoutAll(
-        @Req() req: Request,
-        @Res({ passthrough: true }) response: Response,
-    ) {
+    async logoutAll(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
         const refreshToken = req.cookies['refresh_token'];
-        if (!refreshToken)
-          throw new BadRequestException('No refresh token provided');
+        if (!refreshToken) throw new BadRequestException('No refresh token provided');
         return await this.auth_service.logoutAll(refreshToken, response);
     }
 
@@ -285,16 +270,11 @@ export class AuthController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.NEW_ACCESS_TOKEN)
     @Post('refresh')
-    async refresh(
-        @Req() req: Request,
-        @Res({ passthrough: true }) response: Response,
-    ) {
+    async refresh(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
         const refreshToken = req.cookies['refresh_token'];
-        if (!refreshToken)
-          throw new BadRequestException('No refresh token provided');
+        if (!refreshToken) throw new BadRequestException('No refresh token provided');
 
-        const { access_token, refresh_token } =
-          await this.auth_service.refresh(refreshToken);
+        const { access_token, refresh_token } = await this.auth_service.refresh(refreshToken);
         this.httpOnlyRefreshToken(response, refresh_token);
         return { access_token };
     }
@@ -305,7 +285,7 @@ export class AuthController {
     @Get('captcha/site-key')
     getCaptchaSiteKey() {
         return {
-          siteKey: process.env.RECAPTCHA_SITE_KEY || '',
+            siteKey: process.env.RECAPTCHA_SITE_KEY || '',
         };
     }
 
@@ -374,7 +354,6 @@ export class AuthController {
     @Get('google')
     googleLogin() {}
 
-
     @UseGuards(GoogleAuthGuard)
     @ApiOperation(google_callback_swagger.operation)
     @ApiResponse(google_callback_swagger.responses.success)
@@ -386,7 +365,7 @@ export class AuthController {
             if (req.user?.needs_completion) {
                 const sessionToken = await this.auth_service.createOAuthSession(req.user.user);
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(sessionToken)}&provider=google`,
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(sessionToken)}&provider=google`
                 );
             }
 
@@ -394,12 +373,14 @@ export class AuthController {
             if (!req.user) {
                 console.log('Google authentication failed - no user found');
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`
                 );
             }
 
             // Normal OAuth flow for existing users
-            const { access_token, refresh_token } = await this.auth_service.generateTokens(req.user.id);
+            const { access_token, refresh_token } = await this.auth_service.generateTokens(
+                req.user.id
+            );
 
             // Set refresh token in HTTP-only cookie
             this.httpOnlyRefreshToken(res, refresh_token);
@@ -407,10 +388,10 @@ export class AuthController {
             // Redirect to frontend with access token
             const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
             return res.redirect(frontendUrl);
-        } catch (error) {      
+        } catch (error) {
             console.log('Google callback error:', error);
             return res.redirect(
-              `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+                `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`
             );
         }
     }
@@ -437,7 +418,7 @@ export class AuthController {
             if (req.user?.needs_completion) {
                 const sessionToken = await this.auth_service.createOAuthSession(req.user.user);
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(sessionToken)}&provider=facebook`,
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(sessionToken)}&provider=facebook`
                 );
             }
 
@@ -445,12 +426,14 @@ export class AuthController {
             if (!req.user) {
                 console.log('Facebook authentication failed - no user found');
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`
                 );
             }
 
             // Normal OAuth flow for existing users
-            const { access_token, refresh_token } = await this.auth_service.generateTokens(req.user.id);
+            const { access_token, refresh_token } = await this.auth_service.generateTokens(
+                req.user.id
+            );
 
             // Set refresh token in HTTP-only cookie
             this.httpOnlyRefreshToken(res, refresh_token);
@@ -458,10 +441,10 @@ export class AuthController {
             // Redirect to frontend with access token
             const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
             return res.redirect(frontendUrl);
-        } catch (error) {      
+        } catch (error) {
             console.log('Facebook callback error:', error);
             return res.redirect(
-              `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+                `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`
             );
         }
     }
@@ -477,22 +460,18 @@ export class AuthController {
     @Get('github')
     async githubLogin() {}
 
-
     @UseGuards(GitHubAuthGuard)
     @ApiOperation(github_callback_swagger.operation)
     @ApiResponse(github_callback_swagger.responses.success)
     @ApiResponse(github_callback_swagger.responses.AuthFail)
     @Get('github/callback')
-    async githubCallback(
-        @Req() req: any,
-        @Res() res: Response,
-    ) {
+    async githubCallback(@Req() req: any, @Res() res: Response) {
         try {
             // if the user doesn't have a record for that email in DB, we will need to redirect the user to complete his data
             if (req.user?.needs_completion) {
                 const sessionToken = await this.auth_service.createOAuthSession(req.user.user);
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(sessionToken)}&provider=github`,
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(sessionToken)}&provider=github`
                 );
             }
 
@@ -500,12 +479,14 @@ export class AuthController {
             if (!req.user) {
                 console.log('GitHub authentication failed - no user found');
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`
                 );
             }
 
             // Normal OAuth flow for existing users
-            const { access_token, refresh_token } = await this.auth_service.generateTokens(req.user.id);
+            const { access_token, refresh_token } = await this.auth_service.generateTokens(
+                req.user.id
+            );
 
             // Set refresh token in HTTP-only cookie
             this.httpOnlyRefreshToken(res, refresh_token);
@@ -513,10 +494,10 @@ export class AuthController {
             // Redirect to frontend with access token
             const frontendUrl = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
             return res.redirect(frontendUrl);
-        } catch (error) {      
+        } catch (error) {
             console.log('Github callback error:', error);
             return res.redirect(
-              `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`,
+                `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/error?message=Authentication%20failed`
             );
         }
     }
@@ -542,9 +523,9 @@ export class AuthController {
     @Post('oauth/complete/step2')
     async oauthCompletionStep2(
         @Body() dto: OAuthCompletionStep2Dto,
-        @Res({ passthrough: true }) response: Response,
+        @Res({ passthrough: true }) response: Response
     ) {
-        const { access_token, refresh_token, user } = 
+        const { access_token, refresh_token, user } =
             await this.auth_service.oauthCompletionStep2(dto);
 
         this.httpOnlyRefreshToken(response, refresh_token);

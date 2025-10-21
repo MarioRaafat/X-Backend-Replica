@@ -1,62 +1,61 @@
 import {
+    Body,
     Controller,
+    Delete,
     Get,
+    Param,
     Post,
     Put,
-    Delete,
-    Body,
-    Param,
     Query,
+    UploadedFile,
     UseGuards,
     UseInterceptors,
-    UploadedFile,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import {
-    ApiTags,
     ApiBearerAuth,
-    ApiOperation,
     ApiBody,
-    ApiParam,
-    ApiQuery,
+    ApiConsumes,
     ApiCreatedResponse,
     ApiOkResponse,
-    ApiConsumes,
+    ApiOperation,
+    ApiParam,
+    ApiQuery,
+    ApiTags,
 } from '@nestjs/swagger';
 import {
     ApiBadRequestErrorResponse,
+    ApiConflictErrorResponse,
     ApiForbiddenErrorResponse,
     ApiNotFoundErrorResponse,
-    ApiConflictErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
 import { GetUserId } from '../decorators/get-userId.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import {
     CreateChatDto,
+    GetChatsQueryDto,
+    GetMessagesQueryDto,
+    MarkMessagesReadDto,
+    SearchChatsQueryDto,
     SendMessageDto,
     UpdateMessageDto,
-    MarkMessagesReadDto,
-    GetMessagesQueryDto,
-    GetChatsQueryDto,
-    SearchChatsQueryDto,
 } from './dto';
 import {
     create_chat_swagger,
-    get_chats_swagger,
-    get_chat_swagger,
-    send_message_swagger,
-    get_messages_swagger,
-    get_message_swagger,
-    update_message_swagger,
-    delete_message_swagger,
-    mark_messages_read_swagger,
     delete_chat_swagger,
+    delete_message_swagger,
+    get_chat_swagger,
+    get_chats_swagger,
+    get_message_swagger,
+    get_messages_swagger,
+    mark_messages_read_swagger,
     search_chats_swagger,
+    send_message_swagger,
+    update_message_swagger,
 } from './chat.swagger';
 import { ChatService } from './chat.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
-
 
 @ApiTags('Chat')
 @ApiBearerAuth('JWT-auth')
@@ -73,10 +72,7 @@ export class ChatController {
     @ApiConflictErrorResponse(ERROR_MESSAGES.CHAT_ALREADY_EXISTS)
     @ResponseMessage(SUCCESS_MESSAGES.CHAT_CREATED)
     @Post()
-    async createChat(
-        @Body() createChatDto: CreateChatDto,
-        @GetUserId() user_id: string,
-    ) {
+    async createChat(@Body() createChatDto: CreateChatDto, @GetUserId() user_id: string) {
         return this.chat_service.createChat(user_id, createChatDto);
     }
 
@@ -85,10 +81,7 @@ export class ChatController {
     @ApiOkResponse(get_chats_swagger.responses.success)
     @ResponseMessage(SUCCESS_MESSAGES.CHATS_RETRIEVED)
     @Get()
-    async getChats(
-        @Query() query: GetChatsQueryDto,
-        @GetUserId() user_id: string,
-    ) {
+    async getChats(@Query() query: GetChatsQueryDto, @GetUserId() user_id: string) {
         return this.chat_service.getChats(user_id, query);
     }
 
@@ -97,10 +90,7 @@ export class ChatController {
     @ApiOkResponse(search_chats_swagger.responses.success)
     @ResponseMessage(SUCCESS_MESSAGES.CHATS_RETRIEVED)
     @Get('search')
-    async searchChats(
-        @Query() query: SearchChatsQueryDto,
-        @GetUserId() user_id: string,
-    ) {
+    async searchChats(@Query() query: SearchChatsQueryDto, @GetUserId() user_id: string) {
         return this.chat_service.searchChats(user_id, query);
     }
 
@@ -111,10 +101,7 @@ export class ChatController {
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
     @ResponseMessage(SUCCESS_MESSAGES.CHAT_RETRIEVED)
     @Get('chats/:chat_id')
-    async getChat(
-        @Param('chat_id') chat_id: string,
-        @GetUserId() user_id: string,
-    ) {
+    async getChat(@Param('chat_id') chat_id: string, @GetUserId() user_id: string) {
         return this.chat_service.getChat(user_id, chat_id);
     }
 
@@ -125,10 +112,7 @@ export class ChatController {
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
     @ResponseMessage(SUCCESS_MESSAGES.CHAT_DELETED)
     @Delete('chats/:chat_id')
-    async deleteChat(
-        @Param('chat_id') chat_id: string,
-        @GetUserId() user_id: string,
-    ) {
+    async deleteChat(@Param('chat_id') chat_id: string, @GetUserId() user_id: string) {
         return this.chat_service.deleteChat(user_id, chat_id);
     }
 
@@ -144,7 +128,7 @@ export class ChatController {
     async sendMessage(
         @Param('chat_id') chat_id: string,
         @Body() sendMessageDto: SendMessageDto,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {
         return this.chat_service.sendMessage(user_id, chat_id, sendMessageDto);
     }
@@ -160,7 +144,7 @@ export class ChatController {
     async getMessages(
         @Param('chat_id') chat_id: string,
         @Query() query: GetMessagesQueryDto,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {
         return this.chat_service.getMessages(user_id, chat_id, query);
     }
@@ -176,7 +160,7 @@ export class ChatController {
     async getMessage(
         @Param('chat_id') chat_id: string,
         @Param('message_id') message_id: string,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {
         return this.chat_service.getMessage(user_id, chat_id, message_id);
     }
@@ -195,7 +179,7 @@ export class ChatController {
         @Param('chat_id') chat_id: string,
         @Param('message_id') message_id: string,
         @Body() updateMessageDto: UpdateMessageDto,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {
         return this.chat_service.updateMessage(user_id, chat_id, message_id, updateMessageDto);
     }
@@ -211,7 +195,7 @@ export class ChatController {
     async deleteMessage(
         @Param('chat_id') chat_id: string,
         @Param('message_id') message_id: string,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {
         return this.chat_service.deleteMessage(user_id, chat_id, message_id);
     }
@@ -227,7 +211,7 @@ export class ChatController {
     async markMessagesAsRead(
         @Param('chat_id') chat_id: string,
         @Body() markMessagesReadDto: MarkMessagesReadDto,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {
         return this.chat_service.markMessagesAsRead(user_id, chat_id, markMessagesReadDto);
     }

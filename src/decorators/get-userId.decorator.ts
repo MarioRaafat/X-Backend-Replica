@@ -12,9 +12,7 @@ interface AuthenticatedRequest extends Request {
 
 // This is a custom decorator to extract the user ID from the request object direct without needing to access the entire user object
 // it assumes that the JwtAuthGuard has already validated the token and attached the user object to the request
-export const GetUserId = createParamDecorator(
-    (data: unknown, ctx: ExecutionContext): string => {
-        const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
-        return request.user.id;
-    },
-);
+export const GetUserId = createParamDecorator((data: unknown, ctx: ExecutionContext): string => {
+    const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
+    return request.user.id;
+});

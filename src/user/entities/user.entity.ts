@@ -13,7 +13,6 @@ export class User {
     @Exclude()
     password: string;
 
-
     @Column({ type: 'varchar' })
     name: string;
 
@@ -41,7 +40,7 @@ export class User {
     @Column({ type: 'text', nullable: true })
     cover_url?: string;
 
-    @Column({ type: 'date'})
+    @Column({ type: 'date' })
     birth_date: Date;
 
     // Role can be 'user', 'admin' only
@@ -62,10 +61,14 @@ export class User {
     // @Column({ type: 'varchar', nullable: true })
     // country: string;
 
-    @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP'})
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
 
-    @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP'})
+    @Column({
+        type: 'timestamp',
+        default: () => 'CURRENT_TIMESTAMP',
+        onUpdate: 'CURRENT_TIMESTAMP',
+    })
     updated_at: Date;
 
     constructor(user: Partial<User>) {

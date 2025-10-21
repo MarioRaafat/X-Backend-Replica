@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsArray, IsOptional, MaxLength, IsUrl } from 'class-validator';
+import { IsArray, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 
 export class CreateTweetDTO {
     @ApiProperty({

@@ -1,30 +1,30 @@
 import {
-    Controller,
-    Get,
-    Post,
+    BadRequestException,
     Body,
-    Patch,
-    Param,
+    Controller,
     Delete,
-    Query,
+    Get,
     HttpCode,
     HttpStatus,
+    Param,
     ParseUUIDPipe,
+    Patch,
+    Post,
+    Query,
+    UploadedFile,
     UseGuards,
     UseInterceptors,
-    UploadedFile,
-    BadRequestException,
 } from '@nestjs/common';
 import {
-    ApiTags,
-    ApiOperation,
-    ApiParam,
     ApiBearerAuth,
-    ApiCreatedResponse,
-    ApiOkResponse,
-    ApiNoContentResponse,
     ApiBody,
     ApiConsumes,
+    ApiCreatedResponse,
+    ApiNoContentResponse,
+    ApiOkResponse,
+    ApiOperation,
+    ApiParam,
+    ApiTags,
 } from '@nestjs/swagger';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
 import { UpdateTweetDTO } from './dto/update-tweet.dto';
@@ -37,12 +37,12 @@ import { GetUserId } from '../decorators/get-userId.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
 import {
     ApiBadRequestErrorResponse,
-    ApiUnauthorizedErrorResponse,
     ApiForbiddenErrorResponse,
-    ApiNotFoundErrorResponse,
     ApiInternalServerError,
+    ApiNotFoundErrorResponse,
+    ApiUnauthorizedErrorResponse,
 } from '../decorators/swagger-error-responses.decorator';
-import { SUCCESS_MESSAGES, ERROR_MESSAGES } from '../constants/swagger-messages';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import {
     create_tweet_swagger,
     delete_tweet_swagger,
@@ -58,10 +58,7 @@ import {
     upload_image_swagger,
     upload_video_swagger,
 } from './tweets.swagger';
-import {
-    ImageUploadInterceptor,
-    VideoUploadInterceptor,
-} from './utils/upload.interceptors';
+import { ImageUploadInterceptor, VideoUploadInterceptor } from './utils/upload.interceptors';
 
 @ApiTags('Tweets')
 @ApiBearerAuth('JWT-auth')
@@ -91,10 +88,7 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEETS_RETRIEVED)
     @Get()
-    async getAllTweets(
-        @Query() query: GetTweetsQueryDto,
-        @GetUserId() user_id: string,
-    ) {}
+    async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id: string) {}
 
     @ApiOperation(get_tweet_by_id_swagger.operation)
     @ApiParam(get_tweet_by_id_swagger.param)
@@ -155,10 +149,7 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_REPOSTED)
     @Post(':id/repost')
-    async repostTweet(
-        @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() user_id: string,
-    ) {}
+    async repostTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {}
 
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation(quote_tweet_swagger.operation)
@@ -218,10 +209,7 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_LIKES_RETRIEVED)
     @Get(':id/likes')
-    async getTweetLikes(
-        @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() user_id: string,
-    ) {}
+    async getTweetLikes(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {}
 
     @ApiOperation(update_quote_tweet_swagger.operation)
     @ApiParam(update_quote_tweet_swagger.param)
@@ -236,7 +224,7 @@ export class TweetsController {
     async updateQuoteTweet(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() update_quote_dto: UpdateTweetWithQuoteDTO,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {}
 
     @HttpCode(HttpStatus.CREATED)
@@ -250,10 +238,7 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.IMAGE_UPLOADED)
     @UseInterceptors(ImageUploadInterceptor)
     @Post('upload/image')
-    async uploadImage(
-        @UploadedFile() file: Express.Multer.File,
-        @GetUserId() user_id: string,
-    ) {
+    async uploadImage(@UploadedFile() file: Express.Multer.File, @GetUserId() user_id: string) {
         if (!file) {
             throw new BadRequestException(ERROR_MESSAGES.NO_FILE_PROVIDED);
         }
@@ -261,7 +246,7 @@ export class TweetsController {
         return this.tweets_service.uploadImage(file, user_id);
     }
 
-        @HttpCode(HttpStatus.CREATED)
+    @HttpCode(HttpStatus.CREATED)
     @ApiOperation(upload_video_swagger.operation)
     @ApiConsumes('multipart/form-data')
     @ApiBody(upload_video_swagger.body)
@@ -272,10 +257,7 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.VIDEO_UPLOADED)
     @UseInterceptors(VideoUploadInterceptor)
     @Post('upload/video')
-    async uploadVideo(
-        @UploadedFile() file: Express.Multer.File,
-        @GetUserId() user_id: string,
-    ) {
+    async uploadVideo(@UploadedFile() file: Express.Multer.File, @GetUserId() user_id: string) {
         if (!file) {
             throw new BadRequestException(ERROR_MESSAGES.NO_FILE_PROVIDED);
         }
@@ -283,4 +265,3 @@ export class TweetsController {
         return this.tweets_service.uploadVideo(file, user_id);
     }
 }
-
