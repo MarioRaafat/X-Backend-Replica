@@ -1,9 +1,4 @@
-import { 
-    Entity, 
-    PrimaryColumn,
-    ManyToOne,
-    JoinColumn
-} from 'typeorm';
+import { Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from 'src/user/entities/user.entity';
 

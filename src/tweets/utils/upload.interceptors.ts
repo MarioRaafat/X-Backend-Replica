@@ -1,10 +1,10 @@
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import {
-    imageFileFilter,
-    videoFileFilter,
     IMAGE_MAX_SIZE,
+    imageFileFilter,
     VIDEO_MAX_SIZE,
+    videoFileFilter,
 } from './file-upload.config';
 
 /**

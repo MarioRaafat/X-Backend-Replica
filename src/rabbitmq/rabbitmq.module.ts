@@ -3,7 +3,7 @@ import { RabbitmqService } from './rabbitmq.service';
 
 @Global()
 @Module({
-  providers: [RabbitmqService],
-  exports: [RabbitmqService],
+    providers: [RabbitmqService],
+    exports: [RabbitmqService],
 })
 export class RabbitmqModule {}

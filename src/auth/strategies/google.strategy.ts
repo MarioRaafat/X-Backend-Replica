@@ -8,7 +8,7 @@ import { AuthService } from '../auth.service';
 export class GoogleStrategy extends PassportStrategy(Strategy) {
     constructor(
         private config_service: ConfigService,
-        private auth_service: AuthService,
+        private auth_service: AuthService
     ) {
         super({
             clientID: config_service.get('GOOGLE_CLIENT_ID') || '',
@@ -22,14 +22,14 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
         access_token: string,
         refresh_token: string,
         profile: any,
-        done: VerifyCallback,
+        done: VerifyCallback
     ) {
         const { id, name, emails, photos } = profile;
 
         const avatar_url = photos && photos.length > 0 ? photos[0].value : undefined;
         const first_name = name?.givenName;
         const last_name = name?.familyName || '';
-        
+
         try {
             const result = await this.auth_service.validateGoogleUser({
                 google_id: id,
@@ -45,7 +45,7 @@ export class GoogleStrategy extends PassportStrategy(Strategy) {
 
             if (needs_completion) {
                 console.log('Google strategy: OAuth completion required');
-                return done(null, {needs_completion: true, user: user});
+                return done(null, { needs_completion: true, user: user });
             }
 
             console.log('Google strategy: User found, authentication successful');

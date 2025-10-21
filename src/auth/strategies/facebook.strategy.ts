@@ -9,7 +9,7 @@ import { FacebookLoginDTO } from '../dto/facebook-login.dto';
 export class FacebookStrategy extends PassportStrategy(Strategy) {
     constructor(
         private config_service: ConfigService,
-        private auth_service: AuthService,
+        private auth_service: AuthService
     ) {
         super({
             clientID: config_service.get('FACEBOOK_CLIENT_ID') || '',
@@ -20,12 +20,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
         });
     }
 
-    async validate(
-        access_token: string,
-        refresh_token: string,
-        profile: any,
-        done: any,
-    ) {
+    async validate(access_token: string, refresh_token: string, profile: any, done: any) {
         try {
             console.log('Facebook Profile:', JSON.stringify(profile, null, 2));
             const { id, username, displayName, emails, photos } = profile;
@@ -57,7 +52,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
             const needs_completion = 'needs_completion' in result ? result.needs_completion : false;
 
             if (needs_completion) {
-                return done(null, {needs_completion: true, user: user});
+                return done(null, { needs_completion: true, user: user });
             }
 
             //user will be appended to the request

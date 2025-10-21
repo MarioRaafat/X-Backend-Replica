@@ -1,21 +1,21 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class GoogleLoginDTO {
-  @IsString()
-  google_id: string;
+    @IsString()
+    google_id: string;
 
-  @IsEmail()
-  email: string;
+    @IsEmail()
+    email: string;
 
-  @IsNotEmpty()
-  @IsString()
-  first_name: string;
+    @IsNotEmpty()
+    @IsString()
+    first_name: string;
 
-  @IsNotEmpty()
-  @IsString()
-  last_name: string;
+    @IsNotEmpty()
+    @IsString()
+    last_name: string;
 
-  @IsOptional()
-  @IsString()
-  avatar_url?: string;
+    @IsOptional()
+    @IsString()
+    avatar_url?: string;
 }
