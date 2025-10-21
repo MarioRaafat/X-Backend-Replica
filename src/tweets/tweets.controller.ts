@@ -81,7 +81,9 @@ export class TweetsController {
     async createTweet(
         @Body() create_tweet_dto: CreateTweetDTO,
         @GetUserId() user_id: string,
-    ) {}
+    ) {
+        return await this.tweets_service.createTweet(create_tweet_dto, user_id);
+    }
 
     @ApiOperation(get_all_tweets_swagger.operation)
     @ApiOkResponse(get_all_tweets_swagger.responses.success)
@@ -105,7 +107,9 @@ export class TweetsController {
     async getTweetById(
         @Param('id', ParseUUIDPipe) id: string,
         @GetUserId() user_id: string,
-    ) {}
+    ) {
+        return await this.tweets_service.getTweetById(id);
+    }
 
     @ApiOperation(update_tweet_swagger.operation)
     @ApiParam(update_tweet_swagger.param)
@@ -118,10 +122,12 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_UPDATED)
     @Patch(':id')
     async updateTweet(
-        @Param('id', ParseUUIDPipe) id: string,
+        @Param('id', new ParseUUIDPipe({ version: "4" })) id: string,
         @Body() update_tweet_dto: UpdateTweetDTO,
         @GetUserId() user_id: string,
-    ) {}
+    ) {
+        return await this.tweets_service.updateTweet(update_tweet_dto, id);
+    }
 
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation(delete_tweet_swagger.operation)
@@ -136,7 +142,9 @@ export class TweetsController {
     async deleteTweet(
         @Param('id', ParseUUIDPipe) id: string,
         @GetUserId() user_id: string,
-    ) {}
+    ) {
+        return await this.tweets_service.deleteTweet(id);
+    }
 
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation(repost_tweet_swagger.operation)
@@ -166,9 +174,11 @@ export class TweetsController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body() create_quote_dto: CreateTweetDTO,
         @GetUserId() user_id: string,
-    ) {}
+    ) {
+        return await this.tweets_service.repostTweetWithQuote(id, user_id, create_quote_dto);
+    }
 
-    @HttpCode(HttpStatus.NO_CONTENT)
+    @HttpCode(HttpStatus.CREATED)
     @ApiOperation(like_tweet_swagger.operation)
     @ApiParam(like_tweet_swagger.param)
     @ApiNoContentResponse(like_tweet_swagger.responses.noContent)
@@ -180,7 +190,9 @@ export class TweetsController {
     async likeTweet(
         @Param('id', ParseUUIDPipe) id: string,
         @GetUserId() user_id: string,
-    ) {}
+    ) {
+        return await this.tweets_service.likeTweet(id, user_id);
+    }
 
     @HttpCode(HttpStatus.NO_CONTENT)
     @ApiOperation(unlike_tweet_swagger.operation)
@@ -194,7 +206,9 @@ export class TweetsController {
     async unlikeTweet(
         @Param('id', ParseUUIDPipe) id: string,
         @GetUserId() user_id: string,
-    ) {}
+    ) {
+        return await this.tweets_service.unLikeTweet(id, user_id);
+    }
 
     @ApiOperation(get_tweet_likes_swagger.operation)
     @ApiParam(get_tweet_likes_swagger.param)
@@ -225,7 +239,7 @@ export class TweetsController {
         @GetUserId() user_id: string,
     ) {}
 
-        @HttpCode(HttpStatus.CREATED)
+    @HttpCode(HttpStatus.CREATED)
     @ApiOperation(upload_image_swagger.operation)
     @ApiConsumes('multipart/form-data')
     @ApiBody(upload_image_swagger.body)

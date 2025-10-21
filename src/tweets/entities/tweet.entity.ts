@@ -5,9 +5,15 @@ import {
     CreateDateColumn, 
     UpdateDateColumn, 
     ManyToOne, 
-    JoinColumn
+    JoinColumn,
+    DeleteDateColumn,
+    OneToMany
 } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
+import { TweetLike } from './tweet-like.entity';
+import { TweetQuote } from './tweet-quote.entity';
+import { TweetRepost } from './tweet-repost.entity';
+import { TweetReply } from './tweet-reply.entity';
 
 @Entity('tweets')
 export class Tweet {
@@ -26,13 +32,34 @@ export class Tweet {
     @Column({ type: 'text', array: true, default: '{}' })
     videos: string[];
 
+    @Column({ name: "num_likes", type: "int", default: 0 })
+    num_likes: number;
+
+    @Column({ name: "num_reposts", type: "int", default: 0 })
+    num_reposts: number;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
     @UpdateDateColumn({ type: 'timestamp' })
     updated_at: Date;
 
+    @DeleteDateColumn({ name: 'deleted_at' })
+    deleted_at: Date;
+
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })
     user: User;
+
+    @OneToMany(() => TweetLike, (tweet_like) => tweet_like.tweet, { eager: true, onDelete: "CASCADE" })
+    likes: TweetLike[];
+
+    @OneToMany(() => TweetReply, (tweet_reply) => tweet_reply.original_tweet, { eager: true, onDelete: "CASCADE" })
+    replies: TweetReply[];
+
+    @OneToMany(() => TweetQuote, (tweet_quote) => tweet_quote.original_tweet, { onDelete: "CASCADE" })
+    quotes: TweetQuote[];
+
+    @OneToMany(() => TweetRepost, (tweet_repost) => tweet_repost.tweet, { onDelete: "CASCADE" })
+    reposts: TweetRepost[];
 }
