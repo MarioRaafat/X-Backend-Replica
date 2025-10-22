@@ -1,63 +1,54 @@
 import {
-  Controller,
-  Get,
-  Post,
-  Body,
-  Patch,
-  Param,
-  Delete,
-  Query,
-  UseGuards,
-  UploadedFile,
-  UseInterceptors,
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Patch,
+    Post,
+    Query,
+    UploadedFile,
+    UseGuards,
+    UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
+import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
-  ApiTags,
-  ApiOperation,
-  ApiBearerAuth,
-  ApiOkResponse,
-  ApiBody,
-} from '@nestjs/swagger';
-import {
-  ApiUnauthorizedErrorResponse,
-  ApiNotFoundErrorResponse,
-  ApiBadRequestErrorResponse,
+    ApiBadRequestErrorResponse,
+    ApiNotFoundErrorResponse,
+    ApiUnauthorizedErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
-  block_user,
-  change_phone_number,
-  deactivate_account,
-  delete_avatar,
-  delete_cover,
-  follow_user,
-  get_blocked,
-  get_followers,
-  get_following,
-  get_liked_posts,
-  get_me,
-  get_muted,
-  get_user_by_id,
-  get_user_media,
-  get_user_posts,
-  get_user_replies,
-  get_users_by_ids,
-  get_users_by_username,
-  mute_user,
-  reactivate_account,
-  remove_follower,
-  unblock_user,
-  unfollow_user,
-  unmute_user,
-  update_user,
-  upload_avatar,
-  upload_cover,
+    block_user,
+    change_phone_number,
+    deactivate_account,
+    delete_avatar,
+    delete_cover,
+    follow_user,
+    get_blocked,
+    get_followers,
+    get_following,
+    get_liked_posts,
+    get_me,
+    get_muted,
+    get_user_by_id,
+    get_user_media,
+    get_user_posts,
+    get_user_replies,
+    get_users_by_ids,
+    get_users_by_username,
+    mute_user,
+    reactivate_account,
+    remove_follower,
+    unblock_user,
+    unfollow_user,
+    unmute_user,
+    update_user,
+    upload_avatar,
+    upload_cover,
 } from './user.swagger';
-import {
-  SUCCESS_MESSAGES,
-  ERROR_MESSAGES,
-} from 'src/constants/swagger-messages';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { GetUsersByIdDto } from './dto/get-users-by-id.dto';
 import { GetUsersByUsernameDto } from './dto/get-users-by-username.dto';
@@ -74,7 +65,7 @@ import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
 @ApiBearerAuth('JWT-auth')
 @Controller('users')
 export class UserController {
-  constructor(private readonly user_service: UserService) {}
+    constructor(private readonly user_service: UserService) {}
 
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation(get_users_by_ids.operation)

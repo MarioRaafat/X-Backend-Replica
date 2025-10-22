@@ -193,8 +193,7 @@ export const like_tweet_swagger = {
 export const unlike_tweet_swagger = {
     operation: {
         summary: 'Unlike a tweet',
-        description:
-            'Removes a like from a tweet. User ID is from JWT token.',
+        description: 'Removes a like from a tweet. User ID is from JWT token.',
     },
 
     param: {

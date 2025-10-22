@@ -17,7 +17,7 @@ export class CaptchaService {
 
     async verifyRecaptcha(token: string, remote_ip?: string): Promise<CaptchaVerificationResult> {
         const secret_key = this.config_service.get<string>('RECAPTCHA_SECRET_KEY');
-        
+
         if (!secret_key) {
             throw new Error('reCAPTCHA secret key not configured');
         }
@@ -25,7 +25,7 @@ export class CaptchaService {
         if (!token) {
             return {
                 success: false,
-                'error-codes': ['missing-input-response']
+                'error-codes': ['missing-input-response'],
             };
         }
 
@@ -35,7 +35,7 @@ export class CaptchaService {
                 new URLSearchParams({
                     secret: secret_key,
                     response: token,
-                    ...(remote_ip && { remoteip: remote_ip })
+                    ...(remote_ip && { remoteip: remote_ip }),
                 }),
                 {
                     headers: {
@@ -49,14 +49,14 @@ export class CaptchaService {
             console.error('reCAPTCHA verification error:', error);
             return {
                 success: false,
-                'error-codes': ['network-error']
+                'error-codes': ['network-error'],
             };
         }
     }
 
     async validateCaptcha(token: string, remote_ip?: string): Promise<void> {
         const verification_result = await this.verifyRecaptcha(token, remote_ip);
-        
+
         if (!verification_result.success) {
             const error_codes = verification_result['error-codes'] || [];
             const error_message = this.getErrorMessage(error_codes);
@@ -69,10 +69,12 @@ export class CaptchaService {
             'missing-input-secret': 'The secret parameter is missing',
             'invalid-input-secret': 'The secret parameter is invalid or malformed',
             'missing-input-response': 'The response parameter (CAPTCHA token) is missing',
-            'invalid-input-response': 'The response parameter (CAPTCHA token) is invalid or malformed',
+            'invalid-input-response':
+                'The response parameter (CAPTCHA token) is invalid or malformed',
             'bad-request': 'The request is invalid or malformed',
-            'timeout-or-duplicate': 'The response is no longer valid: either is too old or has been used previously',
-            'network-error': 'Network error occurred while verifying CAPTCHA'
+            'timeout-or-duplicate':
+                'The response is no longer valid: either is too old or has been used previously',
+            'network-error': 'Network error occurred while verifying CAPTCHA',
         };
 
         if (error_codes.length === 0) {
@@ -80,7 +82,7 @@ export class CaptchaService {
         }
 
         return error_codes
-            .map(code => error_messages[code] || `Unknown error code: ${code}`)
+            .map((code) => error_messages[code] || `Unknown error code: ${code}`)
             .join(', ');
     }
 }

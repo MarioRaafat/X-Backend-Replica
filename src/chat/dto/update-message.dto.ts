@@ -4,7 +4,7 @@ import { IsNotEmpty, IsString, MaxLength, MinLength } from 'class-validator';
 export class UpdateMessageDto {
     @ApiProperty({
         description: 'Updated content of the message',
-        example: 'I\'m doing amazing, thanks for asking!',
+        example: "I'm doing amazing, thanks for asking!",
         minLength: 1,
         maxLength: 1000,
     })

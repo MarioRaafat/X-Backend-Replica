@@ -5,19 +5,19 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { OTP_KEY, OTP_OBJECT } from 'src/constants/redis';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
-import { StringValue } from 'ms';  // Add this import
+import { StringValue } from 'ms'; // Add this import
 
 @Injectable()
 export class VerificationService {
     constructor(
         private readonly redis_service: RedisService,
-        private readonly jwt_service: JwtService,
+        private readonly jwt_service: JwtService
     ) {}
 
     async generateOtp(
         identifier: string, // email or userId
         type: 'email' | 'password',
-        size = 6,
+        size = 6
     ): Promise<string> {
         const otp_key = OTP_KEY(type, identifier);
         const recent_token = await this.redis_service.hget(otp_key);
@@ -27,8 +27,7 @@ export class VerificationService {
         if (recent_token) {
             const created_at = new Date(recent_token.created_at);
             const one_minute_in_ms = 60 * 1000;
-            const is_one_minute_passed =
-                now.getTime() - created_at.getTime() >= one_minute_in_ms;
+            const is_one_minute_passed = now.getTime() - created_at.getTime() >= one_minute_in_ms;
 
             if (!is_one_minute_passed) {
                 throw new BadRequestException(ERROR_MESSAGES.OTP_REQUEST_WAIT);
@@ -47,7 +46,7 @@ export class VerificationService {
     async validateOtp(
         identifier: string, // email or userId
         token: string,
-        type: string,
+        type: string
     ): Promise<boolean> {
         const otp_key = OTP_KEY(type as 'email' | 'password', identifier);
         const valid_token = await this.redis_service.hget(otp_key);
@@ -93,9 +92,7 @@ export class VerificationService {
         return token;
     }
 
-    async validatePasswordResetToken(
-        token: string,
-    ): Promise<{ userId: string } | null> {
+    async validatePasswordResetToken(token: string): Promise<{ userId: string } | null> {
         try {
             const payload = await this.jwt_service.verifyAsync(token, {
                 secret: process.env.PASSWORD_RESET_TOKEN_SECRET,

@@ -3,8 +3,8 @@ import { ExploreController } from './explore.controller';
 import { ExploreService } from './explore.service';
 
 @Module({
-  controllers: [ExploreController],
-  providers: [ExploreService],
-  exports: [ExploreService],
+    controllers: [ExploreController],
+    providers: [ExploreService],
+    exports: [ExploreService],
 })
 export class ExploreModule {}

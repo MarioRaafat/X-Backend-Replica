@@ -43,10 +43,6 @@ export class User {
   @Column({ type: 'date' })
   birth_date: Date;
 
-  // Role can be 'user', 'admin' only
-  @Column({ type: 'varchar', default: 'user' })
-  role: string;
-
   @Column({ type: 'varchar', nullable: true })
   gender?: string;
 

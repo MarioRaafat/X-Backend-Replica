@@ -1,13 +1,13 @@
 import { Controller, Get } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { notifications_websocket } from './notification.swagger';
 
 @ApiTags('Notifications')
 @Controller('notifications')
 export class NotificationsController {
-  @ApiOperation({
-    summary: 'WebSocket API Documentation',
-    description: `
+    @ApiOperation({
+        summary: 'WebSocket API Documentation',
+        description: `
         WebSocket Only - No REST endpoints available.
 
         Server Events
@@ -30,17 +30,17 @@ export class NotificationsController {
             data.notifications, data.unseenCount, data.newestData
         });
     `,
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'WebSocket event structure',
-    schema: {
-      type: 'object',
-      example: notifications_websocket,
-    },
-  })
-  @Get('docs')
-  getDocs() {
-    return notifications_websocket;
-  }
+    })
+    @ApiResponse({
+        status: 200,
+        description: 'WebSocket event structure',
+        schema: {
+            type: 'object',
+            example: notifications_websocket,
+        },
+    })
+    @Get('docs')
+    getDocs() {
+        return notifications_websocket;
+    }
 }

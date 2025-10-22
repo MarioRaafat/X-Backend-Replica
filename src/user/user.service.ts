@@ -56,12 +56,12 @@ export class UserService {
     });
   }
 
-  async createUser(createUserDto: CreateUserDto): Promise<User> {
-    const user = new User({
-      ...createUserDto,
-    });
-    return await this.user_repository.save(user);
-  }
+    async createUser(createUserDto: CreateUserDto): Promise<User> {
+        const user = new User({
+            ...createUserDto,
+        });
+        return await this.user_repository.save(user);
+    }
 
   async updateUser(id: string, update_data: Partial<User>) {
     await this.user_repository.update(id, update_data);
