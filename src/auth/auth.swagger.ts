@@ -305,6 +305,42 @@ export const google_oauth_swagger = {
     },
 };
 
+export const google_mobile_swagger = {
+    operation: {
+        summary: 'Mobile Google OAuth Authentication',
+        description: `
+            **Mobile Google OAuth Flow**
+
+            This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView.
+
+            **How it works:**
+            1. Mobile app obtains Google access token through native OAuth flow
+            2. Mobile app sends the token to this endpoint
+            3. Backend verifies the token with Google's API
+            4. If valid, returns user data and access/refresh tokens
+
+            **For web applications, use:** \`GET /auth/google\` instead
+                    `,
+    },
+
+    responses: {
+        success: {
+            description: 'Google authentication successful',
+            schema: {
+                example: {
+                    data: {
+                        needs_completion: true,
+                        session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                        provider: 'google',
+                    },
+                    count: 1,
+                    message: 'Logged in Successfully!',
+                },
+            },        
+        }
+    },
+};
+
 export const google_callback_swagger = {
     operation: {
         summary: 'Google OAuth Callback Handler',
@@ -535,6 +571,42 @@ export const github_oauth_swagger = {
                 },
             },
         },
+    },
+};
+
+export const github_mobile_swagger = {
+    operation: {
+        summary: 'Mobile GitHub OAuth Authentication',
+        description: `
+            **Mobile GitHub OAuth Flow**
+
+            This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView.
+
+            **How it works:**
+            1. Mobile app obtains GitHub access token through native OAuth flow
+            2. Mobile app sends the token to this endpoint
+            3. Backend verifies the token with GitHub's API
+            4. If valid, returns user data and access/refresh tokens
+
+            **For web applications, use:** \`GET /auth/github\` instead
+                    `,
+    },
+
+    responses: {
+        success: {
+            description: 'GitHub authentication successful',
+            schema: {
+                example: {
+                    data: {
+                        needs_completion: true,
+                        session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                        provider: 'github',
+                    },
+                    count: 1,
+                    message: 'Logged in Successfully!',
+                },
+            },        
+        }
     },
 };
 

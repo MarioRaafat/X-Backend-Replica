@@ -26,6 +26,9 @@ import { CheckIdentifierDto } from './dto/check-identifier.dto';
 import { UpdateUsernameDto } from './dto/update-username.dto';
 import { UpdateEmailDto } from './dto/update-email.dto';
 import { VerifyUpdateEmailDto } from './dto/verify-update-email.dto';
+import { MobileGoogleAuthDto } from './dto/mobile-google-auth.dto';
+import { MobileGitHubAuthDto } from './dto/mobile-github-auth.dto';
+import {ForgetPasswordDto} from "./dto/forget-password.dto";
 import {
     ApiBearerAuth,
     ApiBody,
@@ -63,8 +66,10 @@ import {
     forget_password_swagger,
     generate_otp_swagger,
     github_callback_swagger,
+    github_mobile_swagger,
     github_oauth_swagger,
     google_callback_swagger,
+    google_mobile_swagger,
     google_oauth_swagger,
     login_swagger,
     logout_All_swagger,
@@ -189,16 +194,15 @@ export class AuthController {
         return this.auth_service.changePassword(user_id, old_password, new_password);
     }
 
-    @ApiBearerAuth('JWT-auth')
-    @UseGuards(JwtAuthGuard)
     @ApiOperation(forget_password_swagger.operation)
+    @ApiBody({ type: ForgetPasswordDto })
     @ApiOkResponse(forget_password_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
     @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_RESET_OTP_SENT)
-    @Get('forget-password')
-    async forgetPassword(@GetUserId() user_id: string) {
-        return this.auth_service.sendResetPasswordEmail(user_id);
+    @Post('forget-password')
+    async forgetPassword(@Body() body: ForgetPasswordDto) {
+        return this.auth_service.sendResetPasswordEmail(body.email);
     }
 
     @ApiBearerAuth('JWT-auth')
@@ -354,6 +358,43 @@ export class AuthController {
     @Get('google')
     googleLogin() {}
 
+    @ApiOperation(google_mobile_swagger.operation)
+    @ApiBody({ type: MobileGoogleAuthDto })
+    @ApiOkResponse(google_mobile_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GOOGLE)
+    @ResponseMessage(SUCCESS_MESSAGES.LOGGED_IN)
+    @Post('mobile/google')
+    async mobileGoogleAuth(
+        @Body() dto: MobileGoogleAuthDto,
+        @Res({ passthrough: true }) response: Response
+    ) {
+        const result = await this.auth_service.verifyGoogleMobileToken(dto.access_token);
+
+        // Check if user needs to complete OAuth registration
+        if ('needs_completion' in result && result.needs_completion) {
+            const sessionToken = await this.auth_service.createOAuthSession(result.user);
+            return {
+                needs_completion: true,
+                session_token: sessionToken,
+                provider: 'google',
+            };
+        }
+
+        if (!("user" in result) || !("id" in result.user)) {
+            throw new BadRequestException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
+        }
+
+        const user = result.user;
+        const { access_token, refresh_token } = await this.auth_service.generateTokens(user.id);
+        this.httpOnlyRefreshToken(response, refresh_token);
+
+        return {
+            access_token,
+            user: user,
+        };
+    }
+
     @UseGuards(GoogleAuthGuard)
     @ApiOperation(google_callback_swagger.operation)
     @ApiResponse(google_callback_swagger.responses.success)
@@ -459,6 +500,42 @@ export class AuthController {
     @ApiResponse(github_oauth_swagger.responses.InternalServerError)
     @Get('github')
     async githubLogin() {}
+
+    @ApiOperation(github_mobile_swagger.operation)
+    @ApiBody({ type: MobileGitHubAuthDto })
+    @ApiOkResponse(github_mobile_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.GITHUB_TOKEN_INVALID)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB)
+    @ResponseMessage(SUCCESS_MESSAGES.LOGGED_IN)
+    @Post('mobile/github')
+    async mobileGitHubAuth(
+        @Body() dto: MobileGitHubAuthDto,
+        @Res({ passthrough: true }) response: Response
+    ) {
+        const result = await this.auth_service.verifyGitHubMobileToken(dto.access_token);
+
+        if ('needs_completion' in result && result.needs_completion) {
+            const sessionToken = await this.auth_service.createOAuthSession(result.user);
+            return {
+                needs_completion: true,
+                session_token: sessionToken,
+                provider: 'github',
+            };
+        }
+
+        if (!("user" in result) || !("id" in result.user)) {
+            throw new BadRequestException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+        }
+
+        const user = result.user;
+        const { access_token, refresh_token } = await this.auth_service.generateTokens(user.id);
+        this.httpOnlyRefreshToken(response, refresh_token);
+
+        return {
+            access_token,
+            user: user,
+        };
+    }
 
     @UseGuards(GitHubAuthGuard)
     @ApiOperation(github_callback_swagger.operation)

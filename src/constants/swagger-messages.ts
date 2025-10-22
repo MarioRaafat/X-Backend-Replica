@@ -16,11 +16,15 @@ export const ERROR_MESSAGES = {
     EMAIL_NOT_FOUND: 'Email not found',
     PHONE_NUMBER_NOT_FOUND: 'Phone number not found',
     USERNAME_NOT_FOUND: 'Username not found',
+    USERNAME_ALREADY_TAKEN: 'Username is already taken',
 
     // OAuth completion
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
-    USERNAME_ALREADY_TAKEN: 'Username is already taken',
     USER_NOT_FOUND_OAUTH_COMPLETION_REQUIRED: 'User not found, OAuth completion required',
+    GOOGLE_TOKEN_INVALID: 'Invalid Google access token',
+    GITHUB_TOKEN_INVALID: 'Invalid GitHub access token',
+    EMAIL_NOT_PROVIDED_BY_OAUTH_GOOGLE: 'Unable to retrieve user email from Google',
+    EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB: 'Unable to retrieve user email from GitHub',
 
     // user
     USER_NOT_FOUND: 'User not found',

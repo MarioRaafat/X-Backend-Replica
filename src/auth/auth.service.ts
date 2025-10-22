@@ -46,6 +46,7 @@ import {
     USER_REFRESH_TOKENS_REMOVE,
 } from 'src/constants/redis';
 import { StringValue } from 'ms'; // Add this import
+import { OAuth2Client } from 'google-auth-library';
 
 @Injectable()
 export class AuthService {
@@ -105,10 +106,19 @@ export class AuthService {
         return recommendations;
     }
 
-    async validateUser(email: string, password: string): Promise<string> {
-        const user = await this.user_service.findUserByEmail(email);
+    async validateUser(identifier: string, password: string, type: string): Promise<string> {
+        const user = type === 'email'
+            ? await this.user_service.findUserByEmail(identifier)
+            : type === 'phone_number'
+                ? await this.user_service.findUserByPhoneNumber(identifier)
+                : await this.user_service.findUserByUsername(identifier);
+
         if (!user) {
-            const signup_session_key = SIGNUP_SESSION_KEY(email);
+            if (type !== 'email') {
+                throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+            }
+
+            const signup_session_key = SIGNUP_SESSION_KEY(identifier);
             const unverified_user = await this.redis_service.hget(signup_session_key);
             if (!unverified_user) {
                 throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -150,7 +160,7 @@ export class AuthService {
         const signup_session_key = SIGNUP_SESSION_KEY(email);
         const existing_session = await this.redis_service.hget(signup_session_key);
         if (existing_session) {
-            throw new ConflictException(ERROR_MESSAGES.SIGNUP_SESSION_ALREADY_EXISTS);
+            throw new ConflictException({ message: ERROR_MESSAGES.SIGNUP_SESSION_ALREADY_EXISTS, current_step: existing_session.step });
         }
 
         const signup_session_object = SIGNUP_SESSION_OBJECT(email, {
@@ -252,8 +262,38 @@ export class AuthService {
         };
     }
 
+    async checkIdentifier(identifier: string) {
+        let identifier_type: string = '';
+        let user: User | null = null;
+
+        if (identifier.includes('@')) {
+            identifier_type = 'email';
+            user = await this.user_service.findUserByEmail(identifier);
+        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
+            identifier_type = 'phone_number';
+            user = await this.user_service.findUserByPhoneNumber(identifier);
+        } else {
+            identifier_type = 'username';
+            user = await this.user_service.findUserByUsername(identifier);
+        }
+
+        if (!user) {
+            throw new NotFoundException(
+                identifier_type === 'email'
+                    ? ERROR_MESSAGES.EMAIL_NOT_FOUND
+                    : identifier_type === 'phone_number'
+                      ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND
+                      : ERROR_MESSAGES.USERNAME_NOT_FOUND
+            );
+        }
+
+        return {
+            identifier_type: identifier_type,
+        };
+    }
+
     async login(login_dto: LoginDTO) {
-        const id = await this.validateUser(login_dto.email, login_dto.password);
+        const id = await this.validateUser(login_dto.identifier, login_dto.password, login_dto.type);
 
         const user_instance = await this.user_service.findUserById(id);
         if (!user_instance) {
@@ -289,7 +329,7 @@ export class AuthService {
             otp,
             subtitle,
             subtitle_description,
-            user.username
+            user.name
         );
 
         const email_sent = await this.email_service.sendEmail({
@@ -305,14 +345,13 @@ export class AuthService {
         return { isEmailSent: true };
     }
 
-    async sendResetPasswordEmail(user_id: string) {
-        const user = await this.user_service.findUserById(user_id);
+    async sendResetPasswordEmail(email: string) {
+        const user = await this.user_service.findUserByEmail(email);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const otp = await this.verification_service.generateOtp(user_id, 'password');
-        const email = user.email;
+        const otp = await this.verification_service.generateOtp(user.id, 'password');
         const username = user.username;
 
         const { subject, title, description, subtitle, subtitle_description } =
@@ -500,268 +539,6 @@ export class AuthService {
         }
     }
 
-    async validateGoogleUser(google_user: GoogleLoginDTO) {
-        let user = await this.user_service.findUserByGoogleId(google_user.google_id);
-
-        if (user) {
-            return user;
-        }
-
-        if (google_user.email) {
-            user = await this.user_service.findUserByEmail(google_user.email);
-            if (user) {
-                // update avatar_url if the user doesn't have one
-                let avatar_url = user.avatar_url;
-                if (!avatar_url) {
-                    avatar_url = google_user.avatar_url;
-                }
-
-                const updated_user = await this.user_service.updateUser(user.id, {
-                    google_id: google_user.google_id,
-                    avatar_url: avatar_url,
-                });
-
-                if (!updated_user) {
-                    throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
-                }
-
-                return {
-                    user: updated_user,
-                    needs_completion: false,
-                };
-            }
-        }
-
-        const last_name = google_user.last_name ? google_user.last_name : '';
-        let name = google_user.first_name + ' ' + last_name;
-        name = name.trim();
-
-        // If user doesn't exist, we need to create an OAuth completion session
-        // The frontend will need to handle this by redirecting to completion flow
-        return {
-            needs_completion: true,
-            user: {
-                email: google_user.email,
-                name: name,
-                avatar_url: google_user.avatar_url,
-                google_id: google_user.google_id,
-            },
-        };
-    }
-
-    async validateFacebookUser(facebook_user: FacebookLoginDTO) {
-        let user = await this.user_service.findUserByFacebookId(facebook_user.facebook_id);
-
-        if (user) {
-            return user;
-        }
-
-        if (facebook_user.email) {
-            user = await this.user_service.findUserByEmail(facebook_user.email);
-            if (user) {
-                let avatar_url = user.avatar_url;
-                if (!avatar_url) {
-                    avatar_url = facebook_user.avatar_url;
-                }
-
-                const updated_user = await this.user_service.updateUser(user.id, {
-                    facebook_id: facebook_user.facebook_id,
-                    avatar_url: avatar_url,
-                });
-
-                if (!updated_user) {
-                    throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
-                }
-
-                return {
-                    user: updated_user,
-                    needs_completion: false,
-                };
-            }
-        }
-
-        const last_name = facebook_user.last_name ? facebook_user.last_name : '';
-        let name = facebook_user.first_name + ' ' + last_name;
-        name = name.trim();
-
-        return {
-            needs_completion: true,
-            user: {
-                email: facebook_user.email,
-                name: name,
-                avatar_url: facebook_user.avatar_url,
-                facebook_id: facebook_user.facebook_id,
-            },
-        };
-    }
-
-    /* 
-        ####################### GitHub OAuth Routes ########################
-    */
-    async validateGitHubUser(github_user: GitHubUserDto) {
-        let user = await this.user_service.findUserByGithubId(github_user.github_id);
-        if (user) {
-            return user;
-        }
-
-        user = await this.user_service.findUserByEmail(github_user.email);
-        if (user) {
-            let avatar_url = user.avatar_url;
-            if (!avatar_url) {
-                avatar_url = github_user.avatar_url;
-            }
-
-            const updated_user = await this.user_service.updateUser(user.id, {
-                github_id: github_user.github_id,
-                avatar_url: avatar_url,
-            });
-
-            if (!updated_user) {
-                throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
-            }
-
-            return {
-                user: updated_user,
-                needs_completion: false,
-            };
-        }
-
-        const last_name = github_user.last_name ? github_user.last_name : '';
-        let name = github_user.first_name + ' ' + last_name;
-        name = name.trim();
-
-        return {
-            needs_completion: true,
-            user: {
-                email: github_user.email,
-                name: name,
-                avatar_url: github_user.avatar_url,
-                github_id: github_user.github_id,
-            },
-        };
-    }
-
-    // ###################### OAUTH COMPLETION FLOW ######################
-
-    async createOAuthSession(user_data: Record<string, any>): Promise<string> {
-        const session_token = crypto.randomUUID();
-        const oauth_session_data = OAUTH_SESSION_OBJECT(session_token, user_data);
-
-        await this.redis_service.hset(
-            oauth_session_data.key,
-            oauth_session_data.value,
-            oauth_session_data.ttl
-        );
-
-        return session_token;
-    }
-
-    async oauthCompletionStep1(dto: OAuthCompletionStep1Dto) {
-        const { oauth_session_token, birth_date } = dto;
-
-        // Get OAuth session data
-        const session_data = await this.redis_service.hget(OAUTH_SESSION_KEY(oauth_session_token));
-        if (!session_data) {
-            throw new NotFoundException(ERROR_MESSAGES.INVALID_OAUTH_SESSION_TOKEN);
-        }
-
-        const user_data = JSON.parse(session_data.user_data);
-
-        // Update session with birth_date
-        const updated_session_data = OAUTH_SESSION_OBJECT(oauth_session_token, {
-            ...user_data,
-            birth_date,
-        });
-
-        await this.redis_service.hset(
-            updated_session_data.key,
-            updated_session_data.value,
-            updated_session_data.ttl
-        );
-
-        const recommendations = await this.getRecommendedUsernames(user_data.name);
-
-        return {
-            usernames: recommendations,
-            token: oauth_session_token,
-            nextStep: 'choose-username',
-        };
-    }
-
-    async oauthCompletionStep2(dto: OAuthCompletionStep2Dto) {
-        const { oauth_session_token, username } = dto;
-
-        // Get OAuth session data
-        const session_data = await this.redis_service.hget(OAUTH_SESSION_KEY(oauth_session_token));
-        if (!session_data) {
-            throw new NotFoundException(ERROR_MESSAGES.INVALID_OAUTH_SESSION_TOKEN);
-        }
-
-        const user_data = JSON.parse(session_data.user_data);
-
-        // Check if username is available
-        const is_username_available = await this.username_service.isUsernameAvailable(username);
-        if (!is_username_available) {
-            throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
-        }
-
-        // Create the user
-        const user = await this.user_service.createUser({
-            email: user_data.email,
-            name: user_data.name,
-            username: username,
-            birth_date: new Date(user_data.birth_date),
-            password: '', // OAuth users don't have passwords
-            phone_number: '',
-            google_id: user_data.google_id || null,
-            facebook_id: user_data.facebook_id || null,
-            github_id: user_data.github_id || null,
-            avatar_url: user_data.avatar_url || null,
-        });
-
-        // Clean up OAuth session
-        await this.redis_service.del(OAUTH_SESSION_KEY(oauth_session_token));
-
-        // Generate tokens
-        const { access_token, refresh_token } = await this.generateTokens(user.id);
-
-        return {
-            user: instanceToPlain(user),
-            access_token,
-            refresh_token,
-        };
-    }
-
-    async checkIdentifier(identifier: string) {
-        let identifier_type: string = '';
-        let user: User | null = null;
-
-        if (identifier.includes('@')) {
-            identifier_type = 'email';
-            user = await this.user_service.findUserByEmail(identifier);
-        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
-            identifier_type = 'phone_number';
-            user = await this.user_service.findUserByPhoneNumber(identifier);
-        } else {
-            identifier_type = 'username';
-            user = await this.user_service.findUserByUsername(identifier);
-        }
-
-        if (!user) {
-            throw new NotFoundException(
-                identifier_type === 'email'
-                    ? ERROR_MESSAGES.EMAIL_NOT_FOUND
-                    : identifier_type === 'phone_number'
-                      ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND
-                      : ERROR_MESSAGES.USERNAME_NOT_FOUND
-            );
-        }
-
-        return {
-            identifier_type: identifier_type,
-        };
-    }
-
     async updateUsername(user_id: string, new_username: string) {
         const user = await this.user_service.findUserById(user_id);
         if (!user) {
@@ -869,6 +646,336 @@ export class AuthService {
 
         return {
             email: new_email,
+        };
+    }
+
+    // ####################### GitHub OAuth Routes ########################
+
+    async validateGoogleUser(google_user: GoogleLoginDTO) {
+        let user = await this.user_service.findUserByGoogleId(google_user.google_id);
+
+        if (user) {
+            return user;
+        }
+
+        if (google_user.email) {
+            user = await this.user_service.findUserByEmail(google_user.email);
+            if (user) {
+                // update avatar_url if the user doesn't have one
+                let avatar_url = user.avatar_url;
+                if (!avatar_url) {
+                    avatar_url = google_user.avatar_url;
+                }
+
+                const updated_user = await this.user_service.updateUser(user.id, {
+                    google_id: google_user.google_id,
+                    avatar_url: avatar_url,
+                });
+
+                if (!updated_user) {
+                    throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                }
+
+                return {
+                    user: updated_user,
+                    needs_completion: false,
+                };
+            }
+        }
+
+        const last_name = google_user.last_name ? google_user.last_name : '';
+        let name = google_user.first_name + ' ' + last_name;
+        name = name.trim();
+
+        // If user doesn't exist, we need to create an OAuth completion session
+        // The frontend will need to handle this by redirecting to completion flow
+        return {
+            needs_completion: true,
+            user: {
+                email: google_user.email,
+                name: name,
+                avatar_url: google_user.avatar_url,
+                google_id: google_user.google_id,
+            },
+        };
+    }
+
+    async validateFacebookUser(facebook_user: FacebookLoginDTO) {
+        let user = await this.user_service.findUserByFacebookId(facebook_user.facebook_id);
+
+        if (user) {
+            return user;
+        }
+
+        if (facebook_user.email) {
+            user = await this.user_service.findUserByEmail(facebook_user.email);
+            if (user) {
+                let avatar_url = user.avatar_url;
+                if (!avatar_url) {
+                    avatar_url = facebook_user.avatar_url;
+                }
+
+                const updated_user = await this.user_service.updateUser(user.id, {
+                    facebook_id: facebook_user.facebook_id,
+                    avatar_url: avatar_url,
+                });
+
+                if (!updated_user) {
+                    throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                }
+
+                return {
+                    user: updated_user,
+                    needs_completion: false,
+                };
+            }
+        }
+
+        const last_name = facebook_user.last_name ? facebook_user.last_name : '';
+        let name = facebook_user.first_name + ' ' + last_name;
+        name = name.trim();
+
+        return {
+            needs_completion: true,
+            user: {
+                email: facebook_user.email,
+                name: name,
+                avatar_url: facebook_user.avatar_url,
+                facebook_id: facebook_user.facebook_id,
+            },
+        };
+    }
+
+    async validateGitHubUser(github_user: GitHubUserDto) {
+        let user = await this.user_service.findUserByGithubId(github_user.github_id);
+        if (user) {
+            return user;
+        }
+
+        user = await this.user_service.findUserByEmail(github_user.email);
+        if (user) {
+            let avatar_url = user.avatar_url;
+            if (!avatar_url) {
+                avatar_url = github_user.avatar_url;
+            }
+
+            const updated_user = await this.user_service.updateUser(user.id, {
+                github_id: github_user.github_id,
+                avatar_url: avatar_url,
+            });
+
+            if (!updated_user) {
+                throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+            }
+
+            return {
+                user: updated_user,
+                needs_completion: false,
+            };
+        }
+
+        const last_name = github_user.last_name ? github_user.last_name : '';
+        let name = github_user.first_name + ' ' + last_name;
+        name = name.trim();
+
+        return {
+            needs_completion: true,
+            user: {
+                email: github_user.email,
+                name: name,
+                avatar_url: github_user.avatar_url,
+                github_id: github_user.github_id,
+            },
+        };
+    }
+
+    // ###################### MOBILE OAUTH VERIFICATION ######################    
+
+    async verifyGoogleMobileToken(access_token: string) {
+        try {
+            const client = new OAuth2Client()
+
+            // Verify the Google ID token
+            const ticket = await client.verifyIdToken({
+                idToken: access_token,
+            });
+
+            const payload = ticket.getPayload();
+            if (!payload) {
+                throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
+            }
+
+            if (!payload['email']) {
+                throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB);
+            }
+
+            const googleUser: GoogleLoginDTO = {
+                google_id: payload['sub'],
+                email: payload['email'],
+                first_name: payload['given_name'] || '',
+                last_name: payload['family_name'] || '',
+                avatar_url: payload['picture'],
+            };
+
+            return await this.validateGoogleUser(googleUser);
+        } catch (error) {
+            if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+                throw error;
+            }
+            console.error('Error verifying Google mobile token:', error);
+            throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
+        }
+    }
+
+    async verifyGitHubMobileToken(access_token: string) {
+        try {
+            // Make a request to GitHub's user API to get user info
+            const response = await fetch('https://api.github.com/user', {
+                headers: {
+                    'Authorization': `Bearer ${access_token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'YourAppName'
+                }
+            });
+
+            if (!response.ok) {
+                throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+            }
+
+            const userData = await response.json();
+
+            // Get user's primary email (GitHub doesn't always include email in user endpoint)
+            const emailResponse = await fetch('https://api.github.com/user/emails', {
+                headers: {
+                    'Authorization': `Bearer ${access_token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'YourAppName'
+                }
+            });
+
+            let email = userData.email; // This might be null
+            if (!email && emailResponse.ok) {
+                const emails = await emailResponse.json();
+                const primaryEmail = emails.find((e: any) => e.primary && e.verified);
+                email = primaryEmail?.email;
+            }
+
+            if (!email) {
+                throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB);
+            }
+
+            // Parse the name from GitHub's name field or fallback to login
+            const fullName = userData.name || userData.login || '';
+            const nameParts = fullName.trim().split(' ');
+            const first_name = nameParts[0] || '';
+            const last_name = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+            const githubUser: GitHubUserDto = {
+                github_id: userData.id.toString(),
+                email: email,
+                first_name: first_name,
+                last_name: last_name,
+                avatar_url: userData.avatar_url,
+            };
+
+            return await this.validateGitHubUser(githubUser);
+        } catch (error) {
+            if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+                throw error;
+            }
+            console.error('Error verifying GitHub mobile token:', error);
+            throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+        }
+    }
+
+    // ###################### OAUTH COMPLETION FLOW ######################
+
+    async createOAuthSession(user_data: Record<string, any>): Promise<string> {
+        const session_key = user_data.email;
+        const oauth_session_data = OAUTH_SESSION_OBJECT(session_key, user_data);
+
+        await this.redis_service.hset(
+            oauth_session_data.key,
+            oauth_session_data.value,
+            oauth_session_data.ttl
+        );
+
+        return session_key;
+    }
+
+    async oauthCompletionStep1(dto: OAuthCompletionStep1Dto) {
+        const { oauth_session_token, birth_date } = dto;
+
+        // Get OAuth session data
+        const session_data = await this.redis_service.hget(OAUTH_SESSION_KEY(oauth_session_token));
+        if (!session_data) {
+            throw new NotFoundException(ERROR_MESSAGES.INVALID_OAUTH_SESSION_TOKEN);
+        }
+
+        const user_data = JSON.parse(session_data.user_data);
+
+        // Update session with birth_date
+        const updated_session_data = OAUTH_SESSION_OBJECT(oauth_session_token, {
+            ...user_data,
+            birth_date,
+        });
+
+        await this.redis_service.hset(
+            updated_session_data.key,
+            updated_session_data.value,
+            updated_session_data.ttl
+        );
+
+        const recommendations = await this.getRecommendedUsernames(user_data.name);
+
+        return {
+            usernames: recommendations,
+            token: oauth_session_token,
+            nextStep: 'choose-username',
+        };
+    }
+
+    async oauthCompletionStep2(dto: OAuthCompletionStep2Dto) {
+        const { oauth_session_token, username } = dto;
+
+        // Get OAuth session data
+        const session_data = await this.redis_service.hget(OAUTH_SESSION_KEY(oauth_session_token));
+        if (!session_data) {
+            throw new NotFoundException(ERROR_MESSAGES.INVALID_OAUTH_SESSION_TOKEN);
+        }
+
+        const user_data = JSON.parse(session_data.user_data);
+
+        // Check if username is available
+        const is_username_available = await this.username_service.isUsernameAvailable(username);
+        if (!is_username_available) {
+            throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+        }
+
+        // Create the user
+        const user = await this.user_service.createUser({
+            email: user_data.email,
+            name: user_data.name,
+            username: username,
+            birth_date: new Date(user_data.birth_date),
+            password: '', // OAuth users don't have passwords
+            phone_number: '',
+            google_id: user_data.google_id || null,
+            facebook_id: user_data.facebook_id || null,
+            github_id: user_data.github_id || null,
+            avatar_url: user_data.avatar_url || null,
+        });
+
+        // Clean up OAuth session
+        await this.redis_service.del(OAUTH_SESSION_KEY(oauth_session_token));
+
+        // Generate tokens
+        const { access_token, refresh_token } = await this.generateTokens(user.id);
+
+        return {
+            user: instanceToPlain(user),
+            access_token,
+            refresh_token,
         };
     }
 }
