@@ -17,11 +17,11 @@ export class TweetQuote {
     @JoinColumn({ name: 'user_id' })
     user: User;
 
-    @ManyToOne(() => Tweet, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Tweet, { cascade: true, onDelete: 'CASCADE', eager: true })
     @JoinColumn({ name: 'quote_tweet_id' })
     quote_tweet: Tweet;
 
-    @ManyToOne(() => Tweet, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Tweet, { onDelete: 'CASCADE', eager: true })
     @JoinColumn({ name: 'original_tweet_id' })
     original_tweet: Tweet;
 }
