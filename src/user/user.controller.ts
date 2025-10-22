@@ -112,9 +112,9 @@ export class UserController {
   @Get(':user_id')
   async getUserById(
     @GetUserId() current_user_id: string | null,
-    @Param('user_id') user_id: string,
+    @Param('user_id') target_user_id: string,
   ) {
-    console.log(current_user_id);
+    return await this.user_service.getUserById(current_user_id, target_user_id);
   }
 
   @UseGuards(OptionalJwtAuthGuard)
@@ -123,7 +123,15 @@ export class UserController {
   @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
   @ResponseMessage(SUCCESS_MESSAGES.USER_RETRIEVED)
   @Get('by/username/:username')
-  async getUserByUsername(@Param('username') username: string) {}
+  async getUserByUsername(
+    @GetUserId() current_user_id: string | null,
+    @Param('username') target_username: string,
+  ) {
+    return await this.user_service.getUserByUsername(
+      current_user_id,
+      target_username,
+    );
+  }
 
   @UseGuards(OptionalJwtAuthGuard)
   @ApiOperation(get_followers.operation)
