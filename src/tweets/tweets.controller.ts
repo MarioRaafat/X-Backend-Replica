@@ -149,7 +149,9 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_REPOSTED)
     @Post(':id/repost')
-    async repostTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {}
+    async repostTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
+        return await this.tweets_service.repostTweet(id, user_id);
+    }
 
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation(quote_tweet_swagger.operation)
