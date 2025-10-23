@@ -18,45 +18,63 @@ describe('TweetsService', () => {
     let data_source: DataSource;
 
     beforeEach(async () => {
+        const mock_repo = (): Record<string, jest.Mock> => ({
+            create: jest.fn(),
+            save: jest.fn(),
+            findOne: jest.fn(),
+            find: jest.fn(),
+            delete: jest.fn(),
+            update: jest.fn(),
+            insert: jest.fn(),
+            increment: jest.fn(),
+            decrement: jest.fn(),
+        });
+
+        const mock_tweet_repo = mock_repo();
+        const mock_tweet_like_repo = mock_repo();
+        const mock_tweet_repost_repo = mock_repo();
+        const mock_tweet_quote_repo = mock_repo();
+        const mock_tweet_reply_repo = mock_repo();
+
+        const mock_query_runner = {
+            connect: jest.fn(),
+            startTransaction: jest.fn(),
+            commitTransaction: jest.fn(),
+            rollbackTransaction: jest.fn(),
+            release: jest.fn(),
+            manager: {
+                create: jest.fn(),
+                save: jest.fn(),
+                insert: jest.fn(),
+                delete: jest.fn(),
+                increment: jest.fn(),
+                decrement: jest.fn(),
+            },
+        };
+
+        const mock_data_source = {
+            createQueryRunner: jest.fn(() => mock_query_runner),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 TweetsService,
-                {
-                    provide: getRepositoryToken(Tweet),
-                    useClass: Repository,
-                },
-                {
-                    provide: getRepositoryToken(TweetLike),
-                    useClass: Repository,
-                },
-                {
-                    provide: getRepositoryToken(TweetRepost),
-                    useClass: Repository,
-                },
-                {
-                    provide: getRepositoryToken(TweetQuote),
-                    useClass: Repository,
-                },
-                {
-                    provide: getRepositoryToken(TweetReply),
-                    useClass: Repository,
-                },
-                {
-                    provide: DataSource,
-                    useValue: {
-                        createQueryRunner: jest.fn(),
-                    },
-                },
+                { provide: getRepositoryToken(Tweet), useValue: mock_tweet_repo },
+                { provide: getRepositoryToken(TweetLike), useValue: mock_tweet_like_repo },
+                { provide: getRepositoryToken(TweetRepost), useValue: mock_tweet_repost_repo },
+                { provide: getRepositoryToken(TweetQuote), useValue: mock_tweet_quote_repo },
+                { provide: getRepositoryToken(TweetReply), useValue: mock_tweet_reply_repo },
+                { provide: DataSource, useValue: mock_data_source },
             ],
         }).compile();
 
         tweets_service = module.get<TweetsService>(TweetsService);
-        tweet_repo = module.get<Repository<Tweet>>(getRepositoryToken(Tweet));
-        tweet_like_repo = module.get<Repository<TweetLike>>(getRepositoryToken(TweetLike));
-        tweet_repost_repo = module.get<Repository<TweetRepost>>(getRepositoryToken(TweetRepost));
-        tweet_quote_repo = module.get<Repository<TweetQuote>>(getRepositoryToken(TweetQuote));
-        tweet_reply_repo = module.get<Repository<TweetReply>>(getRepositoryToken(TweetReply));
-        data_source = module.get<DataSource>(DataSource);
+        tweet_repo = mock_tweet_repo as unknown as Repository<Tweet>;
+        tweet_like_repo = mock_tweet_like_repo as unknown as Repository<TweetLike>;
+        tweet_repost_repo = mock_tweet_repost_repo as unknown as Repository<TweetRepost>;
+        tweet_quote_repo = mock_tweet_quote_repo as unknown as Repository<TweetQuote>;
+        tweet_reply_repo = mock_tweet_reply_repo as unknown as Repository<TweetReply>;
+        data_source = mock_data_source as unknown as DataSource;
     });
 
     it('should be defined', () => {
