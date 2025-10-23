@@ -9,6 +9,10 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { SelectQueryBuilder } from 'typeorm/browser';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
 import { MutualFollowerDto } from './dto/mutual-follower.dto';
+import { GetFollowersDto } from './dto/get-followers.dto';
+import { UserListItemDto } from './dto/user-list-item.dto';
+import { PaginationParamsDto } from './dto/pagination-params.dto';
+import { UserListDto } from './dto/user-list.dto';
 
 @Injectable()
 export class UserService {
@@ -125,7 +129,7 @@ export class UserService {
         identifier: string,
         identifier_type: 'id' | 'username',
         viewer_id?: string | null
-    ) {
+    ): SelectQueryBuilder<User> {
         const query = this.user_repository
             .createQueryBuilder('user')
             .leftJoin('user_follows', 'followers', 'followers.followed_id = user.id')
@@ -216,5 +220,166 @@ export class UserService {
             .addGroupBy('user.cover_url')
             .addGroupBy('user.country')
             .addGroupBy('user.created_at');
+    }
+
+    async getFollowers(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: GetFollowersDto
+    ): Promise<UserListDto> {
+        const { page_offset, page_size } = query_dto;
+
+        const query = this.buildUserListQuery(current_user_id);
+
+        query
+            .innerJoin(
+                'user_follows',
+                'target_followers',
+                'target_followers.follower_id = "user"."id" AND target_followers.followed_id = :target_user_id'
+            )
+            .setParameter('target_user_id', target_user_id)
+            .limit(page_size)
+            .offset(page_offset);
+
+        const results = await query.getRawMany();
+
+        const users = results.map((result) =>
+            plainToInstance(UserListItemDto, result, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return { users };
+    }
+
+    async getFollowing(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: PaginationParamsDto
+    ): Promise<UserListDto> {
+        const { page_offset, page_size } = query_dto;
+
+        const query = this.buildUserListQuery(current_user_id);
+
+        query
+            .innerJoin(
+                'user_follows',
+                'target_following',
+                'target_following.follower_id = :target_user_id AND target_following.followed_id = "user"."id"'
+            )
+            .setParameter('target_user_id', target_user_id)
+            .limit(page_size)
+            .offset(page_offset);
+
+        const results = await query.getRawMany();
+
+        const users = results.map((result) =>
+            plainToInstance(UserListItemDto, result, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return { users };
+    }
+
+    async getMutedList(
+        current_user_id: string,
+        query_dto: PaginationParamsDto
+    ): Promise<UserListDto> {
+        const { page_offset, page_size } = query_dto;
+
+        const query = this.buildUserListQuery(current_user_id);
+
+        query
+            .innerJoin(
+                'user_mutes',
+                'target_muted',
+                'target_muted.muter_id = :current_user_id AND target_muted.muted_id = "user"."id"'
+            )
+            .setParameter('current_user_id', current_user_id)
+            .limit(page_size)
+            .offset(page_offset);
+
+        const results = await query.getRawMany();
+
+        const users = results.map((result) =>
+            plainToInstance(UserListItemDto, result, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return { users };
+    }
+
+    async getBlockedList(
+        current_user_id: string,
+        query_dto: PaginationParamsDto
+    ): Promise<UserListDto> {
+        const { page_offset, page_size } = query_dto;
+
+        const query = this.buildUserListQuery(current_user_id);
+
+        query
+            .innerJoin(
+                'user_blocks',
+                'target_blocked',
+                'target_blocked.blocker_id = :current_user_id AND target_blocked.blocked_id = "user"."id"'
+            )
+            .setParameter('current_user_id', current_user_id)
+            .limit(page_size)
+            .offset(page_offset);
+
+        const results = await query.getRawMany();
+
+        const users = results.map((result) =>
+            plainToInstance(UserListItemDto, result, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return { users };
+    }
+
+    private buildUserListQuery(current_user_id: string): SelectQueryBuilder<User> {
+        const query = this.user_repository
+            .createQueryBuilder('user')
+            .select([
+                '"user"."id" AS user_id',
+                'user.name AS name',
+                'user.username AS username',
+                'user.bio AS bio',
+                'user.avatar_url AS avatar_url',
+            ])
+            .addSelect(
+                `CASE WHEN EXISTS(
+                SELECT 1 FROM user_follows uf
+                WHERE uf.follower_id = :current_user_id AND uf.followed_id = "user"."id"
+              ) THEN true ELSE false END`,
+                'is_following'
+            )
+            .addSelect(
+                `CASE WHEN EXISTS(
+                SELECT 1 FROM user_follows uf
+                WHERE uf.follower_id = "user"."id" AND uf.followed_id = :current_user_id
+              ) THEN true ELSE false END`,
+                'is_follower'
+            )
+            .addSelect(
+                `CASE WHEN EXISTS(
+                SELECT 1 FROM user_mutes um
+                WHERE um.muter_id = :current_user_id AND um.muted_id = "user"."id"
+              ) THEN true ELSE false END`,
+                'is_muted'
+            )
+            .addSelect(
+                `CASE WHEN EXISTS(
+                SELECT 1 FROM user_blocks ub
+                WHERE ub.blocker_id = :current_user_id AND ub.blocked_id = "user"."id"
+              ) THEN true ELSE false END`,
+                'is_blocked'
+            )
+            .setParameter('current_user_id', current_user_id);
+
+        return query;
     }
 }

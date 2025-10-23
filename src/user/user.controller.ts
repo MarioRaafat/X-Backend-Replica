@@ -123,13 +123,21 @@ export class UserController {
         return await this.user_service.getUserByUsername(current_user_id, target_username);
     }
 
-    @UseGuards(OptionalJwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
     @ApiOperation(get_followers.operation)
     @ApiOkResponse(get_followers.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.FOLLOWERS_LIST_RETRIEVED)
     @Get(':user_id/followers')
-    async getFollowers(@Param('id') id: string, @Query() query_dto: GetFollowersDto) {}
+    async getFollowers(
+        @GetUserId() current_user_id: string,
+        @Param('user_id') target_user_id: string,
+        @Query() query_dto: GetFollowersDto
+    ) {
+        return await this.user_service.getFollowers(current_user_id, target_user_id, query_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -144,13 +152,21 @@ export class UserController {
         @GetUserId() user_id: string
     ) {}
 
-    @UseGuards(OptionalJwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
     @ApiOperation(get_following.operation)
     @ApiOkResponse(get_following.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.FOLLOWING_LIST_RETRIEVED)
     @Get(':user_id/following')
-    async getFollowing(@Param('id') id: string, @Query() query_dto: PaginationParamsDto) {}
+    async getFollowing(
+        @GetUserId() current_user_id: string,
+        @Param('user_id') target_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getFollowing(current_user_id, target_user_id, query_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -185,7 +201,9 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.MUTED_LIST_RETRIEVED)
     @Get('me/muted')
-    async getMutingList(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {}
+    async getMutedList(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {
+        return await this.user_service.getMutedList(user_id, query_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -217,7 +235,9 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.BLOCKED_LIST_RETRIEVED)
     @Get('me/blocked')
-    async getBlockingList(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {}
+    async getBlockedList(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {
+        return await this.user_service.getBlockedList(user_id, query_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')

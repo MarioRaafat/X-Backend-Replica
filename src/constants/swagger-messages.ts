@@ -134,7 +134,7 @@ export const SUCCESS_MESSAGES = {
     FOLLOW_USER: 'Followed user successfully',
     UNFOLLOW_USER: 'Unfollowed user successfully',
     MUTED_LIST_RETRIEVED: 'Muted list retrieved successfully',
-    BLOCKED_LIST_RETRIEVED: 'Muted list retrieved successfully',
+    BLOCKED_LIST_RETRIEVED: 'Blocked list retrieved successfully',
     MUTE_USER: 'Muted user successfully',
     UNMUTE_USER: 'Unmuted user successfully',
     BLOCK_USER: 'Blocked user successfully',
