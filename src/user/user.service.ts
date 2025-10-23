@@ -13,6 +13,7 @@ import { GetFollowersDto } from './dto/get-followers.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { PaginationParamsDto } from './dto/pagination-params.dto';
 import { UserListDto } from './dto/user-list.dto';
+import { promises } from 'dns';
 
 @Injectable()
 export class UserService {
@@ -226,8 +227,8 @@ export class UserService {
         current_user_id: string,
         target_user_id: string,
         query_dto: GetFollowersDto
-    ): Promise<UserListDto> {
-        const { page_offset, page_size } = query_dto;
+    ): Promise<UserListItemDto[]> {
+        const { page_offset, page_size, following } = query_dto;
 
         const query = this.buildUserListQuery(current_user_id);
 
@@ -237,9 +238,17 @@ export class UserService {
                 'target_followers',
                 'target_followers.follower_id = "user"."id" AND target_followers.followed_id = :target_user_id'
             )
-            .setParameter('target_user_id', target_user_id)
-            .limit(page_size)
-            .offset(page_offset);
+            .setParameter('target_user_id', target_user_id);
+
+        if (following === true) {
+            query.innerJoin(
+                'user_follows',
+                'current_user_following',
+                'current_user_following.follower_id = :current_user_id AND current_user_following.followed_id = "user"."id"'
+            );
+        }
+
+        query.limit(page_size).offset(page_offset);
 
         const results = await query.getRawMany();
 
@@ -249,14 +258,14 @@ export class UserService {
             })
         );
 
-        return { users };
+        return users;
     }
 
     async getFollowing(
         current_user_id: string,
         target_user_id: string,
         query_dto: PaginationParamsDto
-    ): Promise<UserListDto> {
+    ): Promise<UserListItemDto[]> {
         const { page_offset, page_size } = query_dto;
 
         const query = this.buildUserListQuery(current_user_id);
@@ -279,13 +288,13 @@ export class UserService {
             })
         );
 
-        return { users };
+        return users;
     }
 
     async getMutedList(
         current_user_id: string,
         query_dto: PaginationParamsDto
-    ): Promise<UserListDto> {
+    ): Promise<UserListItemDto[]> {
         const { page_offset, page_size } = query_dto;
 
         const query = this.buildUserListQuery(current_user_id);
@@ -308,13 +317,13 @@ export class UserService {
             })
         );
 
-        return { users };
+        return users;
     }
 
     async getBlockedList(
         current_user_id: string,
         query_dto: PaginationParamsDto
-    ): Promise<UserListDto> {
+    ): Promise<UserListItemDto[]> {
         const { page_offset, page_size } = query_dto;
 
         const query = this.buildUserListQuery(current_user_id);
@@ -337,7 +346,7 @@ export class UserService {
             })
         );
 
-        return { users };
+        return users;
     }
 
     private buildUserListQuery(current_user_id: string): SelectQueryBuilder<User> {
