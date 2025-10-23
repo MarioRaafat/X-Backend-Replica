@@ -1,5 +1,45 @@
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
+// OAuth Response Constants
+const getOAuthResponseDescription = (provider: 'Google' | 'GitHub' | 'Facebook') => `
+**Two Possible Responses:**
+1. **Existing User**: ${provider} account linked to existing user - Returns user data with access_token and refresh_token (direct login)
+2. **New User**: New ${provider} account - Returns session_token requiring OAuth completion flow (birth date + username)
+`;
+
+const OAUTH_RESPONSE_EXISTING_USER = {
+    description: 'Existing user - successfully logged in',
+    example: {
+        data: {
+            user: {
+                id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
+                email: 'lionel_messi10@gmail.com',
+                name: 'Messi 3amk',
+                username: 'lionel_messi',
+                birth_date: '1987-06-24',
+                avatar_url: 'https://media.cnn.com/api/v1/images/stellar/prod/221218184732-messi-wc-trophy.jpg?c=16x9&q=h_833,w_1480,c_fill',
+            },
+            access_token: 'messi doesn\'t need a token to be authenticated bro',
+            refresh_token: 'suiiiiiiiiiiiiiiii',
+        },
+        count: 1,
+        message: SUCCESS_MESSAGES.LOGGED_IN,
+    },
+};
+
+const getOAuthResponseNewUser = (provider: 'google' | 'github' | 'facebook') => ({
+    description: 'New user - needs to complete registration',
+    example: {
+        data: {
+            needs_completion: true,
+            session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+            provider: provider,
+        },
+        count: 1,
+        message: SUCCESS_MESSAGES.LOGGED_IN,
+    },
+});
+
 export const signup_step1_swagger = {
     operation: {
         summary: 'Signup Step 1 - Submit basic information',
@@ -271,6 +311,8 @@ export const google_oauth_swagger = {
       - System creates/finds user account and generates JWT tokens
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
+
+${getOAuthResponseDescription('Google')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -309,34 +351,31 @@ export const google_mobile_swagger = {
     operation: {
         summary: 'Mobile Google OAuth Authentication',
         description: `
-            **Mobile Google OAuth Flow**
+**Mobile Google OAuth Flow**
 
-            This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView.
+This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView.
 
-            **How it works:**
-            1. Mobile app obtains Google access token through native OAuth flow
-            2. Mobile app sends the token to this endpoint
-            3. Backend verifies the token with Google's API
-            4. If valid, returns user data and access/refresh tokens
+**How it works:**
+- Mobile app obtains Google ID token through native OAuth flow
+- Mobile app sends the token to this endpoint
+- Backend verifies the token with Google's API
+- Returns user data and JWT tokens (or session token for new users)
 
-            **For web applications, use:** \`GET /auth/google\` instead
-                    `,
+${getOAuthResponseDescription('Google')}
+
+**For web applications, use:** \`GET /auth/google\` instead
+        `,
     },
 
     responses: {
         success: {
-            description: 'Google authentication successful',
+            description: 'Google authentication successful - User logged in or needs completion',
             schema: {
-                example: {
-                    data: {
-                        needs_completion: true,
-                        session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-                        provider: 'google',
-                    },
-                    count: 1,
-                    message: 'Logged in Successfully!',
-                },
-            },        
+                oneOf: [
+                    OAUTH_RESPONSE_EXISTING_USER,
+                    getOAuthResponseNewUser('google'),
+                ],
+            },
         }
     },
 };
@@ -424,6 +463,8 @@ export const facebook_oauth_swagger = {
       - System creates/finds user account and generates JWT tokens
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
+
+${getOAuthResponseDescription('Facebook')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -541,6 +582,8 @@ export const github_oauth_swagger = {
       - System creates/finds user account and generates JWT tokens
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
+
+${getOAuthResponseDescription('GitHub')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -578,35 +621,40 @@ export const github_mobile_swagger = {
     operation: {
         summary: 'Mobile GitHub OAuth Authentication',
         description: `
-            **Mobile GitHub OAuth Flow**
+**Mobile GitHub OAuth Flow with PKCE Support**
 
-            This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView.
+This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView with PKCE (Proof Key for Code Exchange) security.
 
-            **How it works:**
-            1. Mobile app obtains GitHub access token through native OAuth flow
-            2. Mobile app sends the token to this endpoint
-            3. Backend verifies the token with GitHub's API
-            4. If valid, returns user data and access/refresh tokens
+**How it works:**
+- Mobile app generates PKCE \`code_verifier\` and \`code_challenge\` pair
+- App opens GitHub authorization with \`code_challenge\`
+- User authorizes and GitHub returns authorization \`code\`
+- App sends \`code\`, \`redirect_uri\`, and \`code_verifier\` to this endpoint
+- Backend exchanges code for access token using PKCE verification
+- Backend validates token with GitHub API
+- Returns user data and JWT tokens (or session token for new users)
 
-            **For web applications, use:** \`GET /auth/github\` instead
-                    `,
+${getOAuthResponseDescription('GitHub')}
+
+**Important Notes:**
+- PKCE \`code_verifier\` is **required** for mobile OAuth flows
+- Authorization codes are **single-use** and expire quickly (~10 minutes)
+- The \`redirect_uri\` must **exactly match** your GitHub OAuth App configuration
+
+**For web applications, use:** \`GET /auth/github\` instead
+        `,
     },
 
     responses: {
         success: {
-            description: 'GitHub authentication successful',
+            description: 'GitHub authentication successful - User logged in or needs completion',
             schema: {
-                example: {
-                    data: {
-                        needs_completion: true,
-                        session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-                        provider: 'github',
-                    },
-                    count: 1,
-                    message: 'Logged in Successfully!',
-                },
-            },        
-        }
+                oneOf: [
+                    OAUTH_RESPONSE_EXISTING_USER,
+                    getOAuthResponseNewUser('github'),
+                ],
+            },
+        },
     },
 };
 
@@ -980,6 +1028,7 @@ Check if an email, phone number, or username already exists in the database.
                 example: {
                     data: {
                         identifier_type: 'email',
+                        user_id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.IDENTIFIER_AVAILABLE,

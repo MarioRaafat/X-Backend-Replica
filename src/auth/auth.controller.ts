@@ -202,11 +202,9 @@ export class AuthController {
     @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_RESET_OTP_SENT)
     @Post('forget-password')
     async forgetPassword(@Body() body: ForgetPasswordDto) {
-        return this.auth_service.sendResetPasswordEmail(body.email);
+        return this.auth_service.sendResetPasswordEmail(body.identifier);
     }
 
-    @ApiBearerAuth('JWT-auth')
-    @UseGuards(JwtAuthGuard)
     @ApiOperation(verify_reset_otp_swagger.operation)
     @ApiBody({ type: VerifyPasswordResetOtpDto })
     @ApiOkResponse(verify_reset_otp_swagger.responses.success)
@@ -216,10 +214,9 @@ export class AuthController {
     @Post('password/verify-otp')
     async verifyResetPasswordOtp(
         @Body() verifyPasswordResetOtpDto: VerifyPasswordResetOtpDto,
-        @GetUserId() user_id: string
     ) {
-        const { token } = verifyPasswordResetOtpDto;
-        return this.auth_service.verifyResetPasswordOtp(user_id, token);
+        const { token, identifier } = verifyPasswordResetOtpDto;
+        return this.auth_service.verifyResetPasswordOtp(identifier, token);
     }
 
     @ApiBearerAuth('JWT-auth')
@@ -232,9 +229,9 @@ export class AuthController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_RESET)
     @Post('reset-password')
-    async resetPassword(@GetUserId() user_id: string, @Body() body: ResetPasswordDto) {
-        const { new_password, reset_token } = body;
-        return this.auth_service.resetPassword(user_id, new_password, reset_token);
+    async resetPassword(@Body() body: ResetPasswordDto) {
+        const { new_password, reset_token, identifier } = body;
+        return this.auth_service.resetPassword(identifier, new_password, reset_token);
     }
 
     @ApiBearerAuth('JWT-auth')
@@ -512,7 +509,7 @@ export class AuthController {
         @Body() dto: MobileGitHubAuthDto,
         @Res({ passthrough: true }) response: Response
     ) {
-        const result = await this.auth_service.verifyGitHubMobileToken(dto.access_token);
+        const result = await this.auth_service.verifyGitHubMobileToken(dto.code, dto.redirect_uri, dto.code_verifier);
 
         if ('needs_completion' in result && result.needs_completion) {
             const sessionToken = await this.auth_service.createOAuthSession(result.user);

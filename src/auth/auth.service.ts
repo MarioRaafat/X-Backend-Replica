@@ -47,6 +47,7 @@ import {
 } from 'src/constants/redis';
 import { StringValue } from 'ms'; // Add this import
 import { OAuth2Client } from 'google-auth-library';
+import axios from 'axios';
 
 @Injectable()
 export class AuthService {
@@ -289,6 +290,7 @@ export class AuthService {
 
         return {
             identifier_type: identifier_type,
+            user_id: user.id,
         };
     }
 
@@ -345,8 +347,9 @@ export class AuthService {
         return { isEmailSent: true };
     }
 
-    async sendResetPasswordEmail(email: string) {
-        const user = await this.user_service.findUserByEmail(email);
+    async sendResetPasswordEmail(identifier: string) {
+        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
+        const user = await this.user_service.findUserById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -367,7 +370,7 @@ export class AuthService {
 
         const email_sent = await this.email_service.sendEmail({
             subject: subject,
-            recipients: [{ name: user.name ?? '', address: email }],
+            recipients: [{ name: user.name ?? '', address: user.email }],
             html,
         });
 
@@ -378,7 +381,8 @@ export class AuthService {
         return { isEmailSent: true };
     }
 
-    async verifyResetPasswordOtp(user_id: string, token: string) {
+    async verifyResetPasswordOtp(identifier: string, token: string) {
+        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
         const is_valid = await this.verification_service.validateOtp(user_id, token, 'password');
 
         if (!is_valid) {
@@ -418,7 +422,8 @@ export class AuthService {
         return {};
     }
 
-    async resetPassword(user_id: string, new_password: string, token: string) {
+    async resetPassword(identifier: string, new_password: string, token: string) {
+        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
         const token_data = await this.verification_service.validatePasswordResetToken(token);
 
         if (!token_data) {
@@ -827,9 +832,63 @@ export class AuthService {
         }
     }
 
-    async verifyGitHubMobileToken(access_token: string) {
+    async getGitHubAccessToken (code: string, redirectUri: string, codeVerifier: string) {
+        const github_mobile_client_id = this.config_service.get<string>('GITHUB_MOBILE_CLIENT_ID');
+        const github_mobile_client_secret = this.config_service.get<string>('GITHUB_MOBILE_CLIENT_SECRET');
+
         try {
-            // Make a request to GitHub's user API to get user info
+            const requestBody: any = {
+                client_id: github_mobile_client_id,
+                client_secret: github_mobile_client_secret,
+                code,
+                redirect_uri: redirectUri,
+                code_verifier: codeVerifier,
+            };
+
+            const tokenResponse = await axios.post(
+                'https://github.com/login/oauth/access_token',
+                requestBody,
+                { headers: { Accept: 'application/json' } }
+            );
+
+            // Check for error response
+            if (tokenResponse.data.error) {
+                console.error('GitHub OAuth Error:', {
+                    error: tokenResponse.data.error,
+                    description: tokenResponse.data.error_description,
+                    uri: tokenResponse.data.error_uri,
+                });
+                
+                if (tokenResponse.data.error === 'bad_verification_code') {
+                    throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_CODE_INVALID);
+                }
+                
+                if (tokenResponse.data.error === 'invalid_grant') {
+                    throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_CODE_VERIFIER_REQUIRED);
+                }
+                
+                throw new UnauthorizedException(`GitHub OAuth error: ${tokenResponse.data.error_description}`);
+            }
+
+            const { access_token } = tokenResponse.data;
+            if (!access_token) {
+                throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+            }
+            
+            return access_token;
+        } catch (error) {
+            if (error instanceof UnauthorizedException) {
+                throw error;
+            }
+            
+            console.error('GitHub token exchange failed:', error.response?.data || error.message);
+            throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_OAUTH_FAILED);
+        }
+    }
+
+    async verifyGitHubMobileToken(code: string, redirectUri: string, codeVerifier: string) {
+        try {
+            const access_token = await this.getGitHubAccessToken(code, redirectUri, codeVerifier);
             const response = await fetch('https://api.github.com/user', {
                 headers: {
                     'Authorization': `Bearer ${access_token}`,
@@ -839,6 +898,7 @@ export class AuthService {
             });
 
             if (!response.ok) {
+                console.error('GitHub user fetch failed:', await response.text());
                 throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
             }
 

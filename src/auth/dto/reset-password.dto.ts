@@ -25,4 +25,13 @@ export class ResetPasswordDto {
             'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',
     })
     new_password: string;
+
+    @ApiProperty({
+        description: 'The identifier (email or username) of the user resetting the password',
+        example: 'lionel_messi10@gmail.com',
+        type: String,
+    })
+    @IsString({ message: 'Identifier must be a string' })
+    @IsNotEmpty({ message: 'Identifier is required' })
+    identifier: string;
 }
