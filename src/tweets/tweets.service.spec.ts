@@ -17,6 +17,7 @@ describe('TweetsService', () => {
     let tweet_quote_repo: Repository<TweetQuote>;
     let tweet_reply_repo: Repository<TweetReply>;
     let data_source: DataSource;
+    let mock_query_runner: any;
 
     beforeEach(async () => {
         const mock_repo = (): Record<string, jest.Mock> => ({
@@ -38,7 +39,7 @@ describe('TweetsService', () => {
         const mock_tweet_quote_repo = mock_repo();
         const mock_tweet_reply_repo = mock_repo();
 
-        const mock_query_runner = {
+        mock_query_runner = {
             connect: jest.fn(),
             startTransaction: jest.fn(),
             commitTransaction: jest.fn(),
@@ -352,6 +353,87 @@ describe('TweetsService', () => {
                 where: { tweet_id: mock_tweet_id },
                 relations: ['user'],
             });
+        });
+    });
+
+    describe('likeTweet', () => {
+        it('should create a new like, insert it, increment num_likes, and commit the transaction', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-456';
+            const mock_new_like = {
+                tweet: { tweet_id: mock_tweet_id },
+                user: { id: mock_user_id },
+            };
+
+            const create_spy = jest
+                .spyOn(mock_query_runner.manager, 'create')
+                .mockReturnValue(mock_new_like);
+            const insert_spy = jest
+                .spyOn(mock_query_runner.manager, 'insert')
+                .mockResolvedValue({} as any);
+            const increment_spy = jest
+                .spyOn(mock_query_runner.manager, 'increment')
+                .mockResolvedValue({} as any);
+            const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
+
+            await tweets_service.likeTweet(mock_tweet_id, mock_user_id);
+
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.startTransaction).toHaveBeenCalled();
+            expect(create_spy).toHaveBeenCalledWith(expect.any(Function), mock_new_like);
+            expect(insert_spy).toHaveBeenCalledWith(expect.any(Function), mock_new_like);
+            expect(increment_spy).toHaveBeenCalledWith(
+                expect.any(Function),
+                { tweet_id: mock_tweet_id },
+                'num_likes',
+                1
+            );
+            expect(commit_spy).toHaveBeenCalled();
+        });
+
+        it('should rollback and throw NotFoundException if tweet does not exist (foreign key error)', async () => {
+            const mock_tweet_id = 'missing-tweet';
+            const mock_user_id = 'user-123';
+            const mock_error = { code: '23503' }; // PostgresErrorCodes.FOREIGN_KEY_VIOLATION
+
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(mock_error);
+
+            await expect(tweets_service.likeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback and throw BadRequestException if user already liked the tweet (unique constraint)', async () => {
+            const mock_tweet_id = 'tweet-321';
+            const mock_user_id = 'user-999';
+            const mock_error = { code: '23505' }; // PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION
+
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(mock_error);
+
+            await expect(tweets_service.likeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'User already liked this tweet'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback and rethrow unexpected errors', async () => {
+            const mock_tweet_id = 'tweet-err';
+            const mock_user_id = 'user-err';
+            const db_error = new Error('Database crashed');
+
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(db_error);
+
+            await expect(tweets_service.likeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Database crashed'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
     });
 });
