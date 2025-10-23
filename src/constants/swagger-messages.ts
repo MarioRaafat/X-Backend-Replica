@@ -181,4 +181,5 @@ export const SUCCESS_MESSAGES = {
     TWEET_UNLIKED: 'Tweet unliked successfully',
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
+    TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
 } as const;

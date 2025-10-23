@@ -12,3 +12,4 @@ export { UserResponseDTO } from './user-response.dto';
 export { TweetResponseDTO } from './tweet-response.dto';
 export { TweetsListResponseDTO } from './tweets-list-response.dto';
 export { TweetLikesResponseDTO } from './tweet-likes-response.dto';
+export { PaginatedTweetsResponseDTO } from './paginated-tweets-response.dto';

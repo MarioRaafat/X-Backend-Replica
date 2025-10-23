@@ -61,6 +61,12 @@ export class TweetResponseDTO {
     reposts_count: number;
 
     @ApiProperty({
+        description: 'Number of views',
+        example: 1250,
+    })
+    views_count: number;
+
+    @ApiProperty({
         description: 'Number of quotes',
         example: 8,
     })

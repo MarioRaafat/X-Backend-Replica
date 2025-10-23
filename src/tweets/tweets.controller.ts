@@ -31,6 +31,7 @@ import { UpdateTweetDTO } from './dto/update-tweet.dto';
 import { UpdateTweetWithQuoteDTO } from './dto/update-tweet-with-quote.dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
+import { PaginatedTweetsResponseDTO } from './dto/paginated-tweets-response.dto';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { GetUserId } from '../decorators/get-userId.decorator';
@@ -52,6 +53,7 @@ import {
     like_tweet_swagger,
     quote_tweet_swagger,
     repost_tweet_swagger,
+    track_tweet_view_swagger,
     unlike_tweet_swagger,
     update_quote_tweet_swagger,
     update_tweet_swagger,
@@ -80,7 +82,10 @@ export class TweetsController {
     }
 
     @ApiOperation(get_all_tweets_swagger.operation)
-    @ApiOkResponse(get_all_tweets_swagger.responses.success)
+    @ApiOkResponse({
+        description: 'Tweets retrieved successfully with pagination metadata',
+        type: PaginatedTweetsResponseDTO,
+    })
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEETS_RETRIEVED)
@@ -252,5 +257,18 @@ export class TweetsController {
         }
 
         return this.tweets_service.uploadVideo(file, user_id);
+    }
+
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation(track_tweet_view_swagger.operation)
+    @ApiParam(track_tweet_view_swagger.param)
+    @ApiOkResponse(track_tweet_view_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_VIEW_TRACKED)
+    @Post(':id/view')
+    async trackTweetView(@Param('id', ParseUUIDPipe) id: string, @GetUserId() _user_id: string) {
+        return await this.tweets_service.incrementTweetViews(id);
     }
 }

@@ -29,6 +29,7 @@ export const create_tweet_swagger = {
                         videos: ['https://cdn.app.com/tweets/video1.mp4'],
                         num_likes: 0,
                         num_reposts: 0,
+                        num_views: 0,
                         created_at: '2025-10-23T12:00:00Z',
                         updated_at: '2025-10-23T12:00:00Z',
                         user: {
@@ -48,9 +49,19 @@ export const create_tweet_swagger = {
 
 export const get_all_tweets_swagger = {
     operation: {
-        summary: 'Get all tweets',
+        summary: 'Get all tweets with cursor pagination',
         description:
-            'Retrieves all tweets with cursor-based pagination. Optionally filter by user_id to get tweets from a specific user.',
+            'Retrieves tweets with cursor-based pagination. Optionally filter by user_id to get tweets from a specific user.\n\n' +
+            '**Pagination Flow:**\n' +
+            '1. First request: GET /tweets?limit=20\n' +
+            '2. Response includes `next_cursor` (format: "timestamp_tweetId")\n' +
+            '3. Next page: GET /tweets?cursor={next_cursor}&limit=20\n' +
+            '4. Repeat until `has_more` is false\n\n' +
+            '**Response fields:**\n' +
+            '- `data`: Array of tweets\n' +
+            '- `count`: Total count of all tweets\n' +
+            '- `next_cursor`: Pass this to the cursor parameter for the next page (null if no more pages)\n' +
+            '- `has_more`: Boolean indicating if more tweets are available',
     },
 
     queries: {
@@ -65,8 +76,9 @@ export const get_all_tweets_swagger = {
             name: 'cursor',
             required: false,
             type: String,
-            description: 'Cursor for pagination (tweet ID to start from)',
-            example: UUID_EXAMPLE,
+            description:
+                'Cursor for pagination. Format: timestamp_tweetId. Use next_cursor from previous response.',
+            example: '2025-10-23T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
         },
         limit: {
             name: 'limit',
@@ -79,11 +91,32 @@ export const get_all_tweets_swagger = {
 
     responses: {
         success: {
-            description: 'Tweets retrieved successfully',
+            description: 'Tweets retrieved successfully with pagination metadata',
             schema: {
                 example: {
-                    data: [],
-                    count: 0,
+                    data: [
+                        {
+                            tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            content: 'This is my first tweet!',
+                            images: ['https://cdn.app.com/tweets/image1.jpg'],
+                            videos: [],
+                            num_likes: 42,
+                            num_reposts: 15,
+                            num_views: 1250,
+                            created_at: '2025-10-23T12:00:00Z',
+                            updated_at: '2025-10-23T12:00:00Z',
+                            user: {
+                                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                                name: 'John Doe',
+                                username: 'johndoe',
+                                avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                            },
+                        },
+                    ],
+                    count: 100,
+                    next_cursor: '2025-10-23T11:59:00.000Z_550e8400-e29b-41d4-a716-446655440001',
+                    has_more: true,
                     message: SUCCESS_MESSAGES.TWEETS_RETRIEVED,
                 },
             },
@@ -120,6 +153,7 @@ export const get_tweet_by_id_swagger = {
                         videos: ['https://cdn.app.com/tweets/video1.mp4'],
                         num_likes: 42,
                         num_reposts: 15,
+                        num_views: 1250,
                         created_at: '2025-10-23T12:00:00Z',
                         updated_at: '2025-10-23T12:00:00Z',
                         user: {
@@ -168,6 +202,7 @@ export const update_tweet_swagger = {
                         videos: [],
                         num_likes: 42,
                         num_reposts: 15,
+                        num_views: 1250,
                         created_at: '2025-10-23T12:00:00Z',
                         updated_at: '2025-10-23T15:30:00Z',
                         user: {
@@ -464,6 +499,36 @@ export const upload_video_swagger = {
                     },
                     count: 1,
                     message: 'Video uploaded successfully',
+                },
+            },
+        },
+    },
+};
+
+export const track_tweet_view_swagger = {
+    operation: {
+        summary: 'Track a tweet view',
+        description:
+            'Increments the view count for a specific tweet. This should be called when a user views a tweet. Tweet ID is from URL param, user ID is from JWT token.',
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'Tweet ID (UUID format)',
+        example: UUID_EXAMPLE,
+    },
+
+    responses: {
+        success: {
+            description: 'Tweet view tracked successfully',
+            schema: {
+                example: {
+                    data: {
+                        success: true,
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.TWEET_VIEW_TRACKED,
                 },
             },
         },

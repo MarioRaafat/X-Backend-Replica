@@ -253,6 +253,7 @@ export class TweetsService {
             .createQueryBuilder('tweet')
             .leftJoinAndSelect('tweet.user', 'user')
             .orderBy('tweet.created_at', 'DESC')
+            .addOrderBy('tweet.tweet_id', 'DESC')
             .take(limit);
 
         // Filter by user_id if provided
@@ -260,14 +261,49 @@ export class TweetsService {
             query_builder.andWhere('tweet.user_id = :user_id', { user_id });
         }
 
-        // Cursor-based pagination
+        // Cursor-based pagination using created_at timestamp
         if (cursor) {
-            query_builder.andWhere('tweet.tweet_id < :cursor', { cursor });
+            // Cursor should be in format: timestamp_tweetId (e.g., "2025-10-23T12:00:00.000Z_uuid")
+            const [cursor_timestamp, cursor_id] = cursor.split('_');
+            if (cursor_timestamp && cursor_id) {
+                query_builder.andWhere(
+                    '(tweet.created_at < :cursor_timestamp OR (tweet.created_at = :cursor_timestamp AND tweet.tweet_id < :cursor_id))',
+                    { cursor_timestamp, cursor_id }
+                );
+            }
         }
 
         const tweets = await query_builder.getMany();
         const total = await query_builder.getCount();
 
-        return { data: tweets, count: total };
+        // Generate next_cursor from the last tweet
+        const next_cursor =
+            tweets.length > 0
+                ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
+                : null;
+
+        return {
+            data: tweets,
+            count: total,
+            next_cursor,
+            has_more: tweets.length === limit,
+        };
+    }
+
+    async incrementTweetViews(tweet_id: string) {
+        try {
+            const tweet = await this.tweet_repository.findOne({
+                where: { tweet_id },
+            });
+
+            if (!tweet) throw new NotFoundException('Tweet not found');
+
+            await this.tweet_repository.increment({ tweet_id }, 'num_views', 1);
+
+            return { success: true };
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
     }
 }

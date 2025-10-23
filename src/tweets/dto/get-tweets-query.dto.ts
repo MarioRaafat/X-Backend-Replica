@@ -13,8 +13,9 @@ export class GetTweetsQueryDto {
     user_id?: string;
 
     @ApiProperty({
-        description: 'Cursor for pagination (tweet ID to start from)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
+        description:
+            'Cursor for pagination. Format: timestamp_tweetId (e.g., "2025-10-23T12:00:00.000Z_uuid"). Use the next_cursor from the previous response.',
+        example: '2025-10-23T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
         required: false,
     })
     @IsOptional()
