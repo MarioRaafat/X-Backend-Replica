@@ -4,6 +4,7 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { PaginationParamsDto } from './dto/pagination-params.dto';
 
 @Injectable()
 export class UserService {
@@ -37,9 +38,9 @@ export class UserService {
         return await this.user_repository.findOne({ where: { phone_number: phone_number } });
     }
 
-    async createUser(createUserDto: CreateUserDto): Promise<User> {
+    async createUser(create_user_dto: CreateUserDto): Promise<User> {
         const user = new User({
-            ...createUserDto,
+            ...create_user_dto,
         });
         return await this.user_repository.save(user);
     }

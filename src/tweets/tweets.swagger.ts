@@ -31,6 +31,12 @@ export const create_tweet_swagger = {
                         num_reposts: 0,
                         created_at: '2025-10-23T12:00:00Z',
                         updated_at: '2025-10-23T12:00:00Z',
+                        user: {
+                            id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            name: 'John Doe',
+                            username: 'johndoe',
+                            avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                        },
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.TWEET_CREATED,
@@ -43,22 +49,30 @@ export const create_tweet_swagger = {
 export const get_all_tweets_swagger = {
     operation: {
         summary: 'Get all tweets',
-        description: 'Retrieves all tweets with pagination support.',
+        description:
+            'Retrieves all tweets with cursor-based pagination. Optionally filter by user_id to get tweets from a specific user.',
     },
 
     queries: {
-        page: {
-            name: 'page',
+        user_id: {
+            name: 'user_id',
             required: false,
-            type: Number,
-            description: 'Page number (default: 1)',
-            example: 1,
+            type: String,
+            description: 'Filter tweets by user ID (UUID format)',
+            example: UUID_EXAMPLE,
+        },
+        cursor: {
+            name: 'cursor',
+            required: false,
+            type: String,
+            description: 'Cursor for pagination (tweet ID to start from)',
+            example: UUID_EXAMPLE,
         },
         limit: {
             name: 'limit',
             required: false,
             type: Number,
-            description: 'Number of items per page (default: 20)',
+            description: 'Number of tweets to return (default: 20)',
             example: 20,
         },
     },
@@ -108,6 +122,12 @@ export const get_tweet_by_id_swagger = {
                         num_reposts: 15,
                         created_at: '2025-10-23T12:00:00Z',
                         updated_at: '2025-10-23T12:00:00Z',
+                        user: {
+                            id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            name: 'John Doe',
+                            username: 'johndoe',
+                            avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                        },
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.TWEET_RETRIEVED,
@@ -150,6 +170,12 @@ export const update_tweet_swagger = {
                         num_reposts: 15,
                         created_at: '2025-10-23T12:00:00Z',
                         updated_at: '2025-10-23T15:30:00Z',
+                        user: {
+                            id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            name: 'John Doe',
+                            username: 'johndoe',
+                            avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                        },
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.TWEET_UPDATED,

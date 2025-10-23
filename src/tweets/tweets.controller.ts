@@ -75,10 +75,7 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_CREATED)
     @Post()
-    async createTweet(
-        @Body() create_tweet_dto: CreateTweetDTO,
-        @GetUserId() user_id: string,
-    ) {
+    async createTweet(@Body() create_tweet_dto: CreateTweetDTO, @GetUserId() user_id: string) {
         return await this.tweets_service.createTweet(create_tweet_dto, user_id);
     }
 
@@ -88,7 +85,9 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEETS_RETRIEVED)
     @Get()
-    async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id: string) {}
+    async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id: string) {
+        return await this.tweets_service.getAllTweets(query);
+    }
 
     @ApiOperation(get_tweet_by_id_swagger.operation)
     @ApiParam(get_tweet_by_id_swagger.param)
@@ -98,10 +97,7 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_RETRIEVED)
     @Get(':id')
-    async getTweetById(
-        @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() user_id: string,
-    ) {
+    async getTweetById(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
         return await this.tweets_service.getTweetById(id);
     }
 
@@ -116,9 +112,9 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_UPDATED)
     @Patch(':id')
     async updateTweet(
-        @Param('id', new ParseUUIDPipe({ version: "4" })) id: string,
+        @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
         @Body() update_tweet_dto: UpdateTweetDTO,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {
         return await this.tweets_service.updateTweet(update_tweet_dto, id);
     }
@@ -133,10 +129,7 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_DELETED)
     @Delete(':id')
-    async deleteTweet(
-        @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() user_id: string,
-    ) {
+    async deleteTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
         return await this.tweets_service.deleteTweet(id);
     }
 
@@ -166,7 +159,7 @@ export class TweetsController {
     async quoteTweet(
         @Param('id', ParseUUIDPipe) id: string,
         @Body() create_quote_dto: CreateTweetDTO,
-        @GetUserId() user_id: string,
+        @GetUserId() user_id: string
     ) {
         return await this.tweets_service.repostTweetWithQuote(id, user_id, create_quote_dto);
     }
@@ -180,10 +173,7 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_LIKED)
     @Post(':id/like')
-    async likeTweet(
-        @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() user_id: string,
-    ) {
+    async likeTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
         return await this.tweets_service.likeTweet(id, user_id);
     }
 
@@ -196,10 +186,7 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_UNLIKED)
     @Delete(':id/like')
-    async unlikeTweet(
-        @Param('id', ParseUUIDPipe) id: string,
-        @GetUserId() user_id: string,
-    ) {
+    async unlikeTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
         return await this.tweets_service.unLikeTweet(id, user_id);
     }
 

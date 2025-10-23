@@ -3,6 +3,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import { CreateTweetDTO, UpdateTweetDTO } from './dto';
+import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
 import { PostgresErrorCodes } from './enums/postgres-error-codes';
 import { Tweet } from './entities/tweet.entity';
 import { TweetLike } from './entities/tweet-like.entity';
@@ -80,7 +81,13 @@ export class TweetsService {
                 ...tweet,
             });
             await this.tweet_repository.save(new_tweet);
-            return new_tweet;
+            // Fetch the tweet with user relation to return complete data
+            const tweet_with_user = await this.tweet_repository.findOne({
+                where: { tweet_id: new_tweet.tweet_id },
+                relations: ['user'],
+            });
+            if (!tweet_with_user) throw new NotFoundException('Tweet not found after creation');
+            return tweet_with_user;
         } catch (error) {
             console.error(error);
             throw error;
@@ -95,7 +102,13 @@ export class TweetsService {
             });
             if (!updated_tweet) throw new NotFoundException('Tweet not found');
             await this.tweet_repository.save(updated_tweet);
-            return updated_tweet;
+            // Fetch the tweet with user relation to return complete data
+            const tweet_with_user = await this.tweet_repository.findOne({
+                where: { tweet_id },
+                relations: ['user'],
+            });
+            if (!tweet_with_user) throw new NotFoundException('Tweet not found after update');
+            return tweet_with_user;
         } catch (error) {
             console.error(error);
             throw error;
@@ -116,7 +129,10 @@ export class TweetsService {
 
     async getTweetById(tweet_id: string): Promise<Tweet> {
         try {
-            const tweet = await this.tweet_repository.findOne({ where: { tweet_id } });
+            const tweet = await this.tweet_repository.findOne({
+                where: { tweet_id },
+                relations: ['user'],
+            });
             if (!tweet) throw new NotFoundException('Tweet Not Found');
             return tweet;
         } catch (error) {
@@ -214,5 +230,44 @@ export class TweetsService {
             await query_runner.rollbackTransaction();
             throw error;
         }
+    }
+
+    async getTweetsByUserId(user_id: string, page_offset: number = 1, page_size: number = 10) {
+        const skip = (page_offset - 1) * page_size;
+
+        const [tweets, total] = await this.tweet_repository.findAndCount({
+            where: { user_id },
+            relations: ['user'],
+            order: { created_at: 'DESC' },
+            skip,
+            take: page_size,
+        });
+
+        return { data: tweets, count: total };
+    }
+
+    async getAllTweets(query_dto: GetTweetsQueryDto) {
+        const { user_id, cursor, limit = 20 } = query_dto;
+
+        const query_builder = this.tweet_repository
+            .createQueryBuilder('tweet')
+            .leftJoinAndSelect('tweet.user', 'user')
+            .orderBy('tweet.created_at', 'DESC')
+            .take(limit);
+
+        // Filter by user_id if provided
+        if (user_id) {
+            query_builder.andWhere('tweet.user_id = :user_id', { user_id });
+        }
+
+        // Cursor-based pagination
+        if (cursor) {
+            query_builder.andWhere('tweet.tweet_id < :cursor', { cursor });
+        }
+
+        const tweets = await query_builder.getMany();
+        const total = await query_builder.getCount();
+
+        return { data: tweets, count: total };
     }
 }
