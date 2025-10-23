@@ -300,4 +300,58 @@ describe('TweetsService', () => {
             expect(delete_spy3).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
         });
     });
+
+    describe('getTweetById', () => {
+        it('should return the tweet with user relation when found', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_tweet = {
+                tweet_id: mock_tweet_id,
+                content: 'Hello world!',
+                user: { id: 'user-1', username: 'John' },
+            };
+
+            const find_one_spy = jest
+                .spyOn(tweet_repo, 'findOne')
+                .mockResolvedValue(mock_tweet as any);
+
+            const result = await tweets_service.getTweetById(mock_tweet_id);
+
+            expect(find_one_spy).toHaveBeenCalledWith({
+                where: { tweet_id: mock_tweet_id },
+                relations: ['user'],
+            });
+            expect(result).toEqual(mock_tweet);
+        });
+
+        it('should throw NotFoundException if tweet not found', async () => {
+            const mock_tweet_id = 'missing-tweet';
+
+            const find_one_spy2 = jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null as any);
+
+            await expect(tweets_service.getTweetById(mock_tweet_id)).rejects.toThrow(
+                'Tweet Not Found'
+            );
+
+            expect(find_one_spy2).toHaveBeenCalledWith({
+                where: { tweet_id: mock_tweet_id },
+                relations: ['user'],
+            });
+        });
+
+        it('should rethrow any unexpected errors from repository', async () => {
+            const mock_tweet_id = 'tweet-err';
+            const db_error = new Error('Database failure');
+
+            const find_one_spy3 = jest.spyOn(tweet_repo, 'findOne').mockRejectedValue(db_error);
+
+            await expect(tweets_service.getTweetById(mock_tweet_id)).rejects.toThrow(
+                'Database failure'
+            );
+
+            expect(find_one_spy3).toHaveBeenCalledWith({
+                where: { tweet_id: mock_tweet_id },
+                relations: ['user'],
+            });
+        });
+    });
 });
