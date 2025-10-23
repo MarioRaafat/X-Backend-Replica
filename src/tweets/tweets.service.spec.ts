@@ -257,4 +257,47 @@ describe('TweetsService', () => {
             expect(preload_spy4).toHaveBeenCalled();
         });
     });
+
+    describe('deleteTweet', () => {
+        it('should delete the tweet successfully when it exists', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_delete_result = { affected: 1 };
+
+            const delete_spy = jest
+                .spyOn(tweet_repo, 'delete')
+                .mockResolvedValue(mock_delete_result as any);
+
+            await expect(tweets_service.deleteTweet(mock_tweet_id)).resolves.toBeUndefined();
+
+            expect(delete_spy).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+        });
+
+        it('should throw NotFoundException if no tweet was deleted', async () => {
+            const mock_tweet_id = 'missing-tweet';
+            const mock_delete_result = { affected: 0 };
+
+            const delete_spy2 = jest
+                .spyOn(tweet_repo, 'delete')
+                .mockResolvedValue(mock_delete_result as any);
+
+            await expect(tweets_service.deleteTweet(mock_tweet_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+
+            expect(delete_spy2).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+        });
+
+        it('should rethrow any unexpected errors from repository', async () => {
+            const mock_tweet_id = 'tweet-err';
+            const db_error = new Error('Database failure');
+
+            const delete_spy3 = jest.spyOn(tweet_repo, 'delete').mockRejectedValue(db_error);
+
+            await expect(tweets_service.deleteTweet(mock_tweet_id)).rejects.toThrow(
+                'Database failure'
+            );
+
+            expect(delete_spy3).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+        });
+    });
 });
