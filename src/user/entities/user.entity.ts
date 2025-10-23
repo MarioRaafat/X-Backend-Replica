@@ -53,9 +53,11 @@ export class User {
     @Column({ type: 'boolean', default: false })
     verified: boolean;
 
-    // TODO: country
-    // @Column({ type: 'varchar', nullable: true })
-    // country: string;
+    @Column({ type: 'varchar', nullable: true })
+    country: string;
+
+    @Column({ type: 'boolean', default: false })
+    online: boolean;
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;

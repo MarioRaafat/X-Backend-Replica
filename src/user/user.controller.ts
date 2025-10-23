@@ -20,6 +20,7 @@ import {
 } from 'src/decorators/swagger-error-responses.decorator';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
+    assign_interests,
     block_user,
     change_phone_number,
     deactivate_account,
@@ -60,6 +61,7 @@ import { GetUserId } from 'src/decorators/get-userId.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
+import { AssignInterestsDto } from './dto/assign-interests.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -360,4 +362,15 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.COVER_DELETED)
     @Delete('me/delete-cover')
     async deleteCover(@Body() file_url: DeleteFileDto) {}
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(assign_interests.operation)
+    @ApiBody({ type: AssignInterestsDto })
+    @ApiOkResponse(assign_interests.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.CATEGORY_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.INTERESTS_ASSIGNED)
+    @Post('me/interests')
+    async assignInterests(@Body() assign_interests_dto: AssignInterestsDto) {}
 }

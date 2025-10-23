@@ -137,7 +137,7 @@ export class UserService {
                 'user.bio AS bio',
                 'user.avatar_url AS avatar_url',
                 'user.cover_url AS cover_url',
-                // country to be added
+                'user.country AS country',
                 'user.created_at AS created_at',
                 'COUNT(DISTINCT followers.follower_id) AS followers_count',
                 'COUNT(DISTINCT following.followed_id) AS following_count',
@@ -207,16 +207,14 @@ export class UserService {
                 .setParameter('viewer_id', viewer_id);
         }
 
-        return (
-            query
-                .groupBy('user.id')
-                .addGroupBy('user.name')
-                .addGroupBy('user.username')
-                .addGroupBy('user.bio')
-                .addGroupBy('user.avatar_url')
-                .addGroupBy('user.cover_url')
-                // country to be added
-                .addGroupBy('user.created_at')
-        );
+        return query
+            .groupBy('user.id')
+            .addGroupBy('user.name')
+            .addGroupBy('user.username')
+            .addGroupBy('user.bio')
+            .addGroupBy('user.avatar_url')
+            .addGroupBy('user.cover_url')
+            .addGroupBy('user.country')
+            .addGroupBy('user.created_at');
     }
 }

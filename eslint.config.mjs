@@ -93,6 +93,12 @@ export default tseslint.config(
                     format: ['snake_case'],
                     leadingUnderscore: 'allow',
                 },
+                {
+                    selector: 'variable',
+                    modifiers: ['exported'],
+                    format: ['snake_case', 'UPPER_CASE', 'PascalCase'],
+                    leadingUnderscore: 'allow',
+                },
                 // Type parameters<T> - PascalCase
                 {
                     selector: 'typeParameter',

@@ -75,6 +75,9 @@ export const ERROR_MESSAGES = {
     TWEET_ALREADY_LIKED: 'Tweet already liked',
     TWEET_NOT_LIKED: 'Tweet not liked yet',
     UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
+
+    // category
+    CATEGORY_NOT_FOUND: 'Category not found',
 } as const;
 
 // Success Messages
@@ -148,6 +151,7 @@ export const SUCCESS_MESSAGES = {
     COVER_UPLOADED: 'Cover uploaded successfully',
     AVATAR_DELETED: 'Avatar deleted successfully',
     COVER_DELETED: 'Cover deleted successfully',
+    INTERESTS_ASSIGNED: 'Interests assigned successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
