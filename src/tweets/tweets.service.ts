@@ -90,6 +90,7 @@ export class TweetsService {
             return tweet_with_user;
         } catch (error) {
             console.error(error);
+
             throw error;
         }
     }

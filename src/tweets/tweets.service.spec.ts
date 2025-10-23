@@ -7,6 +7,7 @@ import { TweetLike } from './entities/tweet-like.entity';
 import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
+import { CreateTweetDTO } from './dto/create-tweet.dto';
 
 describe('TweetsService', () => {
     let tweets_service: TweetsService;
@@ -85,5 +86,87 @@ describe('TweetsService', () => {
         expect(tweet_quote_repo).toBeDefined();
         expect(tweet_reply_repo).toBeDefined();
         expect(data_source).toBeDefined();
+    });
+
+    describe('createTweet', () => {
+        it('should create, save, and return the tweet with user relation', async () => {
+            const mock_user_id = 'user-123';
+            const mock_tweet_dto: CreateTweetDTO = { content: 'Hello world!' } as CreateTweetDTO;
+            const mock_new_tweet = {
+                tweet_id: 'tweet-1',
+                user_id: mock_user_id,
+                ...mock_tweet_dto,
+            };
+            const mock_tweet_with_user = {
+                ...mock_new_tweet,
+                user: { id: mock_user_id, username: 'John' },
+            };
+
+            const create_spy = jest
+                .spyOn(tweet_repo, 'create')
+                .mockReturnValue(mock_new_tweet as any);
+            const save_spy = jest
+                .spyOn(tweet_repo, 'save')
+                .mockResolvedValue(mock_new_tweet as any);
+            const find_one_spy = jest
+                .spyOn(tweet_repo, 'findOne')
+                .mockResolvedValue(mock_tweet_with_user as any);
+
+            const result = await tweets_service.createTweet(mock_tweet_dto, mock_user_id);
+
+            expect(create_spy).toHaveBeenCalledWith({
+                user_id: mock_user_id,
+                ...mock_tweet_dto,
+            });
+            expect(save_spy).toHaveBeenCalledWith(mock_new_tweet);
+            expect(find_one_spy).toHaveBeenCalledWith({
+                where: { tweet_id: mock_new_tweet.tweet_id },
+                relations: ['user'],
+            });
+            expect(result).toEqual(mock_tweet_with_user);
+        });
+
+        it('should throw NotFoundException if tweet not found after creation', async () => {
+            const mock_user_id = 'user-404';
+            const mock_tweet_dto: CreateTweetDTO = { content: 'Missing tweet' } as CreateTweetDTO;
+            const mock_new_tweet = {
+                tweet_id: 'tweet-404',
+                user_id: mock_user_id,
+                ...mock_tweet_dto,
+            };
+
+            const create_spy2 = jest
+                .spyOn(tweet_repo, 'create')
+                .mockReturnValue(mock_new_tweet as any);
+            const save_spy2 = jest
+                .spyOn(tweet_repo, 'save')
+                .mockResolvedValue(mock_new_tweet as any);
+            const find_one_spy2 = jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null as any);
+
+            await expect(tweets_service.createTweet(mock_tweet_dto, mock_user_id)).rejects.toThrow(
+                'Tweet not found after creation'
+            );
+
+            expect(create_spy2).toHaveBeenCalled();
+            expect(save_spy2).toHaveBeenCalled();
+            expect(find_one_spy2).toHaveBeenCalled();
+        });
+
+        it('should rethrow errors from repository methods', async () => {
+            const mock_user_id = 'user-err';
+            const mock_tweet_dto: CreateTweetDTO = { content: 'oops' } as CreateTweetDTO;
+            const db_error = new Error('Database failure');
+
+            const create_spy3 = jest
+                .spyOn(tweet_repo, 'create')
+                .mockReturnValue({ tweet_id: 't1', ...mock_tweet_dto } as any);
+            const save_spy3 = jest.spyOn(tweet_repo, 'save').mockRejectedValue(db_error);
+
+            await expect(tweets_service.createTweet(mock_tweet_dto, mock_user_id)).rejects.toThrow(
+                'Database failure'
+            );
+
+            expect(save_spy3).toHaveBeenCalled();
+        });
     });
 });
