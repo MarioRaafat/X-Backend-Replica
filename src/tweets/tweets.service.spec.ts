@@ -26,6 +26,7 @@ describe('TweetsService', () => {
             find: jest.fn(),
             delete: jest.fn(),
             update: jest.fn(),
+            preload: jest.fn(),
             insert: jest.fn(),
             increment: jest.fn(),
             decrement: jest.fn(),
@@ -167,6 +168,93 @@ describe('TweetsService', () => {
             );
 
             expect(save_spy3).toHaveBeenCalled();
+        });
+    });
+
+    describe('updateTweet', () => {
+        it('should preload, save, and return the updated tweet with user relation', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_update_dto = { content: 'Updated tweet text' };
+            const mock_updated_tweet = { tweet_id: mock_tweet_id, ...mock_update_dto };
+            const mock_tweet_with_user = {
+                ...mock_updated_tweet,
+                user: { id: 'user-1', username: 'John' },
+            };
+
+            const preload_spy = jest
+                .spyOn(tweet_repo, 'preload')
+                .mockResolvedValue(mock_updated_tweet as any);
+            const save_spy = jest
+                .spyOn(tweet_repo, 'save')
+                .mockResolvedValue(mock_updated_tweet as any);
+            const find_one_spy = jest
+                .spyOn(tweet_repo, 'findOne')
+                .mockResolvedValue(mock_tweet_with_user as any);
+
+            const result = await tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id);
+
+            expect(preload_spy).toHaveBeenCalledWith({
+                tweet_id: mock_tweet_id,
+                ...mock_update_dto,
+            });
+            expect(save_spy).toHaveBeenCalledWith(mock_updated_tweet);
+            expect(find_one_spy).toHaveBeenCalledWith({
+                where: { tweet_id: mock_tweet_id },
+                relations: ['user'],
+            });
+            expect(result).toEqual(mock_tweet_with_user);
+        });
+
+        it('should throw NotFoundException if tweet not found during preload', async () => {
+            const mock_tweet_id = 'missing-tweet';
+            const mock_update_dto = { content: 'Nothing here' };
+
+            const preload_spy2 = jest.spyOn(tweet_repo, 'preload').mockResolvedValue(null as any);
+
+            await expect(
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
+            ).rejects.toThrow('Tweet not found');
+
+            expect(preload_spy2).toHaveBeenCalledWith({
+                tweet_id: mock_tweet_id,
+                ...mock_update_dto,
+            });
+        });
+
+        it('should throw NotFoundException if tweet not found after update', async () => {
+            const mock_tweet_id = 'tweet-456';
+            const mock_update_dto = { content: 'Still missing' };
+            const mock_preloaded_tweet = { tweet_id: mock_tweet_id, ...mock_update_dto };
+
+            const preload_spy3 = jest
+                .spyOn(tweet_repo, 'preload')
+                .mockResolvedValue(mock_preloaded_tweet as any);
+            const save_spy3 = jest
+                .spyOn(tweet_repo, 'save')
+                .mockResolvedValue(mock_preloaded_tweet as any);
+            const find_one_spy3 = jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null as any);
+
+            await expect(
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
+            ).rejects.toThrow('Tweet not found after update');
+
+            expect(preload_spy3).toHaveBeenCalled();
+            expect(save_spy3).toHaveBeenCalled();
+            expect(find_one_spy3).toHaveBeenCalled();
+        });
+
+        it('should rethrow any unexpected repository errors', async () => {
+            const mock_tweet_id = 'tweet-err';
+            const mock_update_dto = { content: 'Boom!' };
+            const db_error = new Error('Database failure');
+
+            const preload_spy4 = jest.spyOn(tweet_repo, 'preload').mockRejectedValue(db_error);
+
+            await expect(
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
+            ).rejects.toThrow('Database failure');
+
+            expect(preload_spy4).toHaveBeenCalled();
         });
     });
 });
