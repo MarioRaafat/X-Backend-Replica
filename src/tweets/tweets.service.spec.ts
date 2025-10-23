@@ -436,4 +436,65 @@ describe('TweetsService', () => {
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
     });
+
+    describe('unLikeTweet', () => {
+        it('should delete like, decrement num_likes, and commit transaction', async () => {
+            const mock_tweet_id = 'tweet-789';
+            const mock_user_id = 'user-123';
+
+            const delete_result = { affected: 1 };
+            const delete_spy = jest
+                .spyOn(mock_query_runner.manager, 'delete')
+                .mockResolvedValue(delete_result as any);
+            const decrement_spy = jest
+                .spyOn(mock_query_runner.manager, 'decrement')
+                .mockResolvedValue({} as any);
+            const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
+
+            await tweets_service.unLikeTweet(mock_tweet_id, mock_user_id);
+
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.startTransaction).toHaveBeenCalled();
+            expect(delete_spy).toHaveBeenCalledWith(expect.any(Function), {
+                tweet_id: mock_tweet_id,
+                user_id: mock_user_id,
+            });
+            expect(decrement_spy).toHaveBeenCalledWith(
+                expect.any(Function),
+                { tweet_id: mock_tweet_id },
+                'num_likes',
+                1
+            );
+            expect(commit_spy).toHaveBeenCalled();
+        });
+
+        it('should rollback and throw NotFoundException if user did not like tweet or tweet missing', async () => {
+            const mock_tweet_id = 'tweet-missing';
+            const mock_user_id = 'user-missing';
+
+            const delete_result = { affected: 0 };
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue(delete_result as any);
+            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue({} as any);
+
+            await expect(tweets_service.unLikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'User seemed to not like this tweet or tweet does not exist'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback and rethrow unexpected errors', async () => {
+            const mock_tweet_id = 'tweet-error';
+            const mock_user_id = 'user-error';
+            const db_error = new Error('Database crash');
+
+            jest.spyOn(mock_query_runner.manager, 'delete').mockRejectedValue(db_error);
+
+            await expect(tweets_service.unLikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Database crash'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+    });
 });
