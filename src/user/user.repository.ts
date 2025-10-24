@@ -2,6 +2,9 @@ import { Injectable } from '@nestjs/common';
 import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UserListItemDto } from './dto/user-list-item.dto';
+import { UserBlocks, UserFollows, UserMutes } from './entities';
+import { InsertResult } from 'typeorm/browser';
+import { RelationshipType } from './enums/relationship-type.enum';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
@@ -274,5 +277,111 @@ export class UserRepository extends Repository<User> {
             .limit(page_size)
             .offset(page_offset)
             .getRawMany();
+    }
+
+    async insertFollowRelationship(
+        follower_id: string,
+        followed_id: string
+    ): Promise<InsertResult> {
+        const user_follows = new UserFollows({ follower_id, followed_id });
+        return await this.dataSource.getRepository(UserFollows).insert(user_follows);
+    }
+
+    async insertMuteRelationship(muter_id: string, muted_id: string): Promise<InsertResult> {
+        const user_mutes = new UserMutes({ muter_id, muted_id });
+        return await this.dataSource.getRepository(UserMutes).insert(user_mutes);
+    }
+
+    async insertBlockRelationship(blocker_id: string, blocked_id: string) {
+        const user_blocks = new UserBlocks({ blocker_id, blocked_id });
+        await this.dataSource.transaction(async (manager) => {
+            const user_blocks_repository = manager.getRepository(UserBlocks);
+            const user_follows_repository = manager.getRepository(UserFollows);
+
+            await user_blocks_repository.insert(user_blocks);
+
+            await user_follows_repository
+                .createQueryBuilder()
+                .delete()
+                .where('follower_id = :blocker_id AND followed_id = :blocked_id')
+                .orWhere('follower_id = :blocked_id AND followed_id = :blocker_id')
+                .setParameters({ blocker_id, blocked_id })
+                .execute();
+        });
+    }
+
+    async validateRelationshipRequest(
+        current_user_id: string,
+        target_user_id: string,
+        relationship_type: RelationshipType
+    ): Promise<any> {
+        const { table_name, source_column, target_column } =
+            this.getRelationshipConfig(relationship_type);
+
+        return await this.createQueryBuilder('user')
+            .select('user.id', 'user_exists')
+            .addSelect(
+                `EXISTS(
+                    SELECT 1 FROM ${table_name} ur
+                    WHERE ur.${source_column} = :current_user_id 
+                    AND ur.${target_column} = :target_user_id
+                )`,
+                'relationship_exists'
+            )
+            .where('user.id = :target_user_id')
+            .setParameter('current_user_id', current_user_id)
+            .setParameter('target_user_id', target_user_id)
+            .getRawOne();
+    }
+
+    async verifyFollowPermissions(current_user_id: string, target_user_id: string): Promise<any> {
+        const blocks = await this.dataSource
+            .getRepository(UserBlocks)
+            .createQueryBuilder('ub')
+            .select(['ub.blocker_id', 'ub.blocked_id'])
+            .where(
+                '(ub.blocker_id = :target_user_id AND ub.blocked_id = :current_user_id) OR ' +
+                    '(ub.blocker_id = :current_user_id AND ub.blocked_id = :target_user_id)'
+            )
+            .setParameters({ current_user_id, target_user_id })
+            .getMany();
+
+        return {
+            is_blocked: blocks.some(
+                (b) => b.blocker_id === target_user_id && b.blocked_id === current_user_id
+            ),
+            has_blocked: blocks.some(
+                (b) => b.blocker_id === current_user_id && b.blocked_id === target_user_id
+            ),
+        };
+    }
+
+    private getRelationshipConfig(relationship_type: RelationshipType): {
+        table_name: string;
+        source_column: string;
+        target_column: string;
+    } {
+        switch (relationship_type) {
+            case RelationshipType.FOLLOW:
+                return {
+                    table_name: 'user_follows',
+                    source_column: 'follower_id',
+                    target_column: 'followed_id',
+                };
+            case RelationshipType.MUTE:
+                return {
+                    table_name: 'user_mutes',
+                    source_column: 'muter_id',
+                    target_column: 'muted_id',
+                };
+            case RelationshipType.BLOCK:
+                return {
+                    table_name: 'user_blocks',
+                    source_column: 'blocker_id',
+                    target_column: 'blocked_id',
+                };
+            default:
+                throw new Error('Unknown relationship type');
+        }
     }
 }

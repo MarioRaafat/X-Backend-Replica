@@ -26,6 +26,13 @@ export const ERROR_MESSAGES = {
     USER_NOT_FOUND: 'User not found',
     USER_NOT_FOUND_OR_VERIFIED: 'User not found or already verified',
     CANNOT_FOLLOW_YOURSELF: 'You cannot follow yourself',
+    ALREADY_FOLLOWING: 'Already following this user',
+    CANNOT_FOLLOW_USER: 'Cannot follow user, user blocked you',
+    CANNOT_FOLLOW_BLOCKED_USER: 'Cannot follow a blocked user',
+    CANNOT_MUTE_YOURSELF: 'You cannot mute yourself',
+    ALREADY_MUTED: 'Already muted this user',
+    CANNOT_BLOCK_YOURSELF: 'You cannot block yourself',
+    ALREADY_BLOCKED: 'Already blocked this user',
 
     // communication
     FAILED_TO_SEND_OTP_EMAIL: 'Failed to send OTP email',

@@ -16,4 +16,8 @@ export class UserFollows {
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'followed_id' })
     followed: User;
+
+    constructor(user_follows: Partial<UserFollows>) {
+        Object.assign(this, user_follows);
+    }
 }

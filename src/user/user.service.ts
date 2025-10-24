@@ -1,4 +1,10 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+    BadRequestException,
+    ConflictException,
+    ForbiddenException,
+    Injectable,
+    NotFoundException,
+} from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
@@ -13,6 +19,8 @@ import { GetFollowersDto } from './dto/get-followers.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { PaginationParamsDto } from './dto/pagination-params.dto';
 import { UserRepository } from './user.repository';
+import { UserFollows } from './entities';
+import { RelationshipType } from './enums/relationship-type.enum';
 
 @Injectable()
 export class UserService {
@@ -154,5 +162,80 @@ export class UserService {
         return users;
     }
 
-    async followUser(current_user_id: string, target_user_id: string) {}
+    async followUser(current_user_id: string, target_user_id: string): Promise<void> {
+        if (current_user_id === target_user_id) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_FOLLOW_YOURSELF);
+        }
+        const [validation_result, follow_permissions] = await Promise.all([
+            this.user_repository.validateRelationshipRequest(
+                current_user_id,
+                target_user_id,
+                RelationshipType.FOLLOW
+            ),
+            this.user_repository.verifyFollowPermissions(current_user_id, target_user_id),
+        ]);
+
+        if (!validation_result || !validation_result.user_exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        if (validation_result.relationship_exists) {
+            throw new ConflictException(ERROR_MESSAGES.ALREADY_FOLLOWING);
+        }
+
+        if (follow_permissions.is_blocked) {
+            throw new ForbiddenException(ERROR_MESSAGES.CANNOT_FOLLOW_USER);
+        }
+
+        if (follow_permissions.has_blocked) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER);
+        }
+
+        await this.user_repository.insertFollowRelationship(current_user_id, target_user_id);
+    }
+
+    async muteUser(current_user_id: string, target_user_id: string): Promise<void> {
+        if (current_user_id === target_user_id) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_MUTE_YOURSELF);
+        }
+
+        const validation_result = await this.user_repository.validateRelationshipRequest(
+            current_user_id,
+            target_user_id,
+            RelationshipType.MUTE
+        );
+
+        console.log(validation_result);
+        if (!validation_result || !validation_result.user_exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        if (validation_result.relationship_exists) {
+            throw new ConflictException(ERROR_MESSAGES.ALREADY_MUTED);
+        }
+
+        await this.user_repository.insertMuteRelationship(current_user_id, target_user_id);
+    }
+
+    async blockUser(current_user_id: string, target_user_id: string): Promise<void> {
+        if (current_user_id === target_user_id) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_BLOCK_YOURSELF);
+        }
+
+        const validation_result = await this.user_repository.validateRelationshipRequest(
+            current_user_id,
+            target_user_id,
+            RelationshipType.BLOCK
+        );
+
+        if (!validation_result || !validation_result.user_exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        if (validation_result.relationship_exists) {
+            throw new ConflictException(ERROR_MESSAGES.ALREADY_BLOCKED);
+        }
+
+        await this.user_repository.insertBlockRelationship(current_user_id, target_user_id);
+    }
 }

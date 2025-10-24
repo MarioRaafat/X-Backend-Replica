@@ -54,7 +54,7 @@ export class User {
     verified: boolean;
 
     @Column({ type: 'varchar', nullable: true })
-    country: string;
+    country?: string;
 
     @Column({ type: 'boolean', default: false })
     online: boolean;

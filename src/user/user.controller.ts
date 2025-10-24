@@ -15,6 +15,8 @@ import { UserService } from './user.service';
 import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import {
     ApiBadRequestErrorResponse,
+    ApiConflictErrorResponse,
+    ApiForbiddenErrorResponse,
     ApiNotFoundErrorResponse,
     ApiUnauthorizedErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
@@ -173,13 +175,19 @@ export class UserController {
     @ApiOperation(follow_user.operation)
     @ApiOkResponse(follow_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_FOLLOW_YOURSELF)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.ALREADY_FOLLOWING)
+    @ApiForbiddenErrorResponse(ERROR_MESSAGES.CANNOT_FOLLOW_USER)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.FOLLOW_USER)
     @Post(':target_user_id/follow')
     async followUser(
         @Param('target_user_id') target_user_id: string,
         @GetUserId() current_user_id: string
-    ) {}
+    ) {
+        return await this.user_service.followUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -210,10 +218,17 @@ export class UserController {
     @ApiOperation(mute_user.operation)
     @ApiOkResponse(mute_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_MUTE_YOURSELF)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.ALREADY_MUTED)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.MUTE_USER)
     @Post(':target_user_id/mute')
-    async muteUser(@Param('target_user_id') target_user_id: string, @GetUserId() user_id: string) {}
+    async muteUser(
+        @Param('target_user_id') target_user_id: string,
+        @GetUserId() current_user_id: string
+    ) {
+        return await this.user_service.muteUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -244,13 +259,17 @@ export class UserController {
     @ApiOperation(block_user.operation)
     @ApiOkResponse(block_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_BLOCK_YOURSELF)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.ALREADY_BLOCKED)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.BLOCK_USER)
     @Post(':target_user_id/block')
     async blockUser(
         @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string
+    ) {
+        return await this.user_service.blockUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
