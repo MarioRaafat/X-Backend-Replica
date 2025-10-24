@@ -178,7 +178,7 @@ export class UserController {
     @Post(':target_user_id/follow')
     async followUser(
         @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
+        @GetUserId() current_user_id: string
     ) {}
 
     @UseGuards(JwtAuthGuard)

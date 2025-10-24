@@ -25,6 +25,7 @@ export const ERROR_MESSAGES = {
     // user
     USER_NOT_FOUND: 'User not found',
     USER_NOT_FOUND_OR_VERIFIED: 'User not found or already verified',
+    CANNOT_FOLLOW_YOURSELF: 'You cannot follow yourself',
 
     // communication
     FAILED_TO_SEND_OTP_EMAIL: 'Failed to send OTP email',

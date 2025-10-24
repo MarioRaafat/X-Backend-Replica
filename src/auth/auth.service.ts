@@ -16,7 +16,6 @@ import { OAuthCompletionStep2Dto } from './dto/oauth-completion-step2.dto';
 import { User } from 'src/user/entities/user.entity';
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
-import { UserService } from 'src/user/user.service';
 import { UsernameService } from './username.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
@@ -46,12 +45,13 @@ import {
     USER_REFRESH_TOKENS_REMOVE,
 } from 'src/constants/redis';
 import { StringValue } from 'ms'; // Add this import
+import { UserRepository } from 'src/user/user.repository';
 
 @Injectable()
 export class AuthService {
     constructor(
         private readonly jwt_service: JwtService,
-        private readonly user_service: UserService,
+        private readonly user_repository: UserRepository,
         private readonly username_service: UsernameService,
         private readonly redis_service: RedisService,
         private readonly verification_service: VerificationService,
@@ -106,7 +106,7 @@ export class AuthService {
     }
 
     async validateUser(email: string, password: string): Promise<string> {
-        const user = await this.user_service.findUserByEmail(email);
+        const user = await this.user_repository.findByEmail(email);
         if (!user) {
             const signup_session_key = SIGNUP_SESSION_KEY(email);
             const unverified_user = await this.redis_service.hget(signup_session_key);
@@ -142,7 +142,7 @@ export class AuthService {
         //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
         // }
 
-        const existing_user = await this.user_service.findUserByEmail(email);
+        const existing_user = await this.user_repository.findByEmail(email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
@@ -228,7 +228,7 @@ export class AuthService {
             password: hashed_password,
             language: language || 'en',
         };
-        const created_user = await this.user_service.createUser(user_data);
+        const created_user = await this.user_repository.createUser(user_data);
 
         if (!created_user) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB);
@@ -255,7 +255,7 @@ export class AuthService {
     async login(login_dto: LoginDTO) {
         const id = await this.validateUser(login_dto.email, login_dto.password);
 
-        const user_instance = await this.user_service.findUserById(id);
+        const user_instance = await this.user_repository.findById(id);
         if (!user_instance) {
             throw new InternalServerErrorException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -306,7 +306,7 @@ export class AuthService {
     }
 
     async sendResetPasswordEmail(user_id: string) {
-        const user = await this.user_service.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -360,7 +360,7 @@ export class AuthService {
             throw new BadRequestException(ERROR_MESSAGES.NEW_PASSWORD_SAME_AS_OLD);
         }
 
-        const user = await this.user_service.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -374,7 +374,7 @@ export class AuthService {
         }
 
         const hashed_new_password = await bcrypt.hash(new_password, 10);
-        await this.user_service.updateUserPassword(user_id, hashed_new_password);
+        await this.user_repository.updatePassword(user_id, hashed_new_password);
 
         return {};
     }
@@ -390,7 +390,7 @@ export class AuthService {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
 
-        const user = await this.user_service.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -404,7 +404,7 @@ export class AuthService {
         }
 
         const hashed_password = await bcrypt.hash(new_password, 10);
-        await this.user_service.updateUserPassword(user_id, hashed_password);
+        await this.user_repository.updatePassword(user_id, hashed_password);
         return {};
     }
 
@@ -501,14 +501,14 @@ export class AuthService {
     }
 
     async validateGoogleUser(google_user: GoogleLoginDTO) {
-        let user = await this.user_service.findUserByGoogleId(google_user.google_id);
+        let user = await this.user_repository.findByGoogleId(google_user.google_id);
 
         if (user) {
             return user;
         }
 
         if (google_user.email) {
-            user = await this.user_service.findUserByEmail(google_user.email);
+            user = await this.user_repository.findByEmail(google_user.email);
             if (user) {
                 // update avatar_url if the user doesn't have one
                 let avatar_url = user.avatar_url;
@@ -516,7 +516,7 @@ export class AuthService {
                     avatar_url = google_user.avatar_url;
                 }
 
-                const updated_user = await this.user_service.updateUser(user.id, {
+                const updated_user = await this.user_repository.updateUserById(user.id, {
                     google_id: google_user.google_id,
                     avatar_url: avatar_url,
                 });
@@ -550,21 +550,21 @@ export class AuthService {
     }
 
     async validateFacebookUser(facebook_user: FacebookLoginDTO) {
-        let user = await this.user_service.findUserByFacebookId(facebook_user.facebook_id);
+        let user = await this.user_repository.findByFacebookId(facebook_user.facebook_id);
 
         if (user) {
             return user;
         }
 
         if (facebook_user.email) {
-            user = await this.user_service.findUserByEmail(facebook_user.email);
+            user = await this.user_repository.findByEmail(facebook_user.email);
             if (user) {
                 let avatar_url = user.avatar_url;
                 if (!avatar_url) {
                     avatar_url = facebook_user.avatar_url;
                 }
 
-                const updated_user = await this.user_service.updateUser(user.id, {
+                const updated_user = await this.user_repository.updateUserById(user.id, {
                     facebook_id: facebook_user.facebook_id,
                     avatar_url: avatar_url,
                 });
@@ -599,19 +599,19 @@ export class AuthService {
         ####################### GitHub OAuth Routes ########################
     */
     async validateGitHubUser(github_user: GitHubUserDto) {
-        let user = await this.user_service.findUserByGithubId(github_user.github_id);
+        let user = await this.user_repository.findByGithubId(github_user.github_id);
         if (user) {
             return user;
         }
 
-        user = await this.user_service.findUserByEmail(github_user.email);
+        user = await this.user_repository.findByEmail(github_user.email);
         if (user) {
             let avatar_url = user.avatar_url;
             if (!avatar_url) {
                 avatar_url = github_user.avatar_url;
             }
 
-            const updated_user = await this.user_service.updateUser(user.id, {
+            const updated_user = await this.user_repository.updateUserById(user.id, {
                 github_id: github_user.github_id,
                 avatar_url: avatar_url,
             });
@@ -706,7 +706,7 @@ export class AuthService {
         }
 
         // Create the user
-        const user = await this.user_service.createUser({
+        const user = await this.user_repository.createUser({
             email: user_data.email,
             name: user_data.name,
             username: username,
@@ -738,13 +738,15 @@ export class AuthService {
 
         if (identifier.includes('@')) {
             identifier_type = 'email';
-            user = await this.user_service.findUserByEmail(identifier);
+            user = await this.user_repository.findByEmail(identifier);
+            // temporarily disable linter till reviewed
+            // eslint-disable-next-line no-useless-escape
         } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
             identifier_type = 'phone_number';
-            user = await this.user_service.findUserByPhoneNumber(identifier);
+            user = await this.user_repository.findByPhoneNumber(identifier);
         } else {
             identifier_type = 'username';
-            user = await this.user_service.findUserByUsername(identifier);
+            user = await this.user_repository.findByUsername(identifier);
         }
 
         if (!user) {
@@ -763,7 +765,7 @@ export class AuthService {
     }
 
     async updateUsername(user_id: string, new_username: string) {
-        const user = await this.user_service.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -774,19 +776,19 @@ export class AuthService {
             throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
         }
 
-        await this.user_service.updateUser(user_id, { username: new_username });
+        await this.user_repository.updateUserById(user_id, { username: new_username });
         return {
             username: new_username,
         };
     }
 
     async updateEmail(user_id: string, new_email: string) {
-        const user = await this.user_service.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const existing_user = await this.user_service.findUserByEmail(new_email);
+        const existing_user = await this.user_repository.findByEmail(new_email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
@@ -832,7 +834,7 @@ export class AuthService {
     }
 
     async verifyUpdateEmail(user_id: string, new_email: string, otp: string) {
-        const user = await this.user_service.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -854,13 +856,13 @@ export class AuthService {
         }
 
         // Check if email is still available
-        const existing_user = await this.user_service.findUserByEmail(new_email);
+        const existing_user = await this.user_repository.findByEmail(new_email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
         // Update user email
-        await this.user_service.updateUser(user_id, { email: new_email });
+        await this.user_repository.updateUserById(user_id, { email: new_email });
 
         // Clean up
         await this.redis_service.del(email_update_session_key);

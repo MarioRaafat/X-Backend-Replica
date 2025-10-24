@@ -11,7 +11,6 @@ import { GitHubStrategy } from './strategies/github.strategy';
 import { CaptchaService } from './captcha.service';
 import { UsernameService } from './username.service';
 import { UserModule } from 'src/user/user.module';
-import { UserService } from 'src/user/user.service';
 import { RedisModule } from '@nestjs-modules/ioredis';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationModule } from 'src/verification/verification.module';
@@ -20,6 +19,7 @@ import { EmailService } from 'src/communication/email.service';
 import { VerificationService } from 'src/verification/verification.service';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
+import { UserRepository } from 'src/user/user.repository';
 
 @Module({
     imports: [
@@ -45,7 +45,7 @@ import { FacebookStrategy } from './strategies/facebook.strategy';
         AuthService,
         JwtStrategy,
         GitHubStrategy,
-        UserService,
+        UserRepository,
         RedisService,
         VerificationService,
         EmailService,
