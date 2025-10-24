@@ -1,7 +1,7 @@
 branch_name=$(git symbolic-ref --short HEAD)
 
-if ! [[ "$branch_name" =~ ^(feature|fix|chore|hotfix|docs|ci)\/[a-z0-9._-]+$ ]]; then
+if ! [[ "$branch_name" =~ ^(feat|fix|chore|hotfix|docs|ci)\/[a-z0-9._-]+$ ]]; then
   echo "❌ Invalid branch name: $branch_name"
-  echo "👉 Branch name must start with feature/, fix/, chore/, or hotfix/ (e.g. feature/signup-page)"
+  echo "👉 Branch name must start with feature/, fix/, chore/, or hotfix/ (e.g. feat/signup-page)"
   exit 1
 fi
