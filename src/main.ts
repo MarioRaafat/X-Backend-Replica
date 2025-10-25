@@ -8,7 +8,14 @@ import { RabbitmqService } from './rabbitmq/rabbitmq.service';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
-    app.useGlobalPipes(new ValidationPipe());
+    app.useGlobalPipes(
+        new ValidationPipe({
+            transform: true,
+            transformOptions: {
+                exposeDefaultValues: true,
+            },
+        })
+    );
     app.use(cookieParser());
 
     // response interceptor
