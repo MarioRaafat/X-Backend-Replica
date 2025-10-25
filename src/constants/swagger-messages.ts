@@ -33,6 +33,12 @@ export const ERROR_MESSAGES = {
     ALREADY_MUTED: 'Already muted this user',
     CANNOT_BLOCK_YOURSELF: 'You cannot block yourself',
     ALREADY_BLOCKED: 'Already blocked this user',
+    CANNOT_UNFOLLOW_YOURSELF: 'You cannot unblock yourself',
+    NOT_FOLLOWED: 'User is not followed',
+    CANNOT_UNMUTE_YOURSELF: 'You cannot unmute yourself',
+    NOT_MUTED: 'User is not muted',
+    CANNOT_UNBLOCK_YOURSELF: 'You cannot unblock yourself',
+    NOT_BLOCKED: 'User is not blocked',
 
     // communication
     FAILED_TO_SEND_OTP_EMAIL: 'Failed to send OTP email',

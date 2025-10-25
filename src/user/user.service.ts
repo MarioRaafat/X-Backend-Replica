@@ -194,6 +194,28 @@ export class UserService {
         await this.user_repository.insertFollowRelationship(current_user_id, target_user_id);
     }
 
+    async unfollowUser(current_user_id: string, target_user_id: string): Promise<void> {
+        if (current_user_id === target_user_id) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNFOLLOW_YOURSELF);
+        }
+
+        const validation_result = await this.user_repository.validateRelationshipRequest(
+            current_user_id,
+            target_user_id,
+            RelationshipType.FOLLOW
+        );
+
+        if (!validation_result || !validation_result.user_exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        if (!validation_result.relationship_exists) {
+            throw new ConflictException(ERROR_MESSAGES.NOT_FOLLOWED);
+        }
+
+        await this.user_repository.deleteFollowRelationship(current_user_id, target_user_id);
+    }
+
     async muteUser(current_user_id: string, target_user_id: string): Promise<void> {
         if (current_user_id === target_user_id) {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_MUTE_YOURSELF);
@@ -205,7 +227,6 @@ export class UserService {
             RelationshipType.MUTE
         );
 
-        console.log(validation_result);
         if (!validation_result || !validation_result.user_exists) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -215,6 +236,28 @@ export class UserService {
         }
 
         await this.user_repository.insertMuteRelationship(current_user_id, target_user_id);
+    }
+
+    async unmuteUser(current_user_id: string, target_user_id: string): Promise<void> {
+        if (current_user_id === target_user_id) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNMUTE_YOURSELF);
+        }
+
+        const validation_result = await this.user_repository.validateRelationshipRequest(
+            current_user_id,
+            target_user_id,
+            RelationshipType.MUTE
+        );
+
+        if (!validation_result || !validation_result.user_exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        if (!validation_result.relationship_exists) {
+            throw new ConflictException(ERROR_MESSAGES.NOT_MUTED);
+        }
+
+        await this.user_repository.deleteMuteRelationship(current_user_id, target_user_id);
     }
 
     async blockUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -237,5 +280,27 @@ export class UserService {
         }
 
         await this.user_repository.insertBlockRelationship(current_user_id, target_user_id);
+    }
+
+    async unblockUser(current_user_id: string, target_user_id: string): Promise<void> {
+        if (current_user_id === target_user_id) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNBLOCK_YOURSELF);
+        }
+
+        const validation_result = await this.user_repository.validateRelationshipRequest(
+            current_user_id,
+            target_user_id,
+            RelationshipType.BLOCK
+        );
+
+        if (!validation_result || !validation_result.user_exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        if (!validation_result.relationship_exists) {
+            throw new ConflictException(ERROR_MESSAGES.NOT_BLOCKED);
+        }
+
+        await this.user_repository.deleteBlockRelationship(current_user_id, target_user_id);
     }
 }

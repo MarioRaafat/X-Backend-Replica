@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { DataSource, DeleteResult, Repository, SelectQueryBuilder } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { UserBlocks, UserFollows, UserMutes } from './entities';
@@ -287,9 +287,22 @@ export class UserRepository extends Repository<User> {
         return await this.dataSource.getRepository(UserFollows).insert(user_follows);
     }
 
+    async deleteFollowRelationship(
+        follower_id: string,
+        followed_id: string
+    ): Promise<DeleteResult> {
+        return await this.dataSource
+            .getRepository(UserFollows)
+            .delete({ follower_id, followed_id });
+    }
+
     async insertMuteRelationship(muter_id: string, muted_id: string): Promise<InsertResult> {
         const user_mutes = new UserMutes({ muter_id, muted_id });
         return await this.dataSource.getRepository(UserMutes).insert(user_mutes);
+    }
+
+    async deleteMuteRelationship(muter_id: string, muted_id: string): Promise<DeleteResult> {
+        return await this.dataSource.getRepository(UserMutes).delete({ muter_id, muted_id });
     }
 
     async insertBlockRelationship(blocker_id: string, blocked_id: string) {
@@ -308,6 +321,10 @@ export class UserRepository extends Repository<User> {
                 .setParameters({ blocker_id, blocked_id })
                 .execute();
         });
+    }
+
+    async deleteBlockRelationship(blocker_id: string, blocked_id: string): Promise<DeleteResult> {
+        return await this.dataSource.getRepository(UserBlocks).delete({ blocker_id, blocked_id });
     }
 
     async validateRelationshipRequest(

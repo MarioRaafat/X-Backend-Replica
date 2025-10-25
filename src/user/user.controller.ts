@@ -12,7 +12,15 @@ import {
     UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+    ApiBearerAuth,
+    ApiBody,
+    ApiCreatedResponse,
+    ApiNoContentResponse,
+    ApiOkResponse,
+    ApiOperation,
+    ApiTags,
+} from '@nestjs/swagger';
 import {
     ApiBadRequestErrorResponse,
     ApiConflictErrorResponse,
@@ -173,7 +181,7 @@ export class UserController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(follow_user.operation)
-    @ApiOkResponse(follow_user.responses.success)
+    @ApiCreatedResponse(follow_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_FOLLOW_YOURSELF)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER)
@@ -199,8 +207,10 @@ export class UserController {
     @Delete(':target_user_id/unfollow')
     async unfollowUser(
         @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string
+    ) {
+        return await this.user_service.unfollowUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -216,7 +226,7 @@ export class UserController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(mute_user.operation)
-    @ApiOkResponse(mute_user.responses.success)
+    @ApiCreatedResponse(mute_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_MUTE_YOURSELF)
     @ApiConflictErrorResponse(ERROR_MESSAGES.ALREADY_MUTED)
@@ -233,15 +243,17 @@ export class UserController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(unmute_user.operation)
-    @ApiOkResponse(unmute_user.responses.success)
+    @ApiNoContentResponse(unmute_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.UNMUTE_USER)
     @Delete(':target_user_id/unmute')
     async unmuteUser(
         @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string
+    ) {
+        return await this.user_service.unmuteUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -257,7 +269,7 @@ export class UserController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(block_user.operation)
-    @ApiOkResponse(block_user.responses.success)
+    @ApiCreatedResponse(block_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_BLOCK_YOURSELF)
     @ApiConflictErrorResponse(ERROR_MESSAGES.ALREADY_BLOCKED)
@@ -274,15 +286,17 @@ export class UserController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(unblock_user.operation)
-    @ApiOkResponse(unblock_user.responses.success)
+    @ApiNoContentResponse(unblock_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.UNBLOCK_USER)
     @Delete(':target_user_id/unblock')
     async unblockUser(
         @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string
+    ) {
+        return await this.user_service.unblockUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -360,7 +374,7 @@ export class UserController {
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(upload_avatar.operation)
     @ApiBody(upload_avatar.body)
-    @ApiOkResponse(upload_avatar.responses.success)
+    @ApiCreatedResponse(upload_avatar.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
     @ResponseMessage(SUCCESS_MESSAGES.AVATAR_UPLOADED)
@@ -383,7 +397,7 @@ export class UserController {
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(upload_cover.operation)
     @ApiBody(upload_cover.body)
-    @ApiOkResponse(upload_cover.responses.success)
+    @ApiCreatedResponse(upload_cover.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
     @ResponseMessage(SUCCESS_MESSAGES.COVER_UPLOADED)
@@ -406,7 +420,7 @@ export class UserController {
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(assign_interests.operation)
     @ApiBody({ type: AssignInterestsDto })
-    @ApiOkResponse(assign_interests.responses.success)
+    @ApiCreatedResponse(assign_interests.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.CATEGORY_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.INTERESTS_ASSIGNED)
