@@ -13,4 +13,12 @@ export class VerifyPasswordResetOtpDto {
     @IsNotEmpty({ message: 'Token is required' })
     @Length(6, 6, { message: 'Token must be exactly 6 characters' })
     token: string;
+
+    @ApiProperty({
+        description: 'User identifier (email or username) associated with the password reset request',
+        example: 'lionel_messi10@gmail.com',
+    })
+    @IsString({ message: 'Identifier must be a string' })
+    @IsNotEmpty({ message: 'Identifier is required' })
+    identifier: string;
 }

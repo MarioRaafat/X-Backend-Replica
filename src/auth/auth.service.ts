@@ -45,6 +45,8 @@ import {
     USER_REFRESH_TOKENS_REMOVE,
 } from 'src/constants/redis';
 import { StringValue } from 'ms'; // Add this import
+import { OAuth2Client } from 'google-auth-library';
+import axios from 'axios';
 import { UserRepository } from 'src/user/user.repository';
 
 @Injectable()
@@ -105,10 +107,19 @@ export class AuthService {
         return recommendations;
     }
 
-    async validateUser(email: string, password: string): Promise<string> {
-        const user = await this.user_repository.findByEmail(email);
+    async validateUser(identifier: string, password: string, type: string): Promise<string> {
+        const user = type === 'email'
+            ? await this.user_repository.findUserByEmail(identifier)
+            : type === 'phone_number'
+                ? await this.user_repository.findUserByPhoneNumber(identifier)
+                : await this.user_repository.findUserByUsername(identifier);
+
         if (!user) {
-            const signup_session_key = SIGNUP_SESSION_KEY(email);
+            if (type !== 'email') {
+                throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+            }
+
+            const signup_session_key = SIGNUP_SESSION_KEY(identifier);
             const unverified_user = await this.redis_service.hget(signup_session_key);
             if (!unverified_user) {
                 throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -150,7 +161,7 @@ export class AuthService {
         const signup_session_key = SIGNUP_SESSION_KEY(email);
         const existing_session = await this.redis_service.hget(signup_session_key);
         if (existing_session) {
-            throw new ConflictException(ERROR_MESSAGES.SIGNUP_SESSION_ALREADY_EXISTS);
+            throw new ConflictException({ message: ERROR_MESSAGES.SIGNUP_SESSION_ALREADY_EXISTS, current_step: existing_session.step });
         }
 
         const signup_session_object = SIGNUP_SESSION_OBJECT(email, {
@@ -252,8 +263,39 @@ export class AuthService {
         };
     }
 
+    async checkIdentifier(identifier: string) {
+        let identifier_type: string = '';
+        let user: User | null = null;
+
+        if (identifier.includes('@')) {
+            identifier_type = 'email';
+            user = await this.user_repository.findUserByEmail(identifier);
+        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
+            identifier_type = 'phone_number';
+            user = await this.user_repository.findUserByPhoneNumber(identifier);
+        } else {
+            identifier_type = 'username';
+            user = await this.user_repository.findUserByUsername(identifier);
+        }
+
+        if (!user) {
+            throw new NotFoundException(
+                identifier_type === 'email'
+                    ? ERROR_MESSAGES.EMAIL_NOT_FOUND
+                    : identifier_type === 'phone_number'
+                      ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND
+                      : ERROR_MESSAGES.USERNAME_NOT_FOUND
+            );
+        }
+
+        return {
+            identifier_type: identifier_type,
+            user_id: user.id,
+        };
+    }
+
     async login(login_dto: LoginDTO) {
-        const id = await this.validateUser(login_dto.email, login_dto.password);
+        const id = await this.validateUser(login_dto.identifier, login_dto.password, login_dto.type);
 
         const user_instance = await this.user_repository.findById(id);
         if (!user_instance) {
@@ -289,7 +331,7 @@ export class AuthService {
             otp,
             subtitle,
             subtitle_description,
-            user.username
+            user.name
         );
 
         const email_sent = await this.email_service.sendEmail({
@@ -305,14 +347,14 @@ export class AuthService {
         return { isEmailSent: true };
     }
 
-    async sendResetPasswordEmail(user_id: string) {
-        const user = await this.user_repository.findById(user_id);
+    async sendResetPasswordEmail(identifier: string) {
+        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
+        const user = await this.user_repository.findUserById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const otp = await this.verification_service.generateOtp(user_id, 'password');
-        const email = user.email;
+        const otp = await this.verification_service.generateOtp(user.id, 'password');
         const username = user.username;
 
         const { subject, title, description, subtitle, subtitle_description } =
@@ -328,7 +370,7 @@ export class AuthService {
 
         const email_sent = await this.email_service.sendEmail({
             subject: subject,
-            recipients: [{ name: user.name ?? '', address: email }],
+            recipients: [{ name: user.name ?? '', address: user.email }],
             html,
         });
 
@@ -339,7 +381,8 @@ export class AuthService {
         return { isEmailSent: true };
     }
 
-    async verifyResetPasswordOtp(user_id: string, token: string) {
+    async verifyResetPasswordOtp(identifier: string, token: string) {
+        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
         const is_valid = await this.verification_service.validateOtp(user_id, token, 'password');
 
         if (!is_valid) {
@@ -379,7 +422,8 @@ export class AuthService {
         return {};
     }
 
-    async resetPassword(user_id: string, new_password: string, token: string) {
+    async resetPassword(identifier: string, new_password: string, token: string) {
+        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
         const token_data = await this.verification_service.validatePasswordResetToken(token);
 
         if (!token_data) {
@@ -500,60 +544,183 @@ export class AuthService {
         }
     }
 
-    async validateGoogleUser(google_user: GoogleLoginDTO) {
-        let user = await this.user_repository.findByGoogleId(google_user.google_id);
-
-        if (user) {
-            return user;
+    async updateUsername(user_id: string, new_username: string) {
+        const user = await this.user_repository.findUserById(user_id);
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        if (google_user.email) {
-            user = await this.user_repository.findByEmail(google_user.email);
+        // Check if username is already taken
+        const is_available = await this.username_service.isUsernameAvailable(new_username);
+        if (!is_available) {
+            throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+        }
+
+        await this.user_repository.updateUserById(user_id, { username: new_username });
+        return {
+            username: new_username,
+        };
+    }
+
+    async updateEmail(user_id: string, new_email: string) {
+        const user = await this.user_repository.findUserById(user_id);
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const existing_user = await this.user_repository.findUserByEmail(new_email);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
+        }
+
+        // I will not use the old key here to avoid conflicts with signup flow (if there is one ongoing)
+        const otp = await this.verification_service.generateOtp(user_id + '_email_update', 'email');
+        const email_update_session_key = `email_update:${user_id}`;
+        await this.redis_service.set(email_update_session_key, new_email, 3600); // 1 hour
+
+        // Send OTP email
+        const { subject, title, description, subtitle, subtitle_description } = {
+            subject: 'Email Update Verification',
+            title: 'Verify Your New Email Address',
+            description: `Please use the following code to verify your new email address:`,
+            subtitle: 'Security Notice',
+            subtitle_description:
+                "If you didn't request this email change, please ignore this message.",
+        };
+
+        const html = generateOtpEmailHtml(
+            title,
+            description,
+            otp,
+            subtitle,
+            subtitle_description,
+            user.username || user.name
+        );
+
+        const email_sent = await this.email_service.sendEmail({
+            subject: subject,
+            recipients: [{ name: user.name ?? '', address: new_email }],
+            html,
+        });
+
+        if (!email_sent) {
+            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
+        }
+
+        return {
+            new_email,
+            verification_sent: true,
+        };
+    }
+
+    async verifyUpdateEmail(user_id: string, new_email: string, otp: string) {
+        const user = await this.user_repository.findUserById(user_id);
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const is_valid = await this.verification_service.validateOtp(
+            user_id + '_email_update',
+            otp,
+            'email'
+        );
+        if (!is_valid) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
+
+        // Check if the new_email matches what was stored
+        const email_update_session_key = `email_update:${user_id}`;
+        const stored_email = await this.redis_service.get(email_update_session_key);
+        if (!stored_email || stored_email !== new_email) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
+
+        // Check if email is still available
+        const existing_user = await this.user_repository.findUserByEmail(new_email);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
+        }
+
+        // Update user email
+        await this.user_repository.updateUser(user_id, { email: new_email });
+
+        // Clean up
+        await this.redis_service.del(email_update_session_key);
+        const otp_key = OTP_KEY('email', user_id + '_email_update');
+        await this.redis_service.del(otp_key);
+
+        return {
+            email: new_email,
+        };
+    }
+
+    // ####################### GitHub OAuth Routes ########################
+
+    async validateGoogleUser(google_user: GoogleLoginDTO) {
+        try {
+            let user = await this.user_repository.findUserByGoogleId(google_user.google_id);
+
             if (user) {
-                // update avatar_url if the user doesn't have one
-                let avatar_url = user.avatar_url;
-                if (!avatar_url) {
-                    avatar_url = google_user.avatar_url;
-                }
-
-                const updated_user = await this.user_repository.updateUserById(user.id, {
-                    google_id: google_user.google_id,
-                    avatar_url: avatar_url,
-                });
-
-                if (!updated_user) {
-                    throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
-                }
-
                 return {
-                    user: updated_user,
+                    user: user,
                     needs_completion: false,
                 };
             }
+
+            if (google_user.email) {
+                user = await this.user_repository.findUserByEmail(google_user.email);
+                if (user) {
+                    // update avatar_url if the user doesn't have one
+                    let avatar_url = user.avatar_url;
+                    if (!avatar_url) {
+                        avatar_url = google_user.avatar_url;
+                    }
+
+                    const updated_user = await this.user_repository.updateUser(user.id, {
+                        google_id: google_user.google_id,
+                        avatar_url: avatar_url,
+                    });
+
+                    if (!updated_user) {
+                        throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                    }
+
+                    return {
+                        user: updated_user,
+                        needs_completion: false,
+                    };
+                }
+            }
+
+            const last_name = google_user.last_name ? google_user.last_name : '';
+            let name = google_user.first_name + ' ' + last_name;
+            name = name.trim();
+
+            // If user doesn't exist, we need to create an OAuth completion session
+            // The frontend will need to handle this by redirecting to completion flow
+            return {
+                needs_completion: true,
+                user: {
+                    email: google_user.email,
+                    name: name,
+                    avatar_url: google_user.avatar_url,
+                    google_id: google_user.google_id,
+                },
+            };
+        } catch (error) {
+            console.error('Error in validateGoogleUser:', error);
+            throw new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
         }
-
-        const last_name = google_user.last_name ? google_user.last_name : '';
-        let name = google_user.first_name + ' ' + last_name;
-        name = name.trim();
-
-        // If user doesn't exist, we need to create an OAuth completion session
-        // The frontend will need to handle this by redirecting to completion flow
-        return {
-            needs_completion: true,
-            user: {
-                email: google_user.email,
-                name: name,
-                avatar_url: google_user.avatar_url,
-                google_id: google_user.google_id,
-            },
-        };
     }
 
     async validateFacebookUser(facebook_user: FacebookLoginDTO) {
         let user = await this.user_repository.findByFacebookId(facebook_user.facebook_id);
 
         if (user) {
-            return user;
+            return {
+                user: user,
+                needs_completion: false,
+            };
         }
 
         if (facebook_user.email) {
@@ -595,57 +762,216 @@ export class AuthService {
         };
     }
 
-    /* 
-        ####################### GitHub OAuth Routes ########################
-    */
     async validateGitHubUser(github_user: GitHubUserDto) {
-        let user = await this.user_repository.findByGithubId(github_user.github_id);
-        if (user) {
-            return user;
-        }
-
-        user = await this.user_repository.findByEmail(github_user.email);
-        if (user) {
-            let avatar_url = user.avatar_url;
-            if (!avatar_url) {
-                avatar_url = github_user.avatar_url;
+        try {
+            let user = await this.user_repository.findUserByGithubId(github_user.github_id);
+            if (user) {
+                return {
+                    user: user,
+                    needs_completion: false,
+                };
             }
 
-            const updated_user = await this.user_repository.updateUserById(user.id, {
-                github_id: github_user.github_id,
-                avatar_url: avatar_url,
-            });
+            user = await this.user_repository.findUserByEmail(github_user.email);
+            if (user) {
+                let avatar_url = user.avatar_url;
+                if (!avatar_url) {
+                    avatar_url = github_user.avatar_url;
+                }
 
-            if (!updated_user) {
-                throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                const updated_user = await this.user_repository.updateUser(user.id, {
+                    github_id: github_user.github_id,
+                    avatar_url: avatar_url,
+                });
+
+                if (!updated_user) {
+                    throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                }
+
+                return {
+                    user: updated_user,
+                    needs_completion: false,
+                };
             }
+
+            const last_name = github_user.last_name ? github_user.last_name : '';
+            let name = github_user.first_name + ' ' + last_name;
+            name = name.trim();
 
             return {
-                user: updated_user,
-                needs_completion: false,
+                needs_completion: true,
+                user: {
+                    email: github_user.email,
+                    name: name,
+                    avatar_url: github_user.avatar_url,
+                    github_id: github_user.github_id,
+                },
             };
+        } catch (error) {
+            console.error('Error in validateGitHubUser:', error);
+            throw new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
         }
+    }
 
-        const last_name = github_user.last_name ? github_user.last_name : '';
-        let name = github_user.first_name + ' ' + last_name;
-        name = name.trim();
+    // ###################### MOBILE OAUTH VERIFICATION ######################    
 
-        return {
-            needs_completion: true,
-            user: {
-                email: github_user.email,
-                name: name,
-                avatar_url: github_user.avatar_url,
-                github_id: github_user.github_id,
-            },
-        };
+    async verifyGoogleMobileToken(access_token: string) {
+        try {
+            const client = new OAuth2Client()
+
+            // Verify the Google ID token
+            const ticket = await client.verifyIdToken({
+                idToken: access_token,
+            });
+
+            const payload = ticket.getPayload();
+            if (!payload) {
+                throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
+            }
+
+            if (!payload['email']) {
+                throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB);
+            }
+
+            const googleUser: GoogleLoginDTO = {
+                google_id: payload['sub'],
+                email: payload['email'],
+                first_name: payload['given_name'] || '',
+                last_name: payload['family_name'] || '',
+                avatar_url: payload['picture'],
+            };
+
+            return await this.validateGoogleUser(googleUser);
+        } catch (error) {
+            if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+                throw error;
+            }
+            console.error('Error verifying Google mobile token:', error);
+            throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
+        }
+    }
+
+    async getGitHubAccessToken (code: string, redirectUri: string, codeVerifier: string) {
+        const github_mobile_client_id = this.config_service.get<string>('GITHUB_MOBILE_CLIENT_ID');
+        const github_mobile_client_secret = this.config_service.get<string>('GITHUB_MOBILE_CLIENT_SECRET');
+
+        try {
+            const requestBody: any = {
+                client_id: github_mobile_client_id,
+                client_secret: github_mobile_client_secret,
+                code,
+                redirect_uri: redirectUri,
+                code_verifier: codeVerifier,
+            };
+
+            const tokenResponse = await axios.post(
+                'https://github.com/login/oauth/access_token',
+                requestBody,
+                { headers: { Accept: 'application/json' } }
+            );
+
+            // Check for error response
+            if (tokenResponse.data.error) {
+                console.error('GitHub OAuth Error:', {
+                    error: tokenResponse.data.error,
+                    description: tokenResponse.data.error_description,
+                    uri: tokenResponse.data.error_uri,
+                });
+                
+                if (tokenResponse.data.error === 'bad_verification_code') {
+                    throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_CODE_INVALID);
+                }
+                
+                if (tokenResponse.data.error === 'invalid_grant') {
+                    throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_CODE_VERIFIER_REQUIRED);
+                }
+                
+                throw new UnauthorizedException(`GitHub OAuth error: ${tokenResponse.data.error_description}`);
+            }
+
+            const { access_token } = tokenResponse.data;
+            if (!access_token) {
+                throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+            }
+            
+            return access_token;
+        } catch (error) {
+            if (error instanceof UnauthorizedException) {
+                throw error;
+            }
+            
+            console.error('GitHub token exchange failed:', error.response?.data || error.message);
+            throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_OAUTH_FAILED);
+        }
+    }
+
+    async verifyGitHubMobileToken(code: string, redirectUri: string, codeVerifier: string) {
+        try {
+            const access_token = await this.getGitHubAccessToken(code, redirectUri, codeVerifier);
+            const response = await fetch('https://api.github.com/user', {
+                headers: {
+                    'Authorization': `Bearer ${access_token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'YourAppName'
+                }
+            });
+
+            if (!response.ok) {
+                console.error('GitHub user fetch failed:', await response.text());
+                throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+            }
+
+            const userData = await response.json();
+
+            // Get user's primary email (GitHub doesn't always include email in user endpoint)
+            const emailResponse = await fetch('https://api.github.com/user/emails', {
+                headers: {
+                    'Authorization': `Bearer ${access_token}`,
+                    'Accept': 'application/vnd.github.v3+json',
+                    'User-Agent': 'YourAppName'
+                }
+            });
+
+            let email = userData.email; // This might be null
+            if (!email && emailResponse.ok) {
+                const emails = await emailResponse.json();
+                const primaryEmail = emails.find((e: any) => e.primary && e.verified);
+                email = primaryEmail?.email;
+            }
+
+            if (!email) {
+                throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB);
+            }
+
+            // Parse the name from GitHub's name field or fallback to login
+            const fullName = userData.name || userData.login || '';
+            const nameParts = fullName.trim().split(' ');
+            const first_name = nameParts[0] || '';
+            const last_name = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+
+            const githubUser: GitHubUserDto = {
+                github_id: userData.id.toString(),
+                email: email,
+                first_name: first_name,
+                last_name: last_name,
+                avatar_url: userData.avatar_url,
+            };
+
+            return await this.validateGitHubUser(githubUser);
+        } catch (error) {
+            if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
+                throw error;
+            }
+            console.error('Error verifying GitHub mobile token:', error);
+            throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+        }
     }
 
     // ###################### OAUTH COMPLETION FLOW ######################
 
     async createOAuthSession(user_data: Record<string, any>): Promise<string> {
-        const session_token = crypto.randomUUID();
-        const oauth_session_data = OAUTH_SESSION_OBJECT(session_token, user_data);
+        const session_key = user_data.email;
+        const oauth_session_data = OAUTH_SESSION_OBJECT(session_key, user_data);
 
         await this.redis_service.hset(
             oauth_session_data.key,
@@ -653,7 +979,7 @@ export class AuthService {
             oauth_session_data.ttl
         );
 
-        return session_token;
+        return session_key;
     }
 
     async oauthCompletionStep1(dto: OAuthCompletionStep1Dto) {
@@ -712,7 +1038,6 @@ export class AuthService {
             username: username,
             birth_date: new Date(user_data.birth_date),
             password: '', // OAuth users don't have passwords
-            phone_number: '',
             google_id: user_data.google_id || null,
             facebook_id: user_data.facebook_id || null,
             github_id: user_data.github_id || null,
@@ -729,148 +1054,6 @@ export class AuthService {
             user: instanceToPlain(user),
             access_token,
             refresh_token,
-        };
-    }
-
-    async checkIdentifier(identifier: string) {
-        let identifier_type: string = '';
-        let user: User | null = null;
-
-        if (identifier.includes('@')) {
-            identifier_type = 'email';
-            user = await this.user_repository.findByEmail(identifier);
-            // temporarily disable linter till reviewed
-            // eslint-disable-next-line no-useless-escape
-        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
-            identifier_type = 'phone_number';
-            user = await this.user_repository.findByPhoneNumber(identifier);
-        } else {
-            identifier_type = 'username';
-            user = await this.user_repository.findByUsername(identifier);
-        }
-
-        if (!user) {
-            throw new NotFoundException(
-                identifier_type === 'email'
-                    ? ERROR_MESSAGES.EMAIL_NOT_FOUND
-                    : identifier_type === 'phone_number'
-                      ? ERROR_MESSAGES.PHONE_NUMBER_NOT_FOUND
-                      : ERROR_MESSAGES.USERNAME_NOT_FOUND
-            );
-        }
-
-        return {
-            identifier_type: identifier_type,
-        };
-    }
-
-    async updateUsername(user_id: string, new_username: string) {
-        const user = await this.user_repository.findById(user_id);
-        if (!user) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-        }
-
-        // Check if username is already taken
-        const is_available = await this.username_service.isUsernameAvailable(new_username);
-        if (!is_available) {
-            throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
-        }
-
-        await this.user_repository.updateUserById(user_id, { username: new_username });
-        return {
-            username: new_username,
-        };
-    }
-
-    async updateEmail(user_id: string, new_email: string) {
-        const user = await this.user_repository.findById(user_id);
-        if (!user) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-        }
-
-        const existing_user = await this.user_repository.findByEmail(new_email);
-        if (existing_user) {
-            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
-        }
-
-        // I will not use the old key here to avoid conflicts with signup flow (if there is one ongoing)
-        const otp = await this.verification_service.generateOtp(user_id + '_email_update', 'email');
-        const email_update_session_key = `email_update:${user_id}`;
-        await this.redis_service.set(email_update_session_key, new_email, 3600); // 1 hour
-
-        // Send OTP email
-        const { subject, title, description, subtitle, subtitle_description } = {
-            subject: 'Email Update Verification',
-            title: 'Verify Your New Email Address',
-            description: `Please use the following code to verify your new email address:`,
-            subtitle: 'Security Notice',
-            subtitle_description:
-                "If you didn't request this email change, please ignore this message.",
-        };
-
-        const html = generateOtpEmailHtml(
-            title,
-            description,
-            otp,
-            subtitle,
-            subtitle_description,
-            user.username || user.name
-        );
-
-        const email_sent = await this.email_service.sendEmail({
-            subject: subject,
-            recipients: [{ name: user.name ?? '', address: new_email }],
-            html,
-        });
-
-        if (!email_sent) {
-            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
-        }
-
-        return {
-            new_email,
-            verification_sent: true,
-        };
-    }
-
-    async verifyUpdateEmail(user_id: string, new_email: string, otp: string) {
-        const user = await this.user_repository.findById(user_id);
-        if (!user) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-        }
-
-        const is_valid = await this.verification_service.validateOtp(
-            user_id + '_email_update',
-            otp,
-            'email'
-        );
-        if (!is_valid) {
-            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
-        }
-
-        // Check if the new_email matches what was stored
-        const email_update_session_key = `email_update:${user_id}`;
-        const stored_email = await this.redis_service.get(email_update_session_key);
-        if (!stored_email || stored_email !== new_email) {
-            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
-        }
-
-        // Check if email is still available
-        const existing_user = await this.user_repository.findByEmail(new_email);
-        if (existing_user) {
-            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
-        }
-
-        // Update user email
-        await this.user_repository.updateUserById(user_id, { email: new_email });
-
-        // Clean up
-        await this.redis_service.del(email_update_session_key);
-        const otp_key = OTP_KEY('email', user_id + '_email_update');
-        await this.redis_service.del(otp_key);
-
-        return {
-            email: new_email,
         };
     }
 }
