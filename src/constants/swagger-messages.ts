@@ -32,6 +32,7 @@ export const ERROR_MESSAGES = {
     // user
     USER_NOT_FOUND: 'User not found',
     USER_NOT_FOUND_OR_VERIFIED: 'User not found or already verified',
+    CANNOT_FOLLOW_YOURSELF: 'You cannot follow yourself',
 
     // communication
     FAILED_TO_SEND_OTP_EMAIL: 'Failed to send OTP email',
@@ -82,6 +83,9 @@ export const ERROR_MESSAGES = {
     TWEET_ALREADY_LIKED: 'Tweet already liked',
     TWEET_NOT_LIKED: 'Tweet not liked yet',
     UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
+
+    // category
+    CATEGORY_NOT_FOUND: 'Category not found',
 } as const;
 
 // Success Messages
@@ -138,7 +142,7 @@ export const SUCCESS_MESSAGES = {
     FOLLOW_USER: 'Followed user successfully',
     UNFOLLOW_USER: 'Unfollowed user successfully',
     MUTED_LIST_RETRIEVED: 'Muted list retrieved successfully',
-    BLOCKED_LIST_RETRIEVED: 'Muted list retrieved successfully',
+    BLOCKED_LIST_RETRIEVED: 'Blocked list retrieved successfully',
     MUTE_USER: 'Muted user successfully',
     UNMUTE_USER: 'Unmuted user successfully',
     BLOCK_USER: 'Blocked user successfully',
@@ -155,6 +159,7 @@ export const SUCCESS_MESSAGES = {
     COVER_UPLOADED: 'Cover uploaded successfully',
     AVATAR_DELETED: 'Avatar deleted successfully',
     COVER_DELETED: 'Cover deleted successfully',
+    INTERESTS_ASSIGNED: 'Interests assigned successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',

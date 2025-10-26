@@ -16,6 +16,7 @@ import { SearchModule } from './search/search.module';
 import { ExploreModule } from './explore/explore.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { ChatModule } from './chat/chat.module';
+import { CategoryModule } from './category/category.module';
 
 @Module({
     imports: [
@@ -38,6 +39,7 @@ import { ChatModule } from './chat/chat.module';
 
         ChatModule,
         TimelineModule,
+        CategoryModule,
     ],
     controllers: [AppController],
     providers: [AppService],
