@@ -109,10 +109,10 @@ export class AuthService {
 
     async validateUser(identifier: string, password: string, type: string): Promise<string> {
         const user = type === 'email'
-            ? await this.user_repository.findUserByEmail(identifier)
+            ? await this.user_repository.findByEmail(identifier)
             : type === 'phone_number'
-                ? await this.user_repository.findUserByPhoneNumber(identifier)
-                : await this.user_repository.findUserByUsername(identifier);
+                ? await this.user_repository.findByPhoneNumber(identifier)
+                : await this.user_repository.findByUsername(identifier);
 
         if (!user) {
             if (type !== 'email') {
@@ -269,13 +269,13 @@ export class AuthService {
 
         if (identifier.includes('@')) {
             identifier_type = 'email';
-            user = await this.user_repository.findUserByEmail(identifier);
+            user = await this.user_repository.findByEmail(identifier);
         } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
             identifier_type = 'phone_number';
-            user = await this.user_repository.findUserByPhoneNumber(identifier);
+            user = await this.user_repository.findByPhoneNumber(identifier);
         } else {
             identifier_type = 'username';
-            user = await this.user_repository.findUserByUsername(identifier);
+            user = await this.user_repository.findByUsername(identifier);
         }
 
         if (!user) {
@@ -349,7 +349,7 @@ export class AuthService {
 
     async sendResetPasswordEmail(identifier: string) {
         const { identifier_type, user_id } = await this.checkIdentifier(identifier);
-        const user = await this.user_repository.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -545,7 +545,7 @@ export class AuthService {
     }
 
     async updateUsername(user_id: string, new_username: string) {
-        const user = await this.user_repository.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -563,12 +563,12 @@ export class AuthService {
     }
 
     async updateEmail(user_id: string, new_email: string) {
-        const user = await this.user_repository.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const existing_user = await this.user_repository.findUserByEmail(new_email);
+        const existing_user = await this.user_repository.findByEmail(new_email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
@@ -614,7 +614,7 @@ export class AuthService {
     }
 
     async verifyUpdateEmail(user_id: string, new_email: string, otp: string) {
-        const user = await this.user_repository.findUserById(user_id);
+        const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
@@ -636,13 +636,13 @@ export class AuthService {
         }
 
         // Check if email is still available
-        const existing_user = await this.user_repository.findUserByEmail(new_email);
+        const existing_user = await this.user_repository.findByEmail(new_email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
         // Update user email
-        await this.user_repository.updateUser(user_id, { email: new_email });
+        await this.user_repository.updateUserById(user_id, { email: new_email });
 
         // Clean up
         await this.redis_service.del(email_update_session_key);
@@ -658,7 +658,7 @@ export class AuthService {
 
     async validateGoogleUser(google_user: GoogleLoginDTO) {
         try {
-            let user = await this.user_repository.findUserByGoogleId(google_user.google_id);
+            let user = await this.user_repository.findByGoogleId(google_user.google_id);
 
             if (user) {
                 return {
@@ -668,7 +668,7 @@ export class AuthService {
             }
 
             if (google_user.email) {
-                user = await this.user_repository.findUserByEmail(google_user.email);
+                user = await this.user_repository.findByEmail(google_user.email);
                 if (user) {
                     // update avatar_url if the user doesn't have one
                     let avatar_url = user.avatar_url;
@@ -676,7 +676,7 @@ export class AuthService {
                         avatar_url = google_user.avatar_url;
                     }
 
-                    const updated_user = await this.user_repository.updateUser(user.id, {
+                    const updated_user = await this.user_repository.updateUserById(user.id, {
                         google_id: google_user.google_id,
                         avatar_url: avatar_url,
                     });
@@ -764,7 +764,7 @@ export class AuthService {
 
     async validateGitHubUser(github_user: GitHubUserDto) {
         try {
-            let user = await this.user_repository.findUserByGithubId(github_user.github_id);
+            let user = await this.user_repository.findByGithubId(github_user.github_id);
             if (user) {
                 return {
                     user: user,
@@ -772,14 +772,14 @@ export class AuthService {
                 };
             }
 
-            user = await this.user_repository.findUserByEmail(github_user.email);
+            user = await this.user_repository.findByEmail(github_user.email);
             if (user) {
                 let avatar_url = user.avatar_url;
                 if (!avatar_url) {
                     avatar_url = github_user.avatar_url;
                 }
 
-                const updated_user = await this.user_repository.updateUser(user.id, {
+                const updated_user = await this.user_repository.updateUserById(user.id, {
                     github_id: github_user.github_id,
                     avatar_url: avatar_url,
                 });
