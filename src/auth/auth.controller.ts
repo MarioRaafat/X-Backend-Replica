@@ -2,6 +2,7 @@ import {
     BadRequestException,
     Controller,
     Get,
+    InternalServerErrorException,
     Param,
     Post,
     Query,
@@ -219,8 +220,6 @@ export class AuthController {
         return this.auth_service.verifyResetPasswordOtp(identifier, token);
     }
 
-    @ApiBearerAuth('JWT-auth')
-    @UseGuards(JwtAuthGuard)
     @ApiOperation(reset_password_swagger.operation)
     @ApiBody({ type: ResetPasswordDto })
     @ApiOkResponse(reset_password_swagger.responses.success)
@@ -509,29 +508,34 @@ export class AuthController {
         @Body() dto: MobileGitHubAuthDto,
         @Res({ passthrough: true }) response: Response
     ) {
-        const result = await this.auth_service.verifyGitHubMobileToken(dto.code, dto.redirect_uri, dto.code_verifier);
+        try{
+            const result = await this.auth_service.verifyGitHubMobileToken(dto.code, dto.redirect_uri, dto.code_verifier);
 
-        if ('needs_completion' in result && result.needs_completion) {
-            const sessionToken = await this.auth_service.createOAuthSession(result.user);
+            if ('needs_completion' in result && result.needs_completion) {
+                const sessionToken = await this.auth_service.createOAuthSession(result.user);
+                return {
+                    needs_completion: true,
+                    session_token: sessionToken,
+                    provider: 'github',
+                };
+            }
+
+            if (!("user" in result) || !("id" in result.user)) {
+                throw new BadRequestException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+            }
+
+            const user = result.user;
+            const { access_token, refresh_token } = await this.auth_service.generateTokens(user.id);
+            this.httpOnlyRefreshToken(response, refresh_token);
+
             return {
-                needs_completion: true,
-                session_token: sessionToken,
-                provider: 'github',
+                access_token,
+                user: user,
             };
+        } catch (error) {
+            console.error('Error in mobileGitHubAuth:', error);
+            throw new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
         }
-
-        if (!("user" in result) || !("id" in result.user)) {
-            throw new BadRequestException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
-        }
-
-        const user = result.user;
-        const { access_token, refresh_token } = await this.auth_service.generateTokens(user.id);
-        this.httpOnlyRefreshToken(response, refresh_token);
-
-        return {
-            access_token,
-            user: user,
-        };
     }
 
     @UseGuards(GitHubAuthGuard)

@@ -657,59 +657,70 @@ export class AuthService {
     // ####################### GitHub OAuth Routes ########################
 
     async validateGoogleUser(google_user: GoogleLoginDTO) {
-        let user = await this.user_service.findUserByGoogleId(google_user.google_id);
+        try {
+            let user = await this.user_service.findUserByGoogleId(google_user.google_id);
 
-        if (user) {
-            return user;
-        }
-
-        if (google_user.email) {
-            user = await this.user_service.findUserByEmail(google_user.email);
             if (user) {
-                // update avatar_url if the user doesn't have one
-                let avatar_url = user.avatar_url;
-                if (!avatar_url) {
-                    avatar_url = google_user.avatar_url;
-                }
-
-                const updated_user = await this.user_service.updateUser(user.id, {
-                    google_id: google_user.google_id,
-                    avatar_url: avatar_url,
-                });
-
-                if (!updated_user) {
-                    throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
-                }
-
                 return {
-                    user: updated_user,
+                    user: user,
                     needs_completion: false,
                 };
             }
+
+            if (google_user.email) {
+                user = await this.user_service.findUserByEmail(google_user.email);
+                if (user) {
+                    // update avatar_url if the user doesn't have one
+                    let avatar_url = user.avatar_url;
+                    if (!avatar_url) {
+                        avatar_url = google_user.avatar_url;
+                    }
+
+                    const updated_user = await this.user_service.updateUser(user.id, {
+                        google_id: google_user.google_id,
+                        avatar_url: avatar_url,
+                    });
+
+                    if (!updated_user) {
+                        throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                    }
+
+                    return {
+                        user: updated_user,
+                        needs_completion: false,
+                    };
+                }
+            }
+
+            const last_name = google_user.last_name ? google_user.last_name : '';
+            let name = google_user.first_name + ' ' + last_name;
+            name = name.trim();
+
+            // If user doesn't exist, we need to create an OAuth completion session
+            // The frontend will need to handle this by redirecting to completion flow
+            return {
+                needs_completion: true,
+                user: {
+                    email: google_user.email,
+                    name: name,
+                    avatar_url: google_user.avatar_url,
+                    google_id: google_user.google_id,
+                },
+            };
+        } catch (error) {
+            console.error('Error in validateGoogleUser:', error);
+            throw new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
         }
-
-        const last_name = google_user.last_name ? google_user.last_name : '';
-        let name = google_user.first_name + ' ' + last_name;
-        name = name.trim();
-
-        // If user doesn't exist, we need to create an OAuth completion session
-        // The frontend will need to handle this by redirecting to completion flow
-        return {
-            needs_completion: true,
-            user: {
-                email: google_user.email,
-                name: name,
-                avatar_url: google_user.avatar_url,
-                google_id: google_user.google_id,
-            },
-        };
     }
 
     async validateFacebookUser(facebook_user: FacebookLoginDTO) {
         let user = await this.user_service.findUserByFacebookId(facebook_user.facebook_id);
 
         if (user) {
-            return user;
+            return {
+                user: user,
+                needs_completion: false,
+            };
         }
 
         if (facebook_user.email) {
@@ -752,46 +763,54 @@ export class AuthService {
     }
 
     async validateGitHubUser(github_user: GitHubUserDto) {
-        let user = await this.user_service.findUserByGithubId(github_user.github_id);
-        if (user) {
-            return user;
-        }
-
-        user = await this.user_service.findUserByEmail(github_user.email);
-        if (user) {
-            let avatar_url = user.avatar_url;
-            if (!avatar_url) {
-                avatar_url = github_user.avatar_url;
+        try {
+            let user = await this.user_service.findUserByGithubId(github_user.github_id);
+            if (user) {
+                return {
+                    user: user,
+                    needs_completion: false,
+                };
             }
 
-            const updated_user = await this.user_service.updateUser(user.id, {
-                github_id: github_user.github_id,
-                avatar_url: avatar_url,
-            });
+            user = await this.user_service.findUserByEmail(github_user.email);
+            if (user) {
+                let avatar_url = user.avatar_url;
+                if (!avatar_url) {
+                    avatar_url = github_user.avatar_url;
+                }
 
-            if (!updated_user) {
-                throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                const updated_user = await this.user_service.updateUser(user.id, {
+                    github_id: github_user.github_id,
+                    avatar_url: avatar_url,
+                });
+
+                if (!updated_user) {
+                    throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                }
+
+                return {
+                    user: updated_user,
+                    needs_completion: false,
+                };
             }
+
+            const last_name = github_user.last_name ? github_user.last_name : '';
+            let name = github_user.first_name + ' ' + last_name;
+            name = name.trim();
 
             return {
-                user: updated_user,
-                needs_completion: false,
+                needs_completion: true,
+                user: {
+                    email: github_user.email,
+                    name: name,
+                    avatar_url: github_user.avatar_url,
+                    github_id: github_user.github_id,
+                },
             };
+        } catch (error) {
+            console.error('Error in validateGitHubUser:', error);
+            throw new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
         }
-
-        const last_name = github_user.last_name ? github_user.last_name : '';
-        let name = github_user.first_name + ' ' + last_name;
-        name = name.trim();
-
-        return {
-            needs_completion: true,
-            user: {
-                email: github_user.email,
-                name: name,
-                avatar_url: github_user.avatar_url,
-                github_id: github_user.github_id,
-            },
-        };
     }
 
     // ###################### MOBILE OAUTH VERIFICATION ######################    
@@ -1019,7 +1038,6 @@ export class AuthService {
             username: username,
             birth_date: new Date(user_data.birth_date),
             password: '', // OAuth users don't have passwords
-            phone_number: '',
             google_id: user_data.google_id || null,
             facebook_id: user_data.facebook_id || null,
             github_id: user_data.github_id || null,
