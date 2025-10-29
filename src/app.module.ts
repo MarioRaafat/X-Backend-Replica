@@ -9,7 +9,6 @@ import { UserModule } from './user/user.module';
 import { VerificationModule } from './verification/verification.module';
 import { CommunicationModule } from './communication/communication.module';
 import { LoggerMiddleware } from './middlewares/logger.middleware';
-import { RabbitmqModule } from './rabbitmq/rabbitmq.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { TimelineModule } from './timeline/timeline.module';
 import { SearchModule } from './search/search.module';
@@ -30,7 +29,6 @@ import { CategoryModule } from './category/category.module';
         UserModule,
         VerificationModule,
         CommunicationModule,
-        RabbitmqModule,
         NotificationsModule,
 
         SearchModule,

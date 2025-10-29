@@ -1,5 +1,4 @@
 import { Injectable, OnModuleInit } from '@nestjs/common';
-import { RabbitmqService } from 'src/rabbitmq/rabbitmq.service';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Notification } from './entities/notifications.entity';
@@ -19,11 +18,9 @@ export class NotificationsService implements OnModuleInit {
     constructor(
         @InjectModel(Notification.name)
         private readonly notificationModel: Model<Notification>,
-        private readonly rabbit: RabbitmqService
     ) {}
 
     async onModuleInit() {
-        await this.rabbit.subscribe(this.key, (data) => this.handleMessage(data));
     }
 
     async handleMessage(data: NotificationMessage): Promise<void> {
@@ -66,8 +63,6 @@ export class NotificationsService implements OnModuleInit {
     // Just for testing, but notifications messages will be sent from other services
     async sendNotification(notification: NotificationMessage): Promise<void> {
         console.log('Send');
-
-        await this.rabbit.publish(this.key, notification);
     }
 
     // Test function

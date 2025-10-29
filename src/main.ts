@@ -4,7 +4,6 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { ResponseInterceptor } from './interceptor/response.interceptor';
-import { RabbitmqService } from './rabbitmq/rabbitmq.service';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
@@ -47,8 +46,6 @@ async function bootstrap() {
 
     const document = SwaggerModule.createDocument(app, config);
     SwaggerModule.setup('api-docs', app, document);
-    const rabbit = app.get(RabbitmqService);
-    await rabbit.onModuleInit();
 
     await app.listen(process.env.PORT ?? 3000);
 }
