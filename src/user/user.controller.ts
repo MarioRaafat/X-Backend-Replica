@@ -158,9 +158,11 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.FOLLOWER_REMOVED)
     @Delete(':target_user_id/remove-follower')
     async removeFollower(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
+    ) {
+        return await this.user_service.removeFollower(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')

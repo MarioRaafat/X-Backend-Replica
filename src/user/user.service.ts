@@ -166,7 +166,8 @@ export class UserService {
             this.user_repository.validateRelationshipRequest(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW
+                RelationshipType.FOLLOW,
+                'insert'
             ),
             this.user_repository.verifyFollowPermissions(current_user_id, target_user_id),
         ]);
@@ -198,18 +199,35 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.FOLLOW
+            RelationshipType.FOLLOW,
+            'remove'
         );
-
-        if (!validation_result || !validation_result.user_exists) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-        }
 
         if (!validation_result.relationship_exists) {
             throw new ConflictException(ERROR_MESSAGES.NOT_FOLLOWED);
         }
 
         await this.user_repository.deleteFollowRelationship(current_user_id, target_user_id);
+    }
+
+    async removeFollower(current_user_id: string, target_user_id: string): Promise<void> {
+        if (current_user_id === target_user_id) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_REMOVE_SELF);
+        }
+
+        const validation_result = await this.user_repository.validateRelationshipRequest(
+            target_user_id,
+            current_user_id,
+            RelationshipType.FOLLOW,
+            'remove'
+        );
+
+        console.log(validation_result.relationship_exists);
+        if (!validation_result.relationship_exists) {
+            throw new ConflictException(ERROR_MESSAGES.NOT_A_FOLLOWER);
+        }
+
+        await this.user_repository.deleteFollowRelationship(target_user_id, current_user_id);
     }
 
     async muteUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -220,7 +238,8 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.MUTE
+            RelationshipType.MUTE,
+            'insert'
         );
 
         if (!validation_result || !validation_result.user_exists) {
@@ -242,12 +261,9 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.MUTE
+            RelationshipType.MUTE,
+            'remove'
         );
-
-        if (!validation_result || !validation_result.user_exists) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-        }
 
         if (!validation_result.relationship_exists) {
             throw new ConflictException(ERROR_MESSAGES.NOT_MUTED);
@@ -264,7 +280,8 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.BLOCK
+            RelationshipType.BLOCK,
+            'insert'
         );
 
         if (!validation_result || !validation_result.user_exists) {
@@ -286,12 +303,9 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.BLOCK
+            RelationshipType.BLOCK,
+            'remove'
         );
-
-        if (!validation_result || !validation_result.user_exists) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-        }
 
         if (!validation_result.relationship_exists) {
             throw new ConflictException(ERROR_MESSAGES.NOT_BLOCKED);

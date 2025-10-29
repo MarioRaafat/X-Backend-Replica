@@ -603,24 +603,6 @@ describe('UserController', () => {
             expect(unfollow_user).toHaveBeenCalledTimes(1);
         });
 
-        it('should throw if service throws user not found', async () => {
-            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const unfollow_user = jest
-                .spyOn(user_service, 'unfollowUser')
-                .mockRejectedValueOnce(error);
-
-            await expect(controller.unfollowUser(current_user_id, target_user_id)).rejects.toThrow(
-                ERROR_MESSAGES.USER_NOT_FOUND
-            );
-
-            expect(unfollow_user).toHaveBeenCalledWith(current_user_id, target_user_id);
-            expect(unfollow_user).toHaveBeenCalledTimes(1);
-        });
-
         it('should throw if service throws not followed', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
@@ -729,22 +711,6 @@ describe('UserController', () => {
 
             await expect(controller.unmuteUser(current_user_id, target_user_id)).rejects.toThrow(
                 ERROR_MESSAGES.CANNOT_UNMUTE_YOURSELF
-            );
-
-            expect(unmute_user).toHaveBeenCalledWith(current_user_id, target_user_id);
-            expect(unmute_user).toHaveBeenCalledTimes(1);
-        });
-
-        it('should throw if service throws user not found', async () => {
-            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const unmute_user = jest.spyOn(user_service, 'unmuteUser').mockRejectedValueOnce(error);
-
-            await expect(controller.unmuteUser(current_user_id, target_user_id)).rejects.toThrow(
-                ERROR_MESSAGES.USER_NOT_FOUND
             );
 
             expect(unmute_user).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -861,24 +827,6 @@ describe('UserController', () => {
 
             await expect(controller.unblockUser(current_user_id, target_user_id)).rejects.toThrow(
                 ERROR_MESSAGES.CANNOT_UNBLOCK_YOURSELF
-            );
-
-            expect(unblock_user).toHaveBeenCalledWith(current_user_id, target_user_id);
-            expect(unblock_user).toHaveBeenCalledTimes(1);
-        });
-
-        it('should throw if service throws user not found', async () => {
-            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const unblock_user = jest
-                .spyOn(user_service, 'unblockUser')
-                .mockRejectedValueOnce(error);
-
-            await expect(controller.unblockUser(current_user_id, target_user_id)).rejects.toThrow(
-                ERROR_MESSAGES.USER_NOT_FOUND
             );
 
             expect(unblock_user).toHaveBeenCalledWith(current_user_id, target_user_id);
