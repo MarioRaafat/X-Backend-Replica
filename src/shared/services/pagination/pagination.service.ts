@@ -1,5 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
-import { ObjectLiteral, Selectquery_builder } from 'typeorm';
+import { ObjectLiteral, SelectQueryBuilder } from 'typeorm';
 import { PaginationQueryDto } from './dto/pagination.dto';
 import { PaginationResponseDto } from './dto/paginationRespone.dto';
 
@@ -11,7 +11,7 @@ export class PaginationService {
      * @param limit - Number of items per page
      * @param sort_by - Field to sort by
      * @param sort_order - Sort order (ASC or DESC)
-     * @param valid_sort_fields - Array of valid fields that can be used for sorting
+     * @param valid_sort_fields - Array of valid fields which can be used for sorting
      */
     public validatePaginationParams(
         page?: number,
@@ -48,7 +48,7 @@ export class PaginationService {
      * @returns Promise with paginated results and metadata
      */
     public async paginate<T extends ObjectLiteral>(
-        query_builder: Selectquery_builder<T>,
+        query_builder: SelectQueryBuilder<T>,
         dto: PaginationQueryDto,
         alias: string,
         valid_sort_fields: string[] = ['name', 'createdAt', 'updatedAt']
