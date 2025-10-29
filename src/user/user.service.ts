@@ -21,6 +21,7 @@ import { PaginationParamsDto } from './dto/pagination-params.dto';
 import { UserRepository } from './user.repository';
 import { UserFollows } from './entities';
 import { RelationshipType } from './enums/relationship-type.enum';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UserService {
@@ -312,5 +313,23 @@ export class UserService {
         }
 
         await this.user_repository.deleteBlockRelationship(current_user_id, target_user_id);
+    }
+
+    async updateUser(user_id: string, update_user_dto: UpdateUserDto): Promise<UserProfileDto> {
+        const user = await this.user_repository.findOne({
+            where: { id: user_id },
+        });
+
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        Object.assign(user, update_user_dto);
+
+        const updated_user = await this.user_repository.save(user);
+
+        return plainToInstance(UserProfileDto, updated_user, {
+            excludeExtraneousValues: true,
+        });
     }
 }

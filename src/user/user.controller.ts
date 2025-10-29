@@ -32,10 +32,9 @@ import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
     assign_interests,
     block_user,
-    change_phone_number,
-    deactivate_account,
     delete_avatar,
     delete_cover,
+    delete_user,
     follow_user,
     get_blocked,
     get_followers,
@@ -50,7 +49,6 @@ import {
     get_users_by_ids,
     get_users_by_username,
     mute_user,
-    reactivate_account,
     remove_follower,
     unblock_user,
     unfollow_user,
@@ -340,37 +338,19 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.USER_UPDATED)
     @Patch('me')
-    async updateUser(@GetUserId() user_id: string, @Body() update_user_dto: UpdateUserDto) {}
+    async updateUser(@GetUserId() user_id: string, @Body() update_user_dto: UpdateUserDto) {
+        return await this.user_service.updateUser(user_id, update_user_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
-    @ApiOperation(change_phone_number.operation)
-    @ApiOkResponse(change_phone_number.responses.success)
+    @ApiOperation(delete_user.operation)
+    @ApiOkResponse(delete_user.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ResponseMessage(SUCCESS_MESSAGES.PHONE_NUMBER_CHANGED)
-    @Patch('me/change-phone-number')
-    async changePhoneNumber(
-        @Body() update_phone_number_dto: UpdatePhoneNumberDto,
-        @GetUserId() user_id: string
-    ) {}
-
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth('JWT-auth')
-    @ApiOperation(deactivate_account.operation)
-    @ApiOkResponse(deactivate_account.responses.success)
-    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_DEACTIVATED)
-    @Patch('me/deactivate')
-    async deactivateAccount(@GetUserId() user_id: string) {}
-
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth('JWT-auth')
-    @ApiOperation(reactivate_account.operation)
-    @ApiOkResponse(reactivate_account.responses.success)
-    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_REACTIVATED)
-    @Patch('me/reactivate')
-    async reactivateAccount(@GetUserId() user_id: string) {}
+    @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_DELETED)
+    @Delete('me/delete-account')
+    async deleteUser(@GetUserId() current_user_id: string) {}
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')

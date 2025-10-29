@@ -1,5 +1,5 @@
 import { Exclude } from 'class-transformer';
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity()
 export class User {
@@ -43,9 +43,6 @@ export class User {
     @Column({ type: 'date' })
     birth_date: Date;
 
-    @Column({ type: 'varchar', nullable: true })
-    gender?: string;
-
     // language code like 'en', 'es', 'fr', 'ar' etc.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
     language: string;
@@ -62,11 +59,7 @@ export class User {
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
 
-    @Column({
-        type: 'timestamp',
-        default: () => 'CURRENT_TIMESTAMP',
-        onUpdate: 'CURRENT_TIMESTAMP',
-    })
+    @UpdateDateColumn()
     updated_at: Date;
 
     constructor(user: Partial<User>) {

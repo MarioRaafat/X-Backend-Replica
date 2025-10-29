@@ -1033,7 +1033,16 @@ export const update_user = {
             description: 'Updated user successfully',
             schema: {
                 example: {
-                    data: {},
+                    data: {
+                        user_id: '809334b7-d429-4d83-8e78-0418731ea97d',
+                        username: 'alyaa242',
+                        bio: "Hi there, I'm Alyaa",
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        country: null,
+                        created_at: '2025-10-21T09:26:17.432Z',
+                        followers_count: 5,
+                        following_count: 10,
+                    },
                     count: 0,
                     message: SUCCESS_MESSAGES.USER_UPDATED,
                 },
@@ -1042,66 +1051,22 @@ export const update_user = {
     },
 };
 
-export const change_phone_number = {
+export const delete_user = {
     operation: {
-        summary: 'Change phone number',
+        summary: 'Delete user',
         description: `
-    Change current user's phone number
+    Delete current user permanently
     `,
     },
 
     responses: {
         success: {
-            description: 'Phone number changed successfully',
+            description: 'Account deleted successfully',
             schema: {
                 example: {
                     data: {},
                     count: 0,
-                    message: SUCCESS_MESSAGES.PHONE_NUMBER_CHANGED,
-                },
-            },
-        },
-    },
-};
-
-export const deactivate_account = {
-    operation: {
-        summary: 'Deactivate account',
-        description: `
-    Deactivate current user's account
-    `,
-    },
-
-    responses: {
-        success: {
-            description: 'Account deactivated successfully',
-            schema: {
-                example: {
-                    data: {},
-                    count: 0,
-                    message: SUCCESS_MESSAGES.ACCOUNT_DEACTIVATED,
-                },
-            },
-        },
-    },
-};
-
-export const reactivate_account = {
-    operation: {
-        summary: 'Reactivate account',
-        description: `
-    Reactivate current user's account
-    `,
-    },
-
-    responses: {
-        success: {
-            description: 'Account reactivated successfully',
-            schema: {
-                example: {
-                    data: {},
-                    count: 0,
-                    message: SUCCESS_MESSAGES.ACCOUNT_REACTIVATED,
+                    message: SUCCESS_MESSAGES.ACCOUNT_DELETED,
                 },
             },
         },
