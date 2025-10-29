@@ -364,10 +364,10 @@ export class UserRepository extends Repository<User> {
             .getMany();
 
         return {
-            is_blocked: blocks.some(
+            blocked_me: blocks.some(
                 (b) => b.blocker_id === target_user_id && b.blocked_id === current_user_id
             ),
-            has_blocked: blocks.some(
+            is_blocked: blocks.some(
                 (b) => b.blocker_id === current_user_id && b.blocked_id === target_user_id
             ),
         };

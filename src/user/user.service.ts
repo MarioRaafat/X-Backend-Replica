@@ -179,11 +179,11 @@ export class UserService {
             throw new ConflictException(ERROR_MESSAGES.ALREADY_FOLLOWING);
         }
 
-        if (follow_permissions.is_blocked) {
+        if (follow_permissions.blocked_me) {
             throw new ForbiddenException(ERROR_MESSAGES.CANNOT_FOLLOW_USER);
         }
 
-        if (follow_permissions.has_blocked) {
+        if (follow_permissions.is_blocked) {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER);
         }
 
