@@ -1,15 +1,18 @@
 import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, Repository } from 'typeorm';
+import { DataSource, In, QueryRunner, Repository } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import { CreateTweetDTO, UpdateTweetDTO } from './dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
-import { PostgresErrorCodes } from './enums/postgres-error-codes';
+import { PostgresErrorCodes } from '../shared/enums/postgres-error-codes';
 import { Tweet } from './entities/tweet.entity';
 import { TweetLike } from './entities/tweet-like.entity';
 import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
+import { Hashtag } from './entities/hashtags.entity';
+import { User } from 'src/user/entities/user.entity';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 @Injectable()
 export class TweetsService {
@@ -24,7 +27,8 @@ export class TweetsService {
         private readonly tweet_quote_repository: Repository<TweetQuote>,
         @InjectRepository(TweetReply)
         private readonly tweet_reply_repository: Repository<TweetReply>,
-        private data_source: DataSource
+        private data_source: DataSource,
+        private readonly paginate_service: PaginationService
     ) {}
     /**
      * Handles image upload processing
@@ -75,42 +79,57 @@ export class TweetsService {
     }
 
     async createTweet(tweet: CreateTweetDTO, user_id: string): Promise<Tweet> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
         try {
-            const new_tweet = this.tweet_repository.create({
+            await this.extractDataFromTweets(tweet, user_id, query_runner);
+            const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 ...tweet,
             });
-            await this.tweet_repository.save(new_tweet);
-            // Fetch the tweet with user relation to return complete data
-            const tweet_with_user = await this.tweet_repository.findOne({
-                where: { tweet_id: new_tweet.tweet_id },
-                relations: ['user'],
-            });
-            if (!tweet_with_user) throw new NotFoundException('Tweet not found after creation');
-            return tweet_with_user;
+            const [saved_tweet, user] = await Promise.all([
+                query_runner.manager.save(Tweet, new_tweet),
+                query_runner.manager.findOne(User, { where: { id: user_id } }),
+            ]);
+            saved_tweet.user = user!;
+            await query_runner.commitTransaction();
+            return saved_tweet;
         } catch (error) {
+            await query_runner.rollbackTransaction();
             console.error(error);
-
             throw error;
         }
     }
 
-    async updateTweet(tweet: UpdateTweetDTO, tweet_id: string): Promise<Tweet> {
+    async updateTweet(tweet: UpdateTweetDTO, tweet_id: string, user_id: string): Promise<Tweet> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
         try {
-            const updated_tweet = await this.tweet_repository.preload({
-                tweet_id,
-                ...tweet,
-            });
-            if (!updated_tweet) throw new NotFoundException('Tweet not found');
-            await this.tweet_repository.save(updated_tweet);
-            // Fetch the tweet with user relation to return complete data
-            const tweet_with_user = await this.tweet_repository.findOne({
-                where: { tweet_id },
-                relations: ['user'],
-            });
-            if (!tweet_with_user) throw new NotFoundException('Tweet not found after update');
-            return tweet_with_user;
+            await this.extractDataFromTweets(tweet, user_id, query_runner);
+
+            const [tweet_to_update, user] = await Promise.all([
+                query_runner.manager.findOne(Tweet, { where: { tweet_id } }),
+                query_runner.manager.findOne(User, { where: { id: user_id } }),
+            ]);
+
+            if (!tweet_to_update) throw new NotFoundException('Tweet not found');
+
+            query_runner.manager.merge(Tweet, tweet_to_update, { ...tweet });
+
+            if (tweet_to_update.user_id !== user_id)
+                throw new BadRequestException('User is not allowed to update this tweet');
+
+            const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
+            updated_tweet.user = user!;
+
+            await query_runner.commitTransaction();
+            return updated_tweet;
         } catch (error) {
+            await query_runner.rollbackTransaction();
             console.error(error);
             throw error;
         }
@@ -201,7 +220,7 @@ export class TweetsService {
             });
             await Promise.all([
                 query_runner.manager.save(TweetQuote, new_quote_tweet),
-                query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1),
+                query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1),
             ]);
             await query_runner.commitTransaction();
         } catch (error) {
@@ -237,7 +256,7 @@ export class TweetsService {
         const skip = (page_offset - 1) * page_size;
 
         const [tweets, total] = await this.tweet_repository.findAndCount({
-            where: { user_id },
+            where: { user: { id: user_id } },
             relations: ['user'],
             order: { created_at: 'DESC' },
             skip,
@@ -303,6 +322,45 @@ export class TweetsService {
 
             return { success: true };
         } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
+
+    /***************************************Helper Methods***************************************/
+    private async extractDataFromTweets(
+        tweet: CreateTweetDTO | UpdateTweetDTO,
+        user_id: string,
+        query_runner: QueryRunner
+    ) {
+        const { content } = tweet;
+        if (!content) return;
+        console.log('content:', content);
+        const mentions = content.match(/@([a-zA-Z0-9_]+)/g) || [];
+        this.mentionNotification(mentions, user_id);
+        const hashtags =
+            content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
+        await this.updateHashtags(hashtags, user_id, query_runner);
+    }
+
+    private mentionNotification(ids: string[], user_id: string): void {}
+
+    private async updateHashtags(
+        names: string[],
+        user_id: string,
+        query_runner: QueryRunner
+    ): Promise<void> {
+        try {
+            const hashtags = names.map(
+                (name) => ({ name, created_by: { id: user_id } }) as Hashtag
+            );
+            await query_runner.manager.upsert(Hashtag, hashtags, {
+                conflictPaths: ['name'],
+                upsertType: 'on-conflict-do-update',
+            });
+            await query_runner.manager.increment(Hashtag, { name: In(names) }, 'usage_count', 1);
+        } catch (error) {
+            await query_runner.rollbackTransaction();
             console.error(error);
             throw error;
         }

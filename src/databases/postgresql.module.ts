@@ -17,7 +17,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
                 port: config_service.get<number>('POSTGRES_PORT'),
                 synchronize: true, // Should be false in production
                 autoLoadEntities: true,
-                logging: true,
+                logging: false,
             }),
         }),
     ],

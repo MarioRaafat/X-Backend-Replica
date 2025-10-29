@@ -3,11 +3,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { TweetsController } from './tweets.controller';
 import { TweetsService } from './tweets.service';
 import { Tweet, TweetLike, TweetQuote, TweetReply, TweetRepost } from './entities';
+import { Hashtag } from './entities/hashtags.entity';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 @Module({
-    imports: [TypeOrmModule.forFeature([Tweet, TweetLike, TweetRepost, TweetQuote, TweetReply])],
+    imports: [
+        TypeOrmModule.forFeature([Tweet, TweetLike, TweetRepost, TweetQuote, TweetReply, Hashtag]),
+    ],
     controllers: [TweetsController],
-    providers: [TweetsService],
+    providers: [TweetsService, PaginationService],
     exports: [TweetsService],
 })
 export class TweetsModule {}

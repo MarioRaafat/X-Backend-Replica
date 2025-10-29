@@ -121,7 +121,7 @@ export class TweetsController {
         @Body() update_tweet_dto: UpdateTweetDTO,
         @GetUserId() user_id: string
     ) {
-        return await this.tweets_service.updateTweet(update_tweet_dto, id);
+        return await this.tweets_service.updateTweet(update_tweet_dto, id, user_id);
     }
 
     @HttpCode(HttpStatus.NO_CONTENT)

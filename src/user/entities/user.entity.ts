@@ -1,5 +1,7 @@
 import { Exclude } from 'class-transformer';
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Tweet } from 'src/tweets/entities';
+import { Hashtag } from 'src/tweets/entities/hashtags.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity()
 export class User {
@@ -70,6 +72,12 @@ export class User {
         onUpdate: 'CURRENT_TIMESTAMP',
     })
     updated_at: Date;
+
+    @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
+    hashtags: Hashtag[];
+
+    @OneToMany(() => Tweet, (tweet) => tweet.user, {})
+    tweets: Tweet[];
 
     constructor(user: Partial<User>) {
         Object.assign(this, user);

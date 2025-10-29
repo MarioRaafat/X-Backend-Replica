@@ -38,6 +38,9 @@ export class Tweet {
     @Column({ name: 'num_reposts', type: 'int', default: 0 })
     num_reposts: number;
 
+    @Column({ name: 'num_quotes', type: 'int', default: 0 })
+    num_quotes: number;
+
     @Column({ name: 'num_views', type: 'int', default: 0 })
     num_views: number;
 
@@ -50,7 +53,7 @@ export class Tweet {
     @DeleteDateColumn({ name: 'deleted_at' })
     deleted_at: Date;
 
-    @ManyToOne(() => User, { onDelete: 'CASCADE' })
+    @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'user_id' })
     user: User;
 
