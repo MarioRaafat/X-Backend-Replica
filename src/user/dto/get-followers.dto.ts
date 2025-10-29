@@ -16,5 +16,5 @@ export class GetFollowersDto extends PaginationParamsDto {
         if (value === 'false') return false;
         return value;
     })
-    following: boolean;
+    following?: boolean;
 }

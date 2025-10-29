@@ -31,10 +31,6 @@ export class UserService {
             .buildProfileQuery(user_id, 'id')
             .getRawOne<UserProfileDto>();
 
-        if (!result) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-        }
-
         return plainToInstance(UserProfileDto, result, {
             enableImplicitConversion: true,
         });

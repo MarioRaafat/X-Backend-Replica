@@ -191,8 +191,8 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.FOLLOW_USER)
     @Post(':target_user_id/follow')
     async followUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() current_user_id: string
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
     ) {
         return await this.user_service.followUser(current_user_id, target_user_id);
     }
@@ -206,8 +206,8 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.UNFOLLOW_USER)
     @Delete(':target_user_id/unfollow')
     async unfollowUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() current_user_id: string
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
     ) {
         return await this.user_service.unfollowUser(current_user_id, target_user_id);
     }
@@ -219,7 +219,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.MUTED_LIST_RETRIEVED)
     @Get('me/muted')
-    async getMutedList(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {
+    async getMutedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
         return await this.user_service.getMutedList(user_id, query_dto);
     }
 
@@ -234,8 +234,8 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.MUTE_USER)
     @Post(':target_user_id/mute')
     async muteUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() current_user_id: string
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
     ) {
         return await this.user_service.muteUser(current_user_id, target_user_id);
     }
@@ -243,14 +243,14 @@ export class UserController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(unmute_user.operation)
-    @ApiNoContentResponse(unmute_user.responses.success)
+    @ApiOkResponse(unmute_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.UNMUTE_USER)
     @Delete(':target_user_id/unmute')
     async unmuteUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() current_user_id: string
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
     ) {
         return await this.user_service.unmuteUser(current_user_id, target_user_id);
     }
@@ -262,7 +262,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.BLOCKED_LIST_RETRIEVED)
     @Get('me/blocked')
-    async getBlockedList(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {
+    async getBlockedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
         return await this.user_service.getBlockedList(user_id, query_dto);
     }
 
@@ -277,8 +277,8 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.BLOCK_USER)
     @Post(':target_user_id/block')
     async blockUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() current_user_id: string
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
     ) {
         return await this.user_service.blockUser(current_user_id, target_user_id);
     }
@@ -286,14 +286,14 @@ export class UserController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(unblock_user.operation)
-    @ApiNoContentResponse(unblock_user.responses.success)
+    @ApiOkResponse(unblock_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.UNBLOCK_USER)
     @Delete(':target_user_id/unblock')
     async unblockUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() current_user_id: string
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
     ) {
         return await this.user_service.unblockUser(current_user_id, target_user_id);
     }
@@ -305,7 +305,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.LIKED_POSTS_RETRIEVED)
     @Get('me/liked-yaps')
-    async getLikedYaps(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {}
+    async getLikedYaps(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {}
 
     @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_user_posts.operation)
@@ -338,7 +338,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.USER_UPDATED)
     @Patch('me')
-    async updateUser(@Body() update_user_dto: UpdateUserDto, @GetUserId() user_id: string) {}
+    async updateUser(@GetUserId() user_id: string, @Body() update_user_dto: UpdateUserDto) {}
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
