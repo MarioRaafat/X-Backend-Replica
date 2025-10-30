@@ -16,6 +16,7 @@ import { ExploreModule } from './explore/explore.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { ChatModule } from './chat/chat.module';
 import { CategoryModule } from './category/category.module';
+import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 
 @Module({
     imports: [
@@ -38,6 +39,7 @@ import { CategoryModule } from './category/category.module';
         ChatModule,
         TimelineModule,
         CategoryModule,
+        BackgroundJobsModule,
     ],
     controllers: [AppController],
     providers: [AppService],
