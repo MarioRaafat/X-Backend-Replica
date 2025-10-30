@@ -1,8 +1,6 @@
 import { config } from 'dotenv';
 import { resolve } from 'path';
 import { DataSource } from 'typeorm';
-import { config } from 'dotenv';
-import { resolve } from 'path';
 import { ConfigService } from '@nestjs/config';
 import { User } from '../user/entities/user.entity';
 import { Verification } from '../verification/entities/verification.entity';
@@ -40,4 +38,3 @@ export default new DataSource({
     migrations: ['src/migrations/*{.ts,.js}'],
     synchronize: false,
 });
-export default AppDataSource;
