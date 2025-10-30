@@ -1,57 +1,158 @@
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { UpdateUserDto } from './dto/update-user.dto';
 import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
+import { UserProfileDto } from './dto/user-profile.dto';
+import { plainToInstance } from 'class-transformer';
+import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
+import { SelectQueryBuilder } from 'typeorm/browser';
+import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
+import { MutualFollowerDto } from './dto/mutual-follower.dto';
+import { GetFollowersDto } from './dto/get-followers.dto';
+import { UserListItemDto } from './dto/user-list-item.dto';
 import { PaginationParamsDto } from './dto/pagination-params.dto';
+import { UserRepository } from './user.repository';
 
 @Injectable()
 export class UserService {
-    constructor(@InjectRepository(User) private readonly user_repository: Repository<User>) {}
+    constructor(private readonly user_repository: UserRepository) {}
 
-    async findUserById(id: string) {
-        return await this.user_repository.findOne({ where: { id } });
-    }
+    async getMe(user_id: string): Promise<UserProfileDto> {
+        const result = await this.user_repository
+            .buildProfileQuery(user_id, 'id')
+            .getRawOne<UserProfileDto>();
 
-    async findUserByEmail(email: string) {
-        return await this.user_repository.findOne({ where: { email } });
-    }
+        if (!result) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
 
-    async findUserByGithubId(github_id: string) {
-        return await this.user_repository.findOne({ where: { github_id: github_id } });
-    }
-
-    async findUserByFacebookId(facebook_id: string) {
-        return await this.user_repository.findOne({ where: { facebook_id: facebook_id } });
-    }
-
-    async findUserByGoogleId(google_id: string) {
-        return await this.user_repository.findOne({ where: { google_id: google_id } });
-    }
-
-    async findUserByUsername(username: string) {
-        return await this.user_repository.findOne({ where: { username: username } });
-    }
-
-    async findUserByPhoneNumber(phone_number: string) {
-        return await this.user_repository.findOne({ where: { phone_number: phone_number } });
-    }
-
-    async createUser(create_user_dto: CreateUserDto): Promise<User> {
-        const user = new User({
-            ...create_user_dto,
+        return plainToInstance(UserProfileDto, result, {
+            enableImplicitConversion: true,
         });
-        return await this.user_repository.save(user);
     }
 
-    async updateUser(id: string, update_data: Partial<User>) {
-        await this.user_repository.update(id, update_data);
-        return await this.findUserById(id);
+    async getUserById(
+        current_user_id: string | null,
+        target_user_id: string
+    ): Promise<DetailedUserProfileDto> {
+        const result = await this.user_repository
+            .buildProfileQuery(target_user_id, 'id', current_user_id)
+            .getRawOne<DetailedUserProfileDto>();
+
+        if (!result) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        return plainToInstance(DetailedUserProfileDto, result, {
+            enableImplicitConversion: true,
+        });
     }
 
-    async updateUserPassword(id: string, new_password: string) {
-        await this.user_repository.update(id, { password: new_password });
-        return await this.findUserById(id);
+    async getUserByUsername(
+        current_user_id: string | null,
+        target_username: string
+    ): Promise<DetailedUserProfileDto> {
+        const result = await this.user_repository
+            .buildProfileQuery(target_username, 'username', current_user_id)
+            .getRawOne<DetailedUserProfileDto>();
+
+        if (!result) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        return plainToInstance(DetailedUserProfileDto, result, {
+            enableImplicitConversion: true,
+        });
     }
+
+    async getFollowers(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: GetFollowersDto
+    ): Promise<UserListItemDto[]> {
+        const { page_offset, page_size, following } = query_dto;
+
+        const results = await this.user_repository.getFollowersList(
+            current_user_id,
+            target_user_id,
+            page_offset,
+            page_size,
+            following
+        );
+
+        const users = results.map((result) =>
+            plainToInstance(UserListItemDto, result, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return users;
+    }
+
+    async getFollowing(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: PaginationParamsDto
+    ): Promise<UserListItemDto[]> {
+        const { page_offset, page_size } = query_dto;
+
+        const results = await this.user_repository.getFollowingList(
+            current_user_id,
+            target_user_id,
+            page_offset,
+            page_size
+        );
+        const users = results.map((result) =>
+            plainToInstance(UserListItemDto, result, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return users;
+    }
+
+    async getMutedList(
+        current_user_id: string,
+        query_dto: PaginationParamsDto
+    ): Promise<UserListItemDto[]> {
+        const { page_offset, page_size } = query_dto;
+
+        const results = await this.user_repository.getMutedUsersList(
+            current_user_id,
+            page_offset,
+            page_size
+        );
+
+        const users = results.map((result) =>
+            plainToInstance(UserListItemDto, result, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return users;
+    }
+
+    async getBlockedList(
+        current_user_id: string,
+        query_dto: PaginationParamsDto
+    ): Promise<UserListItemDto[]> {
+        const { page_offset, page_size } = query_dto;
+
+        const results = await this.user_repository.getBlockedUsersList(
+            current_user_id,
+            page_offset,
+            page_size
+        );
+
+        const users = results.map((result) =>
+            plainToInstance(UserListItemDto, result, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return users;
+    }
+
+    async followUser(current_user_id: string, target_user_id: string) {}
 }

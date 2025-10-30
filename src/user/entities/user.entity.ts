@@ -25,7 +25,7 @@ export class User {
     bio?: string;
 
     @Column({ type: 'varchar', nullable: true, unique: true })
-    phone_number?: string;
+    phone_number?: string | null;
 
     @Column({ type: 'varchar', nullable: true })
     github_id?: string;
@@ -45,13 +45,6 @@ export class User {
     @Column({ type: 'date' })
     birth_date: Date;
 
-    // Role can be 'user', 'admin' only
-    @Column({ type: 'varchar', default: 'user' })
-    role: string;
-
-    @Column({ type: 'varchar', nullable: true })
-    gender?: string;
-
     // language code like 'en', 'es', 'fr', 'ar' etc.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
     language: string;
@@ -59,9 +52,11 @@ export class User {
     @Column({ type: 'boolean', default: false })
     verified: boolean;
 
-    // TODO: country
-    // @Column({ type: 'varchar', nullable: true })
-    // country: string;
+    @Column({ type: 'varchar', nullable: true })
+    country: string;
+
+    @Column({ type: 'boolean', default: false })
+    online: boolean;
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
@@ -72,6 +67,12 @@ export class User {
         onUpdate: 'CURRENT_TIMESTAMP',
     })
     updated_at: Date;
+
+    @Column({ type: 'int', default: 0 })
+    followers: number;
+
+    @Column({ type: 'int', default: 0 })
+    following: number;
 
     @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
     hashtags: Hashtag[];

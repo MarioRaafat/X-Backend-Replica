@@ -1,0 +1,54 @@
+name: Auto Assign Reviewers
+
+on:
+    pull_request:
+        types: [opened, reopened, ready_for_review]
+
+permissions:
+    pull-requests: write
+    contents: read
+
+jobs:
+    assign_reviewers:
+        runs-on: ubuntu-latest
+        if: github.event.pull_request.draft == false
+
+        steps:
+            - name: checkout repo
+              uses: actions/checkout@v4
+
+            - name: Load reviewers map
+              id: reviewers
+              run: |
+                echo "map=$(cat .github/reviewer-map.json | jq -c .)" >> $GITHUB_OUTPUT
+
+            - name: Assign reviewers based on PR author
+              uses: actions/github-script@v7
+              with:
+                github-token: ${{ secrets.GITHUB_TOKEN }}
+                script: |
+                    const author = context.payload.pull_request.user.login;
+                    const map = JSON.parse(process.env.MAP);
+
+                    let reviewers = map[author];
+                    if (!reviewers) {
+                        core.info(`⚠️ No reviewers defined for ${author}, Default assignment will be applied`)
+                        reviewers = map["default"];
+                    }
+
+                    if (!reviewers || reviewers.length === 0) {
+                        core.warning(`❌ No default reviewers found in map. Skipping assignment.`);
+                        return;
+                    }
+
+                    core.info(`Assigning reviewers: ${reviewers.join(', ')} for PR by ${author}`);
+
+                    await github.rest.pulls.requestReviewers({
+                        owner: context.repo.owner,
+                        repo: context.repo.repo,
+                        pull_number: context.payload.pull_request.number,
+                        reviewers
+                    });
+              env:
+                  MAP: ${{ steps.reviewers.outputs.map }}
+

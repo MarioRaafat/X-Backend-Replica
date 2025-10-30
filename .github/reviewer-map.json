@@ -1,0 +1,8 @@
+{
+  "MarioRaafat": ["AmiraKhalid04", "MoBahgat010"],
+  "MoBahgat010": ["Alyaa242", "MarioRaafat"],
+  "shady-2004": ["AmiraKhalid04", "MarioRaafat"],
+  "Alyaa242": ["shady-2004", "MarioRaafat"],
+  "AmiraKhalid04": ["MoBahgat010", "MarioRaafat"],
+  "default": ["MarioRaafat"]
+}

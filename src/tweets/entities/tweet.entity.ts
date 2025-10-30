@@ -9,7 +9,7 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import { User } from 'src/user/entities/user.entity';
+import { User } from '../../user/entities/user.entity';
 import { TweetLike } from './tweet-like.entity';
 import { TweetQuote } from './tweet-quote.entity';
 import { TweetRepost } from './tweet-repost.entity';
@@ -23,7 +23,7 @@ export class Tweet {
     @Column({ type: 'uuid' })
     user_id: string;
 
-    @Column({ type: 'varchar', length: 280 })
+    @Column({ type: 'text' })
     content: string;
 
     @Column({ type: 'text', array: true, default: '{}' })
@@ -38,11 +38,14 @@ export class Tweet {
     @Column({ name: 'num_reposts', type: 'int', default: 0 })
     num_reposts: number;
 
+    @Column({ name: 'num_views', type: 'int', default: 0 })
+    num_views: number;
+
     @Column({ name: 'num_quotes', type: 'int', default: 0 })
     num_quotes: number;
 
-    @Column({ name: 'num_views', type: 'int', default: 0 })
-    num_views: number;
+    @Column({ name: 'num_replies', type: 'int', default: 0 })
+    num_replies: number;
 
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;

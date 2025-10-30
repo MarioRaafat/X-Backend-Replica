@@ -1,49 +1,131 @@
-name: Deploy to Dev VM
+name: Build, Tag & Deploy to Dev
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Docker image version to deploy (e.g., v1.0)'
-        required: true
-      confirm:
-        description: 'Type YES to confirm deployment'
-        required: true
+  push:
+    branches:
+      - dev
 
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
-    if: ${{ github.event.inputs.confirm == 'YES' }}
-
+    
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Get latest tag from Docker Hub
+        id: get_tag
+        run: |
+          # Fetch tags from Docker Hub
+          REPO="${{ secrets.DOCKER_USERNAME }}/api-yapper-backend"
+          
+          echo "🔍 Fetching tags from Docker Hub for $REPO..."
+          
+          # Get Docker Hub token for authenticated API access
+          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST \
+            -d '{"username": "${{ secrets.DOCKER_USERNAME }}", "password": "${{ secrets.DOCKER_PASSWORD }}"}' \
+            https://hub.docker.com/v2/users/login/ | jq -r .token)
+          
+          if [ "$TOKEN" = "null" ] || [ -z "$TOKEN" ]; then
+            echo "❌ Failed to authenticate with Docker Hub"
+            exit 1
+          fi
+          
+          # Get all tags from Docker Hub API
+          TAGS=$(curl -s -H "Authorization: JWT ${TOKEN}" \
+                 "https://hub.docker.com/v2/repositories/$REPO/tags/?page_size=100" | \
+                 jq -r '.results[].name' | \
+                 grep -E '^v[0-9]+\.[0-9]+\.[0-9]+$' | \
+                 sort -V | \
+                 tail -1)
+          
+          # If no tags found, start with v0.0.0
+          if [ -z "$TAGS" ]; then
+            LATEST_TAG="v0.0.0"
+            echo "⚠️ No version tags found on Docker Hub, starting from v0.0.0"
+          else
+            LATEST_TAG="$TAGS"
+            echo "📦 Latest tag found on Docker Hub: $LATEST_TAG"
+          fi
+          
+          echo "latest_tag=$LATEST_TAG" >> $GITHUB_OUTPUT
+          
+          # Parse version components
+          VERSION=${LATEST_TAG#v}
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          
+          # Increment patch version
+          PATCH=$((PATCH + 1))
+          NEW_TAG="v${MAJOR}.${MINOR}.${PATCH}"
+          
+          echo "new_tag=$NEW_TAG" >> $GITHUB_OUTPUT
+          echo "🚀 New version: $NEW_TAG"
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./docker/Dockerfile
+
+          push: true
+          tags: |
+            ${{ secrets.DOCKER_USERNAME }}/api-yapper-backend:${{ steps.get_tag.outputs.new_tag }}
+            ${{ secrets.DOCKER_USERNAME }}/api-yapper-backend:dev
+
+      - name: Confirm image push
+        run: |
+          echo "✅ Image pushed: ${{ secrets.DOCKER_USERNAME }}/api-yapper-backend:${{ steps.get_tag.outputs.new_tag }}"
+          echo "✅ Image tagged: ${{ secrets.DOCKER_USERNAME }}/api-yapper-backend:dev"
+
       - name: SSH into Dev VM and deploy
         uses: appleboy/ssh-action@v1.0.0
+        env:
+          IMG_TAG: ${{ steps.get_tag.outputs.new_tag }}
         with:
           host: ${{ secrets.DEV_SERVER_HOST }}
           username: ${{ secrets.DEV_SERVER_USER }}
           key: ${{ secrets.DEV_SERVER_SSH_KEY }}
+          envs: IMG_TAG
           script: |
             set -e
             cd ~/yapper  # path to your app on VM
 
             echo "🧭 Getting current running image tag..."
-            CURRENT_TAG=$(docker compose ps -q api | xargs docker inspect -f '{{ index .Config.Labels "com.docker.compose.image" }}' | cut -d':' -f2)
+            CURRENT_TAG=$(IMG_TAG="" docker compose ps -q api | xargs docker inspect -f '{{ index .Config.Labels "com.docker.compose.image" }}' | cut -d':' -f2 || echo "unknown")
 
             echo "🐳 Setting new image tag for deployment..."
-            export IMAGE_TAG=${{ github.event.inputs.version }}
+            echo "Deploying version: $IMG_TAG"
 
             echo "🔄 Pulling new image and restarting app container..."
-            docker compose pull api
-            docker compose up -d api
+            IMG_TAG=$IMG_TAG docker compose pull api
+            IMG_TAG=$IMG_TAG docker compose up -d api
 
             echo "⏳ Waiting for health check..."
             sleep 10
 
-            if curl -fs ${{ secrets.DEV_HEALTHCHECK_URL }} >/dev/null; then
-              echo "✅ Dev deployment successful for version $IMAGE_TAG"
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.DEV_HEALTHCHECK_URL }})
+            
+            if [ "$HTTP_CODE" = "200" ]; then
+              echo "✅ Dev deployment successful for version $IMG_TAG"
             else
-              echo "❌ Health check failed! Rolling back app container..."
-              export IMAGE_TAG=$CURRENT_TAG
-              docker compose up -d api
+              echo "❌ Health check failed (HTTP $HTTP_CODE)! Rolling back app container..."
+              if [ "$CURRENT_TAG" != "unknown" ]; then
+                IMG_TAG=$CURRENT_TAG docker compose up -d api
+                echo "🔙 Rolled back to $CURRENT_TAG"
+              fi
               exit 1
             fi
+
+      - name: Deployment summary
+        if: success()
+        run: |
+          echo "🎉 Deployment Complete!"
+          echo "Version: ${{ steps.get_tag.outputs.new_tag }}"
+          echo "Branch: dev"
+          echo "Commit: ${{ github.sha }}"

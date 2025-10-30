@@ -1227,3 +1227,25 @@ export const delete_cover = {
         },
     },
 };
+
+export const assign_interests = {
+    operation: {
+        summary: 'Assign interests',
+        description: `
+        Assign interests to current user
+    `,
+    },
+
+    responses: {
+        success: {
+            description: 'Interests assigned successfully',
+            schema: {
+                example: {
+                    data: {},
+                    count: 0,
+                    message: SUCCESS_MESSAGES.INTERESTS_ASSIGNED,
+                },
+            },
+        },
+    },
+};

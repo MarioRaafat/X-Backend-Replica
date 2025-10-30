@@ -2,7 +2,7 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 import { Request } from 'express';
 
 // we need to redefine the Request to include the user property and its structure
-interface AuthenticatedRequest extends Request {
+interface IAuthenticatedRequest extends Request {
     user: {
         id: string;
         // add here other properties if needed (e.g., email, roles, etc.) for future use
@@ -12,7 +12,15 @@ interface AuthenticatedRequest extends Request {
 
 // This is a custom decorator to extract the user ID from the request object direct without needing to access the entire user object
 // it assumes that the JwtAuthGuard has already validated the token and attached the user object to the request
-export const GetUserId = createParamDecorator((data: unknown, ctx: ExecutionContext): string => {
-    const request = ctx.switchToHttp().getRequest<AuthenticatedRequest>();
-    return request.user.id;
-});
+export const GetUserId = createParamDecorator(
+    (data: unknown, ctx: ExecutionContext): string | null => {
+        const request = ctx.switchToHttp().getRequest<IAuthenticatedRequest>();
+        const user = request.user;
+
+        if (!user || !user.id) {
+            return null;
+        }
+
+        return user.id;
+    }
+);
