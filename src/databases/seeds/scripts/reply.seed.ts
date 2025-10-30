@@ -1,4 +1,4 @@
-import { BaseSeeder, SeederContext } from './seeder.interface';
+import { BaseSeeder, ISeederContext } from './seeder.interface';
 import { SeedHelper } from '../utils/seed-helper';
 import { Tweet } from 'src/tweets/entities/tweet.entity';
 import { TweetReply } from 'src/tweets/entities/tweet-reply.entity';
@@ -8,7 +8,7 @@ export class ReplySeeder extends BaseSeeder {
         return 'ReplySeeder';
     }
 
-    async seed(context: SeederContext): Promise<void> {
+    async seed(context: ISeederContext): Promise<void> {
         const { data_source, topic_name, data, results } = context;
         this.log(`Seeding replies for topic: ${topic_name}`);
 
@@ -38,8 +38,8 @@ export class ReplySeeder extends BaseSeeder {
         }
 
         data.replies = unique_replies;
-        const user_id_map = results?.userIdMap;
-        const tweet_id_map = results?.tweetIdMap;
+        const user_id_map = results?.user_id_map;
+        const tweet_id_map = results?.tweet_id_map;
 
         if (!user_id_map?.size || !tweet_id_map?.size) {
             this.logWarning('Missing user/tweet ID maps, skipping replies...');
