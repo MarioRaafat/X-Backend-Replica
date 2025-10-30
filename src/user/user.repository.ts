@@ -193,6 +193,50 @@ export class UserRepository extends Repository<User> {
         return query;
     }
 
+    async getUsersById(
+        user_ids: string[],
+        current_user_id: string | null
+    ): Promise<UserListItemDto[]> {
+        let query;
+
+        if (current_user_id) {
+            query = this.buildUserListQuery(current_user_id);
+        } else {
+            query = this.createQueryBuilder('user').select([
+                '"user"."id" AS user_id',
+                'user.name AS name',
+                'user.username AS username',
+                'user.bio AS bio',
+                'user.avatar_url AS avatar_url',
+            ]);
+        }
+
+        return await query.where('"user"."id" IN (:...user_ids)', { user_ids }).getRawMany();
+    }
+
+    async getUsersByUsername(
+        usernames: string[],
+        current_user_id: string | null
+    ): Promise<UserListItemDto[]> {
+        let query;
+
+        if (current_user_id) {
+            query = this.buildUserListQuery(current_user_id);
+        } else {
+            query = this.createQueryBuilder('user').select([
+                '"user"."id" AS user_id',
+                'user.name AS name',
+                'user.username AS username',
+                'user.bio AS bio',
+                'user.avatar_url AS avatar_url',
+            ]);
+        }
+
+        return await query
+            .where('"user"."username" IN (:...usernames)', { usernames })
+            .getRawMany();
+    }
+
     async getFollowersList(
         current_user_id: string,
         target_user_id: string,

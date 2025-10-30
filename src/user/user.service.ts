@@ -22,10 +22,69 @@ import { UserRepository } from './user.repository';
 import { UserFollows } from './entities';
 import { RelationshipType } from './enums/relationship-type.enum';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { GetUsersByIdDto } from './dto/get-users-by-id.dto';
+import { GetUsersByUsernameDto } from './dto/get-users-by-username.dto';
+import { UserLookupDto } from './dto/user-lookup.dto';
 
 @Injectable()
 export class UserService {
     constructor(private readonly user_repository: UserRepository) {}
+
+    async getUsersById(
+        current_user_id: string | null,
+        get_users_by_id_dto: GetUsersByIdDto
+    ): Promise<UserLookupDto[]> {
+        const results = await this.user_repository.getUsersById(
+            get_users_by_id_dto.ids,
+            current_user_id
+        );
+
+        const found_users = new Map(
+            results.map((result) => [
+                result.user_id,
+                plainToInstance(UserListItemDto, result, {
+                    enableImplicitConversion: true,
+                }),
+            ])
+        );
+
+        return get_users_by_id_dto.ids.map((user_id) => {
+            const user = found_users.get(user_id);
+            return {
+                identifier: user_id,
+                success: !!user,
+                user: user || null,
+            };
+        });
+    }
+
+    async getUsersByUsername(
+        current_user_id: string | null,
+        get_users_by_username_dto: GetUsersByUsernameDto
+    ): Promise<UserLookupDto[]> {
+        const results = await this.user_repository.getUsersByUsername(
+            get_users_by_username_dto.usernames,
+            current_user_id
+        );
+
+        const found_users = new Map(
+            results.map((result) => [
+                result.user_id,
+                plainToInstance(UserListItemDto, result, {
+                    enableImplicitConversion: true,
+                }),
+            ])
+        );
+
+        return get_users_by_username_dto.usernames.map((username) => {
+            const user = found_users.get(username);
+            return {
+                identifier: username,
+                success: !!user,
+                user: user || null,
+            };
+        });
+    }
 
     async getMe(user_id: string): Promise<UserProfileDto> {
         const result = await this.user_repository

@@ -82,16 +82,29 @@ export class UserController {
     @ApiOkResponse(get_users_by_ids.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USERS_RETRIEVED)
-    @Post()
-    async getUsersByIds(@Body() ids: GetUsersByIdDto) {}
+    @Get()
+    async getUsersByIds(
+        @GetUserId() current_user_id: string | null,
+        @Query() get_users_by_id_dto: GetUsersByIdDto
+    ) {
+        return await this.user_service.getUsersById(current_user_id, get_users_by_id_dto);
+    }
 
     @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_users_by_username.operation)
     @ApiOkResponse(get_users_by_username.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USERS_RETRIEVED)
-    @Post('by/username')
-    async getUsersByUsernames(@Body() usernames: GetUsersByUsernameDto) {}
+    @Get('by/username')
+    async getUsersByUsernames(
+        @GetUserId() current_user_id: string | null,
+        @Query() get_users_by_username_dto: GetUsersByUsernameDto
+    ) {
+        return await this.user_service.getUsersByUsername(
+            current_user_id,
+            get_users_by_username_dto
+        );
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')

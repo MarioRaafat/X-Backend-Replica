@@ -4,7 +4,8 @@ export const get_users_by_ids = {
     operation: {
         summary: "Get users' data by their IDs",
         description: `
-    Get a list of users' data using array of IDs  
+    Get a list of users' data.
+    IDs are passed as a comma separated string of users IDs in query parameters
     `,
     },
 
@@ -46,7 +47,8 @@ export const get_users_by_username = {
     operation: {
         summary: "Get users' data by their usernames",
         description: `
-    Get a list of users' data using array of usernames       
+    Get a list of users' data.
+    Usernames are passed as a comma separated string of usernames in query parameters 
     `,
     },
 
