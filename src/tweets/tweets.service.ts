@@ -46,7 +46,7 @@ export class TweetsService {
         const url = await this.uploadImageToAzure(
             file.buffer,
             image_name,
-            this.TWEET_IMAGES_CONTAINER // Assuming this is defined in your service
+            this.TWEET_IMAGES_CONTAINER
         );
 
         return {
@@ -62,18 +62,35 @@ export class TweetsService {
         image_name: string,
         container_name: string
     ): Promise<string> {
-        const blob_service_client = BlobServiceClient.fromConnectionString(
-            process.env.AZURE_STORAGE_CONNECTION_STRING ?? ''
+        const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+        if (!connection_string) {
+            throw new Error(
+                'AZURE_STORAGE_CONNECTION_STRING is not defined in environment variables'
+            );
+        }
+
+        // Debug: Check if connection string has placeholder key
+        if (connection_string.includes('YOUR_KEY_HERE')) {
+            throw new Error(
+                'Azure Storage AccountKey is still set to placeholder value. Please update with actual key.'
+            );
+        }
+
+        console.log(
+            'Azure Connection String (masked):',
+            connection_string.replace(/AccountKey=[^;]+/, 'AccountKey=***')
         );
 
+        const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
+
         const container_client = blob_service_client.getContainerClient(container_name);
-        await container_client.createIfNotExists();
+        await container_client.createIfNotExists({ access: 'blob' }); // ensures public access
 
         const block_blob_client = container_client.getBlockBlobClient(image_name);
-
         await block_blob_client.upload(image_buffer, image_buffer.length);
 
-        return block_blob_client.url;
+        return block_blob_client.url; // ← publicly accessible URL
     }
 
     /**
@@ -82,22 +99,63 @@ export class TweetsService {
      * @param _user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
-    uploadVideo(file: Express.Multer.File, _user_id: string): Promise<UploadMediaResponseDTO> {
-        // TODO: Implement video upload logic
-        // - Upload to cloud storage (S3, Cloudinary, etc.)
-        // - Save file metadata to database
-        // - Transcode video if needed
-        // - Generate thumbnail/preview
-        // - Return file URL and metadata
+    async uploadVideo(
+        file: Express.Multer.File,
+        _user_id: string
+    ): Promise<UploadMediaResponseDTO> {
+        const video_name = `${Date.now()}-${file.originalname}`;
+        const container_name = 'post-videos'; // Azure container for videos
 
-        // File is in memory as file.buffer
-        // NOT saved to disk - discarded after request
-        return Promise.resolve({
-            url: `https://your-cdn.com/placeholder-url`, // Placeholder URL
+        const video_url = await this.uploadVideoToAzure(file.buffer, video_name, container_name);
+
+        return {
+            url: video_url,
             filename: file.originalname,
             size: file.size,
             mime_type: file.mimetype,
+        };
+    }
+
+    private async uploadVideoToAzure(
+        video_buffer: Buffer,
+        video_name: string,
+        container_name: string
+    ): Promise<string> {
+        const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+        if (!connection_string) {
+            throw new Error(
+                'AZURE_STORAGE_CONNECTION_STRING is not defined in environment variables'
+            );
+        }
+
+        // Debug: Check if connection string has placeholder key
+        if (connection_string.includes('YOUR_KEY_HERE')) {
+            throw new Error(
+                'Azure Storage AccountKey is still set to placeholder value. Please update with actual key.'
+            );
+        }
+
+        console.log(
+            'Azure Connection String (masked):',
+            connection_string.replace(/AccountKey=[^;]+/, 'AccountKey=***')
+        );
+
+        const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
+
+        const container_client = blob_service_client.getContainerClient(container_name);
+        await container_client.createIfNotExists({ access: 'blob' }); // ensures public access
+
+        const block_blob_client = container_client.getBlockBlobClient(video_name);
+
+        // Set content type for videos
+        await block_blob_client.upload(video_buffer, video_buffer.length, {
+            blobHTTPHeaders: {
+                blobContentType: 'video/mp4', // Adjust based on actual video type
+            },
         });
+
+        return block_blob_client.url; // ← publicly accessible URL
     }
 
     async createTweet(tweet: CreateTweetDTO, user_id: string): Promise<Tweet> {
