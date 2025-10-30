@@ -9,7 +9,7 @@ import {
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
-import { User } from 'src/user/entities/user.entity';
+import { User } from '../../user/entities/user.entity';
 import { TweetLike } from './tweet-like.entity';
 import { TweetQuote } from './tweet-quote.entity';
 import { TweetRepost } from './tweet-repost.entity';
