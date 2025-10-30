@@ -3,6 +3,7 @@ FROM node:24-alpine AS builder
 
 WORKDIR /app
 
+ENV HUSKY=0
 # Copy only dependency files first for better layer caching
 COPY package*.json ./
 
