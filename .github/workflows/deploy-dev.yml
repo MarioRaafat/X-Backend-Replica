@@ -77,7 +77,7 @@ jobs:
             CURRENT_TAG=$(docker compose ps -q api | xargs docker inspect -f '{{ index .Config.Labels "com.docker.compose.image" }}' | cut -d':' -f2 || echo "unknown")
 
             echo "🐳 Setting new image tag for deployment..."
-            export IMAGE_TAG=${{ steps.get_tag.outputs.new_tag }}
+            export IMG_TAG=${{ steps.get_tag.outputs.new_tag }}
 
             echo "🔄 Pulling new image and restarting app container..."
             docker compose pull api
@@ -87,11 +87,11 @@ jobs:
             sleep 10
 
             if curl -fs ${{ secrets.DEV_HEALTHCHECK_URL }} >/dev/null; then
-              echo "✅ Dev deployment successful for version $IMAGE_TAG"
+              echo "✅ Dev deployment successful for version $IMG_TAG"
             else
               echo "❌ Health check failed! Rolling back app container..."
               if [ "$CURRENT_TAG" != "unknown" ]; then
-                export IMAGE_TAG=$CURRENT_TAG
+                export IMG_TAG=$CURRENT_TAG
                 docker compose up -d api
                 echo "🔙 Rolled back to $CURRENT_TAG"
               fi
