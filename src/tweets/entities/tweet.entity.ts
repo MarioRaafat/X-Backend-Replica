@@ -1,13 +1,13 @@
-import { 
-    Entity, 
-    PrimaryGeneratedColumn, 
-    Column, 
-    CreateDateColumn, 
-    UpdateDateColumn, 
-    ManyToOne, 
-    JoinColumn,
+import {
+    Column,
+    CreateDateColumn,
     DeleteDateColumn,
-    OneToMany
+    Entity,
+    JoinColumn,
+    ManyToOne,
+    OneToMany,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
 } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { TweetLike } from './tweet-like.entity';
@@ -23,7 +23,7 @@ export class Tweet {
     @Column({ type: 'uuid' })
     user_id: string;
 
-    @Column({ type: 'varchar', length: 280 })
+    @Column({ type: 'text' })
     content: string;
 
     @Column({ type: 'text', array: true, default: '{}' })
@@ -32,12 +32,20 @@ export class Tweet {
     @Column({ type: 'text', array: true, default: '{}' })
     videos: string[];
 
-    @Column({ name: "num_likes", type: "int", default: 0 })
+    @Column({ name: 'num_likes', type: 'int', default: 0 })
     num_likes: number;
 
-    @Column({ name: "num_reposts", type: "int", default: 0 })
+    @Column({ name: 'num_reposts', type: 'int', default: 0 })
     num_reposts: number;
 
+    @Column({ name: 'num_views', type: 'int', default: 0 })
+    num_views: number;
+
+    @Column({ name: 'num_quotes', type: 'int', default: 0 })
+    num_quotes: number;
+
+    @Column({ name: 'num_replies', type: 'int', default: 0 })
+    num_replies: number;
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
@@ -51,15 +59,23 @@ export class Tweet {
     @JoinColumn({ name: 'user_id' })
     user: User;
 
-    @OneToMany(() => TweetLike, (tweet_like) => tweet_like.tweet, { eager: true, onDelete: "CASCADE" })
+    @OneToMany(() => TweetLike, (tweet_like) => tweet_like.tweet, {
+        eager: true,
+        onDelete: 'CASCADE',
+    })
     likes: TweetLike[];
 
-    @OneToMany(() => TweetReply, (tweet_reply) => tweet_reply.original_tweet, { eager: true, onDelete: "CASCADE" })
+    @OneToMany(() => TweetReply, (tweet_reply) => tweet_reply.original_tweet, {
+        eager: true,
+        onDelete: 'CASCADE',
+    })
     replies: TweetReply[];
 
-    @OneToMany(() => TweetQuote, (tweet_quote) => tweet_quote.original_tweet, { onDelete: "CASCADE" })
+    @OneToMany(() => TweetQuote, (tweet_quote) => tweet_quote.original_tweet, {
+        onDelete: 'CASCADE',
+    })
     quotes: TweetQuote[];
 
-    @OneToMany(() => TweetRepost, (tweet_repost) => tweet_repost.tweet, { onDelete: "CASCADE" })
+    @OneToMany(() => TweetRepost, (tweet_repost) => tweet_repost.tweet, { onDelete: 'CASCADE' })
     reposts: TweetRepost[];
 }

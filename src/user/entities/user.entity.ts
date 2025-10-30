@@ -23,7 +23,7 @@ export class User {
     bio?: string;
 
     @Column({ type: 'varchar', nullable: true, unique: true })
-    phone_number?: string;
+    phone_number?: string | null;
 
     @Column({ type: 'varchar', nullable: true })
     github_id?: string;
@@ -42,9 +42,6 @@ export class User {
 
     @Column({ type: 'date' })
     birth_date: Date;
-
-    @Column({ type: 'varchar', nullable: true })
-    gender?: string;
 
     // language code like 'en', 'es', 'fr', 'ar' etc.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
@@ -68,6 +65,12 @@ export class User {
         onUpdate: 'CURRENT_TIMESTAMP',
     })
     updated_at: Date;
+
+    @Column({ type: 'int', default: 0 })
+    followers: number;
+
+    @Column({ type: 'int', default: 0 })
+    following: number;
 
     constructor(user: Partial<User>) {
         Object.assign(this, user);
