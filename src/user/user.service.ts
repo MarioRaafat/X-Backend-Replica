@@ -69,7 +69,7 @@ export class UserService {
 
         const found_users = new Map(
             results.map((result) => [
-                result.user_id,
+                result.username,
                 plainToInstance(UserListItemDto, result, {
                     enableImplicitConversion: true,
                 }),
