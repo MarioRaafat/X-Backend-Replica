@@ -1,6 +1,6 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
-import { User } from 'src/user/entities/user.entity';
-import { Category } from 'src/category/entities';
+import { User } from '../../user/entities/user.entity';
+import { Category } from '../../category/entities';
 
 @Entity('user_interests')
 export class UserInterests {
