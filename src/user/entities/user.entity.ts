@@ -23,7 +23,7 @@ export class User {
     bio?: string;
 
     @Column({ type: 'varchar', nullable: true, unique: true })
-    phone_number?: string;
+    phone_number?: string | null;
 
     @Column({ type: 'varchar', nullable: true })
     github_id?: string;
@@ -61,6 +61,12 @@ export class User {
 
     @UpdateDateColumn()
     updated_at: Date;
+
+    @Column({ type: 'int', default: 0 })
+    followers: number;
+
+    @Column({ type: 'int', default: 0 })
+    following: number;
 
     constructor(user: Partial<User>) {
         Object.assign(this, user);

@@ -1,4 +1,5 @@
-export const Y_LOGO_URL = 'https://i.postimg.cc/2j7H1htR/Y-Logo.jpg';
+export const Y_LOGO_URL = 'https://iili.io/KUhrEyN.png';
+export const Y_LOGO_HOST_URL = 'https://freeimage.host/';
 
 // ------------------------- Email Templates ------------------------- //
 export const verification_email_object = (otp: string, link: string) => ({

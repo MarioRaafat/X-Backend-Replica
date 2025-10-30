@@ -1,5 +1,5 @@
 import { Entity, JoinColumn, ManyToMany, PrimaryColumn } from 'typeorm';
-import { User } from 'src/user/entities/user.entity';
+import { User } from '../../user/entities/user.entity';
 
 @Entity('user_mutes')
 export class UserMutes {
