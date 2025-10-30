@@ -109,10 +109,12 @@ jobs:
             echo "⏳ Waiting for health check..."
             sleep 10
 
-            if curl -fs ${{ secrets.DEV_HEALTHCHECK_URL }} >/dev/null; then
+            HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" ${{ secrets.DEV_HEALTHCHECK_URL }})
+            
+            if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ Dev deployment successful for version $IMG_TAG"
             else
-              echo "❌ Health check failed! Rolling back app container..."
+              echo "❌ Health check failed (HTTP $HTTP_CODE)! Rolling back app container..."
               if [ "$CURRENT_TAG" != "unknown" ]; then
                 IMG_TAG=$CURRENT_TAG docker compose up -d api
                 echo "🔙 Rolled back to $CURRENT_TAG"
