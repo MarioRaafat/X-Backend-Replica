@@ -20,7 +20,6 @@ import { UsernameService } from './username.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
-import { EmailService } from 'src/communication/email.service';
 import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
@@ -157,17 +156,10 @@ export class AuthService {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
-        const signup_session_key = SIGNUP_SESSION_KEY(email);
-        const existing_session = await this.redis_service.hget(signup_session_key);
-        if (existing_session) {
-            throw new ConflictException({ message: ERROR_MESSAGES.SIGNUP_SESSION_ALREADY_EXISTS, current_step: existing_session.step });
-        }
-
         const signup_session_object = SIGNUP_SESSION_OBJECT(email, {
             name,
             birth_date,
             email,
-            step: '1',
             email_verified: 'false',
         });
 
@@ -184,6 +176,10 @@ export class AuthService {
 
     async signupStep2(dto: SignupStep2Dto) {
         const { email, token } = dto;
+        const existing_user = await this.user_repository.findByEmail(email);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
+        }
 
         const signup_session_key = SIGNUP_SESSION_KEY(email);
         const signup_session = await this.redis_service.hget(signup_session_key);
@@ -200,7 +196,6 @@ export class AuthService {
         // Update session to mark email as verified
         const updated_session = SIGNUP_SESSION_OBJECT(email, {
             ...signup_session,
-            step: '2',
             email_verified: 'true',
         });
 
@@ -221,6 +216,16 @@ export class AuthService {
 
     async signupStep3(dto: SignupStep3Dto) {
         const { email, password, username, language } = dto;
+        
+        let existing_user = await this.user_repository.findByEmail(email);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
+        }
+
+        existing_user = await this.user_repository.findByUsername(username);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+        }
 
         const signup_session_key = SIGNUP_SESSION_KEY(email);
         const signup_session = await this.redis_service.hget(signup_session_key);
@@ -251,9 +256,6 @@ export class AuthService {
         await this.redis_service.del(signup_session_key);
         const otp_key = OTP_KEY('email', email);
         await this.redis_service.del(otp_key);
-
-        // Return user data with tokens for automatic login
-        const user = instanceToPlain(created_user);
 
         return {
             user_id: created_user.id,
@@ -349,7 +351,7 @@ export class AuthService {
         const otp = await this.verification_service.generateOtp(user.id, 'password');
 
         const email = user.email;
-        const username = user.username || user.name;
+        const username = user.username
 
         const otp_data = {
             email,

@@ -14,7 +14,9 @@ describe('AuthController', () => {
                 {
                     provide: AuthService,
                     useValue: {
-                        register: jest.fn(),
+                        signupStep1: jest.fn(),
+                        signupStep2: jest.fn(),
+                        signupStep3: jest.fn(),
                         login: jest.fn(),
                         refresh: jest.fn(),
                         generateEmailVerification: jest.fn(),
@@ -27,6 +29,15 @@ describe('AuthController', () => {
                         verifyResetPasswordOtp: jest.fn(),
                         resetPassword: jest.fn(),
                         generateTokens: jest.fn(),
+                        checkIdentifier: jest.fn(),
+                        updateUsername: jest.fn(),
+                        updateEmail: jest.fn(),
+                        verifyUpdateEmail: jest.fn(),
+                        verifyGoogleMobileToken: jest.fn(),
+                        verifyGitHubMobileToken: jest.fn(),
+                        createOAuthSession: jest.fn(),
+                        oauthCompletionStep1: jest.fn(),
+                        oauthCompletionStep2: jest.fn(),
                     },
                 },
             ],
@@ -41,42 +52,113 @@ describe('AuthController', () => {
         }
     });
 
-    // describe('signup', () => {
+    describe('signupStep1', () => {
+        beforeEach(() => jest.clearAllMocks());
 
-    //   beforeEach(() => jest.clearAllMocks());
+        it('should call authService.signupStep1 with the given dto and return its result', async () => {
+            const mockDto = { email: 'test@example.com' };
+            const mockResult = { message: 'OTP sent to email' };
 
-    //   const dto: RegisterDto = {
-    //      email: 'john@example.com',
-    //      password: 'StrongPass123',
-    //      firstName: 'John',
-    //      lastName: 'Doe',
-    //    } as RegisterDto;
+            mockAuthService.signupStep1.mockResolvedValue(mockResult as any);
 
-    //   it('should call authService.register with the correct DTO and return result', async () => {
+            const result = await controller.signupStep1(mockDto as any);
 
-    //     const mockResult = {
-    //       message: 'User successfully registered. Check email for verification',
-    //     };
+            expect(mockAuthService.signupStep1).toHaveBeenCalledWith(mockDto);
+            expect(mockAuthService.signupStep1).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mockResult);
+        });
 
-    //     (mockAuthService.register as jest.Mock).mockResolvedValue(mockResult);
+        it('should throw if authService.signupStep1 throws', async () => {
+            const mockDto = { email: 'existing@example.com' };
+            mockAuthService.signupStep1.mockRejectedValue(new Error(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS));
 
-    //     const result = await controller.signup(dto);
+            await expect(controller.signupStep1(mockDto as any)).rejects.toThrow(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
 
-    //     expect(mockAuthService.register).toHaveBeenCalledTimes(1);
-    //     expect(mockAuthService.register).toHaveBeenCalledWith(dto);
-    //     expect(result).toEqual(mockResult);
-    //   });
+            expect(mockAuthService.signupStep1).toHaveBeenCalledWith(mockDto);
+        });
+    });
 
-    //   it('should throw if authService.register throws', async () => {
-    //   const dto = { email: 'error@example.com', password: '123456' } as any;
-    //   mockAuthService.register.mockRejectedValueOnce(new Error('Service failed'));
+    describe('signupStep2', () => {
+        beforeEach(() => jest.clearAllMocks());
 
-    //   await expect(controller.signup(dto)).rejects.toThrow('Service failed');
-    //   expect(mockAuthService.register).toHaveBeenCalledTimes(1);
-    //   expect(mockAuthService.register).toHaveBeenCalledWith(dto);
-    //   });
+        it('should call authService.signupStep2 with the given dto and return its result', async () => {
+            const mockDto = { email: 'test@example.com', otp: '123456' };
+            const mockResult = { message: 'Email verified successfully' };
 
-    // });
+            mockAuthService.signupStep2.mockResolvedValue(mockResult as any);
+
+            const result = await controller.signupStep2(mockDto as any);
+
+            expect(mockAuthService.signupStep2).toHaveBeenCalledWith(mockDto);
+            expect(mockAuthService.signupStep2).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mockResult);
+        });
+
+        it('should throw if authService.signupStep2 throws', async () => {
+            const mockDto = { email: 'test@example.com', otp: 'invalid' };
+            mockAuthService.signupStep2.mockRejectedValue(new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN));
+
+            await expect(controller.signupStep2(mockDto as any)).rejects.toThrow(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+
+            expect(mockAuthService.signupStep2).toHaveBeenCalledWith(mockDto);
+        });
+    });
+
+    describe('signupStep3', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should call authService.signupStep3, set cookie, and return user data', async () => {
+            const mockDto = { username: 'testuser', password: 'password123' };
+            const mockResult = {
+                user_id: 'user123',
+                access_token: 'access123',
+                refresh_token: 'refresh123',
+            };
+
+            mockAuthService.signupStep3.mockResolvedValue(mockResult as any);
+            const mockSetCookie = jest.fn();
+            controller['httpOnlyRefreshToken'] = mockSetCookie;
+
+            const mockResponse = { cookie: jest.fn() };
+
+            const result = await controller.signupStep3(mockDto as any, mockResponse as any);
+
+            expect(mockAuthService.signupStep3).toHaveBeenCalledWith(mockDto);
+            expect(mockSetCookie).toHaveBeenCalledWith(mockResponse, mockResult.refresh_token);
+            expect(result).toEqual({
+                user_id: mockResult.user_id,
+                access_token: mockResult.access_token,
+            });
+        });
+
+        it('should throw if authService.signupStep3 throws', async () => {
+            const mockDto = { username: 'existinguser', password: 'password123' };
+            mockAuthService.signupStep3.mockRejectedValue(new Error(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN));
+
+            const mockResponse = { cookie: jest.fn() };
+            await expect(controller.signupStep3(mockDto as any, mockResponse as any)).rejects.toThrow(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+
+            expect(mockAuthService.signupStep3).toHaveBeenCalledWith(mockDto);
+        });
+
+        it('should throw if httpOnlyRefreshToken fails', async () => {
+            const mockDto = { username: 'testuser', password: 'password123' };
+            const mockResult = {
+                user_id: 'user123',
+                access_token: 'access123',
+                refresh_token: 'refresh123',
+            };
+            mockAuthService.signupStep3.mockResolvedValue(mockResult as any);
+            const mockSetCookie = jest.fn(() => {
+                throw new Error('Cookie error');
+            });
+            controller['httpOnlyRefreshToken'] = mockSetCookie;
+
+            await expect(
+                controller.signupStep3(mockDto as any, { cookie: jest.fn() } as any)
+            ).rejects.toThrow('Cookie error');
+        });
+    });
 
     describe('generateEmailVerification', () => {
         beforeEach(() => jest.clearAllMocks());
@@ -98,11 +180,11 @@ describe('AuthController', () => {
         it('should throw if service throws', async () => {
             const email = 'fail@example.com';
             mockAuthService.generateEmailVerification.mockRejectedValueOnce(
-                new Error('Service failed')
+                new Error(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
             );
 
             await expect(controller.generateEmailVerification({ email })).rejects.toThrow(
-                'Service failed'
+                ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL
             );
 
             expect(mockAuthService.generateEmailVerification).toHaveBeenCalledWith(email);
@@ -125,10 +207,10 @@ describe('AuthController', () => {
         });
 
         it('should throw if authService.handleNotMe throws', async () => {
-            mockAuthService.handleNotMe.mockRejectedValue(new Error('Invalid or expired link'));
+            mockAuthService.handleNotMe.mockRejectedValue(new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN));
 
             await expect(controller.handleNotMe('bad-token')).rejects.toThrow(
-                'Invalid or expired link'
+                ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
             expect(mockAuthService.handleNotMe).toHaveBeenCalledWith('bad-token');
             expect(mockAuthService.handleNotMe).toHaveBeenCalledTimes(1);
@@ -139,7 +221,7 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should return access token and user on successful login', async () => {
-            const mockLoginDto = { email: 'user@example.com', password: '123456' };
+            const mockLoginDto = { identifier: 'user@example.com', password: '123456' };
             const mockResult = {
                 access_token: 'access123',
                 refresh_token: 'refresh123',
@@ -165,12 +247,12 @@ describe('AuthController', () => {
         });
 
         it('should throw if AuthService.login throws', async () => {
-            mockAuthService.login.mockRejectedValue(new Error('Invalid credentials'));
+            mockAuthService.login.mockRejectedValue(new Error(ERROR_MESSAGES.WRONG_PASSWORD));
 
             const mockResponse = { cookie: jest.fn() };
             await expect(
                 controller.login({ email: 'bad', password: 'wrong' } as any, mockResponse as any)
-            ).rejects.toThrow('Invalid credentials');
+            ).rejects.toThrow(ERROR_MESSAGES.WRONG_PASSWORD);
             expect(mockAuthService.login).toHaveBeenCalledWith({ email: 'bad', password: 'wrong' });
         });
 
@@ -226,10 +308,10 @@ describe('AuthController', () => {
             const mockReq = { cookies: { refresh_token: 'invalid' } } as any;
             const mockRes = { cookie: jest.fn() } as any;
 
-            mockAuthService.refresh.mockRejectedValue(new Error('Invalid refresh token'));
+            mockAuthService.refresh.mockRejectedValue(new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN));
 
             await expect(controller.refresh(mockReq, mockRes)).rejects.toThrow(
-                'Invalid refresh token'
+                ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
             expect(mockAuthService.refresh).toHaveBeenCalledWith('invalid');
@@ -284,10 +366,10 @@ describe('AuthController', () => {
             const mockReq = { cookies: { refresh_token: 'invalid' } } as any;
             const mockRes = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
-            mockAuthService.logout.mockRejectedValue(new Error('Invalid or expired refresh token'));
+            mockAuthService.logout.mockRejectedValue(new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN));
 
             await expect(controller.logout(mockReq, mockRes)).rejects.toThrow(
-                'Invalid or expired refresh token'
+                ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
             expect(mockAuthService.logout).toHaveBeenCalledWith('invalid', mockRes);
@@ -324,11 +406,11 @@ describe('AuthController', () => {
             const mockRes = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
             mockAuthService.logoutAll.mockRejectedValue(
-                new Error('Invalid or expired refresh token')
+                new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
             await expect(controller.logoutAll(mockReq, mockRes)).rejects.toThrow(
-                'Invalid or expired refresh token'
+                ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
             expect(mockAuthService.logoutAll).toHaveBeenCalledWith('expired-token', mockRes);
@@ -360,10 +442,10 @@ describe('AuthController', () => {
             const mockBody = { old_password: 'wrong', new_password: 'new' };
             const mockUserId = 'user-1';
 
-            mockAuthService.changePassword.mockRejectedValue(new Error('Invalid old password'));
+            mockAuthService.changePassword.mockRejectedValue(new Error(ERROR_MESSAGES.WRONG_PASSWORD));
 
             await expect(controller.changePassword(mockBody as any, mockUserId)).rejects.toThrow(
-                'Invalid old password'
+                ERROR_MESSAGES.WRONG_PASSWORD
             );
 
             expect(mockAuthService.changePassword).toHaveBeenCalledWith(
@@ -378,62 +460,58 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should call authService.sendResetPasswordEmail with the correct userId and return its result', async () => {
-            const mockUserId = 'user-123';
+            const forget_req = {
+                identifier: 'user123',
+            };
             const mockResult = { message: 'Password reset OTP sent to your email' };
 
             mockAuthService.sendResetPasswordEmail.mockResolvedValue(mockResult as any);
 
-            const result = await controller.forgetPassword(mockUserId);
+            const result = await controller.forgetPassword(forget_req);
 
-            expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledWith(mockUserId);
+            expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledWith(forget_req.identifier);
             expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mockResult);
         });
 
         it('should throw if authService.sendResetPasswordEmail throws', async () => {
-            const mockUserId = 'user-123';
-            mockAuthService.sendResetPasswordEmail.mockRejectedValue(new Error('User not found'));
+            const forget_req = {
+                identifier: 'user-123',
+            };
+            mockAuthService.sendResetPasswordEmail.mockRejectedValue(new Error(ERROR_MESSAGES.USER_NOT_FOUND));
 
-            await expect(controller.forgetPassword(mockUserId)).rejects.toThrow('User not found');
+            await expect(controller.forgetPassword(forget_req)).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
 
-            expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledWith(mockUserId);
+            expect(mockAuthService.sendResetPasswordEmail).toHaveBeenCalledWith(forget_req.identifier);
         });
     });
 
     describe('verifyResetPasswordOtp', () => {
         it('should call authService.verifyResetPasswordOtp with correct arguments and return its result', async () => {
-            const mockBody = { token: 'otp123' };
-            const mockUserId = 'user-123';
+            const mockBody = { token: 'otp123', identifier: 'user-123' };
             const mockResult = { message: 'OTP verified successfully' };
 
             mockAuthService.verifyResetPasswordOtp.mockResolvedValue(mockResult as any);
 
-            const result = await controller.verifyResetPasswordOtp(mockBody as any, mockUserId);
+            const result = await controller.verifyResetPasswordOtp(mockBody);
 
-            expect(mockAuthService.verifyResetPasswordOtp).toHaveBeenCalledWith(
-                mockUserId,
-                mockBody.token
-            );
+            expect(mockAuthService.verifyResetPasswordOtp).toHaveBeenCalledWith(mockBody.identifier, mockBody.token);
             expect(mockAuthService.verifyResetPasswordOtp).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mockResult);
         });
 
         it('should throw if authService.verifyResetPasswordOtp throws', async () => {
-            const mockBody = { token: 'invalid' };
-            const mockUserId = 'user-123';
+            const mockBody = { token: 'invalid', identifier: 'user-123' };
 
             mockAuthService.verifyResetPasswordOtp.mockRejectedValue(
-                new Error('Invalid or expired OTP')
+                new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
             await expect(
-                controller.verifyResetPasswordOtp(mockBody as any, mockUserId)
-            ).rejects.toThrow('Invalid or expired OTP');
+                controller.verifyResetPasswordOtp(mockBody as any)
+            ).rejects.toThrow(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
 
-            expect(mockAuthService.verifyResetPasswordOtp).toHaveBeenCalledWith(
-                mockUserId,
-                mockBody.token
-            );
+            expect(mockAuthService.verifyResetPasswordOtp).toHaveBeenCalledWith(mockBody.identifier, mockBody.token);
         });
     });
 
@@ -442,39 +520,30 @@ describe('AuthController', () => {
 
         it('should call authService.resetPassword with correct arguments and return its result', async () => {
             const mockUserId = 'user-123';
-            const mockBody = { new_password: 'newPass123', reset_token: 'reset-token' };
+            const mockBody = { new_password: 'newPass123', reset_token: 'reset-token', identifier: 'user-123' };
             const mockResult = { message: 'Password reset successfully' };
 
             mockAuthService.resetPassword.mockResolvedValue(mockResult as any);
 
-            const result = await controller.resetPassword(mockUserId, mockBody as any);
+            const result = await controller.resetPassword(mockBody as any);
 
-            expect(mockAuthService.resetPassword).toHaveBeenCalledWith(
-                mockUserId,
-                mockBody.new_password,
-                mockBody.reset_token
-            );
+            expect(mockAuthService.resetPassword).toHaveBeenCalledWith(mockBody.identifier, mockBody.new_password, mockBody.reset_token);
             expect(mockAuthService.resetPassword).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mockResult);
         });
 
         it('should throw if authService.resetPassword throws', async () => {
-            const mockUserId = 'user-123';
-            const mockBody = { new_password: 'failPass', reset_token: 'bad-token' };
+            const mockBody = { new_password: 'failPass', reset_token: 'bad-token', identifier: 'user-123' };
 
             mockAuthService.resetPassword.mockRejectedValue(
-                new Error('Invalid or expired reset token')
+                new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            await expect(controller.resetPassword(mockUserId, mockBody as any)).rejects.toThrow(
-                'Invalid or expired reset token'
+            await expect(controller.resetPassword(mockBody as any)).rejects.toThrow(
+                ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
-            expect(mockAuthService.resetPassword).toHaveBeenCalledWith(
-                mockUserId,
-                mockBody.new_password,
-                mockBody.reset_token
-            );
+            expect(mockAuthService.resetPassword).toHaveBeenCalledWith(mockBody.identifier, mockBody.new_password, mockBody.reset_token);
         });
     });
 
@@ -610,6 +679,272 @@ describe('AuthController', () => {
         });
     });
 
+    describe('checkIdentifier', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should call authService.checkIdentifier with the given identifier and return its result', async () => {
+            const mockDto = { identifier: 'testuser' };
+            const mockResult = { available: true };
+
+            mockAuthService.checkIdentifier.mockResolvedValue(mockResult as any);
+
+            const result = await controller.checkIdentifier(mockDto as any);
+
+            expect(mockAuthService.checkIdentifier).toHaveBeenCalledWith(mockDto.identifier);
+            expect(mockAuthService.checkIdentifier).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mockResult);
+        });
+
+        it('should throw if authService.checkIdentifier throws', async () => {
+            const mockDto = { identifier: 'existinguser' };
+            mockAuthService.checkIdentifier.mockRejectedValue(new Error(ERROR_MESSAGES.USERNAME_NOT_FOUND));
+
+            await expect(controller.checkIdentifier(mockDto as any)).rejects.toThrow(ERROR_MESSAGES.USERNAME_NOT_FOUND);
+
+            expect(mockAuthService.checkIdentifier).toHaveBeenCalledWith(mockDto.identifier);
+        });
+    });
+
+    describe('updateUsername', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should call authService.updateUsername with correct arguments and return its result', async () => {
+            const mockDto = { username: 'newusername' };
+            const mockUserId = 'user123';
+            const mockResult = { message: 'Username updated successfully' };
+
+            mockAuthService.updateUsername.mockResolvedValue(mockResult as any);
+
+            const result = await controller.updateUsername(mockDto as any, mockUserId);
+
+            expect(mockAuthService.updateUsername).toHaveBeenCalledWith(mockUserId, mockDto.username);
+            expect(mockAuthService.updateUsername).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mockResult);
+        });
+
+        it('should throw if authService.updateUsername throws', async () => {
+            const mockDto = { username: 'existinguser' };
+            const mockUserId = 'user123';
+            mockAuthService.updateUsername.mockRejectedValue(new Error(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN));
+
+            await expect(controller.updateUsername(mockDto as any, mockUserId)).rejects.toThrow(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+
+            expect(mockAuthService.updateUsername).toHaveBeenCalledWith(mockUserId, mockDto.username);
+        });
+    });
+
+    describe('updateEmail', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should call authService.updateEmail with correct arguments and return its result', async () => {
+            const mockDto = { new_email: 'newemail@example.com' };
+            const mockUserId = 'user123';
+            const mockResult = { message: 'Email update initiated, OTP sent' };
+
+            mockAuthService.updateEmail.mockResolvedValue(mockResult as any);
+
+            const result = await controller.updateEmail(mockDto as any, mockUserId);
+
+            expect(mockAuthService.updateEmail).toHaveBeenCalledWith(mockUserId, mockDto.new_email);
+            expect(mockAuthService.updateEmail).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mockResult);
+        });
+
+        it('should throw if authService.updateEmail throws', async () => {
+            const mockDto = { new_email: 'existing@example.com' };
+            const mockUserId = 'user123';
+            mockAuthService.updateEmail.mockRejectedValue(new Error('Email already exists'));
+
+            await expect(controller.updateEmail(mockDto as any, mockUserId)).rejects.toThrow('Email already exists');
+
+            expect(mockAuthService.updateEmail).toHaveBeenCalledWith(mockUserId, mockDto.new_email);
+        });
+    });
+
+    describe('verifyUpdateEmail', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should call authService.verifyUpdateEmail with correct arguments and return its result', async () => {
+            const mockDto = { new_email: 'newemail@example.com', otp: '123456' };
+            const mockUserId = 'user123';
+            const mockResult = { message: 'Email updated successfully' };
+
+            mockAuthService.verifyUpdateEmail.mockResolvedValue(mockResult as any);
+
+            const result = await controller.verifyUpdateEmail(mockDto as any, mockUserId);
+
+            expect(mockAuthService.verifyUpdateEmail).toHaveBeenCalledWith(
+                mockUserId,
+                mockDto.new_email,
+                mockDto.otp
+            );
+            expect(mockAuthService.verifyUpdateEmail).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mockResult);
+        });
+
+        it('should throw if authService.verifyUpdateEmail throws', async () => {
+            const mockDto = { new_email: 'newemail@example.com', otp: 'invalid' };
+            const mockUserId = 'user123';
+            mockAuthService.verifyUpdateEmail.mockRejectedValue(new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN));
+
+            await expect(controller.verifyUpdateEmail(mockDto as any, mockUserId)).rejects.toThrow(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+
+            expect(mockAuthService.verifyUpdateEmail).toHaveBeenCalledWith(
+                mockUserId,
+                mockDto.new_email,
+                mockDto.otp
+            );
+        });
+    });
+
+    describe('mobileGoogleAuth', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should return needs_completion when user needs to complete OAuth registration', async () => {
+            const mockDto = { access_token: 'google-token' };
+            const mockResult = {
+                needs_completion: true,
+                user: { id: 'user123', email: 'test@example.com' },
+            };
+
+            mockAuthService.verifyGoogleMobileToken.mockResolvedValue(mockResult as any);
+            mockAuthService.createOAuthSession.mockResolvedValue('session-token' as any);
+
+            const mockResponse = { cookie: jest.fn() };
+
+            const result = await controller.mobileGoogleAuth(mockDto as any, mockResponse as any);
+
+            expect(mockAuthService.verifyGoogleMobileToken).toHaveBeenCalledWith(mockDto.access_token);
+            expect(mockAuthService.createOAuthSession).toHaveBeenCalledWith(mockResult.user);
+            expect(result).toEqual({
+                needs_completion: true,
+                session_token: 'session-token',
+                provider: 'google',
+            });
+        });
+
+        it('should return access token and user when authentication is successful', async () => {
+            const mockDto = { access_token: 'google-token' };
+            const mockResult = {
+                user: { id: 'user123', email: 'test@example.com' },
+            };
+            const mockTokens = {
+                access_token: 'access123',
+                refresh_token: 'refresh123',
+            };
+
+            mockAuthService.verifyGoogleMobileToken.mockResolvedValue(mockResult as any);
+            mockAuthService.generateTokens.mockResolvedValue(mockTokens as any);
+            const mockSetCookie = jest.fn();
+            controller['httpOnlyRefreshToken'] = mockSetCookie;
+
+            const mockResponse = { cookie: jest.fn() };
+
+            const result = await controller.mobileGoogleAuth(mockDto as any, mockResponse as any);
+
+            expect(mockAuthService.verifyGoogleMobileToken).toHaveBeenCalledWith(mockDto.access_token);
+            expect(mockAuthService.generateTokens).toHaveBeenCalledWith(mockResult.user.id);
+            expect(mockSetCookie).toHaveBeenCalledWith(mockResponse, mockTokens.refresh_token);
+            expect(result).toEqual({
+                access_token: mockTokens.access_token,
+                user: mockResult.user,
+            });
+        });
+
+        it('should throw BadRequestException if user data is invalid', async () => {
+            const mockDto = { access_token: 'invalid-token' };
+            const mockResult = { user: {} }; // Missing id
+
+            mockAuthService.verifyGoogleMobileToken.mockResolvedValue(mockResult as any);
+
+            const mockResponse = { cookie: jest.fn() };
+
+            await expect(controller.mobileGoogleAuth(mockDto as any, mockResponse as any)).rejects.toThrow(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
+
+            expect(mockAuthService.verifyGoogleMobileToken).toHaveBeenCalledWith(mockDto.access_token);
+        });
+    });
+
+    describe('mobileGitHubAuth', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should return needs_completion when user needs to complete OAuth registration', async () => {
+            const mockDto = { code: 'github-code', redirect_uri: 'http://localhost', code_verifier: 'verifier' };
+            const mockResult = {
+                needs_completion: true,
+                user: { id: 'user123', email: 'test@example.com' },
+            };
+
+            mockAuthService.verifyGitHubMobileToken.mockResolvedValue(mockResult as any);
+            mockAuthService.createOAuthSession.mockResolvedValue('session-token' as any);
+
+            const mockResponse = { cookie: jest.fn() };
+
+            const result = await controller.mobileGitHubAuth(mockDto as any, mockResponse as any);
+
+            expect(mockAuthService.verifyGitHubMobileToken).toHaveBeenCalledWith(
+                mockDto.code,
+                mockDto.redirect_uri,
+                mockDto.code_verifier
+            );
+            expect(mockAuthService.createOAuthSession).toHaveBeenCalledWith(mockResult.user);
+            expect(result).toEqual({
+                needs_completion: true,
+                session_token: 'session-token',
+                provider: 'github',
+            });
+        });
+
+        it('should return access token and user when authentication is successful', async () => {
+            const mockDto = { code: 'github-code', redirect_uri: 'http://localhost', code_verifier: 'verifier' };
+            const mockResult = {
+                user: { id: 'user123', email: 'test@example.com' },
+            };
+            const mockTokens = {
+                access_token: 'access123',
+                refresh_token: 'refresh123',
+            };
+
+            mockAuthService.verifyGitHubMobileToken.mockResolvedValue(mockResult as any);
+            mockAuthService.generateTokens.mockResolvedValue(mockTokens as any);
+            const mockSetCookie = jest.fn();
+            controller['httpOnlyRefreshToken'] = mockSetCookie;
+
+            const mockResponse = { cookie: jest.fn() };
+
+            const result = await controller.mobileGitHubAuth(mockDto as any, mockResponse as any);
+
+            expect(mockAuthService.verifyGitHubMobileToken).toHaveBeenCalledWith(
+                mockDto.code,
+                mockDto.redirect_uri,
+                mockDto.code_verifier
+            );
+            expect(mockAuthService.generateTokens).toHaveBeenCalledWith(mockResult.user.id);
+            expect(mockSetCookie).toHaveBeenCalledWith(mockResponse, mockTokens.refresh_token);
+            expect(result).toEqual({
+                access_token: mockTokens.access_token,
+                user: mockResult.user,
+            });
+        });
+
+        it('should throw BadRequestException if user data is invalid', async () => {
+            const mockDto = { code: 'invalid-code', redirect_uri: 'http://localhost', code_verifier: 'verifier' };
+            const mockResult = { user: {} }; // Missing id
+
+            mockAuthService.verifyGitHubMobileToken.mockResolvedValue(mockResult as any);
+
+            const mockResponse = { cookie: jest.fn() };
+
+            await expect(controller.mobileGitHubAuth(mockDto as any, mockResponse as any)).rejects.toThrow(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+
+            expect(mockAuthService.verifyGitHubMobileToken).toHaveBeenCalledWith(
+                mockDto.code,
+                mockDto.redirect_uri,
+                mockDto.code_verifier
+            );
+        });
+    });
+
     describe('getCaptchaSiteKey', () => {
         it('should return the site key from environment variables', () => {
             process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
@@ -625,6 +960,88 @@ describe('AuthController', () => {
             const result = controller.getCaptchaSiteKey();
 
             expect(result).toEqual({ siteKey: '' });
+        });
+    });
+
+    describe('oauthCompletionStep1', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should call authService.oauthCompletionStep1 with the given dto and return its result', async () => {
+            const mockDto = { session_token: 'session123', birth_date: '1990-01-01' };
+            const mockResult = { message: 'Birth date set successfully' };
+
+            mockAuthService.oauthCompletionStep1.mockResolvedValue(mockResult as any);
+
+            const result = await controller.oauthCompletionStep1(mockDto as any);
+
+            expect(mockAuthService.oauthCompletionStep1).toHaveBeenCalledWith(mockDto);
+            expect(mockAuthService.oauthCompletionStep1).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mockResult);
+        });
+
+        it('should throw if authService.oauthCompletionStep1 throws', async () => {
+            const mockDto = { session_token: 'invalid-session', birth_date: '1990-01-01' };
+            mockAuthService.oauthCompletionStep1.mockRejectedValue(new Error('Invalid OAuth session token'));
+
+            await expect(controller.oauthCompletionStep1(mockDto as any)).rejects.toThrow(ERROR_MESSAGES.INVALID_OAUTH_SESSION_TOKEN);
+
+            expect(mockAuthService.oauthCompletionStep1).toHaveBeenCalledWith(mockDto);
+        });
+    });
+
+    describe('oauthCompletionStep2', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should call authService.oauthCompletionStep2, set cookie, and return tokens and user', async () => {
+            const mockDto = { session_token: 'session123', username: 'newuser' };
+            const mockResult = {
+                access_token: 'access123',
+                refresh_token: 'refresh123',
+                user: { id: 'user123', username: 'newuser' },
+            };
+
+            mockAuthService.oauthCompletionStep2.mockResolvedValue(mockResult as any);
+            const mockSetCookie = jest.fn();
+            controller['httpOnlyRefreshToken'] = mockSetCookie;
+
+            const mockResponse = { cookie: jest.fn() };
+
+            const result = await controller.oauthCompletionStep2(mockDto as any, mockResponse as any);
+
+            expect(mockAuthService.oauthCompletionStep2).toHaveBeenCalledWith(mockDto);
+            expect(mockSetCookie).toHaveBeenCalledWith(mockResponse, mockResult.refresh_token);
+            expect(result).toEqual({
+                access_token: mockResult.access_token,
+                user: mockResult.user,
+            });
+        });
+
+        it('should throw if authService.oauthCompletionStep2 throws', async () => {
+            const mockDto = { session_token: 'session123', username: 'existinguser' };
+            mockAuthService.oauthCompletionStep2.mockRejectedValue(new Error(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN));
+
+            const mockResponse = { cookie: jest.fn() };
+            await expect(controller.oauthCompletionStep2(mockDto as any, mockResponse as any)).rejects.toThrow(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+
+            expect(mockAuthService.oauthCompletionStep2).toHaveBeenCalledWith(mockDto);
+        });
+
+        it('should throw if httpOnlyRefreshToken fails', async () => {
+            const mockDto = { session_token: 'session123', username: 'newuser' };
+            const mockResult = {
+                access_token: 'access123',
+                refresh_token: 'refresh123',
+                user: { id: 'user123', username: 'newuser' },
+            };
+            mockAuthService.oauthCompletionStep2.mockResolvedValue(mockResult as any);
+            const mockSetCookie = jest.fn(() => {
+                throw new Error('Cookie error');
+            });
+            controller['httpOnlyRefreshToken'] = mockSetCookie;
+
+            await expect(
+                controller.oauthCompletionStep2(mockDto as any, { cookie: jest.fn() } as any)
+            ).rejects.toThrow('Cookie error');
         });
     });
 });
