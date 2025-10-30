@@ -1,5 +1,5 @@
 import { DataSource } from 'typeorm';
-import { ExcelReader, TopicSheets } from '../utils/excel-reader';
+import { ExcelReader, ITopicSheets } from '../utils/excel-reader';
 import { UserSeeder } from './user.seed';
 import AppDataSource from 'src/databases/data-source';
 import { TweetSeeder } from './tweet.seed';
@@ -67,7 +67,7 @@ async function main() {
 async function processTopic(
     data_source: DataSource,
     topic_name: string,
-    data: TopicSheets
+    data: ITopicSheets
 ): Promise<void> {
     console.log('='.repeat(60));
     console.log(`🏷️  TOPIC: ${topic_name.toUpperCase()}`);
