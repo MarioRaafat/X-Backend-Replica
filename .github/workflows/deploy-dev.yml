@@ -51,6 +51,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
+          file: ./docker/Dockerfile
+
           push: true
           tags: |
             ${{ secrets.DOCKER_USERNAME }}/api-yapper-backend:${{ steps.get_tag.outputs.new_tag }}
