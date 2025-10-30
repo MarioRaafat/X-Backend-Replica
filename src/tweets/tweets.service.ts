@@ -13,6 +13,7 @@ import { TweetReply } from './entities/tweet-reply.entity';
 import { Hashtag } from './entities/hashtags.entity';
 import { User } from 'src/user/entities/user.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { BlobServiceClient } from '@azure/storage-blob';
 
 @Injectable()
 export class TweetsService {
@@ -30,28 +31,49 @@ export class TweetsService {
         private data_source: DataSource,
         private readonly paginate_service: PaginationService
     ) {}
+
+    private readonly TWEET_IMAGES_CONTAINER = 'post-images';
+
     /**
      * Handles image upload processing
      * @param file - The uploaded image file (in memory, not saved to disk)
      * @param _user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
-    uploadImage(file: Express.Multer.File, _user_id: string): Promise<UploadMediaResponseDTO> {
-        // TODO: Implement image upload logic
-        // - Upload to cloud storage (S3, Cloudinary, etc.)
-        // - Save file metadata to database
-        // - Process/compress image if needed
-        // - Generate thumbnail
-        // - Return file URL and metadata
+    async uploadImage(file: Express.Multer.File, user_id: string) {
+        const image_name = `${user_id}-${Date.now()}-${file.originalname}`;
 
-        // File is in memory as file.buffer
-        // NOT saved to disk - discarded after request
-        return Promise.resolve({
-            url: `https://your-cdn.com/placeholder-url`, // Placeholder URL
+        const url = await this.uploadImageToAzure(
+            file.buffer,
+            image_name,
+            this.TWEET_IMAGES_CONTAINER // Assuming this is defined in your service
+        );
+
+        return {
+            url,
             filename: file.originalname,
             size: file.size,
             mime_type: file.mimetype,
-        });
+        };
+    }
+
+    private async uploadImageToAzure(
+        image_buffer: Buffer,
+        image_name: string,
+        container_name: string
+    ): Promise<string> {
+        const blob_service_client = BlobServiceClient.fromConnectionString(
+            process.env.AZURE_STORAGE_CONNECTION_STRING ?? ''
+        );
+
+        const container_client = blob_service_client.getContainerClient(container_name);
+        await container_client.createIfNotExists();
+
+        const block_blob_client = container_client.getBlockBlobClient(image_name);
+
+        await block_blob_client.upload(image_buffer, image_buffer.length);
+
+        return block_blob_client.url;
     }
 
     /**

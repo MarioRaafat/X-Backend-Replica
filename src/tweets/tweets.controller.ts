@@ -234,7 +234,7 @@ export class TweetsController {
     @Post('upload/image')
     async uploadImage(@UploadedFile() file: Express.Multer.File, @GetUserId() user_id: string) {
         if (!file) {
-            throw new BadRequestException(ERROR_MESSAGES.NO_FILE_PROVIDED);
+            throw new BadRequestException('No file provided');
         }
 
         return this.tweets_service.uploadImage(file, user_id);
