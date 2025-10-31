@@ -34,7 +34,7 @@ export class UserFollowsSeeder extends BaseSeeder {
         this.log(`Total users in database: ${total_users}`);
 
         // Process users in batches to avoid memory issues
-        const BATCH_SIZE = 800;
+        const BATCH_SIZE = 1000;
         const follow_set = new Set<string>(); // Track all relationships globally
         let total_inserted = 0;
 
