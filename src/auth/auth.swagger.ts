@@ -1,11 +1,13 @@
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
 // OAuth Response Constants
-const getOAuthResponseDescription = (provider: 'Google' | 'GitHub' | 'Facebook') => `
+function getOAuthResponseDescription(provider: 'Google' | 'GitHub' | 'Facebook') {
+    return `
 **Two Possible Responses:**
 1. **Existing User**: ${provider} account linked to existing user - Returns user data with access_token and refresh_token (direct login)
 2. **New User**: New ${provider} account - Returns session_token requiring OAuth completion flow (birth date + username)
 `;
+}
 
 const OAUTH_RESPONSE_EXISTING_USER = {
     description: 'Existing user - successfully logged in',
@@ -17,9 +19,10 @@ const OAUTH_RESPONSE_EXISTING_USER = {
                 name: 'Messi 3amk',
                 username: 'lionel_messi',
                 birth_date: '1987-06-24',
-                avatar_url: 'https://media.cnn.com/api/v1/images/stellar/prod/221218184732-messi-wc-trophy.jpg?c=16x9&q=h_833,w_1480,c_fill',
+                avatar_url:
+                    'https://media.cnn.com/api/v1/images/stellar/prod/221218184732-messi-wc-trophy.jpg?c=16x9&q=h_833,w_1480,c_fill',
             },
-            access_token: 'messi doesn\'t need a token to be authenticated bro',
+            access_token: "messi doesn't need a token to be authenticated bro",
             refresh_token: 'suiiiiiiiiiiiiiiii',
         },
         count: 1,
@@ -27,18 +30,20 @@ const OAUTH_RESPONSE_EXISTING_USER = {
     },
 };
 
-const getOAuthResponseNewUser = (provider: 'google' | 'github' | 'facebook') => ({
-    description: 'New user - needs to complete registration',
-    example: {
-        data: {
-            needs_completion: true,
-            session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-            provider: provider,
+function getOAuthResponseNewUser(provider: 'google' | 'github' | 'facebook') {
+    return {
+        description: 'New user - needs to complete registration',
+        example: {
+            data: {
+                needs_completion: true,
+                session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                provider: provider,
+            },
+            count: 1,
+            message: SUCCESS_MESSAGES.LOGGED_IN,
         },
-        count: 1,
-        message: SUCCESS_MESSAGES.LOGGED_IN,
-    },
-});
+    };
+}
 
 export const signup_step1_swagger = {
     operation: {
@@ -312,7 +317,7 @@ export const google_oauth_swagger = {
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
 
-${getOAuthResponseDescription('Google')}
+export ${getOAuthResponseDescription('Google')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -361,7 +366,7 @@ This endpoint is specifically designed for mobile applications (React Native/Exp
 - Backend verifies the token with Google's API
 - Returns user data and JWT tokens (or session token for new users)
 
-${getOAuthResponseDescription('Google')}
+export ${getOAuthResponseDescription('Google')}
 
 **For web applications, use:** \`GET /auth/google\` instead
         `,
@@ -371,12 +376,9 @@ ${getOAuthResponseDescription('Google')}
         success: {
             description: 'Google authentication successful - User logged in or needs completion',
             schema: {
-                oneOf: [
-                    OAUTH_RESPONSE_EXISTING_USER,
-                    getOAuthResponseNewUser('google'),
-                ],
+                oneOf: [OAUTH_RESPONSE_EXISTING_USER, getOAuthResponseNewUser('google')],
             },
-        }
+        },
     },
 };
 
@@ -464,7 +466,7 @@ export const facebook_oauth_swagger = {
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
 
-${getOAuthResponseDescription('Facebook')}
+export ${getOAuthResponseDescription('Facebook')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -583,7 +585,7 @@ export const github_oauth_swagger = {
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
 
-${getOAuthResponseDescription('GitHub')}
+export ${getOAuthResponseDescription('GitHub')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -634,7 +636,7 @@ This endpoint is specifically designed for mobile applications (React Native/Exp
 - Backend validates token with GitHub API
 - Returns user data and JWT tokens (or session token for new users)
 
-${getOAuthResponseDescription('GitHub')}
+export ${getOAuthResponseDescription('GitHub')}
 
 **Important Notes:**
 - PKCE \`code_verifier\` is **required** for mobile OAuth flows
@@ -649,10 +651,7 @@ ${getOAuthResponseDescription('GitHub')}
         success: {
             description: 'GitHub authentication successful - User logged in or needs completion',
             schema: {
-                oneOf: [
-                    OAUTH_RESPONSE_EXISTING_USER,
-                    getOAuthResponseNewUser('github'),
-                ],
+                oneOf: [OAUTH_RESPONSE_EXISTING_USER, getOAuthResponseNewUser('github')],
             },
         },
     },
@@ -898,7 +897,7 @@ export const logout_swagger = {
     },
 };
 
-export const logout_All_swagger = {
+export const logout_all_swagger = {
     operation: {
         summary: 'Logout from all devices',
         description:

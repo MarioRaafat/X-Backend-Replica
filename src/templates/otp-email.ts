@@ -1,4 +1,4 @@
-import { Y_LOGO_URL, Y_LOGO_HOST_URL } from '../constants/variables';
+import { Y_LOGO_HOST_URL, Y_LOGO_URL } from '../constants/variables';
 
 export function generateOtpEmailHtml(
     title: string,

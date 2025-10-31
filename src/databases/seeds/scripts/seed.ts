@@ -8,6 +8,7 @@ import { ISeederContext } from './seeder.interface';
 import { UserFollowsSeeder } from './user-follows.seed';
 import { TweetLikesSeeder } from './tweet-likes.seed';
 import { TweetRepostsSeeder } from './tweet-reposts.seed';
+import { CategorySeeder } from './category.seed';
 
 async function main() {
     // Parse topics from command line
@@ -82,6 +83,12 @@ async function processTopic(
         data,
         results: {},
     };
+
+    // 0. Seed Categories
+    await runSeeder('CategorySeeder', async () => {
+        const seeder = new CategorySeeder();
+        await seeder.seed(context);
+    });
 
     // 1. Seed Users
     await runSeeder('UserSeeder', async () => {

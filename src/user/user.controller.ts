@@ -12,9 +12,20 @@ import {
     UseInterceptors,
 } from '@nestjs/common';
 import { UserService } from './user.service';
-import { ApiBearerAuth, ApiBody, ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
+import {
+    ApiBearerAuth,
+    ApiBody,
+    ApiConsumes,
+    ApiCreatedResponse,
+    ApiNoContentResponse,
+    ApiOkResponse,
+    ApiOperation,
+    ApiTags,
+} from '@nestjs/swagger';
 import {
     ApiBadRequestErrorResponse,
+    ApiConflictErrorResponse,
+    ApiForbiddenErrorResponse,
     ApiNotFoundErrorResponse,
     ApiUnauthorizedErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
@@ -22,10 +33,10 @@ import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
     assign_interests,
     block_user,
-    change_phone_number,
-    deactivate_account,
+    change_language,
     delete_avatar,
     delete_cover,
+    delete_user,
     follow_user,
     get_blocked,
     get_followers,
@@ -40,7 +51,6 @@ import {
     get_users_by_ids,
     get_users_by_username,
     mute_user,
-    reactivate_account,
     remove_follower,
     unblock_user,
     unfollow_user,
@@ -62,6 +72,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
+import { ChangeLanguageDto } from './dto/change-language.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -74,22 +85,36 @@ export class UserController {
     @ApiOkResponse(get_users_by_ids.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USERS_RETRIEVED)
-    @Post()
-    async getUsersByIds(@Body() ids: GetUsersByIdDto) {}
+    @Get()
+    async getUsersByIds(
+        @GetUserId() current_user_id: string | null,
+        @Query() get_users_by_id_dto: GetUsersByIdDto
+    ) {
+        return await this.user_service.getUsersById(current_user_id, get_users_by_id_dto);
+    }
 
     @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_users_by_username.operation)
     @ApiOkResponse(get_users_by_username.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USERS_RETRIEVED)
-    @Post('by/username')
-    async getUsersByUsernames(@Body() usernames: GetUsersByUsernameDto) {}
+    @Get('by/username')
+    async getUsersByUsernames(
+        @GetUserId() current_user_id: string | null,
+        @Query() get_users_by_username_dto: GetUsersByUsernameDto
+    ) {
+        return await this.user_service.getUsersByUsername(
+            current_user_id,
+            get_users_by_username_dto
+        );
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(get_me.operation)
     @ApiOkResponse(get_me.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USER_RETRIEVED)
     @Get('me')
     async getMe(@GetUserId() user_id: string) {
@@ -148,9 +173,11 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.FOLLOWER_REMOVED)
     @Delete(':target_user_id/remove-follower')
     async removeFollower(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
+    ) {
+        return await this.user_service.removeFollower(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -171,15 +198,21 @@ export class UserController {
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(follow_user.operation)
-    @ApiOkResponse(follow_user.responses.success)
+    @ApiCreatedResponse(follow_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_FOLLOW_YOURSELF)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_FOLLOW_BLOCKED_USER)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.ALREADY_FOLLOWING)
+    @ApiForbiddenErrorResponse(ERROR_MESSAGES.CANNOT_FOLLOW_USER)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.FOLLOW_USER)
     @Post(':target_user_id/follow')
     async followUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() current_user_id: string
-    ) {}
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
+    ) {
+        return await this.user_service.followUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -190,9 +223,11 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.UNFOLLOW_USER)
     @Delete(':target_user_id/unfollow')
     async unfollowUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
+    ) {
+        return await this.user_service.unfollowUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -201,19 +236,26 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.MUTED_LIST_RETRIEVED)
     @Get('me/muted')
-    async getMutedList(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {
+    async getMutedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
         return await this.user_service.getMutedList(user_id, query_dto);
     }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(mute_user.operation)
-    @ApiOkResponse(mute_user.responses.success)
+    @ApiCreatedResponse(mute_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_MUTE_YOURSELF)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.ALREADY_MUTED)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.MUTE_USER)
     @Post(':target_user_id/mute')
-    async muteUser(@Param('target_user_id') target_user_id: string, @GetUserId() user_id: string) {}
+    async muteUser(
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
+    ) {
+        return await this.user_service.muteUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -224,9 +266,11 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.UNMUTE_USER)
     @Delete(':target_user_id/unmute')
     async unmuteUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
+    ) {
+        return await this.user_service.unmuteUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -235,22 +279,26 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.BLOCKED_LIST_RETRIEVED)
     @Get('me/blocked')
-    async getBlockedList(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {
+    async getBlockedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
         return await this.user_service.getBlockedList(user_id, query_dto);
     }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(block_user.operation)
-    @ApiOkResponse(block_user.responses.success)
+    @ApiCreatedResponse(block_user.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_BLOCK_YOURSELF)
+    @ApiConflictErrorResponse(ERROR_MESSAGES.ALREADY_BLOCKED)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.BLOCK_USER)
     @Post(':target_user_id/block')
     async blockUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
+    ) {
+        return await this.user_service.blockUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -261,9 +309,11 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.UNBLOCK_USER)
     @Delete(':target_user_id/unblock')
     async unblockUser(
-        @Param('target_user_id') target_user_id: string,
-        @GetUserId() user_id: string
-    ) {}
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string
+    ) {
+        return await this.user_service.unblockUser(current_user_id, target_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -272,7 +322,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.LIKED_POSTS_RETRIEVED)
     @Get('me/liked-yaps')
-    async getLikedYaps(@Query() query_dto: PaginationParamsDto, @GetUserId() user_id: string) {}
+    async getLikedYaps(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {}
 
     @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_user_posts.operation)
@@ -305,49 +355,37 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.USER_UPDATED)
     @Patch('me')
-    async updateUser(@Body() update_user_dto: UpdateUserDto, @GetUserId() user_id: string) {}
+    async updateUser(@GetUserId() user_id: string, @Body() update_user_dto: UpdateUserDto) {
+        return await this.user_service.updateUser(user_id, update_user_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
-    @ApiOperation(change_phone_number.operation)
-    @ApiOkResponse(change_phone_number.responses.success)
+    @ApiOperation(delete_user.operation)
+    @ApiOkResponse(delete_user.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ResponseMessage(SUCCESS_MESSAGES.PHONE_NUMBER_CHANGED)
-    @Patch('me/change-phone-number')
-    async changePhoneNumber(
-        @Body() update_phone_number_dto: UpdatePhoneNumberDto,
-        @GetUserId() user_id: string
-    ) {}
-
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth('JWT-auth')
-    @ApiOperation(deactivate_account.operation)
-    @ApiOkResponse(deactivate_account.responses.success)
-    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_DEACTIVATED)
-    @Patch('me/deactivate')
-    async deactivateAccount(@GetUserId() user_id: string) {}
-
-    @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth('JWT-auth')
-    @ApiOperation(reactivate_account.operation)
-    @ApiOkResponse(reactivate_account.responses.success)
-    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_REACTIVATED)
-    @Patch('me/reactivate')
-    async reactivateAccount(@GetUserId() user_id: string) {}
+    @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_DELETED)
+    @Delete('me/delete-account')
+    async deleteUser(@GetUserId() current_user_id: string) {}
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(upload_avatar.operation)
     @ApiBody(upload_avatar.body)
-    @ApiOkResponse(upload_avatar.responses.success)
+    @ApiConsumes('multipart/form-data')
+    @ApiCreatedResponse(upload_avatar.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
     @ResponseMessage(SUCCESS_MESSAGES.AVATAR_UPLOADED)
     @Post('me/upload-avatar')
     @UseInterceptors(FileInterceptor('file'))
-    async uploadAvatar(@UploadedFile() file: Express.Multer.File) {}
+    async uploadAvatar(
+        @GetUserId() current_user_id: string,
+        @UploadedFile() file: Express.Multer.File
+    ) {
+        return await this.user_service.uploadAvatar(current_user_id, file);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -364,13 +402,19 @@ export class UserController {
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(upload_cover.operation)
     @ApiBody(upload_cover.body)
-    @ApiOkResponse(upload_cover.responses.success)
+    @ApiConsumes('multipart/form-data')
+    @ApiCreatedResponse(upload_cover.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
     @ResponseMessage(SUCCESS_MESSAGES.COVER_UPLOADED)
     @Post('me/upload-cover')
     @UseInterceptors(FileInterceptor('file'))
-    async uploadCover(@UploadedFile() file: Express.Multer.File) {}
+    async uploadCover(
+        @GetUserId() current_user_id: string,
+        @UploadedFile() file: Express.Multer.File
+    ) {
+        return await this.user_service.uploadCover(current_user_id, file);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -387,10 +431,30 @@ export class UserController {
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(assign_interests.operation)
     @ApiBody({ type: AssignInterestsDto })
-    @ApiOkResponse(assign_interests.responses.success)
+    @ApiCreatedResponse(assign_interests.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiNotFoundErrorResponse(ERROR_MESSAGES.CATEGORY_NOT_FOUND)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.CATEGORIES_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.INTERESTS_ASSIGNED)
     @Post('me/interests')
-    async assignInterests(@Body() assign_interests_dto: AssignInterestsDto) {}
+    async assignInterests(
+        @GetUserId() current_user_id: string,
+        @Body() assign_interests_dto: AssignInterestsDto
+    ) {
+        return await this.user_service.assignInserests(current_user_id, assign_interests_dto);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(change_language.operation)
+    @ApiBody({ type: ChangeLanguageDto })
+    @ApiCreatedResponse(change_language.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ResponseMessage(SUCCESS_MESSAGES.LANGUAGE_CHANGED)
+    @Patch('me/change-language')
+    async changeLanguage(
+        @GetUserId() current_user_id: string,
+        @Body() change_language_dto: ChangeLanguageDto
+    ) {
+        return this.user_service.changeLanguage(current_user_id, change_language_dto);
+    }
 }

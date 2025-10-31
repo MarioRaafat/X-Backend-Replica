@@ -4,7 +4,8 @@ export const get_users_by_ids = {
     operation: {
         summary: "Get users' data by their IDs",
         description: `
-    Get a list of users' data using array of IDs  
+    Get a list of users' data.
+    IDs are passed as a comma separated string of users IDs in query parameters
     `,
     },
 
@@ -46,7 +47,8 @@ export const get_users_by_username = {
     operation: {
         summary: "Get users' data by their usernames",
         description: `
-    Get a list of users' data using array of usernames       
+    Get a list of users' data.
+    Usernames are passed as a comma separated string of usernames in query parameters 
     `,
     },
 
@@ -1033,7 +1035,16 @@ export const update_user = {
             description: 'Updated user successfully',
             schema: {
                 example: {
-                    data: {},
+                    data: {
+                        user_id: '809334b7-d429-4d83-8e78-0418731ea97d',
+                        username: 'alyaa242',
+                        bio: "Hi there, I'm Alyaa",
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        country: null,
+                        created_at: '2025-10-21T09:26:17.432Z',
+                        followers_count: 5,
+                        following_count: 10,
+                    },
                     count: 0,
                     message: SUCCESS_MESSAGES.USER_UPDATED,
                 },
@@ -1042,66 +1053,22 @@ export const update_user = {
     },
 };
 
-export const change_phone_number = {
+export const delete_user = {
     operation: {
-        summary: 'Change phone number',
+        summary: 'Delete user',
         description: `
-    Change current user's phone number
+    Delete current user permanently
     `,
     },
 
     responses: {
         success: {
-            description: 'Phone number changed successfully',
+            description: 'Account deleted successfully',
             schema: {
                 example: {
                     data: {},
                     count: 0,
-                    message: SUCCESS_MESSAGES.PHONE_NUMBER_CHANGED,
-                },
-            },
-        },
-    },
-};
-
-export const deactivate_account = {
-    operation: {
-        summary: 'Deactivate account',
-        description: `
-    Deactivate current user's account
-    `,
-    },
-
-    responses: {
-        success: {
-            description: 'Account deactivated successfully',
-            schema: {
-                example: {
-                    data: {},
-                    count: 0,
-                    message: SUCCESS_MESSAGES.ACCOUNT_DEACTIVATED,
-                },
-            },
-        },
-    },
-};
-
-export const reactivate_account = {
-    operation: {
-        summary: 'Reactivate account',
-        description: `
-    Reactivate current user's account
-    `,
-    },
-
-    responses: {
-        success: {
-            description: 'Account reactivated successfully',
-            schema: {
-                example: {
-                    data: {},
-                    count: 0,
-                    message: SUCCESS_MESSAGES.ACCOUNT_REACTIVATED,
+                    message: SUCCESS_MESSAGES.ACCOUNT_DELETED,
                 },
             },
         },
@@ -1121,7 +1088,12 @@ export const upload_avatar = {
             description: 'Avatar uploaded successfully',
             schema: {
                 example: {
-                    data: {},
+                    data: {
+                        image_url:
+                            'https://yapperdev.blob.core.windows.net/profile-images/3cda6108-8cb6-411b-9457-fbd8ffbf77ee-1761902534288-kurosensi.png',
+                        image_name:
+                            '3cda6108-8cb6-411b-9457-fbd8ffbf77ee-1761902534288-kurosensi.png',
+                    },
                     count: 0,
                     message: SUCCESS_MESSAGES.AVATAR_UPLOADED,
                 },
@@ -1131,7 +1103,6 @@ export const upload_avatar = {
 
     body: {
         description: 'Avatar image file',
-        type: 'multipart/form-data',
         schema: {
             type: 'object',
             properties: {
@@ -1181,7 +1152,12 @@ export const upload_cover = {
             description: 'Cover uploaded successfully',
             schema: {
                 example: {
-                    data: {},
+                    data: {
+                        image_url:
+                            'https://yapperdev.blob.core.windows.net/profile-images/3cda6108-8cb6-411b-9457-fbd8ffbf77ee-1761902534288-kurosensi.png',
+                        image_name:
+                            '3cda6108-8cb6-411b-9457-fbd8ffbf77ee-1761902534288-kurosensi.png',
+                    },
                     count: 0,
                     message: SUCCESS_MESSAGES.COVER_UPLOADED,
                 },
@@ -1190,15 +1166,14 @@ export const upload_cover = {
     },
 
     body: {
-        description: 'Avatar image file',
-        type: 'multipart/form-data',
+        description: 'Cover image file',
         schema: {
             type: 'object',
             properties: {
                 file: {
                     type: 'string',
                     format: 'binary',
-                    description: 'Avatar image file (JPEG, PNG, etc.)',
+                    description: 'Cover image file (JPEG, PNG, etc.)',
                 },
             },
             required: ['file'],
@@ -1244,6 +1219,31 @@ export const assign_interests = {
                     data: {},
                     count: 0,
                     message: SUCCESS_MESSAGES.INTERESTS_ASSIGNED,
+                },
+            },
+        },
+    },
+};
+
+export const change_language = {
+    operation: {
+        summary: 'Change language',
+        description: `
+        Change current user's language
+        Available languages: 'en' and 'ar'
+    `,
+    },
+
+    responses: {
+        success: {
+            description: 'Language changed successfully',
+            schema: {
+                example: {
+                    data: {
+                        language: 'ar',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.LANGUAGE_CHANGED,
                 },
             },
         },
