@@ -5,6 +5,7 @@ import AppDataSource from 'src/databases/data-source';
 import { TweetSeeder } from './tweet.seed';
 import { ReplySeeder } from './reply.seed';
 import { ISeederContext } from './seeder.interface';
+import { UserFollowsSeeder } from './user-follows.seed';
 
 async function main() {
     // Parse topics from command line
@@ -85,7 +86,11 @@ async function processTopic(
         const seeder = new UserSeeder();
         await seeder.seed(context);
     });
-
+    // 2. Seed User Follows
+    await runSeeder('UserFollowsSeeder', async () => {
+        const seeder = new UserFollowsSeeder();
+        await seeder.seed(context);
+    });
     // 3. Seed Tweets
     await runSeeder('TweetSeeder', async () => {
         const seeder = new TweetSeeder();
