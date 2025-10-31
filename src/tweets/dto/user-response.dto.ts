@@ -31,4 +31,11 @@ export class UserResponseDTO {
         example: true,
     })
     verified: boolean;
+
+    @ApiProperty({
+        description: 'Whether the current user is following this user',
+        example: false,
+        required: false,
+    })
+    is_following?: boolean;
 }

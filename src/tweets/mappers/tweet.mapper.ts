@@ -6,7 +6,8 @@ export class TweetMapper {
     static toDTO(
         tweet: Tweet,
         current_user_id?: string,
-        is_reposted_view?: boolean
+        is_reposted_view?: boolean,
+        is_following?: boolean
     ): TweetResponseDTO {
         const user_dto: UserResponseDTO = {
             id: tweet.user.id,
@@ -14,6 +15,7 @@ export class TweetMapper {
             name: tweet.user.name,
             avatar_url: tweet.user.avatar_url,
             verified: tweet.user.verified,
+            is_following,
         };
 
         // Determine tweet type based on loaded relationship data
@@ -60,7 +62,18 @@ export class TweetMapper {
         };
     }
 
-    static toDTOList(tweets: Tweet[], current_user_id?: string): TweetResponseDTO[] {
-        return tweets.map((tweet) => this.toDTO(tweet, current_user_id));
+    static toDTOList(
+        tweets: Tweet[],
+        current_user_id?: string,
+        following_map?: Map<string, boolean>
+    ): TweetResponseDTO[] {
+        return tweets.map((tweet) =>
+            this.toDTO(
+                tweet,
+                current_user_id,
+                false,
+                following_map ? following_map.get(tweet.user.id) : undefined
+            )
+        );
     }
 }

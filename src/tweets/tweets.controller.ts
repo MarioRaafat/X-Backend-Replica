@@ -312,7 +312,6 @@ export class TweetsController {
         type: PaginatedTweetRepostsResponseDTO,
     })
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiForbiddenErrorResponse('Only the tweet owner can see who reposted their tweet')
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage('Users who reposted the tweet retrieved successfully')

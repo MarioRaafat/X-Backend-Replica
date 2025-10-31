@@ -18,6 +18,7 @@ import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
 import { Hashtag } from './entities/hashtags.entity';
+import { UserFollows } from 'src/user/entities/user-follows.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { GoogleGenAI } from '@google/genai';
@@ -36,6 +37,8 @@ export class TweetsService {
         private readonly tweet_quote_repository: Repository<TweetQuote>,
         @InjectRepository(TweetReply)
         private readonly tweet_reply_repository: Repository<TweetReply>,
+        @InjectRepository(UserFollows)
+        private readonly user_follows_repository: Repository<UserFollows>,
         private data_source: DataSource,
         private readonly paginate_service: PaginationService
     ) {}
@@ -47,6 +50,73 @@ export class TweetsService {
     private readonly genAI = new GoogleGenAI({ apiKey: this.API_KEY });
 
     private readonly TOPICS = ['Sports', 'Entertainment', 'News'];
+
+    /**
+     * Check if current user is following a specific user
+     * @param current_user_id - The ID of the current user
+     * @param target_user_id - The ID of the user to check
+     * @returns true if current user follows target user, false otherwise
+     */
+    private async checkIsFollowing(
+        current_user_id: string | undefined,
+        target_user_id: string
+    ): Promise<boolean> {
+        if (!current_user_id || current_user_id === target_user_id) {
+            return false;
+        }
+
+        const follow_record = await this.user_follows_repository.findOne({
+            where: {
+                follower_id: current_user_id,
+                followed_id: target_user_id,
+            },
+        });
+
+        return !!follow_record;
+    }
+
+    /**
+     * Batch check following status for multiple users
+     * @param current_user_id - The ID of the current user
+     * @param user_ids - Array of user IDs to check
+     * @returns Map of user_id -> is_following boolean
+     */
+    private async batchCheckIsFollowing(
+        current_user_id: string | undefined,
+        user_ids: string[]
+    ): Promise<Map<string, boolean>> {
+        const result = new Map<string, boolean>();
+
+        if (!current_user_id || user_ids.length === 0) {
+            user_ids.forEach((id) => result.set(id, false));
+            return result;
+        }
+
+        // Initialize all as false
+        user_ids.forEach((id) => result.set(id, false));
+
+        // Filter out current user's own ID
+        const filtered_user_ids = user_ids.filter((id) => id !== current_user_id);
+
+        if (filtered_user_ids.length === 0) {
+            return result;
+        }
+
+        // Query following relationships
+        const follow_records = await this.user_follows_repository.find({
+            where: {
+                follower_id: current_user_id,
+                followed_id: In(filtered_user_ids),
+            },
+        });
+
+        // Update map with actual following status
+        follow_records.forEach((record) => {
+            result.set(record.followed_id, true);
+        });
+
+        return result;
+    }
 
     /**
      * Handles image upload processing
@@ -173,7 +243,7 @@ export class TweetsService {
 
         try {
             await this.extractDataFromTweets(tweet, user_id, query_runner);
-            // const extracted_topics = this.extractTopics(tweet.content);
+            const extracted_topics = this.extractTopics(tweet.content);
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 ...tweet,
@@ -192,7 +262,7 @@ export class TweetsService {
             // Load type information
             await this.loadTweetTypeInfo(created_tweet);
 
-            return TweetMapper.toDTO(created_tweet);
+            return TweetMapper.toDTO(created_tweet, undefined, false, false);
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -239,7 +309,7 @@ export class TweetsService {
             // Load type information
             await this.loadTweetTypeInfo(updated_tweet);
 
-            return TweetMapper.toDTO(updated_tweet);
+            return TweetMapper.toDTO(updated_tweet, undefined, false, false);
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -277,7 +347,10 @@ export class TweetsService {
         // Load type information before mapping
         await this.loadTweetTypeInfo(tweet);
 
-        return TweetMapper.toDTO(tweet, current_user_id);
+        // Check if current user is following the tweet author
+        const is_following = await this.checkIsFollowing(current_user_id, tweet.user.id);
+
+        return TweetMapper.toDTO(tweet, current_user_id, false, is_following);
     }
 
     async likeTweet(tweet_id: string, user_id: string): Promise<void> {
@@ -351,7 +424,7 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            // await this.extractDataFromTweets(quote, user_id, query_runner);
+            await this.extractDataFromTweets(quote, user_id, query_runner);
 
             const new_quote_tweet = query_runner.manager.create(Tweet, {
                 ...quote,
@@ -380,7 +453,7 @@ export class TweetsService {
             // Load type information before mapping
             await this.loadTweetTypeInfo(quote_tweet);
 
-            return TweetMapper.toDTO(quote_tweet);
+            return TweetMapper.toDTO(quote_tweet, undefined, false, false);
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -471,7 +544,7 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            // await this.extractDataFromTweets(reply_dto, user_id, query_runner);
+            await this.extractDataFromTweets(reply_dto, user_id, query_runner);
 
             // Create the reply tweet
             const new_reply_tweet = query_runner.manager.create(Tweet, {
@@ -511,7 +584,7 @@ export class TweetsService {
             // Load type information before mapping
             await this.loadTweetTypeInfo(reply_tweet);
 
-            return TweetMapper.toDTO(reply_tweet);
+            return TweetMapper.toDTO(reply_tweet, undefined, false, false);
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -522,6 +595,7 @@ export class TweetsService {
 
     async getTweetsByUserId(
         user_id: string,
+        current_user_id?: string,
         page_offset: number = 1,
         page_size: number = 10
     ): Promise<{ data: TweetResponseDTO[]; count: number }> {
@@ -538,8 +612,12 @@ export class TweetsService {
         // Load type information for all tweets
         await Promise.all(tweets.map((tweet) => this.loadTweetTypeInfo(tweet)));
 
+        // Batch check following status for all tweet authors (though they're all the same user here)
+        const author_ids = tweets.map((t) => t.user.id);
+        const following_map = await this.batchCheckIsFollowing(current_user_id, author_ids);
+
         return {
-            data: TweetMapper.toDTOList(tweets),
+            data: TweetMapper.toDTOList(tweets, current_user_id, following_map),
             count: total,
         };
     }
@@ -642,10 +720,22 @@ export class TweetsService {
         }
 
         // Map to DTOs
+        // First, collect all unique user IDs (tweet authors)
+        const user_ids = Array.from(new Set(filtered_items.map((item) => item.tweet.user.id)));
+
+        // Batch check following status for all tweet authors
+        const following_map = await this.batchCheckIsFollowing(current_user_id, user_ids);
+
         const result_tweets = filtered_items.map((item) => {
             // Pass true for is_reposted_view if this item has a reposter
             const is_reposted_view = !!(item.reposter_user && item.repost_id);
-            const dto = TweetMapper.toDTO(item.tweet, current_user_id, is_reposted_view);
+            const is_following = following_map.get(item.tweet.user.id);
+            const dto = TweetMapper.toDTO(
+                item.tweet,
+                current_user_id,
+                is_reposted_view,
+                is_following
+            );
             if (item.reposter_user && item.repost_id) {
                 dto.reposted_by = {
                     repost_id: item.repost_id,
@@ -696,6 +786,7 @@ export class TweetsService {
             name: string;
             avatar_url: string;
             verified: boolean;
+            is_following?: boolean;
         }[];
         count: number;
         next_cursor: string | null;
@@ -729,6 +820,10 @@ export class TweetsService {
 
         const likes = await query.getMany();
 
+        // Batch check following status for all users who liked the tweet
+        const user_ids = likes.map((like) => like.user.id);
+        const following_map = await this.batchCheckIsFollowing(current_user_id, user_ids);
+
         // Map to user response format
         const users = likes.map((like) => ({
             id: like.user.id,
@@ -736,6 +831,7 @@ export class TweetsService {
             name: like.user.name,
             avatar_url: like.user.avatar_url || '',
             verified: like.user.verified,
+            is_following: following_map.get(like.user.id),
         }));
 
         // Generate next_cursor from the last like
@@ -761,23 +857,19 @@ export class TweetsService {
             name: string;
             avatar_url: string;
             verified: boolean;
+            is_following?: boolean;
         }[];
         count: number;
         next_cursor: string | null;
         has_more: boolean;
     }> {
-        // Check if tweet exists and get the owner
+        // Check if tweet exists
         const tweet = await this.tweet_repository.findOne({
             where: { tweet_id },
-            select: ['tweet_id', 'num_reposts', 'user_id'],
+            select: ['tweet_id', 'num_reposts'],
         });
 
         if (!tweet) throw new NotFoundException('Tweet not found');
-
-        // Only the tweet owner can see who reposted their tweet
-        if (tweet.user_id !== current_user_id) {
-            throw new BadRequestException('Only the tweet owner can see who reposted their tweet');
-        }
 
         // Build query for tweet reposts with user information
         const query = this.tweet_repost_repository
@@ -794,6 +886,10 @@ export class TweetsService {
 
         const reposts = await query.getMany();
 
+        // Batch check following status for all users who reposted the tweet
+        const user_ids = reposts.map((repost) => repost.user.id);
+        const following_map = await this.batchCheckIsFollowing(current_user_id, user_ids);
+
         // Map to user response format
         const users = reposts.map((repost) => ({
             id: repost.user.id,
@@ -801,6 +897,7 @@ export class TweetsService {
             name: repost.user.name,
             avatar_url: repost.user.avatar_url || '',
             verified: repost.user.verified,
+            is_following: following_map.get(repost.user.id),
         }));
 
         // Generate next_cursor from the last repost
@@ -866,8 +963,14 @@ export class TweetsService {
         const quote_tweets = quotes.map((q) => q.quote_tweet);
         await Promise.all(quote_tweets.map((qt) => this.loadTweetTypeInfo(qt)));
 
-        // Map to DTOs
-        const quote_dtos = quote_tweets.map((qt) => TweetMapper.toDTO(qt, current_user_id));
+        // Batch check following status for all quote tweet authors
+        const author_ids = quote_tweets.map((qt) => qt.user.id);
+        const following_map = await this.batchCheckIsFollowing(current_user_id, author_ids);
+
+        // Map to DTOs with is_following information
+        const quote_dtos = quote_tweets.map((qt) =>
+            TweetMapper.toDTO(qt, current_user_id, false, following_map.get(qt.user.id))
+        );
 
         // Generate next_cursor
         const next_cursor =
