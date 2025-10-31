@@ -5,11 +5,13 @@ import {
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
+    Unique,
 } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('tweet_reposts')
+@Unique('UQ_tweet_reposts_user_tweet', ['user_id', 'tweet_id'])
 export class TweetRepost {
     @PrimaryGeneratedColumn('uuid')
     id: string;

@@ -22,7 +22,8 @@ This module exposes authenticated REST endpoints that allow users to publish twe
    - Removes tweet permanently when requester owns it.
 
 4. **Amplification Actions**
-   - **Repost**: `POST /tweets/:id/repost` (status-only response).
+   - **Repost**: `POST /tweets/:id/repost` (status-only response). Each user can only repost a tweet once.
+   - **Unrepost**: `DELETE /tweets/:id/repost` (removes your repost of the specified tweet).
    - **Quote**: `POST /tweets/:id/quote` with optional commentary body.
    - **Quote Update**: `PATCH /tweets/:id/quote` for editing an existing quote tweet.
 
@@ -30,6 +31,8 @@ This module exposes authenticated REST endpoints that allow users to publish twe
    - **Like**: `POST /tweets/:id/like` (204 status).
    - **Unlike**: `DELETE /tweets/:id/like` (204 status).
    - **Who Liked**: `GET /tweets/:id/likes` returns aggregated liker data and totals.
+   - **Who Reposted**: `GET /tweets/:id/reposts` returns users who reposted this tweet.
+   - **Quote Tweets**: `GET /tweets/:id/quotes` returns all quote tweets for this tweet with full tweet data.
 
 ## Documentation Pattern
 
@@ -46,7 +49,10 @@ This module exposes authenticated REST endpoints that allow users to publish twe
 ## Entities
 
 - `Tweet`: Primary record representing authored content.
-- `TweetRelation`: Stores repost, quote, like, and reply relationships between users and tweets.
+- `TweetRepost`: Stores repost relationships. Has a unique constraint on (user_id, tweet_id) to ensure each user can only repost a tweet once. The repost ID is maintained for cursor-based pagination.
+- `TweetQuote`: Stores quote tweet relationships.
+- `TweetReply`: Stores reply relationships and conversation threading.
+- `TweetLike`: Stores like relationships between users and tweets.
 
 ## Next Steps
 
