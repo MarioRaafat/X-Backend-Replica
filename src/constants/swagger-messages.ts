@@ -35,6 +35,21 @@ export const ERROR_MESSAGES = {
     USER_NOT_FOUND: 'User not found',
     USER_NOT_FOUND_OR_VERIFIED: 'User not found or already verified',
     CANNOT_FOLLOW_YOURSELF: 'You cannot follow yourself',
+    ALREADY_FOLLOWING: 'Already following this user',
+    CANNOT_FOLLOW_USER: 'Cannot follow user, user blocked you',
+    CANNOT_FOLLOW_BLOCKED_USER: 'Cannot follow a blocked user',
+    CANNOT_MUTE_YOURSELF: 'You cannot mute yourself',
+    ALREADY_MUTED: 'Already muted this user',
+    CANNOT_BLOCK_YOURSELF: 'You cannot block yourself',
+    ALREADY_BLOCKED: 'Already blocked this user',
+    CANNOT_UNFOLLOW_YOURSELF: 'You cannot unblock yourself',
+    CANNOT_REMOVE_SELF: 'You are not a follower to yourself',
+    NOT_FOLLOWED: 'User is not followed',
+    NOT_A_FOLLOWER: 'User is not a follower',
+    CANNOT_UNMUTE_YOURSELF: 'You cannot unmute yourself',
+    NOT_MUTED: 'User is not muted',
+    CANNOT_UNBLOCK_YOURSELF: 'You cannot unblock yourself',
+    NOT_BLOCKED: 'User is not blocked',
 
     // communication
     FAILED_TO_SEND_OTP_EMAIL: 'Failed to send OTP email',
@@ -77,6 +92,8 @@ export const ERROR_MESSAGES = {
     // file
     FILE_NOT_FOUND: 'File not found',
     INVALID_FILE_FORMAT: 'Invalid file format',
+    FILE_UPLOAD_FAILED: 'File upload failed',
+
     // search
     INVALID_SEARCH_QUERY: 'Invalid search query',
 
@@ -88,6 +105,7 @@ export const ERROR_MESSAGES = {
 
     // category
     CATEGORY_NOT_FOUND: 'Category not found',
+    CATEGORIES_NOT_FOUND: 'Categories not found',
 } as const;
 
 // Success Messages
@@ -139,7 +157,7 @@ export const SUCCESS_MESSAGES = {
     USERS_RETRIEVED: 'Users retrieved successfully',
     USER_RETRIEVED: 'User retrieved successfully',
     FOLLOWERS_LIST_RETRIEVED: 'Followers retrieved successfully',
-    FOLLOWER_REMOVED: 'Followers removed successfully',
+    FOLLOWER_REMOVED: 'Follower removed successfully',
     FOLLOWING_LIST_RETRIEVED: 'Following list retrieved successfully',
     FOLLOW_USER: 'Followed user successfully',
     UNFOLLOW_USER: 'Unfollowed user successfully',
@@ -154,14 +172,13 @@ export const SUCCESS_MESSAGES = {
     REPLIES_RETRIEVED: 'Retrieved replies successfully',
     MEDIA_RETRIEVED: 'Retrieved media successfully',
     USER_UPDATED: 'Updated user successfully',
-    PHONE_NUMBER_CHANGED: 'Phone number changed successfully',
-    ACCOUNT_DEACTIVATED: 'Account deactivated successfully',
-    ACCOUNT_REACTIVATED: 'Account reactivated successfully',
+    ACCOUNT_DELETED: 'Account deleted successfully',
     AVATAR_UPLOADED: 'Avatar uploaded successfully',
     COVER_UPLOADED: 'Cover uploaded successfully',
     AVATAR_DELETED: 'Avatar deleted successfully',
     COVER_DELETED: 'Cover deleted successfully',
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
+    LANGUAGE_CHANGED: 'Language changed successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',

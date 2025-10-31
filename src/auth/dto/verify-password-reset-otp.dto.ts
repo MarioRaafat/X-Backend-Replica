@@ -15,7 +15,8 @@ export class VerifyPasswordResetOtpDto {
     token: string;
 
     @ApiProperty({
-        description: 'User identifier (email or username) associated with the password reset request',
+        description:
+            'User identifier (email or username) associated with the password reset request',
         example: 'lionel_messi10@gmail.com',
     })
     @IsString({ message: 'Identifier must be a string' })

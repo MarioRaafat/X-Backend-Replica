@@ -1,7 +1,7 @@
 import { Exclude } from 'class-transformer';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { Hashtag } from '../../tweets/entities/hashtags.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn , UpdateDateColumn } from 'typeorm';
 
 @Entity()
 export class User {
@@ -62,8 +62,7 @@ export class User {
     verified: boolean;
 
     @Column({ type: 'varchar', nullable: true })
-    @Exclude()
-    country: string;
+    country?: string;
 
     @Column({ type: 'boolean', default: false })
     @Exclude()
@@ -79,6 +78,7 @@ export class User {
         onUpdate: 'CURRENT_TIMESTAMP',
     })
     @Exclude()
+    @UpdateDateColumn()
     updated_at: Date;
 
     @Column({ type: 'int', default: 0 })
