@@ -14,6 +14,7 @@ import { Hashtag } from './entities/hashtags.entity';
 import { User } from 'src/user/entities/user.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { BlobServiceClient } from '@azure/storage-blob';
+import { GoogleGenAI } from '@google/genai';
 
 @Injectable()
 export class TweetsService {
@@ -33,6 +34,12 @@ export class TweetsService {
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
+    private readonly TWEET_VIDEOS_CONTAINER = 'post-videos';
+
+    private readonly API_KEY = process.env.GOOGLE_API_KEY ?? '';
+    private readonly genAI = new GoogleGenAI({ apiKey: this.API_KEY });
+
+    private readonly TOPICS = ['Sports', 'Entertainment', 'News'];
 
     /**
      * Handles image upload processing
@@ -85,12 +92,12 @@ export class TweetsService {
         const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
 
         const container_client = blob_service_client.getContainerClient(container_name);
-        await container_client.createIfNotExists({ access: 'blob' }); // ensures public access
+        await container_client.createIfNotExists({ access: 'blob' });
 
         const block_blob_client = container_client.getBlockBlobClient(image_name);
         await block_blob_client.upload(image_buffer, image_buffer.length);
 
-        return block_blob_client.url; // ← publicly accessible URL
+        return block_blob_client.url;
     }
 
     /**
@@ -104,9 +111,8 @@ export class TweetsService {
         _user_id: string
     ): Promise<UploadMediaResponseDTO> {
         const video_name = `${Date.now()}-${file.originalname}`;
-        const container_name = 'post-videos'; // Azure container for videos
 
-        const video_url = await this.uploadVideoToAzure(file.buffer, video_name, container_name);
+        const video_url = await this.uploadVideoToAzure(file.buffer, video_name);
 
         return {
             url: video_url,
@@ -116,11 +122,8 @@ export class TweetsService {
         };
     }
 
-    private async uploadVideoToAzure(
-        video_buffer: Buffer,
-        video_name: string,
-        container_name: string
-    ): Promise<string> {
+    private async uploadVideoToAzure(video_buffer: Buffer, video_name: string): Promise<string> {
+        const container_name = this.TWEET_VIDEOS_CONTAINER;
         const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
         if (!connection_string) {
@@ -129,7 +132,6 @@ export class TweetsService {
             );
         }
 
-        // Debug: Check if connection string has placeholder key
         if (connection_string.includes('YOUR_KEY_HERE')) {
             throw new Error(
                 'Azure Storage AccountKey is still set to placeholder value. Please update with actual key.'
@@ -144,18 +146,17 @@ export class TweetsService {
         const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
 
         const container_client = blob_service_client.getContainerClient(container_name);
-        await container_client.createIfNotExists({ access: 'blob' }); // ensures public access
+        await container_client.createIfNotExists({ access: 'blob' });
 
         const block_blob_client = container_client.getBlockBlobClient(video_name);
 
-        // Set content type for videos
         await block_blob_client.upload(video_buffer, video_buffer.length, {
             blobHTTPHeaders: {
-                blobContentType: 'video/mp4', // Adjust based on actual video type
+                blobContentType: 'video/mp4',
             },
         });
 
-        return block_blob_client.url; // ← publicly accessible URL
+        return block_blob_client.url;
     }
 
     async createTweet(tweet: CreateTweetDTO, user_id: string): Promise<Tweet> {
@@ -165,6 +166,7 @@ export class TweetsService {
 
         try {
             await this.extractDataFromTweets(tweet, user_id, query_runner);
+            const extracted_topics = this.extractTopics(tweet.content);
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 ...tweet,
@@ -416,11 +418,78 @@ export class TweetsService {
         const { content } = tweet;
         if (!content) return;
         console.log('content:', content);
+
+        // Extract mentions
         const mentions = content.match(/@([a-zA-Z0-9_]+)/g) || [];
         this.mentionNotification(mentions, user_id);
+
+        // Extract hashtags
         const hashtags =
             content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
         await this.updateHashtags(hashtags, user_id, query_runner);
+
+        // Extract topics using Gemini AI
+        const topics = await this.extractTopics(content);
+        console.log('Extracted topics:', topics);
+
+        // You can store topics in the tweet entity or use them for recommendations
+        // For example, you could add a 'topics' field to your Tweet entity
+        // tweet.topics = topics;
+    }
+
+    async extractTopics(content: string): Promise<Record<string, number>> {
+        try {
+            const prompt = `Analyze the following text and categorize it into these topics: ${this.TOPICS.join(', ')}.
+                Return ONLY a JSON object with topic names as keys and percentage values (0-100) as numbers. The percentages should add up to 100.
+                Only include topics that are relevant (percentage > 0).
+
+                Example format:
+                { "Sports": 60, "Entertainment": 30, "News": 10 }
+
+                Text to analyze:
+                "${content}"
+
+                Return only the JSON object, no additional text or explanation.
+            `;
+
+            const response = await this.genAI.models.generateContent({
+                model: 'gemini-2.0-flash-exp',
+                contents: prompt,
+            });
+
+            if (!response.text) {
+                console.warn('Gemini returned empty response');
+                const empty_response: Record<string, number> = {};
+                this.TOPICS.forEach((topic) => (empty_response[topic] = 0));
+                return empty_response;
+            }
+
+            const response_text = response.text.trim();
+            console.log('Gemini response:', response_text);
+
+            let json_text = response_text;
+            const json_match = response_text.match(/\{[^}]+\}/);
+            if (json_match) json_text = json_match[0];
+
+            const topic_percentages = JSON.parse(json_text);
+
+            const total = Object.values(topic_percentages).reduce(
+                (sum: number, val: any) => sum + Number(val),
+                0
+            ) as number;
+            if (Math.abs(total - 100) > 1) {
+                console.warn('Topic percentages do not sum to 100, normalizing...');
+
+                Object.keys(topic_percentages).forEach((key) => {
+                    topic_percentages[key] = Math.round((topic_percentages[key] / total) * 100);
+                });
+            }
+
+            return topic_percentages;
+        } catch (error) {
+            console.error('Error extracting topics with Gemini:', error);
+            throw error;
+        }
     }
 
     private mentionNotification(ids: string[], user_id: string): void {}
