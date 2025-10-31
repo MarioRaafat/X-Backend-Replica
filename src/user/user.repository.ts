@@ -73,8 +73,8 @@ export class UserRepository extends Repository<User> {
                 'user.cover_url AS cover_url',
                 'user.country AS country',
                 'user.created_at AS created_at',
-                'COUNT(DISTINCT followers.follower_id) AS followers_count',
-                'COUNT(DISTINCT following.followed_id) AS following_count',
+                'user.followers AS followers_count',
+                'user.following AS following_count',
             ]);
 
         if (identifier_type === 'id') {
@@ -84,7 +84,6 @@ export class UserRepository extends Repository<User> {
             console.log(identifier);
         }
 
-        // For authenticated viewer users
         if (viewer_id) {
             query
                 .addSelect(
@@ -328,17 +327,34 @@ export class UserRepository extends Repository<User> {
         follower_id: string,
         followed_id: string
     ): Promise<InsertResult> {
-        const user_follows = new UserFollows({ follower_id, followed_id });
-        return await this.dataSource.getRepository(UserFollows).insert(user_follows);
+        return await this.dataSource.transaction(async (manager) => {
+            const user_follows = new UserFollows({ follower_id, followed_id });
+            const insert_result = await manager.insert(UserFollows, user_follows);
+
+            await manager.increment(User, { id: follower_id }, 'following', 1);
+            await manager.increment(User, { id: followed_id }, 'followers', 1);
+
+            return insert_result;
+        });
     }
 
     async deleteFollowRelationship(
         follower_id: string,
         followed_id: string
     ): Promise<DeleteResult> {
-        return await this.dataSource
-            .getRepository(UserFollows)
-            .delete({ follower_id, followed_id });
+        return await this.dataSource.transaction(async (manager) => {
+            const delete_result = await manager.delete(UserFollows, {
+                follower_id,
+                followed_id,
+            });
+
+            if (delete_result.affected && delete_result.affected > 0) {
+                await manager.decrement(User, { id: follower_id }, 'following', 1);
+                await manager.decrement(User, { id: followed_id }, 'followers', 1);
+            }
+
+            return delete_result;
+        });
     }
 
     async insertMuteRelationship(muter_id: string, muted_id: string): Promise<InsertResult> {
