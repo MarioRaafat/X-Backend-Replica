@@ -88,7 +88,7 @@ export class UserFollowsSeeder extends BaseSeeder {
                 for (const followed_id of following) {
                     const key = `${user_id}:${followed_id}`;
                     if (!follow_set.has(key)) {
-                        const relation = new UserFollows();
+                        const relation = new UserFollows({});
                         relation.follower_id = user_id;
                         relation.followed_id = followed_id;
                         follow_relations.push(relation);
@@ -102,7 +102,7 @@ export class UserFollowsSeeder extends BaseSeeder {
                 for (const follower_id of followers) {
                     const key = `${follower_id}:${user_id}`;
                     if (!follow_set.has(key)) {
-                        const relation = new UserFollows();
+                        const relation = new UserFollows({});
                         relation.follower_id = follower_id;
                         relation.followed_id = user_id;
                         follow_relations.push(relation);
