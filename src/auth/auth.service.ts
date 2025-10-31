@@ -106,11 +106,12 @@ export class AuthService {
     }
 
     async validateUser(identifier: string, password: string, type: string): Promise<string> {
-        const user = type === 'email'
-            ? await this.user_repository.findByEmail(identifier)
-            : type === 'phone_number'
-                ? await this.user_repository.findByPhoneNumber(identifier)
-                : await this.user_repository.findByUsername(identifier);
+        const user =
+            type === 'email'
+                ? await this.user_repository.findByEmail(identifier)
+                : type === 'phone_number'
+                  ? await this.user_repository.findByPhoneNumber(identifier)
+                  : await this.user_repository.findByUsername(identifier);
 
         if (!user) {
             if (type !== 'email') {
@@ -216,7 +217,7 @@ export class AuthService {
 
     async signupStep3(dto: SignupStep3Dto) {
         const { email, password, username, language } = dto;
-        
+
         let existing_user = await this.user_repository.findByEmail(email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
@@ -271,7 +272,7 @@ export class AuthService {
         if (identifier.includes('@')) {
             identifier_type = 'email';
             user = await this.user_repository.findByEmail(identifier);
-        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
+        } else if (/^[+]?[0-9\-()s]+$/.test(identifier)) {
             identifier_type = 'phone_number';
             user = await this.user_repository.findByPhoneNumber(identifier);
         } else {
@@ -296,7 +297,11 @@ export class AuthService {
     }
 
     async login(login_dto: LoginDTO) {
-        const id = await this.validateUser(login_dto.identifier, login_dto.password, login_dto.type);
+        const id = await this.validateUser(
+            login_dto.identifier,
+            login_dto.password,
+            login_dto.type
+        );
 
         const user_instance = await this.user_repository.findById(id);
         if (!user_instance) {
@@ -329,7 +334,7 @@ export class AuthService {
             username: user.name,
             otp,
             email_type: 'verification' as const,
-            not_me_link
+            not_me_link,
         };
 
         const email_result = await this.background_jobs_service.queueOtpEmail(otp_data);
@@ -351,7 +356,7 @@ export class AuthService {
         const otp = await this.verification_service.generateOtp(user.id, 'password');
 
         const email = user.email;
-        const username = user.username
+        const username = user.username;
 
         const otp_data = {
             email,
@@ -566,39 +571,11 @@ export class AuthService {
         const email_update_session_key = `email_update:${user_id}`;
         await this.redis_service.set(email_update_session_key, new_email, 3600); // 1 hour
 
-        // Send OTP email
-        const { subject, title, description, subtitle, subtitle_description } = {
-            subject: 'Email Update Verification',
-            title: 'Verify Your New Email Address',
-            description: `Please use the following code to verify your new email address:`,
-            subtitle: 'Security Notice',
-            subtitle_description:
-                "If you didn't request this email change, please ignore this message.",
+        // there is no code for now as I finished my emails on X, so I don't know their flow
+
+        return {
+            message: 'no available for now, contact Mario',
         };
-
-        // const html = generateOtpEmailHtml(
-        //     title,
-        //     description,
-        //     otp,
-        //     subtitle,
-        //     subtitle_description,
-        //     user.username || user.name
-        // );
-
-        // const email_sent = await this.email_service.sendEmail({
-        //     subject: subject,
-        //     recipients: [{ name: user.name ?? '', address: new_email }],
-        //     html,
-        // });
-
-        // if (!email_sent) {
-        //     throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
-        // }
-
-        // return {
-        //     new_email,
-        //     verification_sent: true,
-        // };
     }
 
     async verifyUpdateEmail(user_id: string, new_email: string, otp: string) {
@@ -670,7 +647,9 @@ export class AuthService {
                     });
 
                     if (!updated_user) {
-                        throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
+                        throw new InternalServerErrorException(
+                            ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB
+                        );
                     }
 
                     return {
@@ -801,11 +780,11 @@ export class AuthService {
         }
     }
 
-    // ###################### MOBILE OAUTH VERIFICATION ######################    
+    // ###################### MOBILE OAUTH VERIFICATION ######################
 
     async verifyGoogleMobileToken(access_token: string) {
         try {
-            const client = new OAuth2Client()
+            const client = new OAuth2Client();
 
             // Verify the Google ID token
             const ticket = await client.verifyIdToken({
@@ -821,7 +800,7 @@ export class AuthService {
                 throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB);
             }
 
-            const googleUser: GoogleLoginDTO = {
+            const google_user: GoogleLoginDTO = {
                 google_id: payload['sub'],
                 email: payload['email'],
                 first_name: payload['given_name'] || '',
@@ -829,7 +808,7 @@ export class AuthService {
                 avatar_url: payload['picture'],
             };
 
-            return await this.validateGoogleUser(googleUser);
+            return await this.validateGoogleUser(google_user);
         } catch (error) {
             if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
                 throw error;
@@ -839,69 +818,73 @@ export class AuthService {
         }
     }
 
-    async getGitHubAccessToken (code: string, redirectUri: string, codeVerifier: string) {
+    async getGitHubAccessToken(code: string, redirect_uri: string, code_verifier: string) {
         const github_mobile_client_id = this.config_service.get<string>('GITHUB_MOBILE_CLIENT_ID');
-        const github_mobile_client_secret = this.config_service.get<string>('GITHUB_MOBILE_CLIENT_SECRET');
+        const github_mobile_client_secret = this.config_service.get<string>(
+            'GITHUB_MOBILE_CLIENT_SECRET'
+        );
 
         try {
-            const requestBody: any = {
+            const request_body: any = {
                 client_id: github_mobile_client_id,
                 client_secret: github_mobile_client_secret,
                 code,
-                redirect_uri: redirectUri,
-                code_verifier: codeVerifier,
+                redirect_uri: redirect_uri,
+                code_verifier: code_verifier,
             };
 
-            const tokenResponse = await axios.post(
+            const token_response = await axios.post(
                 'https://github.com/login/oauth/access_token',
-                requestBody,
+                request_body,
                 { headers: { Accept: 'application/json' } }
             );
 
             // Check for error response
-            if (tokenResponse.data.error) {
+            if (token_response.data.error) {
                 console.error('GitHub OAuth Error:', {
-                    error: tokenResponse.data.error,
-                    description: tokenResponse.data.error_description,
-                    uri: tokenResponse.data.error_uri,
+                    error: token_response.data.error,
+                    description: token_response.data.error_description,
+                    uri: token_response.data.error_uri,
                 });
-                
-                if (tokenResponse.data.error === 'bad_verification_code') {
+
+                if (token_response.data.error === 'bad_verification_code') {
                     throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_CODE_INVALID);
                 }
-                
-                if (tokenResponse.data.error === 'invalid_grant') {
+
+                if (token_response.data.error === 'invalid_grant') {
                     throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_CODE_VERIFIER_REQUIRED);
                 }
-                
-                throw new UnauthorizedException(`GitHub OAuth error: ${tokenResponse.data.error_description}`);
+
+                throw new UnauthorizedException(
+                    `GitHub OAuth error: ${token_response.data.error_description}`
+                );
             }
 
-            const { access_token } = tokenResponse.data;
+            const { access_token } = token_response.data;
             if (!access_token) {
                 throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
             }
-            
+
             return access_token;
         } catch (error) {
             if (error instanceof UnauthorizedException) {
                 throw error;
             }
-            
+
             console.error('GitHub token exchange failed:', error.response?.data || error.message);
             throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_OAUTH_FAILED);
         }
     }
 
-    async verifyGitHubMobileToken(code: string, redirectUri: string, codeVerifier: string) {
+    async verifyGitHubMobileToken(code: string, redirect_uri: string, code_verifier: string) {
         try {
-            const access_token = await this.getGitHubAccessToken(code, redirectUri, codeVerifier);
+            const access_token = await this.getGitHubAccessToken(code, redirect_uri, code_verifier);
             const response = await fetch('https://api.github.com/user', {
                 headers: {
-                    'Authorization': `Bearer ${access_token}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'User-Agent': 'YourAppName'
-                }
+                    Authorization: `Bearer ${access_token}`,
+                    Accept: 'application/vnd.github.v3+json',
+                    'User-Agent': 'YourAppName',
+                },
             });
 
             if (!response.ok) {
@@ -909,22 +892,22 @@ export class AuthService {
                 throw new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
             }
 
-            const userData = await response.json();
+            const user_data = await response.json();
 
             // Get user's primary email (GitHub doesn't always include email in user endpoint)
-            const emailResponse = await fetch('https://api.github.com/user/emails', {
+            const email_response = await fetch('https://api.github.com/user/emails', {
                 headers: {
-                    'Authorization': `Bearer ${access_token}`,
-                    'Accept': 'application/vnd.github.v3+json',
-                    'User-Agent': 'YourAppName'
-                }
+                    Authorization: `Bearer ${access_token}`,
+                    Accept: 'application/vnd.github.v3+json',
+                    'User-Agent': 'YourAppName',
+                },
             });
 
-            let email = userData.email; // This might be null
-            if (!email && emailResponse.ok) {
-                const emails = await emailResponse.json();
-                const primaryEmail = emails.find((e: any) => e.primary && e.verified);
-                email = primaryEmail?.email;
+            let email = user_data.email; // This might be null
+            if (!email && email_response.ok) {
+                const emails = await email_response.json();
+                const primary_email = emails.find((e: any) => e.primary && e.verified);
+                email = primary_email?.email;
             }
 
             if (!email) {
@@ -932,20 +915,20 @@ export class AuthService {
             }
 
             // Parse the name from GitHub's name field or fallback to login
-            const fullName = userData.name || userData.login || '';
-            const nameParts = fullName.trim().split(' ');
-            const first_name = nameParts[0] || '';
-            const last_name = nameParts.length > 1 ? nameParts.slice(1).join(' ') : '';
+            const full_name = user_data.name || user_data.login || '';
+            const name_parts = full_name.trim().split(' ');
+            const first_name = name_parts[0] || '';
+            const last_name = name_parts.length > 1 ? name_parts.slice(1).join(' ') : '';
 
-            const githubUser: GitHubUserDto = {
-                github_id: userData.id.toString(),
+            const github_user: GitHubUserDto = {
+                github_id: user_data.id.toString(),
                 email: email,
                 first_name: first_name,
                 last_name: last_name,
-                avatar_url: userData.avatar_url,
+                avatar_url: user_data.avatar_url,
             };
 
-            return await this.validateGitHubUser(githubUser);
+            return await this.validateGitHubUser(github_user);
         } catch (error) {
             if (error instanceof UnauthorizedException || error instanceof BadRequestException) {
                 throw error;

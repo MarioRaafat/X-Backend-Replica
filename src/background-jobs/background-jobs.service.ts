@@ -1,16 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
-import { QUEUE_NAMES, JOB_NAMES, JOB_PRIORITIES, JOB_DELAYS } from './constants/queue.constants';
+import { JOB_DELAYS, JOB_NAMES, JOB_PRIORITIES, QUEUE_NAMES } from './constants/queue.constants';
 import type { OtpEmailJobDto } from './dto/email-job.dto';
 
 @Injectable()
 export class BackgroundJobsService {
     private readonly logger = new Logger(BackgroundJobsService.name);
 
-    constructor(
-        @InjectQueue(QUEUE_NAMES.EMAIL) private email_queue: Queue,
-    ) {}
+    constructor(@InjectQueue(QUEUE_NAMES.EMAIL) private email_queue: Queue) {}
 
     async queueOtpEmail(
         otp_data: OtpEmailJobDto,
@@ -18,23 +16,18 @@ export class BackgroundJobsService {
         delay: number = JOB_DELAYS.IMMEDIATE
     ) {
         try {
-            const job = await this.email_queue.add(
-                JOB_NAMES.EMAIL.SEND_OTP,
-                otp_data,
-                {
-                    priority,
-                    delay,
-                    attempts: 3,
-                    backoff: {
-                        type: 'exponential',
-                        delay: 2000,
-                    },
-                    removeOnComplete: 10,
-                    removeOnFail: 5,
-                }
-            );
+            const job = await this.email_queue.add(JOB_NAMES.EMAIL.SEND_OTP, otp_data, {
+                priority,
+                delay,
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 2000,
+                },
+                removeOnComplete: 10,
+                removeOnFail: 5,
+            });
 
-            this.logger.log(`Queued OTP email job with ID: ${job.id} for ${otp_data.email}`);
             return { success: true, job_id: job.id };
         } catch (error) {
             this.logger.error('Failed to queue OTP email job:', error);
