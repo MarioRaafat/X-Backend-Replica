@@ -33,6 +33,7 @@ import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
     assign_interests,
     block_user,
+    change_language,
     delete_avatar,
     delete_cover,
     delete_user,
@@ -71,6 +72,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
+import { ChangeLanguageDto } from './dto/change-language.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -430,7 +432,7 @@ export class UserController {
     @ApiBody({ type: AssignInterestsDto })
     @ApiCreatedResponse(assign_interests.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiNotFoundErrorResponse(ERROR_MESSAGES.CATEGORY_NOT_FOUND)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.CATEGORIES_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.INTERESTS_ASSIGNED)
     @Post('me/interests')
     async assignInterests(
@@ -438,5 +440,20 @@ export class UserController {
         @Body() assign_interests_dto: AssignInterestsDto
     ) {
         return await this.user_service.assignInserests(current_user_id, assign_interests_dto);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(change_language.operation)
+    @ApiBody({ type: ChangeLanguageDto })
+    @ApiCreatedResponse(change_language.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ResponseMessage(SUCCESS_MESSAGES.LANGUAGE_CHANGED)
+    @Patch('me/change-language')
+    async changeLanguage(
+        @GetUserId() current_user_id: string,
+        @Body() change_language_dto: ChangeLanguageDto
+    ) {
+        return this.user_service.changeLanguage(current_user_id, change_language_dto);
     }
 }

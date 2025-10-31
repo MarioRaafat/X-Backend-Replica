@@ -30,6 +30,7 @@ import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { ConfigService } from '@nestjs/config';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
 import { Category } from 'src/category/entities';
+import { ChangeLanguageDto } from './dto/change-language.dto';
 
 @Injectable()
 export class UserService {
@@ -463,7 +464,7 @@ export class UserService {
         }
     }
 
-    async assignInserests(current_user_id: string, assign_interests_dto: AssignInterestsDto) {
+    async assignInserests(user_id: string, assign_interests_dto: AssignInterestsDto) {
         const { category_ids } = assign_interests_dto;
 
         const existing_categories = await this.category_repository.findBy({
@@ -475,10 +476,22 @@ export class UserService {
         }
 
         const user_interests = category_ids.map((category_id) => ({
-            user_id: current_user_id,
+            user_id,
             category_id,
         }));
 
         await this.user_repository.insertUserInterests(user_interests);
+    }
+
+    async changeLanguage(user_id: string, change_language_dto: ChangeLanguageDto) {
+        const user = await this.user_repository.findOne({ where: { id: user_id } });
+
+        if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+        user.language = change_language_dto.language;
+
+        await this.user_repository.save(user);
+
+        return { language: user.language };
     }
 }

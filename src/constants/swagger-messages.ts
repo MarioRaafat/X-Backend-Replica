@@ -178,6 +178,7 @@ export const SUCCESS_MESSAGES = {
     AVATAR_DELETED: 'Avatar deleted successfully',
     COVER_DELETED: 'Cover deleted successfully',
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
+    LANGUAGE_CHANGED: 'Language changed successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',

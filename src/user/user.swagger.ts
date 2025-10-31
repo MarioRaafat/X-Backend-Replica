@@ -1224,3 +1224,28 @@ export const assign_interests = {
         },
     },
 };
+
+export const change_language = {
+    operation: {
+        summary: 'Change language',
+        description: `
+        Change current user's language
+        Available languages: 'en' and 'ar'
+    `,
+    },
+
+    responses: {
+        success: {
+            description: 'Language changed successfully',
+            schema: {
+                example: {
+                    data: {
+                        language: 'ar',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.LANGUAGE_CHANGED,
+                },
+            },
+        },
+    },
+};
