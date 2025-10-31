@@ -1,7 +1,6 @@
 import { CreateTweetDTO } from './dto/create-tweet.dto';
 import { UpdateTweetDTO } from './dto/update-tweet.dto';
 import { UpdateTweetWithQuoteDTO } from './dto/update-tweet-with-quote.dto';
-import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
 const UUID_EXAMPLE = '550e8400-e29b-41d4-a716-446655440000';
 
@@ -9,7 +8,11 @@ export const create_tweet_swagger = {
     operation: {
         summary: 'Create a new tweet',
         description:
-            'Creates a new tweet with optional images and videos. User ID is extracted from the authenticated user.',
+            'Creates a new tweet with optional images and videos. User ID is extracted from the authenticated user.\n\n' +
+            '**Response Structure:**\n' +
+            '- `type`: Always "tweet" for regular tweets\n' +
+            '- `parent_tweet_id`: Not included for regular tweets (only for replies, quotes, reposts)\n' +
+            '- `conversation_id`: Not included for regular tweets (only for replies)',
     },
 
     body: {
@@ -23,24 +26,33 @@ export const create_tweet_swagger = {
                 example: {
                     data: {
                         tweet_id: '550e8400-e29b-41d4-a716-446655440000',
-                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        type: 'tweet',
                         content: 'This is my first tweet!',
-                        images: ['https://cdn.app.com/tweets/image1.jpg'],
-                        videos: ['https://cdn.app.com/tweets/video1.mp4'],
-                        num_likes: 0,
-                        num_reposts: 0,
-                        num_views: 0,
-                        created_at: '2025-10-23T12:00:00Z',
-                        updated_at: '2025-10-23T12:00:00Z',
+                        images: [
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
+                        ],
+                        videos: ['https://example.com/video1.mp4'],
+                        likes_count: 0,
+                        reposts_count: 0,
+                        views_count: 0,
+                        quotes_count: 0,
+                        replies_count: 0,
+                        is_liked: false,
+                        is_reposted: false,
+                        created_at: '2025-10-31T12:00:00.000Z',
+                        updated_at: '2025-10-31T12:00:00.000Z',
                         user: {
-                            id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            name: 'John Doe',
+                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
                             username: 'johndoe',
-                            avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                            name: 'John Doe',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
                         },
                     },
                     count: 1,
-                    message: SUCCESS_MESSAGES.TWEET_CREATED,
+                    message: 'Tweet created successfully',
                 },
             },
         },
@@ -52,16 +64,38 @@ export const get_all_tweets_swagger = {
         summary: 'Get all tweets with cursor pagination',
         description:
             'Retrieves tweets with cursor-based pagination. Optionally filter by user_id to get tweets from a specific user.\n\n' +
-            '**Pagination Flow:**\n' +
+            '**When filtering by user_id:**\n' +
+            '- Returns both original tweets by the user AND tweets they reposted\n' +
+            '- Each repost appears as a separate entry with `reposted_by` field containing repost_id, user id, and name\n' +
+            '- Reposts are sorted by their repost timestamp (when they were reposted), not the original tweet date\n' +
+            '- The tweet content shows the ORIGINAL author, `reposted_by` shows WHO reposted it and WHEN\n\n' +
+            '**Cursor Pagination:**\n' +
             '1. First request: GET /tweets?limit=20\n' +
-            '2. Response includes `next_cursor` (format: "timestamp_tweetId")\n' +
+            '2. Response includes `next_cursor` with format: "timestamp_prefixed_id"\n' +
+            '   - For original tweets: "2025-10-31T12:00:00.000Z_tweet_550e8400..."\n' +
+            '   - For reposts: "2025-10-31T12:00:00.000Z_repost_650e8400..."\n' +
             '3. Next page: GET /tweets?cursor={next_cursor}&limit=20\n' +
-            '4. Repeat until `has_more` is false\n\n' +
+            '4. Repeat until `has_more` is false\n' +
+            '**Note:** The cursor includes a type prefix (tweet_ or repost_) to uniquely identify each entry,\n' +
+            'ensuring stable pagination even when tweets and reposts have the same timestamp.\n\n' +
             '**Response fields:**\n' +
-            '- `data`: Array of tweets\n' +
-            '- `count`: Total count of all tweets\n' +
+            '- `data`: Array of tweets and reposts sorted by their respective timestamps\n' +
+            '- `count`: Total count of all tweets (including reposts when user_id filter is used)\n' +
             '- `next_cursor`: Pass this to the cursor parameter for the next page (null if no more pages)\n' +
-            '- `has_more`: Boolean indicating if more tweets are available',
+            '- `has_more`: Boolean indicating if more tweets are available\n\n' +
+            '**Tweet Types in Response:**\n' +
+            '- Regular tweets: `type="tweet"` - no parent_tweet_id or conversation_id\n' +
+            '- Replies: `type="reply"` - includes both parent_tweet_id and conversation_id\n' +
+            '- Quotes: `type="quote"` - includes parent_tweet_id only\n' +
+            '- Reposts: `type="repost"` - includes parent_tweet_id only\n\n' +
+            '**Repost Field (reposted_by):**\n' +
+            '- Only present when this tweet appears because someone reposted it\n' +
+            '- `repost_id`: UUID of the repost record (use this for DELETE /tweets/repost/:repost_id)\n' +
+            '- `id`: User ID who reposted the tweet\n' +
+            '- `name`: Display name of the user who reposted\n' +
+            '- `reposted_at`: Timestamp when the tweet was reposted (matches the cursor sort order)\n' +
+            '- Note: `created_at`/`updated_at` show ORIGINAL tweet dates, `reposted_at` shows WHEN it was shared\n' +
+            '- The main `user` field always shows the ORIGINAL tweet author',
     },
 
     queries: {
@@ -77,8 +111,8 @@ export const get_all_tweets_swagger = {
             required: false,
             type: String,
             description:
-                'Cursor for pagination. Format: timestamp_tweetId. Use next_cursor from previous response.',
-            example: '2025-10-23T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                'Cursor for pagination. Format: "timestamp_prefixed_id" where prefix is "tweet_" or "repost_". Use next_cursor from previous response exactly as provided.',
+            example: '2025-10-23T12:00:00.000Z_tweet_550e8400-e29b-41d4-a716-446655440000',
         },
         limit: {
             name: 'limit',
@@ -95,29 +129,101 @@ export const get_all_tweets_swagger = {
             schema: {
                 example: {
                     data: [
+                        // Example 1: Regular tweet without repost
                         {
                             tweet_id: '550e8400-e29b-41d4-a716-446655440000',
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            type: 'tweet',
                             content: 'This is my first tweet!',
-                            images: ['https://cdn.app.com/tweets/image1.jpg'],
-                            videos: [],
-                            num_likes: 42,
-                            num_reposts: 15,
-                            num_views: 1250,
-                            created_at: '2025-10-23T12:00:00Z',
-                            updated_at: '2025-10-23T12:00:00Z',
+                            parent_tweet_id: '4a85c7dd-1559-480c-80f4-5e8a03434b3b',
+                            conversation_id: '87911054-0f61-452c-ad69-f896e45e82a8',
+                            images: [
+                                'https://example.com/image1.jpg',
+                                'https://example.com/image2.jpg',
+                            ],
+                            videos: ['https://example.com/video1.mp4'],
+                            likes_count: 42,
+                            reposts_count: 15,
+                            views_count: 1250,
+                            quotes_count: 8,
+                            replies_count: 23,
+                            is_liked: false,
+                            is_reposted: false,
+                            created_at: '2025-10-31T12:00:00.000Z',
+                            updated_at: '2025-10-31T12:00:00.000Z',
                             user: {
-                                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                                name: 'John Doe',
+                                id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
                                 username: 'johndoe',
-                                avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                                name: 'John Doe',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                                verified: true,
+                            },
+                        },
+                        // Example 2: Reply tweet
+                        {
+                            tweet_id: '7a4ff9f3-fcb2-4583-b7ca-b7aa88339ae8',
+                            type: 'reply',
+                            parent_tweet_id: '4a85c7dd-1559-480c-80f4-5e8a03434b3b',
+                            conversation_id: '87911054-0f61-452c-ad69-f896e45e82a8',
+                            content: 'This is my reply tweet!',
+                            images: ['https://example.com/image1.jpg'],
+                            videos: [],
+                            likes_count: 5,
+                            reposts_count: 1,
+                            views_count: 120,
+                            quotes_count: 0,
+                            replies_count: 2,
+                            is_liked: true,
+                            is_reposted: false,
+                            created_at: '2025-10-31T05:04:29.187Z',
+                            updated_at: '2025-10-31T05:04:29.187Z',
+                            user: {
+                                id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                                username: 'mreazi',
+                                name: 'Don Eazi',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                                verified: true,
+                            },
+                        },
+                        // Example 3: Reposted tweet (has reposted_by field)
+                        // Note: 'user' shows ORIGINAL author, 'reposted_by' shows WHO reposted
+                        {
+                            tweet_id: 'a8b2c3d4-e5f6-4789-abcd-ef1234567890',
+                            type: 'tweet',
+                            content: 'Amazing content worth sharing!',
+                            images: [],
+                            videos: [],
+                            likes_count: 150,
+                            reposts_count: 45,
+                            views_count: 5000,
+                            quotes_count: 12,
+                            replies_count: 30,
+                            is_liked: false,
+                            is_reposted: true,
+                            created_at: '2025-10-30T14:30:00.000Z',
+                            updated_at: '2025-10-30T14:30:00.000Z',
+                            user: {
+                                id: '98765432-abcd-ef12-3456-7890abcdef12',
+                                username: 'original_author',
+                                name: 'Original Author',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1234567890/avatar.jpg',
+                                verified: false,
+                            },
+                            reposted_by: {
+                                repost_id: '650e8400-e29b-41d4-a716-446655440001',
+                                id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                                name: 'John Doe',
+                                reposted_at: '2025-10-31T08:15:30.000Z',
                             },
                         },
                     ],
                     count: 100,
-                    next_cursor: '2025-10-23T11:59:00.000Z_550e8400-e29b-41d4-a716-446655440001',
+                    next_cursor:
+                        '2025-10-30T14:30:00.000Z_repost_650e8400-e29b-41d4-a716-446655440001',
                     has_more: true,
-                    message: SUCCESS_MESSAGES.TWEETS_RETRIEVED,
+                    message: 'Tweets retrieved successfully',
                 },
             },
         },
@@ -127,7 +233,12 @@ export const get_all_tweets_swagger = {
 export const get_tweet_by_id_swagger = {
     operation: {
         summary: 'Get a tweet by ID',
-        description: 'Retrieves a specific tweet by its unique identifier.',
+        description:
+            'Retrieves a specific tweet by its unique identifier.\n\n' +
+            '**Response Structure:**\n' +
+            '- `type`: Can be "tweet", "reply", "quote", or "repost"\n' +
+            '- `parent_tweet_id`: Optional - only present for replies, quotes, and reposts\n' +
+            '- `conversation_id`: Optional - only present for replies',
     },
 
     param: {
@@ -139,32 +250,77 @@ export const get_tweet_by_id_swagger = {
 
     responses: {
         success: {
-            description: 'Tweet retrieved successfully',
+            description:
+                'Tweet retrieved successfully. Example shows a regular tweet. For replies, parent_tweet_id and conversation_id will be included.',
             schema: {
                 example: {
                     data: {
                         tweet_id: '550e8400-e29b-41d4-a716-446655440000',
-                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        type: 'tweet',
+                        parent_tweet_id: '4a85c7dd-1559-480c-80f4-5e8a03434b3b',
+                        conversation_id: '87911054-0f61-452c-ad69-f896e45e82a8',
                         content: 'This is my first tweet!',
                         images: [
-                            'https://cdn.app.com/tweets/image1.jpg',
-                            'https://cdn.app.com/tweets/image2.jpg',
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
                         ],
-                        videos: ['https://cdn.app.com/tweets/video1.mp4'],
-                        num_likes: 42,
-                        num_reposts: 15,
-                        num_views: 1250,
-                        created_at: '2025-10-23T12:00:00Z',
-                        updated_at: '2025-10-23T12:00:00Z',
+                        videos: ['https://example.com/video1.mp4'],
+                        likes_count: 42,
+                        reposts_count: 15,
+                        views_count: 1250,
+                        quotes_count: 8,
+                        replies_count: 23,
+                        is_liked: true,
+                        is_reposted: false,
+                        created_at: '2025-10-31T12:00:00.000Z',
+                        updated_at: '2025-10-31T12:00:00.000Z',
                         user: {
-                            id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            name: 'John Doe',
+                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
                             username: 'johndoe',
-                            avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                            name: 'John Doe',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
                         },
                     },
                     count: 1,
-                    message: SUCCESS_MESSAGES.TWEET_RETRIEVED,
+                    message: 'Tweet retrieved successfully',
+                },
+            },
+        },
+        successReply: {
+            description:
+                'Reply tweet retrieved successfully. Note the presence of parent_tweet_id and conversation_id.',
+            schema: {
+                example: {
+                    data: {
+                        tweet_id: '7a4ff9f3-fcb2-4583-b7ca-b7aa88339ae8',
+                        type: 'reply',
+                        parent_tweet_id: '4a85c7dd-1559-480c-80f4-5e8a03434b3b',
+                        conversation_id: '87911054-0f61-452c-ad69-f896e45e82a8',
+                        content: 'This is a reply tweet!',
+                        images: ['https://example.com/image1.jpg'],
+                        videos: [],
+                        likes_count: 5,
+                        reposts_count: 1,
+                        views_count: 120,
+                        quotes_count: 0,
+                        replies_count: 2,
+                        is_liked: true,
+                        is_reposted: false,
+                        created_at: '2025-10-31T05:04:29.187Z',
+                        updated_at: '2025-10-31T05:04:29.187Z',
+                        user: {
+                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                            username: 'mreazi',
+                            name: 'Don Eazi',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
+                        },
+                    },
+                    count: 1,
+                    message: 'Tweet retrieved successfully',
                 },
             },
         },
@@ -196,24 +352,32 @@ export const update_tweet_swagger = {
                 example: {
                     data: {
                         tweet_id: '550e8400-e29b-41d4-a716-446655440000',
-                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        type: 'tweet',
+                        parent_tweet_id: '4a85c7dd-1559-480c-80f4-5e8a03434b3b',
+                        conversation_id: '87911054-0f61-452c-ad69-f896e45e82a8',
                         content: 'This is my updated tweet content!',
-                        images: ['https://cdn.app.com/tweets/image1.jpg'],
+                        images: ['https://example.com/image1.jpg'],
                         videos: [],
-                        num_likes: 42,
-                        num_reposts: 15,
-                        num_views: 1250,
-                        created_at: '2025-10-23T12:00:00Z',
-                        updated_at: '2025-10-23T15:30:00Z',
+                        likes_count: 42,
+                        reposts_count: 15,
+                        views_count: 1250,
+                        quotes_count: 8,
+                        replies_count: 23,
+                        is_liked: true,
+                        is_reposted: false,
+                        created_at: '2025-10-31T12:00:00.000Z',
+                        updated_at: '2025-10-31T15:30:00.000Z',
                         user: {
-                            id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            name: 'John Doe',
+                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
                             username: 'johndoe',
-                            avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                            name: 'John Doe',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
                         },
                     },
                     count: 1,
-                    message: SUCCESS_MESSAGES.TWEET_UPDATED,
+                    message: 'Tweet updated successfully',
                 },
             },
         },
@@ -239,9 +403,7 @@ export const delete_tweet_swagger = {
             description: 'Tweet deleted successfully',
             schema: {
                 example: {
-                    data: undefined,
-                    count: 0,
-                    message: SUCCESS_MESSAGES.TWEET_DELETED,
+                    message: 'Tweet deleted successfully',
                 },
             },
         },
@@ -252,7 +414,8 @@ export const repost_tweet_swagger = {
     operation: {
         summary: 'Repost a tweet',
         description:
-            'Creates a simple repost of an existing tweet without additional commentary. User ID is from JWT token.',
+            'Creates a simple repost of an existing tweet without additional commentary. User ID is from JWT token.\n\n' +
+            '**Note:** Each repost creates a new entry with a unique repost_id that can be used for deletion.',
     },
 
     param: {
@@ -267,11 +430,35 @@ export const repost_tweet_swagger = {
             description: 'Tweet reposted successfully',
             schema: {
                 example: {
-                    data: undefined,
-                    count: 0,
-                    message: SUCCESS_MESSAGES.TWEET_REPOSTED,
+                    message: 'Tweet reposted successfully',
                 },
             },
+        },
+    },
+};
+
+export const delete_repost_swagger = {
+    operation: {
+        summary: 'Delete a repost',
+        description:
+            'Deletes a specific repost by its repost_id. Users can only delete their own reposts.\n\n' +
+            '**Usage:**\n' +
+            '1. Get the repost_id from the `reposted_by.repost_id` field in GET /tweets response\n' +
+            '2. Call DELETE /tweets/repost/:repost_id to remove that specific repost\n' +
+            '3. The original tweet remains unchanged, only the repost entry is removed\n' +
+            "4. The tweet's repost count is decremented by 1",
+    },
+
+    param: {
+        name: 'repost_id',
+        type: String,
+        description: 'The unique ID of the repost to delete (UUID format)',
+        example: '650e8400-e29b-41d4-a716-446655440001',
+    },
+
+    responses: {
+        no_content: {
+            description: 'Repost deleted successfully',
         },
     },
 };
@@ -299,9 +486,100 @@ export const quote_tweet_swagger = {
             description: 'Quote tweet created successfully',
             schema: {
                 example: {
-                    data: undefined,
-                    count: 0,
-                    message: SUCCESS_MESSAGES.TWEET_QUOTED,
+                    data: {
+                        tweet_id: '770e8400-e29b-41d4-a716-446655440002',
+                        type: 'quote',
+                        parent_tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                        content: 'Adding my thoughts to this great tweet!',
+                        images: [],
+                        videos: [],
+                        likes_count: 0,
+                        reposts_count: 0,
+                        views_count: 0,
+                        quotes_count: 0,
+                        replies_count: 0,
+                        is_liked: false,
+                        is_reposted: false,
+                        created_at: '2025-10-31T12:15:00.000Z',
+                        updated_at: '2025-10-31T12:15:00.000Z',
+                        user: {
+                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                            username: 'johndoe',
+                            name: 'John Doe',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
+                        },
+                    },
+                    count: 1,
+                    message: 'Quote tweet created successfully',
+                },
+            },
+        },
+    },
+};
+
+export const reply_to_tweet_swagger = {
+    operation: {
+        summary: 'Reply to a tweet',
+        description:
+            'Creates a reply to an existing tweet. The reply becomes part of a conversation thread.\n\n' +
+            '**Conversation Threading:**\n' +
+            '- Each reply gets a `conversation_id` that points to the root tweet of the thread\n' +
+            '- `parent_tweet_id` points to the immediate tweet being replied to\n' +
+            '- `type` field will be set to "reply"\n' +
+            '- Supports multi-level nested replies (replies to replies)\n\n' +
+            '**Example Flow:**\n' +
+            '1. Tweet A (root) - conversation_id: null\n' +
+            '2. Reply B to A - conversation_id: A, parent_tweet_id: A\n' +
+            '3. Reply C to B - conversation_id: A, parent_tweet_id: B\n\n' +
+            'User ID is extracted from JWT token.',
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'UUID of the tweet to reply to',
+        example: UUID_EXAMPLE,
+    },
+
+    body: {
+        type: CreateTweetDTO,
+    },
+
+    responses: {
+        created: {
+            description: 'Reply created successfully',
+            schema: {
+                example: {
+                    data: {
+                        tweet_id: '7a4ff9f3-fcb2-4583-b7ca-b7aa88339ae8',
+                        type: 'reply',
+                        parent_tweet_id: '4a85c7dd-1559-480c-80f4-5e8a03434b3b',
+                        conversation_id: '87911054-0f61-452c-ad69-f896e45e82a8',
+                        content: 'Great point! I totally agree with this.',
+                        images: ['https://example.com/image1.jpg'],
+                        videos: [],
+                        likes_count: 0,
+                        reposts_count: 0,
+                        views_count: 0,
+                        quotes_count: 0,
+                        replies_count: 0,
+                        is_liked: false,
+                        is_reposted: false,
+                        created_at: '2025-10-31T05:04:29.187Z',
+                        updated_at: '2025-10-31T05:04:29.187Z',
+                        user: {
+                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                            username: 'mreazi',
+                            name: 'Don Eazi',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
+                        },
+                    },
+                    count: 1,
+                    message: 'Reply created successfully',
                 },
             },
         },
@@ -327,9 +605,7 @@ export const like_tweet_swagger = {
             description: 'Tweet liked successfully',
             schema: {
                 example: {
-                    data: undefined,
-                    count: 0,
-                    message: SUCCESS_MESSAGES.TWEET_LIKED,
+                    message: 'Tweet liked successfully',
                 },
             },
         },
@@ -354,9 +630,7 @@ export const unlike_tweet_swagger = {
             description: 'Tweet unliked successfully',
             schema: {
                 example: {
-                    data: undefined,
-                    count: 0,
-                    message: SUCCESS_MESSAGES.TWEET_UNLIKED,
+                    message: 'Tweet unliked successfully',
                 },
             },
         },
@@ -365,9 +639,22 @@ export const unlike_tweet_swagger = {
 
 export const get_tweet_likes_swagger = {
     operation: {
-        summary: 'Get tweet likes',
+        summary: 'Get users who liked a tweet (Owner only)',
         description:
-            'Retrieves all users who have liked a specific tweet, including the total count.',
+            'Retrieves all users who have liked a specific tweet with cursor-based pagination.\n\n' +
+            '**Access Restriction:**\n' +
+            '- Only the tweet owner can view who liked their tweet\n' +
+            '- Other users can only see the like count (num_likes) in the tweet object\n\n' +
+            '**Pagination Flow:**\n' +
+            '1. First request: GET /tweets/:id/likes?limit=20\n' +
+            '2. Response includes `next_cursor` (user_id of last user)\n' +
+            '3. Next page: GET /tweets/:id/likes?cursor={next_cursor}&limit=20\n' +
+            '4. Repeat until `has_more` is false\n\n' +
+            '**Response fields:**\n' +
+            '- `data`: Array of users who liked the tweet\n' +
+            '- `count`: Total number of likes on this tweet\n' +
+            '- `next_cursor`: User ID to use for next page (null if no more pages)\n' +
+            '- `has_more`: Boolean indicating if more likes are available',
     },
 
     param: {
@@ -377,14 +664,58 @@ export const get_tweet_likes_swagger = {
         example: UUID_EXAMPLE,
     },
 
+    queries: {
+        cursor: {
+            name: 'cursor',
+            required: false,
+            type: String,
+            description: 'Cursor for pagination (user_id). Use next_cursor from previous response.',
+            example: '550e8400-e29b-41d4-a716-446655440000',
+        },
+        limit: {
+            name: 'limit',
+            required: false,
+            type: Number,
+            description: 'Number of users to return (default: 20, max: 100)',
+            example: 20,
+        },
+    },
+
     responses: {
         success: {
-            description: 'Tweet likes retrieved successfully',
+            description: 'Tweet likes retrieved successfully with pagination metadata',
             schema: {
                 example: {
-                    data: undefined,
-                    count: 0,
-                    message: SUCCESS_MESSAGES.TWEET_LIKES_RETRIEVED,
+                    data: [
+                        {
+                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                            username: 'johndoe',
+                            name: 'John Doe',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
+                        },
+                        {
+                            id: '26945dc1-7853-46db-93b9-3f4201cfb77f',
+                            username: 'janedoe',
+                            name: 'Jane Doe',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: false,
+                        },
+                        {
+                            id: '36945dc1-7853-46db-93b9-3f4201cfb780',
+                            username: 'mreazi',
+                            name: 'Don Eazi',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
+                        },
+                    ],
+                    count: 150,
+                    next_cursor: '36945dc1-7853-46db-93b9-3f4201cfb780',
+                    has_more: true,
+                    message: 'Tweet likes retrieved successfully',
                 },
             },
         },
@@ -414,9 +745,7 @@ export const update_quote_tweet_swagger = {
             description: 'Quote tweet updated successfully',
             schema: {
                 example: {
-                    data: undefined,
-                    count: 0,
-                    message: SUCCESS_MESSAGES.QUOTE_TWEET_UPDATED,
+                    message: 'Quote tweet updated successfully',
                 },
             },
         },
@@ -528,7 +857,94 @@ export const track_tweet_view_swagger = {
                         success: true,
                     },
                     count: 1,
-                    message: SUCCESS_MESSAGES.TWEET_VIEW_TRACKED,
+                    message: 'Tweet view tracked successfully',
+                },
+            },
+        },
+    },
+};
+
+export const get_tweet_reposts_swagger = {
+    operation: {
+        summary: 'Get users who reposted a tweet',
+        description: `Retrieves a paginated list of users who reposted the specified tweet.
+        
+**Access Control:**
+- Only the tweet owner can see who reposted their tweet
+
+**Pagination:**
+- Uses cursor-based pagination with user_id
+- Returns up to 100 users per request (default: 20)
+- Use next_cursor from response to fetch next page
+
+**Response Structure:**
+All responses are wrapped in the standard format:
+\`\`\`json
+{
+  "data": {
+    "data": [...],      // Array of users
+    "count": 150,       // Total number of reposts
+    "next_cursor": "user-id",  // Cursor for next page
+    "has_more": true    // Whether more results exist
+  },
+  "count": 1,
+  "message": "Users who reposted the tweet retrieved successfully"
+}
+\`\`\``,
+    },
+
+    queries: {
+        cursor: {
+            name: 'cursor',
+            required: false,
+            type: String,
+            description: 'Cursor for pagination (user_id). Use next_cursor from previous response.',
+            example: '550e8400-e29b-41d4-a716-446655440000',
+        },
+        limit: {
+            name: 'limit',
+            required: false,
+            type: Number,
+            description: 'Number of users to return (default: 20, max: 100)',
+            example: 20,
+        },
+    },
+
+    responses: {
+        success: {
+            description: 'Tweet reposts retrieved successfully with pagination metadata',
+            schema: {
+                example: {
+                    data: [
+                        {
+                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                            username: 'johndoe',
+                            name: 'John Doe',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
+                        },
+                        {
+                            id: '26945dc1-7853-46db-93b9-3f4201cfb77f',
+                            username: 'janedoe',
+                            name: 'Jane Doe',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: false,
+                        },
+                        {
+                            id: '36945dc1-7853-46db-93b9-3f4201cfb780',
+                            username: 'mreazi',
+                            name: 'Don Eazi',
+                            avatar_url:
+                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            verified: true,
+                        },
+                    ],
+                    count: 150,
+                    next_cursor: '36945dc1-7853-46db-93b9-3f4201cfb780',
+                    has_more: true,
+                    message: 'Users who reposted the tweet retrieved successfully',
                 },
             },
         },

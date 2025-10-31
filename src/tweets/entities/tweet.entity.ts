@@ -23,6 +23,9 @@ export class Tweet {
     @Column({ type: 'uuid' })
     user_id: string;
 
+    @Column({ type: 'uuid', nullable: true })
+    conversation_id: string | null;
+
     @Column({ type: 'text' })
     content: string;
 
@@ -79,4 +82,9 @@ export class Tweet {
 
     @OneToMany(() => TweetRepost, (tweet_repost) => tweet_repost.tweet, { onDelete: 'CASCADE' })
     reposts: TweetRepost[];
+
+    // Virtual fields to identify tweet type (loaded via leftJoin in queries)
+    reply_info?: TweetReply[];
+    quote_info?: TweetQuote[];
+    repost_info?: TweetRepost[];
 }

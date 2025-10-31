@@ -18,7 +18,9 @@ export const GetUserId = createParamDecorator(
         const user = request.user;
 
         if (!user || !user.id) {
-            return null;
+            // FOR TESTING ONLY: Return a hardcoded test user ID when auth is disabled
+            // TODO: Remove this when re-enabling authentication
+            return '16945dc1-7853-46db-93b9-3f4201cfb77e'; // Test user ID
         }
 
         return user.id;

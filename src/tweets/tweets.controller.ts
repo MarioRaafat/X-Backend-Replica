@@ -24,14 +24,20 @@ import {
     ApiOkResponse,
     ApiOperation,
     ApiParam,
+    ApiQuery,
     ApiTags,
 } from '@nestjs/swagger';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
 import { UpdateTweetDTO } from './dto/update-tweet.dto';
 import { UpdateTweetWithQuoteDTO } from './dto/update-tweet-with-quote.dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
+import { GetTweetLikesQueryDto } from './dto/get-tweet-likes-query.dto';
+import { GetTweetRepostsQueryDto } from './dto/get-tweet-reposts-query.dto';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import { PaginatedTweetsResponseDTO } from './dto/paginated-tweets-response.dto';
+import { PaginatedTweetLikesResponseDTO } from './dto/paginated-tweet-likes-response.dto';
+import { PaginatedTweetRepostsResponseDTO } from './dto/paginated-tweet-reposts-response.dto';
+import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
 import { GetUserId } from '../decorators/get-userId.decorator';
@@ -46,12 +52,15 @@ import {
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import {
     create_tweet_swagger,
+    delete_repost_swagger,
     delete_tweet_swagger,
     get_all_tweets_swagger,
     get_tweet_by_id_swagger,
     get_tweet_likes_swagger,
+    get_tweet_reposts_swagger,
     like_tweet_swagger,
     quote_tweet_swagger,
+    reply_to_tweet_swagger,
     repost_tweet_swagger,
     track_tweet_view_swagger,
     unlike_tweet_swagger,
@@ -75,6 +84,7 @@ export class TweetsController {
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ApiBearerAuth('JWT-auth')
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_CREATED)
     @Post()
     async createTweet(@Body() create_tweet_dto: CreateTweetDTO, @GetUserId() user_id: string) {
@@ -90,8 +100,8 @@ export class TweetsController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEETS_RETRIEVED)
     @Get()
-    async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id: string) {
-        return await this.tweets_service.getAllTweets(query);
+    async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id?: string) {
+        return await this.tweets_service.getAllTweets(query, user_id);
     }
 
     @ApiOperation(get_tweet_by_id_swagger.operation)
@@ -103,7 +113,7 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_RETRIEVED)
     @Get(':id')
     async getTweetById(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
-        return await this.tweets_service.getTweetById(id);
+        return await this.tweets_service.getTweetById(id, user_id);
     }
 
     @ApiOperation(update_tweet_swagger.operation)
@@ -135,7 +145,7 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_DELETED)
     @Delete(':id')
     async deleteTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
-        return await this.tweets_service.deleteTweet(id);
+        return await this.tweets_service.deleteTweet(id, user_id);
     }
 
     @HttpCode(HttpStatus.CREATED)
@@ -149,6 +159,23 @@ export class TweetsController {
     @Post(':id/repost')
     async repostTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
         return await this.tweets_service.repostTweet(id, user_id);
+    }
+
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @ApiOperation(delete_repost_swagger.operation)
+    @ApiParam(delete_repost_swagger.param)
+    @ApiNoContentResponse(delete_repost_swagger.responses.no_content)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse('Repost not found or you are not authorized to delete it')
+    @ApiForbiddenErrorResponse('You can only delete your own reposts')
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(SUCCESS_MESSAGES.REPOST_DELETED)
+    @Delete('repost/:repost_id')
+    async deleteRepost(
+        @Param('repost_id', ParseUUIDPipe) repost_id: string,
+        @GetUserId() user_id: string
+    ): Promise<void> {
+        return await this.tweets_service.deleteRepost(repost_id, user_id);
     }
 
     @HttpCode(HttpStatus.CREATED)
@@ -167,6 +194,31 @@ export class TweetsController {
         @GetUserId() user_id: string
     ) {
         return await this.tweets_service.repostTweetWithQuote(id, user_id, create_quote_dto);
+    }
+
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation({ summary: 'Reply to a tweet' })
+    @ApiParam({ name: 'id', description: 'UUID of the tweet to reply to', type: String })
+    @ApiBody({ type: CreateTweetDTO })
+    @ApiCreatedResponse({
+        description: 'Reply created successfully',
+        type: TweetResponseDTO,
+    })
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage('Reply created successfully')
+    @ApiOperation(reply_to_tweet_swagger.operation)
+    @ApiParam(reply_to_tweet_swagger.param)
+    @ApiBody(reply_to_tweet_swagger.body)
+    @ApiCreatedResponse(reply_to_tweet_swagger.responses.created)
+    @Post(':id/reply')
+    async replyToTweet(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Body() create_reply_dto: CreateTweetDTO,
+        @GetUserId() user_id: string
+    ): Promise<TweetResponseDTO> {
+        return await this.tweets_service.replyToTweet(id, user_id, create_reply_dto);
     }
 
     @HttpCode(HttpStatus.CREATED)
@@ -192,19 +244,88 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_UNLIKED)
     @Delete(':id/like')
     async unlikeTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
-        return await this.tweets_service.unLikeTweet(id, user_id);
+        return await this.tweets_service.unlikeTweet(id, user_id);
     }
 
     @ApiOperation(get_tweet_likes_swagger.operation)
-    @ApiParam(get_tweet_likes_swagger.param)
-    @ApiOkResponse(get_tweet_likes_swagger.responses.success)
+    @ApiParam({
+        name: 'id',
+        type: String,
+        description: 'The ID of the tweet',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+    })
+    @ApiQuery({
+        name: 'cursor',
+        required: false,
+        type: String,
+        description: 'Cursor for pagination (user_id)',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+    })
+    @ApiQuery({
+        name: 'limit',
+        required: false,
+        type: Number,
+        description: 'Number of users to return (default: 20, max: 100)',
+        example: 20,
+    })
+    @ApiOkResponse({
+        description: 'Tweet likes retrieved successfully with pagination',
+        type: PaginatedTweetLikesResponseDTO,
+    })
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiForbiddenErrorResponse('Only the tweet owner can see who liked their tweet')
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_LIKES_RETRIEVED)
     @Get(':id/likes')
-    async getTweetLikes(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {}
+    async getTweetLikes(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: GetTweetLikesQueryDto,
+        @GetUserId() user_id: string
+    ) {
+        return await this.tweets_service.getTweetLikes(id, user_id, query.cursor, query.limit);
+    }
 
+    @ApiOperation(get_tweet_reposts_swagger.operation)
+    @ApiParam({
+        name: 'id',
+        type: String,
+        description: 'The ID of the tweet',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+    })
+    @ApiQuery({
+        name: 'cursor',
+        required: false,
+        type: String,
+        description: 'Cursor for pagination (user_id)',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+    })
+    @ApiQuery({
+        name: 'limit',
+        required: false,
+        type: Number,
+        description: 'Number of users to return (default: 20, max: 100)',
+        example: 20,
+    })
+    @ApiOkResponse({
+        description: 'Tweet reposts retrieved successfully with pagination',
+        type: PaginatedTweetRepostsResponseDTO,
+    })
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiForbiddenErrorResponse('Only the tweet owner can see who reposted their tweet')
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage('Users who reposted the tweet retrieved successfully')
+    @Get(':id/reposts')
+    async getTweetReposts(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: GetTweetRepostsQueryDto,
+        @GetUserId() user_id: string
+    ) {
+        return await this.tweets_service.getTweetReposts(id, user_id, query.cursor, query.limit);
+    }
+
+    @ApiOperation(update_quote_tweet_swagger.operation)
     @ApiOperation(update_quote_tweet_swagger.operation)
     @ApiParam(update_quote_tweet_swagger.param)
     @ApiBody({ type: UpdateTweetWithQuoteDTO })

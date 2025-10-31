@@ -14,6 +14,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     }
 
     validate(payload: any) {
+        console.log('=== JWT Strategy Validate Called ===');
+        console.log('Payload:', payload);
+        console.log('====================================');
         return payload;
     }
 }

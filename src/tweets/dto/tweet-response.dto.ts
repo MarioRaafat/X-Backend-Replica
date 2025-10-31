@@ -1,5 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { UserResponseDTO } from './user-response.dto';
+import { RepostedByUserDTO } from './reposted-by-user.dto';
+
+export type TweetType = 'tweet' | 'reply' | 'quote' | 'repost';
 
 export class TweetResponseDTO {
     @ApiProperty({
@@ -7,6 +10,13 @@ export class TweetResponseDTO {
         example: '550e8400-e29b-41d4-a716-446655440000',
     })
     tweet_id: string;
+
+    @ApiProperty({
+        description: 'Tweet type: tweet (normal), reply, quote, or repost',
+        example: 'tweet',
+        enum: ['tweet', 'reply', 'quote', 'repost'],
+    })
+    type: TweetType;
 
     @ApiProperty({
         description: 'Tweet content',
@@ -34,6 +44,13 @@ export class TweetResponseDTO {
         required: false,
     })
     parent_tweet_id?: string;
+
+    @ApiProperty({
+        description: 'Conversation ID - the root tweet that started this thread (only for replies)',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+        required: false,
+    })
+    conversation_id?: string;
 
     @ApiProperty({
         description: 'Tweet author information',
@@ -89,6 +106,14 @@ export class TweetResponseDTO {
         example: false,
     })
     is_reposted: boolean;
+
+    @ApiProperty({
+        description:
+            'User who reposted this tweet (only present when this appears in timeline as a repost)',
+        type: RepostedByUserDTO,
+        required: false,
+    })
+    reposted_by?: RepostedByUserDTO;
 
     @ApiProperty({
         description: 'Tweet creation timestamp',
