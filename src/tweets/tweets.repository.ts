@@ -101,11 +101,13 @@ export class TweetsRepository {
             .addSelect('repost_user.name', 'repost_user_name')
             .addSelect('repost.created_at', 'repost_created_at')
             .where(
-                `(tweet.user_id IN(
-                    SELECT followed_id 
-                    FROM user_follows
-                    WHERE follower_id=:user_id
-                ) OR repost.user_id IS NOT NULL)`
+                `(tweet.user_id = :user_id
+     OR tweet.user_id IN (
+        SELECT followed_id 
+        FROM user_follows
+        WHERE follower_id = :user_id
+    )
+    OR repost.user_id IS NOT NULL)`
             )
             .andWhere(
                 `tweet.user_id NOT IN(
