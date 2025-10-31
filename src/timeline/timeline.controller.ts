@@ -42,7 +42,7 @@ export class TimelineController {
         @GetUserId() user_id: string,
         @Query() pagination: TimelinePaginationDto
     ) {
-        // return await this.timelineService.getForyouTimeline(user_id, pagination);
+        return await this.timelineService.getForyouTimeline(user_id, pagination);
     }
 
     @ApiOperation(timeline_swagger.following.operation)

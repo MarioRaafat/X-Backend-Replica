@@ -29,8 +29,20 @@ export class TimelineService {
         // replies
         //get my tweets
     }
-    // async getForyouTimeline(
-    //     user_id: string,
-    //     pagination: TimelinePaginationDto
-    // ): Promise<TimelineResponseDto> {}
+    async getForyouTimeline(
+        user_id: string,
+        pagination: TimelinePaginationDto
+    ): Promise<TimelineResponseDto> {
+        const { tweets, next_cursor } = await this.tweet_repository.getForyouTweets(
+            user_id,
+            pagination
+        );
+
+        return {
+            tweets,
+            next_cursor,
+            has_more: tweets.length === pagination.limit,
+            timestamp: new Date().toISOString(),
+        };
+    }
 }
