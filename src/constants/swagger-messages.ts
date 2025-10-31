@@ -207,9 +207,11 @@ export const SUCCESS_MESSAGES = {
     TWEET_UPDATED: 'Tweet updated successfully',
     TWEET_DELETED: 'Tweet deleted successfully',
     TWEET_REPOSTED: 'Tweet reposted successfully',
+    REPOST_DELETED: 'Repost deleted successfully',
     TWEET_QUOTED: 'Tweet quoted successfully',
     TWEET_LIKED: 'Tweet liked successfully',
     TWEET_UNLIKED: 'Tweet unliked successfully',
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
+    TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
 } as const;
