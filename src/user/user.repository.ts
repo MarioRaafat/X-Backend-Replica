@@ -61,21 +61,18 @@ export class UserRepository extends Repository<User> {
         identifier_type: 'id' | 'username',
         viewer_id?: string | null
     ): SelectQueryBuilder<User> {
-        const query = this.createQueryBuilder('user')
-            .leftJoin('user_follows', 'followers', 'followers.followed_id = user.id')
-            .leftJoin('user_follows', 'following', 'following.follower_id = user.id')
-            .select([
-                'user.id AS user_id',
-                'user.name AS name',
-                'user.username AS username',
-                'user.bio AS bio',
-                'user.avatar_url AS avatar_url',
-                'user.cover_url AS cover_url',
-                'user.country AS country',
-                'user.created_at AS created_at',
-                'user.followers AS followers_count',
-                'user.following AS following_count',
-            ]);
+        const query = this.createQueryBuilder('user').select([
+            'user.id AS user_id',
+            'user.name AS name',
+            'user.username AS username',
+            'user.bio AS bio',
+            'user.avatar_url AS avatar_url',
+            'user.cover_url AS cover_url',
+            'user.country AS country',
+            'user.created_at AS created_at',
+            'user.followers AS followers_count',
+            'user.following AS following_count',
+        ]);
 
         if (identifier_type === 'id') {
             query.where('user.id = :identifier', { identifier });
