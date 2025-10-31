@@ -55,7 +55,9 @@ export class TimelineController {
     async getFollowingTimeline(
         @GetUserId() user_id: string,
         @Query() pagination: TimelinePaginationDto
-    ) {}
+    ) {
+        return await this.timelineService.getFollowingTimeline(user_id, pagination);
+    }
 
     @ApiOperation(timeline_swagger.mentions.operation)
     @ApiOkResponse(timeline_swagger.responses.mentions_success)
