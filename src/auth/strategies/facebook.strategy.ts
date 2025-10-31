@@ -23,7 +23,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
     async validate(access_token: string, refresh_token: string, profile: any, done: any) {
         try {
             console.log('Facebook Profile:', JSON.stringify(profile, null, 2));
-            const { id, username, displayName, emails, photos } = profile;
+            const { id, username, displayName: display_name, emails, photos } = profile;
 
             // Facebook might not always provide email
             const email = emails && emails.length > 0 ? emails[0].value : null;
@@ -33,7 +33,7 @@ export class FacebookStrategy extends PassportStrategy(Strategy) {
             }
 
             // Split display name into first and last name
-            const name_parts = displayName ? displayName.split(' ') : [username || 'User'];
+            const name_parts = display_name ? display_name.split(' ') : [username || 'User'];
             const first_name = name_parts[0] || username || 'User';
             const last_name = name_parts.slice(1).join(' ') || '';
 

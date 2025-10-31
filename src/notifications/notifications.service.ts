@@ -7,8 +7,8 @@ import { BaseNotificationEntity } from './entities/base-notification.entity';
 import { Not } from 'typeorm';
 import { NotificationType } from './enums/notification-types';
 
-interface NotificationMessage {
-    userId: string;
+interface INotificationMessage {
+    user_id: string;
     notification: BaseNotificationEntity;
 }
 
@@ -26,12 +26,12 @@ export class NotificationsService implements OnModuleInit {
         await this.rabbit.subscribe(this.key, (data) => this.handleMessage(data));
     }
 
-    async handleMessage(data: NotificationMessage): Promise<void> {
+    async handleMessage(data: INotificationMessage): Promise<void> {
         try {
-            const { userId, notification } = data;
+            const { user_id, notification } = data;
 
             await this.notificationModel.updateOne(
-                { user: userId },
+                { user: user_id },
                 {
                     $push: {
                         notifications: {
@@ -49,22 +49,22 @@ export class NotificationsService implements OnModuleInit {
         }
     }
 
-    async getUserMentionsNotifications(userId: string) {}
+    async getUserMentionsNotifications(user_id: string) {}
 
-    async markNotificationsAsSeen(userId: string) {}
+    async markNotificationsAsSeen(user_id: string) {}
 
-    async getUnseenCount(userId: string) {}
+    async getUnseenCount(user_id: string) {}
 
-    async getUserNotifications(userId: string): Promise<Notification | null> {
-        const userNotifications = await this.notificationModel
-            .findOne({ user: userId })
+    async getUserNotifications(user_id: string): Promise<Notification | null> {
+        const user_notifications = await this.notificationModel
+            .findOne({ user: user_id })
             .lean<Notification>()
             .exec();
-        return userNotifications;
+        return user_notifications;
     }
 
     // Just for testing, but notifications messages will be sent from other services
-    async sendNotification(notification: NotificationMessage): Promise<void> {
+    async sendNotification(notification: INotificationMessage): Promise<void> {
         console.log('Send');
 
         await this.rabbit.publish(this.key, notification);
@@ -73,7 +73,7 @@ export class NotificationsService implements OnModuleInit {
     // Test function
     async temp(object: any) {
         console.log(object);
-        const baseNotification: BaseNotificationEntity = {
+        const base_notification: BaseNotificationEntity = {
             type: NotificationType.LIKE,
             created_at: new Date(),
             updated_at: new Date(),
@@ -84,8 +84,8 @@ export class NotificationsService implements OnModuleInit {
         };
 
         await this.sendNotification({
-            userId: object.user,
-            notification: baseNotification,
+            user_id: object.user,
+            notification: base_notification,
         });
     }
 }

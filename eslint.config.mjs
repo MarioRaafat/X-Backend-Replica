@@ -37,6 +37,9 @@ export default tseslint.config(
             '@typescript-eslint/no-unsafe-return': 'warn',
             '@typescript-eslint/no-unsafe-function-type': 'warn',
 
+            //TODO: Change it from warning later
+            '@typescript-eslint/unbound-method': 'warn',
+
             // Naming conventions for your NestJS style guide
             '@typescript-eslint/naming-convention': [
                 'error',
@@ -96,7 +99,7 @@ export default tseslint.config(
                 {
                     selector: 'variable',
                     modifiers: ['exported'],
-                    format: ['snake_case', 'UPPER_CASE', 'PascalCase'],
+                    format: ['snake_case', 'UPPER_CASE', 'PascalCase', 'camelCase'],
                     leadingUnderscore: 'allow',
                 },
                 // Type parameters<T> - PascalCase

@@ -1,3 +1,3 @@
 export enum PostgresErrorCodes {
-    FOREIGN_KEY_VIOLATION = "23503",
+    FOREIGN_KEY_VIOLATION = '23503',
 }

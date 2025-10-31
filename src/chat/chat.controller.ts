@@ -72,8 +72,8 @@ export class ChatController {
     @ApiConflictErrorResponse(ERROR_MESSAGES.CHAT_ALREADY_EXISTS)
     @ResponseMessage(SUCCESS_MESSAGES.CHAT_CREATED)
     @Post()
-    async createChat(@Body() createChatDto: CreateChatDto, @GetUserId() user_id: string) {
-        return this.chat_service.createChat(user_id, createChatDto);
+    async createChat(@Body() create_chat_dto: CreateChatDto, @GetUserId() user_id: string) {
+        return this.chat_service.createChat(user_id, create_chat_dto);
     }
 
     @ApiOperation(get_chats_swagger.operation)
@@ -127,10 +127,10 @@ export class ChatController {
     @Post('chats/:chat_id/messages')
     async sendMessage(
         @Param('chat_id') chat_id: string,
-        @Body() sendMessageDto: SendMessageDto,
+        @Body() send_message_dto: SendMessageDto,
         @GetUserId() user_id: string
     ) {
-        return this.chat_service.sendMessage(user_id, chat_id, sendMessageDto);
+        return this.chat_service.sendMessage(user_id, chat_id, send_message_dto);
     }
 
     @ApiOperation(get_messages_swagger.operation)
@@ -178,10 +178,10 @@ export class ChatController {
     async updateMessage(
         @Param('chat_id') chat_id: string,
         @Param('message_id') message_id: string,
-        @Body() updateMessageDto: UpdateMessageDto,
+        @Body() update_message_dto: UpdateMessageDto,
         @GetUserId() user_id: string
     ) {
-        return this.chat_service.updateMessage(user_id, chat_id, message_id, updateMessageDto);
+        return this.chat_service.updateMessage(user_id, chat_id, message_id, update_message_dto);
     }
 
     @ApiOperation(delete_message_swagger.operation)
@@ -210,9 +210,9 @@ export class ChatController {
     @Post('chats/:chat_id/read')
     async markMessagesAsRead(
         @Param('chat_id') chat_id: string,
-        @Body() markMessagesReadDto: MarkMessagesReadDto,
+        @Body() mark_message_read_dto: MarkMessagesReadDto,
         @GetUserId() user_id: string
     ) {
-        return this.chat_service.markMessagesAsRead(user_id, chat_id, markMessagesReadDto);
+        return this.chat_service.markMessagesAsRead(user_id, chat_id, mark_message_read_dto);
     }
 }

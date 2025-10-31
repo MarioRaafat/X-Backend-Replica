@@ -37,8 +37,8 @@ export class VerificationService {
         const otp = generateRandomOtp(size);
         const hashed_token = await bcrypt.hash(otp, 10);
 
-        const otpObject = OTP_OBJECT(type, identifier, hashed_token, now.toISOString());
-        await this.redis_service.hset(otpObject.key, otpObject.value); // default 1 hour expiration
+        const otp_object = OTP_OBJECT(type, identifier, hashed_token, now.toISOString());
+        await this.redis_service.hset(otp_object.key, otp_object.value); // default 1 hour expiration
 
         return otp;
     }

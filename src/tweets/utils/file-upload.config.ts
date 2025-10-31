@@ -3,9 +3,9 @@ import { ERROR_MESSAGES } from '../../constants/swagger-messages';
 
 // Image configuration
 export const imageFileFilter = (req: any, file: any, callback: any) => {
-    const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    const allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-    if (!allowedMimeTypes.includes(file.mimetype)) {
+    if (!allowed_mime_types.includes(file.mimetype)) {
         return callback(new BadRequestException(ERROR_MESSAGES.INVALID_FILE_TYPE), false);
     }
     callback(null, true);
@@ -13,9 +13,9 @@ export const imageFileFilter = (req: any, file: any, callback: any) => {
 
 // Video configuration
 export const videoFileFilter = (req: any, file: any, callback: any) => {
-    const allowedMimeTypes = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
+    const allowed_mime_types = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
 
-    if (!allowedMimeTypes.includes(file.mimetype)) {
+    if (!allowed_mime_types.includes(file.mimetype)) {
         return callback(new BadRequestException(ERROR_MESSAGES.INVALID_FILE_TYPE), false);
     }
     callback(null, true);

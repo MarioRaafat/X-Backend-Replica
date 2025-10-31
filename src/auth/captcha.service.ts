@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import axios from 'axios';
 
-export interface CaptchaVerificationResult {
+export interface ICaptchaVerificationResult {
     success: boolean;
     score?: number; // For reCAPTCHA v3
     action?: string; // For reCAPTCHA v3
@@ -15,7 +15,7 @@ export interface CaptchaVerificationResult {
 export class CaptchaService {
     constructor(private readonly config_service: ConfigService) {}
 
-    async verifyRecaptcha(token: string, remote_ip?: string): Promise<CaptchaVerificationResult> {
+    async verifyRecaptcha(token: string, remote_ip?: string): Promise<ICaptchaVerificationResult> {
         const secret_key = this.config_service.get<string>('RECAPTCHA_SECRET_KEY');
 
         if (!secret_key) {
@@ -44,7 +44,7 @@ export class CaptchaService {
                 }
             );
 
-            return response.data as CaptchaVerificationResult;
+            return response.data as ICaptchaVerificationResult;
         } catch (error) {
             console.error('reCAPTCHA verification error:', error);
             return {
