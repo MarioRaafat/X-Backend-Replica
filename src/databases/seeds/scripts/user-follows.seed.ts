@@ -34,55 +34,56 @@ export class UserFollowsSeeder extends BaseSeeder {
         this.log(`Total users in database: ${total_users}`);
 
         // Process users in batches to avoid memory issues
-        const BATCH_SIZE = 100;
-        const follow_set = new Set<string>(); // Track all relationships
+        const BATCH_SIZE = 800;
+        const follow_set = new Set<string>(); // Track all relationships globally
         let total_inserted = 0;
 
+        // First pass: Calculate target counts for each user
+        const user_targets = new Map<string, { followers: number; following: number }>();
+
+        for (const raw_user of data.users) {
+            const user_id = user_id_map.get(String(raw_user.userId));
+            if (!user_id) continue;
+
+            let followers_count = SeedHelper.parseInt(raw_user.followers, 0);
+            let following_count = SeedHelper.parseInt(raw_user.following, 0);
+
+            // Apply the rule: if count > total_users, set to half of total_users
+            // Also cap at reasonable maximum to prevent memory issues
+            const max_per_user = Math.min(Math.floor(total_users / 2), 10);
+
+            if (followers_count > total_users) {
+                followers_count = max_per_user;
+            } else {
+                followers_count = Math.min(followers_count, max_per_user);
+            }
+
+            if (following_count > total_users) {
+                following_count = max_per_user;
+            } else {
+                following_count = Math.min(following_count, max_per_user);
+            }
+
+            user_targets.set(user_id, {
+                followers: followers_count,
+                following: following_count,
+            });
+        }
+
+        // Second pass: Generate relationships in batches
         for (let i = 0; i < data.users.length; i += BATCH_SIZE) {
             const batch = data.users.slice(i, Math.min(i + BATCH_SIZE, data.users.length));
             const follow_relations: UserFollows[] = [];
 
             for (const raw_user of batch) {
                 const user_id = user_id_map.get(String(raw_user.userId));
-
                 if (!user_id) continue;
 
-                // Parse follower and following counts
-                let followers_count = SeedHelper.parseInt(raw_user.followers, 0);
-                let following_count = SeedHelper.parseInt(raw_user.following, 0);
+                const targets = user_targets.get(user_id);
+                if (!targets) continue;
 
-                // Apply the rule: if count > total_users, set to half of total_users
-                // Also cap at reasonable maximum to prevent memory issues
-                const max_per_user = Math.min(Math.floor(total_users / 2), 500);
-
-                if (followers_count > total_users) {
-                    followers_count = max_per_user;
-                } else {
-                    followers_count = Math.min(followers_count, max_per_user);
-                }
-
-                if (following_count > total_users) {
-                    following_count = max_per_user;
-                } else {
-                    following_count = Math.min(following_count, max_per_user);
-                }
-
-                // Generate followers (other users following this user)
-                const followers = this.getRandomUsers(all_user_ids, user_id, followers_count);
-
-                for (const follower_id of followers) {
-                    const key = `${follower_id}:${user_id}`;
-                    if (!follow_set.has(key)) {
-                        const relation = new UserFollows();
-                        relation.follower_id = follower_id;
-                        relation.followed_id = user_id;
-                        follow_relations.push(relation);
-                        follow_set.add(key);
-                    }
-                }
-
-                // Generate following (this user following other users)
-                const following = this.getRandomUsers(all_user_ids, user_id, following_count);
+                // Generate FOLLOWING relationships (this user follows others)
+                const following = this.getRandomUsers(all_user_ids, user_id, targets.following);
 
                 for (const followed_id of following) {
                     const key = `${user_id}:${followed_id}`;
@@ -90,6 +91,20 @@ export class UserFollowsSeeder extends BaseSeeder {
                         const relation = new UserFollows();
                         relation.follower_id = user_id;
                         relation.followed_id = followed_id;
+                        follow_relations.push(relation);
+                        follow_set.add(key);
+                    }
+                }
+
+                // Generate FOLLOWERS relationships (others follow this user)
+                const followers = this.getRandomUsers(all_user_ids, user_id, targets.followers);
+
+                for (const follower_id of followers) {
+                    const key = `${follower_id}:${user_id}`;
+                    if (!follow_set.has(key)) {
+                        const relation = new UserFollows();
+                        relation.follower_id = follower_id;
+                        relation.followed_id = user_id;
                         follow_relations.push(relation);
                         follow_set.add(key);
                     }
@@ -114,6 +129,7 @@ export class UserFollowsSeeder extends BaseSeeder {
 
     /**
      * Get random users excluding the current user
+     * Uses Fisher-Yates shuffle for unbiased random selection
      */
     private getRandomUsers(
         all_user_ids: string[],
@@ -130,8 +146,18 @@ export class UserFollowsSeeder extends BaseSeeder {
         // Don't try to get more users than available
         const actual_count = Math.min(count, available_users.length);
 
-        // Shuffle and take the first 'actual_count' users
-        const shuffled = [...available_users].sort(() => Math.random() - 0.5);
-        return shuffled.slice(0, actual_count);
+        // Fisher-Yates shuffle (optimized to only shuffle what we need)
+        const result: string[] = [];
+        const pool = [...available_users];
+
+        for (let i = 0; i < actual_count; i++) {
+            const random_index = Math.floor(Math.random() * (pool.length - i)) + i;
+
+            // Swap
+            [pool[i], pool[random_index]] = [pool[random_index], pool[i]];
+            result.push(pool[i]);
+        }
+
+        return result;
     }
 }
