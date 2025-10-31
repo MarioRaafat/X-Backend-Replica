@@ -105,10 +105,10 @@ async function processTopic(
     });
 
     // 6. Seed Tweet Reposts
-    await runSeeder('TweetRepostsSeeder', async () => {
-        const seeder = new TweetRepostsSeeder();
-        await seeder.seed(context);
-    });
+    // await runSeeder('TweetRepostsSeeder', async () => {
+    //     const seeder = new TweetRepostsSeeder();
+    //     await seeder.seed(context);
+    // });
 
     // 4. Seed Replies (Future)
     await runSeeder('ReplySeeder', async () => {
