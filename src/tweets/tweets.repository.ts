@@ -109,7 +109,7 @@ export class TweetsRepository {
                 { user_id }
             )
             .orderBy('tweet.created_at', 'DESC')
-            .take(pagination.limit);
+            .limit(pagination.limit);
 
         if (pagination.cursor) {
             const [cursor_timestamp, cursor_id] = pagination.cursor.split('_');
