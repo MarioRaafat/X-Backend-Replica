@@ -114,6 +114,7 @@ export class UserController {
     @ApiOperation(get_me.operation)
     @ApiOkResponse(get_me.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USER_RETRIEVED)
     @Get('me')
     async getMe(@GetUserId() user_id: string) {

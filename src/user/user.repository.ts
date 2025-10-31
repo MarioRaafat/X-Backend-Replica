@@ -6,6 +6,8 @@ import { UserBlocks, UserFollows, UserMutes } from './entities';
 import { InsertResult } from 'typeorm/browser';
 import { RelationshipType } from './enums/relationship-type.enum';
 import { UserInterests } from './entities/user-interests.entity';
+import { UserProfileDto } from './dto/user-profile.dto';
+import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
@@ -56,10 +58,55 @@ export class UserRepository extends Repository<User> {
         return await this.findById(id);
     }
 
+    async getMyProfile(current_user_id: string): Promise<UserProfileDto | null> {
+        const profile = await this.buildProfileQuery(
+            current_user_id,
+            'id'
+        ).getRawOne<UserProfileDto>();
+        return profile ?? null;
+    }
+
+    async getProfileById(
+        current_user_id: string | null,
+        target_user_id: string
+    ): Promise<DetailedUserProfileDto | null> {
+        const base_profile_query = this.buildProfileQuery(target_user_id, 'id');
+
+        let profile;
+        if (!current_user_id) {
+            profile = base_profile_query.getRawOne<UserProfileDto>();
+        } else {
+            profile = this.addViewerContextToProfileQuery(
+                base_profile_query,
+                current_user_id
+            ).getRawOne<DetailedUserProfileDto>();
+        }
+
+        return profile ?? null;
+    }
+
+    async getProfileByUsername(
+        current_user_id: string | null,
+        target_username: string
+    ): Promise<DetailedUserProfileDto | null> {
+        const base_profile_query = this.buildProfileQuery(target_username, 'username');
+
+        let profile;
+        if (!current_user_id) {
+            profile = base_profile_query.getRawOne<UserProfileDto>();
+        } else {
+            profile = this.addViewerContextToProfileQuery(
+                base_profile_query,
+                current_user_id
+            ).getRawOne<DetailedUserProfileDto>();
+        }
+
+        return profile ?? null;
+    }
+
     buildProfileQuery(
         identifier: string,
-        identifier_type: 'id' | 'username',
-        viewer_id?: string | null
+        identifier_type: 'id' | 'username'
     ): SelectQueryBuilder<User> {
         const query = this.createQueryBuilder('user').select([
             'user.id AS user_id',
@@ -78,63 +125,6 @@ export class UserRepository extends Repository<User> {
             query.where('user.id = :identifier', { identifier });
         } else {
             query.where('user.username = :identifier', { identifier });
-            console.log(identifier);
-        }
-
-        if (viewer_id) {
-            query
-                .addSelect(
-                    `EXISTS(
-          SELECT 1 FROM user_follows 
-          WHERE follower_id = :viewer_id AND followed_id = "user"."id"
-        )`,
-                    'is_following'
-                )
-                .addSelect(
-                    `EXISTS(
-            SELECT 1 FROM user_follows
-            WHERE follower_id = "user"."id" AND followed_id = :viewer_id
-          )`,
-                    'is_follower'
-                )
-                .addSelect(
-                    `EXISTS(
-          SELECT 1 FROM user_mutes
-          WHERE muter_id = :viewer_id AND muted_id = "user"."id"
-        )`,
-                    'is_muted'
-                )
-                .addSelect(
-                    `EXISTS(
-          SELECT 1 FROM user_blocks
-          WHERE blocker_id = :viewer_id AND blocked_id = "user"."id"
-        )`,
-                    'is_blocked'
-                )
-                .addSelect(
-                    `(
-          SELECT COUNT(*)
-          FROM user_follows viewer_following
-          INNER JOIN user_follows target_followers
-            ON viewer_following.followed_id = target_followers.follower_id
-          WHERE viewer_following.follower_id = :viewer_id
-            AND target_followers.followed_id = "user"."id"
-        )`,
-                    'mutual_followers_count'
-                )
-                .addSelect(
-                    `( SELECT COALESCE(json_agg(row_to_json(mu)), '[]'::json)
-           FROM (
-             SELECT mu.name        AS name,
-                    mu.avatar_url  AS avatar_url
-               FROM "user" mu
-               JOIN user_follows tf ON tf.follower_id = mu.id AND tf.followed_id = "user"."id"
-               JOIN user_follows vf ON vf.followed_id = mu.id AND vf.follower_id = :viewer_id
-              LIMIT 3
-           ) mu )`,
-                    'top_mutual_followers'
-                )
-                .setParameter('viewer_id', viewer_id);
         }
 
         return query
@@ -145,7 +135,70 @@ export class UserRepository extends Repository<User> {
             .addGroupBy('user.avatar_url')
             .addGroupBy('user.cover_url')
             .addGroupBy('user.country')
-            .addGroupBy('user.created_at');
+            .addGroupBy('user.created_at')
+            .addGroupBy('user.followers')
+            .addGroupBy('user.following');
+    }
+
+    addViewerContextToProfileQuery(
+        query: SelectQueryBuilder<User>,
+        viewer_id: string
+    ): SelectQueryBuilder<User> {
+        return query
+            .addSelect(
+                `EXISTS(
+                SELECT 1 FROM user_follows 
+                WHERE follower_id = :viewer_id AND followed_id = "user"."id"
+            )`,
+                'is_following'
+            )
+            .addSelect(
+                `EXISTS(
+                SELECT 1 FROM user_follows
+                WHERE follower_id = "user"."id" AND followed_id = :viewer_id
+            )`,
+                'is_follower'
+            )
+            .addSelect(
+                `EXISTS(
+                SELECT 1 FROM user_mutes
+                WHERE muter_id = :viewer_id AND muted_id = "user"."id"
+            )`,
+                'is_muted'
+            )
+            .addSelect(
+                `EXISTS(
+                SELECT 1 FROM user_blocks
+                WHERE blocker_id = :viewer_id AND blocked_id = "user"."id"
+            )`,
+                'is_blocked'
+            )
+            .addSelect(
+                `(
+                SELECT COUNT(*)
+                FROM user_follows viewer_following
+                INNER JOIN user_follows target_followers
+                    ON viewer_following.followed_id = target_followers.follower_id
+                WHERE viewer_following.follower_id = :viewer_id
+                    AND target_followers.followed_id = "user"."id"
+            )`,
+                'mutual_followers_count'
+            )
+            .addSelect(
+                `(
+                SELECT COALESCE(json_agg(row_to_json(mu)), '[]'::json)
+                FROM (
+                    SELECT mu.name AS name,
+                           mu.avatar_url AS avatar_url
+                    FROM "user" mu
+                    JOIN user_follows tf ON tf.follower_id = mu.id AND tf.followed_id = "user"."id"
+                    JOIN user_follows vf ON vf.followed_id = mu.id AND vf.follower_id = :viewer_id
+                    LIMIT 3
+                ) mu
+            )`,
+                'top_mutual_followers'
+            )
+            .setParameter('viewer_id', viewer_id);
     }
 
     buildUserListQuery(current_user_id: string): SelectQueryBuilder<User> {
