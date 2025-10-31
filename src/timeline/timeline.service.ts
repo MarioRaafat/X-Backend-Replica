@@ -18,13 +18,6 @@ export class TimelineService {
             pagination
         );
 
-        //prepare response data
-
-        //TODO: Uncomment after choosing one approach in all responses
-        // const tweet_ids = tweets.map((t) => t.tweet_id);
-        // const { liked_tweet_ids, reposted_tweet_ids } =
-        //     await this.tweet_repository.checkUserInteractions(user_id, tweet_ids);
-
         return {
             tweets,
             next_cursor,
@@ -34,5 +27,10 @@ export class TimelineService {
         // quotes
         // reposts
         // replies
+        //get my tweets
     }
+    // async getForyouTimeline(
+    //     user_id: string,
+    //     pagination: TimelinePaginationDto
+    // ): Promise<TimelineResponseDto> {}
 }

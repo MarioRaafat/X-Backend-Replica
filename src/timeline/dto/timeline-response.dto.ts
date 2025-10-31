@@ -4,10 +4,10 @@ import { TweetResponseDTO, TweetsListResponseDTO } from 'src/tweets/dto';
 
 export class TimelineResponseDto {
     @ApiProperty({
-        type: [Tweet],
+        type: [TweetResponseDTO],
         description: 'List of tweets in timeline',
     })
-    tweets: Tweet[];
+    tweets: TweetResponseDTO[];
     @ApiProperty({
         description: 'Cursor for next page (last tweet ID)',
         example: '550e8400-e29b-41d4-a716-446655440000',
