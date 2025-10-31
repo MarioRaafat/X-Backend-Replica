@@ -33,7 +33,7 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 describe('AuthService', () => {
     let service: AuthService;
 
-    const mockUserService = {
+    const mock_user_service = {
         findUserByEmail: jest.fn(async (email: string) => {
             return {
                 id: '1',
@@ -52,11 +52,11 @@ describe('AuthService', () => {
         updateUser: jest.fn(),
     };
 
-    const mockJwtService = {
+    const mock_jwt_service = {
         sign: jest.fn(),
         verifyAsync: jest.fn(),
     };
-    const mockRedisService = {
+    const mock_redis_service = {
         set: jest.fn(),
         sadd: jest.fn(),
         expire: jest.fn(),
@@ -68,10 +68,10 @@ describe('AuthService', () => {
         hset: jest.fn(),
         get: jest.fn(),
     };
-    const mockUsernameService = {
+    const mock_username_service = {
         generateUsername: jest.fn(),
     };
-    const mockVerificationService = {
+    const mock_verification_service = {
         generateOtp: jest.fn(),
         generateNotMeLink: jest.fn(),
         validateOtp: jest.fn(),
@@ -79,14 +79,14 @@ describe('AuthService', () => {
         validatePasswordResetToken: jest.fn(),
         validateNotMeLink: jest.fn(),
     };
-    const mockEmailService = {
+    const mock_email_service = {
         sendEmail: jest.fn(),
     };
-    const mockCaptchaService = {
+    const mock_captcha_service = {
         createCaptcha: jest.fn(),
         validateCaptcha: jest.fn(),
     };
-    const mockConfigService = {
+    const mock_config_service = {
         get: jest.fn(),
     };
 
@@ -103,14 +103,14 @@ describe('AuthService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 AuthService,
-                { provide: UserService, useValue: mockUserService },
-                { provide: JwtService, useValue: mockJwtService },
-                { provide: UsernameService, useValue: mockUsernameService },
-                { provide: RedisService, useValue: mockRedisService },
-                { provide: VerificationService, useValue: mockVerificationService },
-                { provide: EmailService, useValue: mockEmailService },
-                { provide: CaptchaService, useValue: mockCaptchaService },
-                { provide: ConfigService, useValue: mockConfigService },
+                { provide: UserService, useValue: mock_user_service },
+                { provide: JwtService, useValue: mock_jwt_service },
+                { provide: UsernameService, useValue: mock_username_service },
+                { provide: RedisService, useValue: mock_redis_service },
+                { provide: VerificationService, useValue: mock_verification_service },
+                { provide: EmailService, useValue: mock_email_service },
+                { provide: CaptchaService, useValue: mock_captcha_service },
+                { provide: ConfigService, useValue: mock_config_service },
             ],
         }).compile();
 
@@ -147,7 +147,7 @@ describe('AuthService', () => {
         });
 
         it('should throw "User not found" when user does not exist', async () => {
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
             await expect(service.validateUser('missing@example.com', 'password')).rejects.toThrow(
                 ERROR_MESSAGES.USER_NOT_FOUND
             );
@@ -161,24 +161,24 @@ describe('AuthService', () => {
         });
 
         it('should generate access and refresh tokens and store them in Redis', async () => {
-            const mockAccessToken = 'mock-access-token';
-            const mockRefreshToken = 'mock-refresh-token';
-            const mockJti = 'mock-jti';
+            const mock_access_token = 'mock-access-token';
+            const mock_refresh_token = 'mock-refresh-token';
+            const mock_jti = 'mock-jti';
 
-            mockJwtService.sign
-                .mockReturnValueOnce(mockAccessToken) // first call → access token
-                .mockReturnValueOnce(mockRefreshToken); // second call → refresh token
+            mock_jwt_service.sign
+                .mockReturnValueOnce(mock_access_token) // first call → access token
+                .mockReturnValueOnce(mock_refresh_token); // second call → refresh token
 
             const result = await service.generateTokens('user-1');
 
             expect(result).toEqual({
-                access_token: mockAccessToken,
-                refresh_token: mockRefreshToken,
+                access_token: mock_access_token,
+                refresh_token: mock_refresh_token,
             });
 
             // Verify JWT sign calls
-            expect(mockJwtService.sign).toHaveBeenCalledTimes(2);
-            expect(mockJwtService.sign).toHaveBeenNthCalledWith(
+            expect(mock_jwt_service.sign).toHaveBeenCalledTimes(2);
+            expect(mock_jwt_service.sign).toHaveBeenNthCalledWith(
                 1,
                 { id: 'user-1' },
                 expect.objectContaining({
@@ -186,9 +186,9 @@ describe('AuthService', () => {
                     expiresIn: process.env.JWT_TOKEN_EXPIRATION_TIME,
                 })
             );
-            expect(mockJwtService.sign).toHaveBeenNthCalledWith(
+            expect(mock_jwt_service.sign).toHaveBeenNthCalledWith(
                 2,
-                { id: 'user-1', jti: mockJti },
+                { id: 'user-1', jti: mock_jti },
                 expect.objectContaining({
                     secret: process.env.JWT_REFRESH_SECRET,
                     expiresIn: process.env.JWT_REFRESH_EXPIRATION_TIME,
@@ -196,16 +196,16 @@ describe('AuthService', () => {
             );
 
             // Verify Redis interactions
-            expect(mockRedisService.set).toHaveBeenCalledWith(
-                `refresh:${mockJti}`,
+            expect(mock_redis_service.set).toHaveBeenCalledWith(
+                `refresh:${mock_jti}`,
                 JSON.stringify({ id: 'user-1' }),
                 7 * 24 * 60 * 60
             );
-            expect(mockRedisService.sadd).toHaveBeenCalledWith(
+            expect(mock_redis_service.sadd).toHaveBeenCalledWith(
                 `user:user-1:refreshTokens`,
-                mockJti
+                mock_jti
             );
-            expect(mockRedisService.expire).toHaveBeenCalledWith(
+            expect(mock_redis_service.expire).toHaveBeenCalledWith(
                 `user:user-1:refreshTokens`,
                 7 * 24 * 60 * 60
             );
@@ -213,7 +213,7 @@ describe('AuthService', () => {
 
         it('should throw if jwtService.sign throws an error', async () => {
             //used mockImplementationOnce for sync error throwing
-            mockJwtService.sign.mockImplementationOnce(() => {
+            mock_jwt_service.sign.mockImplementationOnce(() => {
                 throw new Error('JWT error');
             });
 
@@ -221,11 +221,11 @@ describe('AuthService', () => {
         });
 
         it('should throw if redisService.set rejects', async () => {
-            mockJwtService.sign
+            mock_jwt_service.sign
                 .mockReturnValueOnce('mock-access-token')
                 .mockReturnValueOnce('mock-refresh-token');
             //used mockRejectedValueOnce for async error throwing
-            mockRedisService.set.mockRejectedValueOnce(new Error('Redis down'));
+            mock_redis_service.set.mockRejectedValueOnce(new Error('Redis down'));
 
             await expect(service.generateTokens('user-1')).rejects.toThrow('Redis down');
         });
@@ -237,18 +237,18 @@ describe('AuthService', () => {
         });
 
         it('should return user and tokens on successful login', async () => {
-            const mockTokens = { access_token: 'access', refresh_token: 'refresh' };
+            const mock_tokens = { access_token: 'access', refresh_token: 'refresh' };
 
-            const mockUser = {
+            const mock_user = {
                 id: 'user-1',
                 email: 'test@example.com',
                 name: 'Test User',
                 phone_number: '1234567890',
             };
             // Set up findUserById to return mockUser when called with 'user-1'
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mock_user_service.findUserById.mockResolvedValueOnce(mock_user);
             //mock the methods used inside login()
-            jest.spyOn(service, 'generateTokens').mockResolvedValue(mockTokens);
+            jest.spyOn(service, 'generateTokens').mockResolvedValue(mock_tokens);
             jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
 
             const result = await service.login({ email: 'test@example.com', password: 'password' });
@@ -258,8 +258,8 @@ describe('AuthService', () => {
             expect(service.generateTokens).toHaveBeenCalledWith('user-1');
 
             expect(result).toEqual({
-                user: mockUser,
-                ...mockTokens,
+                user: mock_user,
+                ...mock_tokens,
             });
         });
         it('should throw if validateUser throws', async () => {
@@ -272,7 +272,7 @@ describe('AuthService', () => {
 
         it('should throw if findUserById returns null', async () => {
             jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-            mockUserService.findUserById.mockResolvedValueOnce(null);
+            mock_user_service.findUserById.mockResolvedValueOnce(null);
 
             await expect(
                 service.login({ email: 'test@example.com', password: 'password' })
@@ -281,7 +281,7 @@ describe('AuthService', () => {
 
         it('should throw if generateTokens throws', async () => {
             jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-            mockUserService.findUserById.mockResolvedValueOnce({
+            mock_user_service.findUserById.mockResolvedValueOnce({
                 id: 'user-1',
                 email: 'test@example.com',
                 name: 'Test User',
@@ -296,7 +296,7 @@ describe('AuthService', () => {
 
         // it('should throw if redisService.sadd throws', async () => {
         //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-        //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
+        //   (mock_user_service.findUserById as jest.Mock).mockResolvedValueOnce({
         //     id: 'user-1',
         //     email: 'test@example.com',
         //     firstName: 'Test',
@@ -307,7 +307,7 @@ describe('AuthService', () => {
         //     access_token: 'access',
         //     refresh_token: 'refresh',
         //   });
-        //   mockRedisService.sadd.mockRejectedValueOnce(new Error('Redis error'));
+        //   mock_redis_service.sadd.mockRejectedValueOnce(new Error('Redis error'));
 
         //   await expect(
         //     service.login({ email: 'test@example.com', password: 'password' })
@@ -316,7 +316,7 @@ describe('AuthService', () => {
 
         // it('should throw if redisService.expire throws', async () => {
         //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-        //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
+        //   (mock_user_service.findUserById as jest.Mock).mockResolvedValueOnce({
         //     id: 'user-1',
         //     email: 'test@example.com',
         //     firstName: 'Test',
@@ -327,7 +327,7 @@ describe('AuthService', () => {
         //     access_token: 'access',
         //     refresh_token: 'refresh',
         //   });
-        //   mockRedisService.expire.mockRejectedValueOnce(new Error('Redis error'));
+        //   mock_redis_service.expire.mockRejectedValueOnce(new Error('Redis error'));
 
         //   await expect(
         //     service.login({ email: 'test@example.com', password: 'password' })
@@ -336,7 +336,7 @@ describe('AuthService', () => {
 
         // it('should throw if redisService.srem throws', async () => {
         //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-        //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
+        //   (mock_user_service.findUserById as jest.Mock).mockResolvedValueOnce({
         //     id: 'user-1',
         //     email: 'test@example.com',
         //     firstName: 'Test',
@@ -347,7 +347,7 @@ describe('AuthService', () => {
         //     access_token: 'access',
         //     refresh_token: 'refresh',
         //   });
-        //   mockRedisService.srem.mockRejectedValueOnce(new Error('Redis error'));
+        //   mock_redis_service.srem.mockRejectedValueOnce(new Error('Redis error'));
 
         //   await expect(
         //     service.login({ email: 'test@example.com', password: 'password' })
@@ -356,35 +356,35 @@ describe('AuthService', () => {
     });
 
     describe('logout', () => {
-        let mockRes: any;
+        let mock_res: any;
 
         beforeEach(() => {
-            mockRes = { clearCookie: jest.fn() };
+            mock_res = { clearCookie: jest.fn() };
         });
 
         it('should logout successfully and clear cookies', async () => {
-            const mockPayload = { id: 'user-1', jti: 'jti-123' };
+            const mock_payload = { id: 'user-1', jti: 'jti-123' };
 
-            mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
-            mockRedisService.del.mockResolvedValueOnce(1);
-            mockRedisService.srem.mockResolvedValueOnce(1);
+            mock_jwt_service.verifyAsync.mockResolvedValueOnce(mock_payload);
+            mock_redis_service.del.mockResolvedValueOnce(1);
+            mock_redis_service.srem.mockResolvedValueOnce(1);
 
-            const result = await service.logout('valid-refresh-token', mockRes);
+            const result = await service.logout('valid-refresh-token', mock_res);
 
             // verify jwt call
-            expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
+            expect(mock_jwt_service.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
                 secret: process.env.JWT_REFRESH_SECRET,
             });
 
             // verify redis cleanup
-            expect(mockRedisService.del).toHaveBeenCalledWith(`refresh:${mockPayload.jti}`);
-            expect(mockRedisService.srem).toHaveBeenCalledWith(
-                `user:${mockPayload.id}:refreshTokens`,
-                mockPayload.jti
+            expect(mock_redis_service.del).toHaveBeenCalledWith(`refresh:${mock_payload.jti}`);
+            expect(mock_redis_service.srem).toHaveBeenCalledWith(
+                `user:${mock_payload.id}:refreshTokens`,
+                mock_payload.jti
             );
 
             // verify cookie cleared
-            expect(mockRes.clearCookie).toHaveBeenCalledWith('refresh_token', {
+            expect(mock_res.clearCookie).toHaveBeenCalledWith('refresh_token', {
                 httpOnly: true,
                 secure: true,
                 sameSite: 'strict',
@@ -394,70 +394,70 @@ describe('AuthService', () => {
         });
 
         it('should throw UnauthorizedException if token is invalid', async () => {
-            mockJwtService.verifyAsync.mockRejectedValueOnce(new Error('Invalid token'));
+            mock_jwt_service.verifyAsync.mockRejectedValueOnce(new Error('Invalid token'));
 
-            await expect(service.logout('invalid-token', mockRes)).rejects.toThrow(
+            await expect(service.logout('invalid-token', mock_res)).rejects.toThrow(
                 new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            expect(mockRedisService.del).not.toHaveBeenCalled();
-            expect(mockRedisService.srem).not.toHaveBeenCalled();
-            expect(mockRes.clearCookie).not.toHaveBeenCalled();
+            expect(mock_redis_service.del).not.toHaveBeenCalled();
+            expect(mock_redis_service.srem).not.toHaveBeenCalled();
+            expect(mock_res.clearCookie).not.toHaveBeenCalled();
         });
 
         it('should throw UnauthorizedException if redis throws an error', async () => {
-            const mockPayload = { id: 'user-1', jti: 'jti-123' };
-            mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
-            mockRedisService.del.mockRejectedValueOnce(new Error('Redis down'));
+            const mock_payload = { id: 'user-1', jti: 'jti-123' };
+            mock_jwt_service.verifyAsync.mockResolvedValueOnce(mock_payload);
+            mock_redis_service.del.mockRejectedValueOnce(new Error('Redis down'));
 
-            await expect(service.logout('valid-refresh-token', mockRes)).rejects.toThrow();
+            await expect(service.logout('valid-refresh-token', mock_res)).rejects.toThrow();
 
             // jwt verified but redis failed
-            expect(mockJwtService.verifyAsync).toHaveBeenCalled();
-            expect(mockRes.clearCookie).not.toHaveBeenCalled();
+            expect(mock_jwt_service.verifyAsync).toHaveBeenCalled();
+            expect(mock_res.clearCookie).not.toHaveBeenCalled();
         });
     });
 
     describe('logoutAll', () => {
-        let mockRes: any;
+        let mock_res: any;
 
         beforeEach(() => {
-            mockRes = { clearCookie: jest.fn() };
+            mock_res = { clearCookie: jest.fn() };
         });
 
         it('should log out from all devices successfully and clear cookies', async () => {
-            const mockPayload = { id: 'user-1', jti: 'jti-123' };
-            const mockTokens = ['token1', 'token2'];
+            const mock_payload = { id: 'user-1', jti: 'jti-123' };
+            const mock_tokens = ['token1', 'token2'];
 
             // Mock JWT + Redis
-            mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
-            mockRedisService.smembers = jest.fn().mockResolvedValueOnce(mockTokens);
+            mock_jwt_service.verifyAsync.mockResolvedValueOnce(mock_payload);
+            mock_redis_service.smembers = jest.fn().mockResolvedValueOnce(mock_tokens);
 
             // Create a mock pipeline
-            const execMock = jest.fn().mockResolvedValueOnce([]);
-            const delMock = jest.fn().mockReturnThis();
-            const mockPipeline = {
-                del: delMock,
-                exec: execMock,
+            const exec_mock = jest.fn().mockResolvedValueOnce([]);
+            const del_mock = jest.fn().mockReturnThis();
+            const mock_pipeline = {
+                del: del_mock,
+                exec: exec_mock,
             };
 
-            mockRedisService.pipeline = jest.fn(() => mockPipeline);
+            mock_redis_service.pipeline = jest.fn(() => mock_pipeline);
 
-            const result = await service.logoutAll('valid-refresh-token', mockRes);
+            const result = await service.logoutAll('valid-refresh-token', mock_res);
 
             // Verify verifyAsync was called
-            expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
+            expect(mock_jwt_service.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
                 secret: process.env.JWT_REFRESH_SECRET,
             });
 
             // Verify Redis operations
-            expect(mockRedisService.smembers).toHaveBeenCalledWith('user:user-1:refreshTokens');
-            expect(mockRedisService.pipeline).toHaveBeenCalled();
-            expect(delMock).toHaveBeenCalledTimes(3); // token1, token2, and the user set
-            expect(execMock).toHaveBeenCalled();
+            expect(mock_redis_service.smembers).toHaveBeenCalledWith('user:user-1:refreshTokens');
+            expect(mock_redis_service.pipeline).toHaveBeenCalled();
+            expect(del_mock).toHaveBeenCalledTimes(3); // token1, token2, and the user set
+            expect(exec_mock).toHaveBeenCalled();
 
             // Verify cookie clearing
-            expect(mockRes.clearCookie).toHaveBeenCalledWith('refresh_token', {
+            expect(mock_res.clearCookie).toHaveBeenCalledWith('refresh_token', {
                 httpOnly: true,
                 secure: true,
                 sameSite: 'strict',
@@ -467,53 +467,53 @@ describe('AuthService', () => {
         });
 
         it('should do nothing with Redis if user has no refresh tokens', async () => {
-            const mockPayload = { id: 'user-1', jti: 'jti-123' };
+            const mock_payload = { id: 'user-1', jti: 'jti-123' };
 
-            mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
-            mockRedisService.smembers = jest.fn().mockResolvedValueOnce([]);
-            mockRedisService.pipeline = jest.fn();
+            mock_jwt_service.verifyAsync.mockResolvedValueOnce(mock_payload);
+            mock_redis_service.smembers = jest.fn().mockResolvedValueOnce([]);
+            mock_redis_service.pipeline = jest.fn();
 
-            const result = await service.logoutAll('valid-refresh-token', mockRes);
+            const result = await service.logoutAll('valid-refresh-token', mock_res);
 
-            expect(mockRedisService.pipeline).not.toHaveBeenCalled();
-            expect(mockRes.clearCookie).toHaveBeenCalled();
+            expect(mock_redis_service.pipeline).not.toHaveBeenCalled();
+            expect(mock_res.clearCookie).toHaveBeenCalled();
             expect(result).toEqual({});
         });
 
         it('should throw UnauthorizedException if token is invalid', async () => {
-            mockJwtService.verifyAsync.mockRejectedValueOnce(new Error('Invalid token'));
+            mock_jwt_service.verifyAsync.mockRejectedValueOnce(new Error('Invalid token'));
 
-            await expect(service.logoutAll('invalid-token', mockRes)).rejects.toThrow(
+            await expect(service.logoutAll('invalid-token', mock_res)).rejects.toThrow(
                 new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            expect(mockRedisService.smembers).not.toHaveBeenCalled();
-            expect(mockRedisService.pipeline).not.toHaveBeenCalled();
-            expect(mockRes.clearCookie).not.toHaveBeenCalled();
+            expect(mock_redis_service.smembers).not.toHaveBeenCalled();
+            expect(mock_redis_service.pipeline).not.toHaveBeenCalled();
+            expect(mock_res.clearCookie).not.toHaveBeenCalled();
         });
 
         // it('should throw if Redis pipeline.exec fails', async () => {
-        //   const mockPayload = { id: 'user-1', jti: 'jti-123' };
-        //   const mockTokens = ['token1'];
+        //   const mock_payload = { id: 'user-1', jti: 'jti-123' };
+        //   const mock_tokens = ['token1'];
 
-        //   mockJwtService.verifyAsync.mockResolvedValueOnce(mockPayload);
-        //   mockRedisService.smembers = jest.fn().mockResolvedValueOnce(mockTokens);
+        //   mock_jwt_service.verifyAsync.mockResolvedValueOnce(mock_payload);
+        //   mock_redis_service.smembers = jest.fn().mockResolvedValueOnce(mock_tokens);
 
-        //   const mockPipeline = {
+        //   const mock_pipeline = {
         //     del: jest.fn().mockReturnThis(),
         //     exec: jest.fn().mockRejectedValueOnce(new Error('Redis down')),
         //   };
-        //   mockRedisService.pipeline = jest.fn(() => mockPipeline);
+        //   mock_redis_service.pipeline = jest.fn(() => mock_pipeline);
 
-        //   await expect(service.logoutAll('valid-token', mockRes as any)).rejects.toThrow('Redis down');
+        //   await expect(service.logoutAll('valid-token', mock_res as any)).rejects.toThrow('Redis down');
 
-        //   expect(mockRedisService.pipeline).toHaveBeenCalled();
-        //   expect(mockRes.clearCookie).not.toHaveBeenCalled();
+        //   expect(mock_redis_service.pipeline).toHaveBeenCalled();
+        //   expect(mock_res.clearCookie).not.toHaveBeenCalled();
         // });
     });
 
     describe('generateEmailVerification', () => {
-        const mockUser = { name: 'John' };
+        const mock_user = { name: 'John' };
 
         beforeEach(() => {
             jest.clearAllMocks();
@@ -521,22 +521,22 @@ describe('AuthService', () => {
 
         it('should send verification email successfully', async () => {
             // Mock user in Redis
-            mockRedisService.hget = jest.fn().mockResolvedValueOnce(mockUser);
-            mockVerificationService.generateOtp = jest.fn().mockResolvedValueOnce('123456');
-            mockVerificationService.generateNotMeLink = jest
+            mock_redis_service.hget = jest.fn().mockResolvedValueOnce(mock_user);
+            mock_verification_service.generateOtp = jest.fn().mockResolvedValueOnce('123456');
+            mock_verification_service.generateNotMeLink = jest
                 .fn()
                 .mockResolvedValueOnce('https://notme.link');
-            mockEmailService.sendEmail = jest.fn().mockResolvedValueOnce(true);
+            mock_email_service.sendEmail = jest.fn().mockResolvedValueOnce(true);
 
             const result = await service.generateEmailVerification('test@example.com');
 
-            expect(mockRedisService.hget).toHaveBeenCalledWith('signup:session:test@example.com');
-            expect(mockVerificationService.generateOtp).toHaveBeenCalledWith(
+            expect(mock_redis_service.hget).toHaveBeenCalledWith('signup:session:test@example.com');
+            expect(mock_verification_service.generateOtp).toHaveBeenCalledWith(
                 'test@example.com',
                 'email'
             );
-            expect(mockVerificationService.generateNotMeLink).toHaveBeenCalled();
-            expect(mockEmailService.sendEmail).toHaveBeenCalledWith(
+            expect(mock_verification_service.generateNotMeLink).toHaveBeenCalled();
+            expect(mock_email_service.sendEmail).toHaveBeenCalledWith(
                 expect.objectContaining({
                     subject: '123456 is your Y verification code',
                     recipients: [{ name: 'John', address: 'test@example.com' }],
@@ -548,23 +548,23 @@ describe('AuthService', () => {
         });
 
         it('should throw NotFoundException if user not in Redis', async () => {
-            mockRedisService.hget = jest.fn().mockResolvedValueOnce(null);
+            mock_redis_service.hget = jest.fn().mockResolvedValueOnce(null);
 
             await expect(service.generateEmailVerification('missing@example.com')).rejects.toThrow(
                 new NotFoundException('User not found or already verified')
             );
 
-            expect(mockVerificationService.generateOtp).not.toHaveBeenCalled();
-            expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
+            expect(mock_verification_service.generateOtp).not.toHaveBeenCalled();
+            expect(mock_email_service.sendEmail).not.toHaveBeenCalled();
         });
 
         it('should throw InternalServerErrorException if emailService.sendEmail fails', async () => {
-            mockRedisService.hget = jest.fn().mockResolvedValueOnce(mockUser);
-            mockVerificationService.generateOtp = jest.fn().mockResolvedValueOnce('123456');
-            mockVerificationService.generateNotMeLink = jest
+            mock_redis_service.hget = jest.fn().mockResolvedValueOnce(mock_user);
+            mock_verification_service.generateOtp = jest.fn().mockResolvedValueOnce('123456');
+            mock_verification_service.generateNotMeLink = jest
                 .fn()
                 .mockResolvedValueOnce('https://notme.link');
-            mockEmailService.sendEmail = jest.fn().mockResolvedValueOnce(false);
+            mock_email_service.sendEmail = jest.fn().mockResolvedValueOnce(false);
 
             await expect(service.generateEmailVerification('test@example.com')).rejects.toThrow(
                 new InternalServerErrorException('Failed to send OTP email')
@@ -573,7 +573,7 @@ describe('AuthService', () => {
     });
 
     // describe('register', () => {
-    //   const mockRegisterDto:RegisterDto = {
+    //   const mock_register_dto:RegisterDto = {
     //     email: 'test@example.com',
     //     password: 'password123',
     //     confirmPassword: 'password123',
@@ -588,21 +588,21 @@ describe('AuthService', () => {
     //   });
 
     //   it('should register successfully and send verification email', async () => {
-    //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
-    //     mockRedisService.hget.mockResolvedValueOnce(null);
-    //     (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+    //     mock_captcha_service.validateCaptcha.mockResolvedValueOnce(true);
+    //     mock_redis_service.hget.mockResolvedValueOnce(null);
+    //     (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
     //     (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashedPass');
-    //     mockRedisService.hset.mockResolvedValueOnce(true);
-    //     mockConfigService.get.mockReturnValueOnce(3600);
+    //     mock_redis_service.hset.mockResolvedValueOnce(true);
+    //     mock_config_service.get.mockReturnValueOnce(3600);
     //     jest.spyOn(service, 'generateEmailVerification').mockResolvedValueOnce({ isEmailSent: true });
 
-    //     const result = await service.register(mockRegisterDto);
+    //     const result = await service.register(mock_register_dto);
 
-    //     expect(mockCaptchaService.validateCaptcha).toHaveBeenCalledWith('valid-captcha');
-    //     expect(mockRedisService.hget).toHaveBeenCalledWith('user:test@example.com');
-    //     expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+    //     expect(mock_captcha_service.validateCaptcha).toHaveBeenCalledWith('valid-captcha');
+    //     expect(mock_redis_service.hget).toHaveBeenCalledWith('user:test@example.com');
+    //     expect(mock_user_service.findUserByEmail).toHaveBeenCalledWith('test@example.com');
     //     expect(bcrypt.hash).toHaveBeenCalledWith('password123', 10);
-    //     expect(mockRedisService.hset).toHaveBeenCalledWith(
+    //     expect(mock_redis_service.hset).toHaveBeenCalledWith(
     //       'user:test@example.com',
     //       expect.objectContaining({
     //         firstName: 'John',
@@ -616,32 +616,32 @@ describe('AuthService', () => {
     //   });
 
     //   it('should throw BadRequestException if CAPTCHA fails', async () => {
-    //     mockCaptchaService.validateCaptcha.mockRejectedValueOnce(new Error('Invalid captcha'));
+    //     mock_captcha_service.validateCaptcha.mockRejectedValueOnce(new Error('Invalid captcha'));
 
-    //     await expect(service.register(mockRegisterDto)).rejects.toThrow(
+    //     await expect(service.register(mock_register_dto)).rejects.toThrow(
     //       new BadRequestException('CAPTCHA verification failed. Please try again.'),
     //     );
 
-    //     expect(mockRedisService.hget).not.toHaveBeenCalled();
+    //     expect(mock_redis_service.hget).not.toHaveBeenCalled();
     //   });
 
     //   it('should throw ConflictException if email is pending in Redis', async () => {
-    //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
-    //     mockRedisService.hget.mockResolvedValueOnce({ some: 'pendingUser' });
+    //     mock_captcha_service.validateCaptcha.mockResolvedValueOnce(true);
+    //     mock_redis_service.hget.mockResolvedValueOnce({ some: 'pendingUser' });
 
-    //     await expect(service.register(mockRegisterDto)).rejects.toThrow(
+    //     await expect(service.register(mock_register_dto)).rejects.toThrow(
     //       new ConflictException('Email already exists'),
     //     );
 
-    //     expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+    //     expect(mock_user_service.findUserByEmail).not.toHaveBeenCalled();
     //   });
 
     //   it('should throw ConflictException if email already exists in DB', async () => {
-    //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
-    //     mockRedisService.hget.mockResolvedValueOnce(null);
-    //     (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce({ id: '1' });
+    //     mock_captcha_service.validateCaptcha.mockResolvedValueOnce(true);
+    //     mock_redis_service.hget.mockResolvedValueOnce(null);
+    //     (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce({ id: '1' });
 
-    //     await expect(service.register(mockRegisterDto)).rejects.toThrow(
+    //     await expect(service.register(mock_register_dto)).rejects.toThrow(
     //       new ConflictException('Email already exists'),
     //     );
 
@@ -649,13 +649,13 @@ describe('AuthService', () => {
     //   });
 
     //   it('should throw BadRequestException if passwords do not match', async () => {
-    //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
-    //     mockRedisService.hget.mockResolvedValueOnce(null);
-    //     (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+    //     mock_captcha_service.validateCaptcha.mockResolvedValueOnce(true);
+    //     mock_redis_service.hget.mockResolvedValueOnce(null);
+    //     (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
 
-    //     const badDto = { ...mockRegisterDto, confirmPassword: 'wrong' };
+    //     const bad_dto = { ...mock_register_dto, confirmPassword: 'wrong' };
 
-    //     await expect(service.register(badDto)).rejects.toThrow(
+    //     await expect(service.register(bad_dto)).rejects.toThrow(
     //       new BadRequestException('Confirmation password must match password'),
     //     );
 
@@ -663,22 +663,22 @@ describe('AuthService', () => {
     //   });
 
     //   it('should propagate error if generateEmailVerification fails', async () => {
-    //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
-    //     mockRedisService.hget.mockResolvedValueOnce(null);
-    //     (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+    //     mock_captcha_service.validateCaptcha.mockResolvedValueOnce(true);
+    //     mock_redis_service.hget.mockResolvedValueOnce(null);
+    //     (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
     //     (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashedPass');
-    //     mockRedisService.hset.mockResolvedValueOnce(true);
-    //     mockConfigService.get.mockReturnValueOnce(3600);
+    //     mock_redis_service.hset.mockResolvedValueOnce(true);
+    //     mock_config_service.get.mockReturnValueOnce(3600);
     //     jest
     //       .spyOn(service, 'generateEmailVerification')
     //       .mockRejectedValueOnce(new Error('Mail service down'));
 
-    //     await expect(service.register(mockRegisterDto)).rejects.toThrow('Mail service down');
+    //     await expect(service.register(mock_register_dto)).rejects.toThrow('Mail service down');
     //   });
     // });
 
     describe('sendResetPasswordEmail', () => {
-        const mockUser = {
+        const mock_user = {
             id: 'user-1',
             email: 'test@example.com',
             name: 'John',
@@ -689,15 +689,18 @@ describe('AuthService', () => {
         });
 
         it('should send password reset email successfully', async () => {
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
-            mockVerificationService.generateOtp.mockResolvedValueOnce('123456');
-            mockEmailService.sendEmail.mockResolvedValueOnce(true);
+            mock_user_service.findUserById.mockResolvedValueOnce(mock_user);
+            mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
+            mock_email_service.sendEmail.mockResolvedValueOnce(true);
 
             const result = await service.sendResetPasswordEmail('user-1');
 
-            expect(mockUserService.findUserById).toHaveBeenCalledWith('user-1');
-            expect(mockVerificationService.generateOtp).toHaveBeenCalledWith('user-1', 'password');
-            expect(mockEmailService.sendEmail).toHaveBeenCalledWith(
+            expect(mock_user_service.findUserById).toHaveBeenCalledWith('user-1');
+            expect(mock_verification_service.generateOtp).toHaveBeenCalledWith(
+                'user-1',
+                'password'
+            );
+            expect(mock_email_service.sendEmail).toHaveBeenCalledWith(
                 expect.objectContaining({
                     subject: 'Password reset request',
                     recipients: [{ name: 'John', address: 'test@example.com' }],
@@ -709,20 +712,20 @@ describe('AuthService', () => {
         });
 
         it('should throw NotFoundException if user not found', async () => {
-            mockUserService.findUserById.mockResolvedValueOnce(null);
+            mock_user_service.findUserById.mockResolvedValueOnce(null);
 
             await expect(service.sendResetPasswordEmail('missing-id')).rejects.toThrow(
                 new NotFoundException('User not found')
             );
 
-            expect(mockVerificationService.generateOtp).not.toHaveBeenCalled();
-            expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
+            expect(mock_verification_service.generateOtp).not.toHaveBeenCalled();
+            expect(mock_email_service.sendEmail).not.toHaveBeenCalled();
         });
 
         it('should throw InternalServerErrorException if email sending fails', async () => {
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
-            mockVerificationService.generateOtp.mockResolvedValueOnce('123456');
-            mockEmailService.sendEmail.mockResolvedValueOnce(false);
+            mock_user_service.findUserById.mockResolvedValueOnce(mock_user);
+            mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
+            mock_email_service.sendEmail.mockResolvedValueOnce(false);
 
             await expect(service.sendResetPasswordEmail('user-1')).rejects.toThrow(
                 new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
@@ -730,8 +733,8 @@ describe('AuthService', () => {
         });
 
         it('should propagate error if OTP generation fails', async () => {
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
-            mockVerificationService.generateOtp.mockRejectedValueOnce(
+            mock_user_service.findUserById.mockResolvedValueOnce(mock_user);
+            mock_verification_service.generateOtp.mockRejectedValueOnce(
                 new Error('OTP service down')
             );
 
@@ -739,136 +742,140 @@ describe('AuthService', () => {
                 'OTP service down'
             );
 
-            expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
+            expect(mock_email_service.sendEmail).not.toHaveBeenCalled();
         });
     });
 
     describe('verifyResetPasswordOtp', () => {
-        const userId = 'user-123';
-        const otpToken = '654321';
-        const resetToken = 'secure-reset-token';
+        const user_id = 'user-123';
+        const otp_token = '654321';
+        const reset_token = 'secure-reset-token';
 
         beforeEach(() => {
             jest.clearAllMocks();
         });
 
         it('should verify OTP successfully and return resetToken', async () => {
-            mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
-            mockVerificationService.generatePasswordResetToken = jest
+            mock_verification_service.validateOtp = jest.fn().mockResolvedValueOnce(true);
+            mock_verification_service.generatePasswordResetToken = jest
                 .fn()
-                .mockResolvedValueOnce(resetToken);
+                .mockResolvedValueOnce(reset_token);
 
-            const result = await service.verifyResetPasswordOtp(userId, otpToken);
+            const result = await service.verifyResetPasswordOtp(user_id, otp_token);
 
-            expect(mockVerificationService.validateOtp).toHaveBeenCalledWith(
-                userId,
-                otpToken,
+            expect(mock_verification_service.validateOtp).toHaveBeenCalledWith(
+                user_id,
+                otp_token,
                 'password'
             );
-            expect(mockVerificationService.generatePasswordResetToken).toHaveBeenCalledWith(userId);
-            expect(result).toEqual({ isValid: true, resetToken });
+            expect(mock_verification_service.generatePasswordResetToken).toHaveBeenCalledWith(
+                user_id
+            );
+            expect(result).toEqual({ isValid: true, resetToken: reset_token });
         });
 
         it('should throw UnprocessableEntityException if OTP is invalid', async () => {
-            mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(false);
+            mock_verification_service.validateOtp = jest.fn().mockResolvedValueOnce(false);
 
-            await expect(service.verifyResetPasswordOtp(userId, otpToken)).rejects.toThrow(
+            await expect(service.verifyResetPasswordOtp(user_id, otp_token)).rejects.toThrow(
                 UnprocessableEntityException
             );
 
-            expect(mockVerificationService.generatePasswordResetToken).not.toHaveBeenCalled();
+            expect(mock_verification_service.generatePasswordResetToken).not.toHaveBeenCalled();
         });
 
         it('should throw InternalServerErrorException if validateOtp throws', async () => {
-            mockVerificationService.validateOtp = jest
+            mock_verification_service.validateOtp = jest
                 .fn()
                 .mockRejectedValueOnce(new Error('OTP error'));
 
-            await expect(service.verifyResetPasswordOtp(userId, otpToken)).rejects.toThrow(
+            await expect(service.verifyResetPasswordOtp(user_id, otp_token)).rejects.toThrow(
                 'OTP error'
             );
 
-            expect(mockVerificationService.generatePasswordResetToken).not.toHaveBeenCalled();
+            expect(mock_verification_service.generatePasswordResetToken).not.toHaveBeenCalled();
         });
 
         it('should throw InternalServerErrorException if generatePasswordResetToken throws', async () => {
-            mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
-            mockVerificationService.generatePasswordResetToken = jest
+            mock_verification_service.validateOtp = jest.fn().mockResolvedValueOnce(true);
+            mock_verification_service.generatePasswordResetToken = jest
                 .fn()
                 .mockRejectedValueOnce(new Error('Token gen failed'));
 
-            await expect(service.verifyResetPasswordOtp(userId, otpToken)).rejects.toThrow(
+            await expect(service.verifyResetPasswordOtp(user_id, otp_token)).rejects.toThrow(
                 'Token gen failed'
             );
         });
     });
 
     describe('resetPassword', () => {
-        const userId = 'user-123';
-        const validToken = 'valid-reset-token';
-        const newPassword = 'newPass123';
-        const hashedNewPassword = 'hashed-new-pass';
-        const existingHashedPassword = 'hashed-old-pass';
+        const user_id = 'user-123';
+        const valid_token = 'valid-reset-token';
+        const new_password = 'newPass123';
+        const hashed_new_password = 'hashed-new-pass';
+        const existing_hashed_password = 'hashed-old-pass';
 
         beforeEach(() => {
             jest.clearAllMocks();
         });
 
         it('should reset password successfully', async () => {
-            const mockTokenData = { userId };
-            const mockUser = { id: userId, password: existingHashedPassword };
+            const mock_token_data = { userId: user_id };
+            const mock_user = { id: user_id, password: existing_hashed_password };
 
-            mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce(mockTokenData);
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
-            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
-            (bcrypt.hash as jest.Mock).mockResolvedValueOnce(hashedNewPassword);
-            mockUserService.updateUserPassword.mockResolvedValueOnce(true);
-
-            const result = await service.resetPassword(userId, newPassword, validToken);
-
-            expect(mockVerificationService.validatePasswordResetToken).toHaveBeenCalledWith(
-                validToken
+            mock_verification_service.validatePasswordResetToken.mockResolvedValueOnce(
+                mock_token_data
             );
-            expect(mockUserService.findUserById).toHaveBeenCalledWith(userId);
-            expect(bcrypt.compare).toHaveBeenCalledWith(newPassword, existingHashedPassword);
-            expect(bcrypt.hash).toHaveBeenCalledWith(newPassword, 10);
-            expect(mockUserService.updateUserPassword).toHaveBeenCalledWith(
-                userId,
-                hashedNewPassword
+            mock_user_service.findUserById.mockResolvedValueOnce(mock_user);
+            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
+            (bcrypt.hash as jest.Mock).mockResolvedValueOnce(hashed_new_password);
+            mock_user_service.updateUserPassword.mockResolvedValueOnce(true);
+
+            const result = await service.resetPassword(user_id, new_password, valid_token);
+
+            expect(mock_verification_service.validatePasswordResetToken).toHaveBeenCalledWith(
+                valid_token
+            );
+            expect(mock_user_service.findUserById).toHaveBeenCalledWith(user_id);
+            expect(bcrypt.compare).toHaveBeenCalledWith(new_password, existing_hashed_password);
+            expect(bcrypt.hash).toHaveBeenCalledWith(new_password, 10);
+            expect(mock_user_service.updateUserPassword).toHaveBeenCalledWith(
+                user_id,
+                hashed_new_password
             );
 
             expect(result).toEqual({});
         });
 
         it('should throw UnauthorizedException if token is invalid or expired', async () => {
-            mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce(null);
+            mock_verification_service.validatePasswordResetToken.mockResolvedValueOnce(null);
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(user_id, new_password, valid_token)).rejects.toThrow(
                 new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            expect(mockUserService.findUserById).not.toHaveBeenCalled();
+            expect(mock_user_service.findUserById).not.toHaveBeenCalled();
         });
 
         it('should throw UnauthorizedException if token userId does not match request userId', async () => {
-            mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
+            mock_verification_service.validatePasswordResetToken.mockResolvedValueOnce({
                 userId: 'another-user',
             });
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(user_id, new_password, valid_token)).rejects.toThrow(
                 new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            expect(mockUserService.findUserById).not.toHaveBeenCalled();
+            expect(mock_user_service.findUserById).not.toHaveBeenCalled();
         });
 
         it('should throw NotFoundException if user is not found', async () => {
-            mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
-                userId,
+            mock_verification_service.validatePasswordResetToken.mockResolvedValueOnce({
+                userId: user_id,
             });
-            mockUserService.findUserById.mockResolvedValueOnce(null);
+            mock_user_service.findUserById.mockResolvedValueOnce(null);
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(user_id, new_password, valid_token)).rejects.toThrow(
                 new NotFoundException('User not found')
             );
 
@@ -876,33 +883,33 @@ describe('AuthService', () => {
         });
 
         it('should throw BadRequestException if new password matches current one', async () => {
-            const mockUser = { id: userId, password: existingHashedPassword };
+            const mock_user = { id: user_id, password: existing_hashed_password };
 
-            mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
-                userId,
+            mock_verification_service.validatePasswordResetToken.mockResolvedValueOnce({
+                userId: user_id,
             });
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mock_user_service.findUserById.mockResolvedValueOnce(mock_user);
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true); // same password
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(user_id, new_password, valid_token)).rejects.toThrow(
                 new BadRequestException(ERROR_MESSAGES.NEW_PASSWORD_SAME_AS_OLD)
             );
 
-            expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+            expect(mock_user_service.updateUserPassword).not.toHaveBeenCalled();
         });
 
         it('should throw if updateUserPassword fails', async () => {
-            const mockUser = { id: userId, password: existingHashedPassword };
+            const mock_user = { id: user_id, password: existing_hashed_password };
 
-            mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
-                userId,
+            mock_verification_service.validatePasswordResetToken.mockResolvedValueOnce({
+                userId: user_id,
             });
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mock_user_service.findUserById.mockResolvedValueOnce(mock_user);
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
-            (bcrypt.hash as jest.Mock).mockResolvedValueOnce(hashedNewPassword);
-            mockUserService.updateUserPassword.mockRejectedValueOnce(new Error('DB error'));
+            (bcrypt.hash as jest.Mock).mockResolvedValueOnce(hashed_new_password);
+            mock_user_service.updateUserPassword.mockRejectedValueOnce(new Error('DB error'));
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(user_id, new_password, valid_token)).rejects.toThrow(
                 'DB error'
             );
         });
@@ -914,45 +921,55 @@ describe('AuthService', () => {
         });
 
         it('should delete pending user and otp if valid token', async () => {
-            const mockUser = { email: 'test@example.com' };
+            const mock_user = { email: 'test@example.com' };
 
-            mockVerificationService.validateNotMeLink.mockResolvedValue(mockUser);
-            mockRedisService.hget.mockResolvedValue({ email: mockUser.email });
-            mockRedisService.del.mockResolvedValue(true);
+            mock_verification_service.validateNotMeLink.mockResolvedValue(mock_user);
+            mock_redis_service.hget.mockResolvedValue({ email: mock_user.email });
+            mock_redis_service.del.mockResolvedValue(true);
 
             const result = await service.handleNotMe('valid_token');
 
-            expect(mockVerificationService.validateNotMeLink).toHaveBeenCalledWith('valid_token');
-            expect(mockRedisService.hget).toHaveBeenCalledWith(`signup:session:${mockUser.email}`);
-            expect(mockRedisService.del).toHaveBeenCalledTimes(2);
-            expect(mockRedisService.del).toHaveBeenCalledWith(`signup:session:${mockUser.email}`);
-            expect(mockRedisService.del).toHaveBeenCalledWith(`otp:email:${mockUser.email}`);
+            expect(mock_verification_service.validateNotMeLink).toHaveBeenCalledWith('valid_token');
+            expect(mock_redis_service.hget).toHaveBeenCalledWith(
+                `signup:session:${mock_user.email}`
+            );
+            expect(mock_redis_service.del).toHaveBeenCalledTimes(2);
+            expect(mock_redis_service.del).toHaveBeenCalledWith(
+                `signup:session:${mock_user.email}`
+            );
+            expect(mock_redis_service.del).toHaveBeenCalledWith(`otp:email:${mock_user.email}`);
             expect(result).toEqual({});
         });
 
         it('should throw UnauthorizedException if token is invalid or expired', async () => {
-            mockVerificationService.validateNotMeLink.mockResolvedValue(null);
+            mock_verification_service.validateNotMeLink.mockResolvedValue(null);
 
             await expect(service.handleNotMe('invalid_token')).rejects.toThrow(
                 UnauthorizedException
             );
 
-            expect(mockVerificationService.validateNotMeLink).toHaveBeenCalledWith('invalid_token');
-            expect(mockRedisService.hget).not.toHaveBeenCalled();
-            expect(mockRedisService.del).not.toHaveBeenCalled();
+            expect(mock_verification_service.validateNotMeLink).toHaveBeenCalledWith(
+                'invalid_token'
+            );
+            expect(mock_redis_service.hget).not.toHaveBeenCalled();
+            expect(mock_redis_service.del).not.toHaveBeenCalled();
         });
 
         it('should throw BadRequestException if account already verified', async () => {
-            const mockUser = { email: 'test@example.com' };
+            const mock_user = { email: 'test@example.com' };
 
-            mockVerificationService.validateNotMeLink.mockResolvedValue(mockUser);
-            mockRedisService.hget.mockResolvedValue(null);
+            mock_verification_service.validateNotMeLink.mockResolvedValue(mock_user);
+            mock_redis_service.hget.mockResolvedValue(null);
 
             await expect(service.handleNotMe('expired_link')).rejects.toThrow(BadRequestException);
 
-            expect(mockVerificationService.validateNotMeLink).toHaveBeenCalledWith('expired_link');
-            expect(mockRedisService.hget).toHaveBeenCalledWith(`signup:session:${mockUser.email}`);
-            expect(mockRedisService.del).not.toHaveBeenCalled();
+            expect(mock_verification_service.validateNotMeLink).toHaveBeenCalledWith(
+                'expired_link'
+            );
+            expect(mock_redis_service.hget).toHaveBeenCalledWith(
+                `signup:session:${mock_user.email}`
+            );
+            expect(mock_redis_service.del).not.toHaveBeenCalled();
         });
     });
 
@@ -962,17 +979,17 @@ describe('AuthService', () => {
         });
 
         it('should update password successfully when valid', async () => {
-            const mockUser = { id: 'user123', password: 'hashedOldPass' };
-            mockUserService.findUserById.mockResolvedValue(mockUser);
+            const mock_user = { id: 'user123', password: 'hashedOldPass' };
+            mock_user_service.findUserById.mockResolvedValue(mock_user);
             jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
             jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedNewPass' as never);
 
             const result = await service.changePassword('user123', 'oldPass', 'newPass');
 
-            expect(mockUserService.findUserById).toHaveBeenCalledWith('user123');
+            expect(mock_user_service.findUserById).toHaveBeenCalledWith('user123');
             expect(bcrypt.compare).toHaveBeenCalledWith('oldPass', 'hashedOldPass');
             expect(bcrypt.hash).toHaveBeenCalledWith('newPass', 10);
-            expect(mockUserService.updateUserPassword).toHaveBeenCalledWith(
+            expect(mock_user_service.updateUserPassword).toHaveBeenCalledWith(
                 'user123',
                 'hashedNewPass'
             );
@@ -980,14 +997,14 @@ describe('AuthService', () => {
         });
 
         it('should update password even if user has no current password (OAuth user)', async () => {
-            const mockUser = { id: 'user123', password: null };
-            mockUserService.findUserById.mockResolvedValue(mockUser);
+            const mock_user = { id: 'user123', password: null };
+            mock_user_service.findUserById.mockResolvedValue(mock_user);
             jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedNewPass' as never);
 
             const result = await service.changePassword('user123', 'oldPass', 'newPass');
 
             expect(bcrypt.compare).not.toHaveBeenCalled();
-            expect(mockUserService.updateUserPassword).toHaveBeenCalledWith(
+            expect(mock_user_service.updateUserPassword).toHaveBeenCalledWith(
                 'user123',
                 'hashedNewPass'
             );
@@ -999,24 +1016,24 @@ describe('AuthService', () => {
                 BadRequestException
             );
 
-            expect(mockUserService.findUserById).not.toHaveBeenCalled();
-            expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+            expect(mock_user_service.findUserById).not.toHaveBeenCalled();
+            expect(mock_user_service.updateUserPassword).not.toHaveBeenCalled();
         });
 
         it('should throw NotFoundException if user not found', async () => {
-            mockUserService.findUserById.mockResolvedValue(null);
+            mock_user_service.findUserById.mockResolvedValue(null);
 
             await expect(service.changePassword('user123', 'oldPass', 'newPass')).rejects.toThrow(
                 NotFoundException
             );
 
-            expect(mockUserService.findUserById).toHaveBeenCalledWith('user123');
-            expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+            expect(mock_user_service.findUserById).toHaveBeenCalledWith('user123');
+            expect(mock_user_service.updateUserPassword).not.toHaveBeenCalled();
         });
 
         it('should throw UnauthorizedException if old password is wrong', async () => {
-            const mockUser = { id: 'user123', password: 'hashedOldPass' };
-            mockUserService.findUserById.mockResolvedValue(mockUser);
+            const mock_user = { id: 'user123', password: 'hashedOldPass' };
+            mock_user_service.findUserById.mockResolvedValue(mock_user);
             jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
 
             await expect(
@@ -1024,59 +1041,59 @@ describe('AuthService', () => {
             ).rejects.toThrow(UnauthorizedException);
 
             expect(bcrypt.compare).toHaveBeenCalledWith('wrongOldPass', 'hashedOldPass');
-            expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+            expect(mock_user_service.updateUserPassword).not.toHaveBeenCalled();
         });
     });
 
     describe('refresh', () => {
-        const mockPayload = { id: 'user123', jti: 'token123' };
-        const mockTokens = { accessToken: 'access', refreshToken: 'refresh' };
+        const mock_payload = { id: 'user123', jti: 'token123' };
+        const mock_tokens = { accessToken: 'access', refreshToken: 'refresh' };
 
         beforeEach(() => {
             jest.clearAllMocks();
         });
 
         it('should refresh tokens successfully', async () => {
-            mockJwtService.verifyAsync.mockResolvedValue(mockPayload);
-            mockRedisService.get.mockResolvedValue('1'); // token exists
-            mockRedisService.del.mockResolvedValue(1);
-            jest.spyOn(service, 'generateTokens').mockResolvedValue(mockTokens as any);
+            mock_jwt_service.verifyAsync.mockResolvedValue(mock_payload);
+            mock_redis_service.get.mockResolvedValue('1'); // token exists
+            mock_redis_service.del.mockResolvedValue(1);
+            jest.spyOn(service, 'generateTokens').mockResolvedValue(mock_tokens as any);
 
             const result = await service.refresh('valid-refresh-token');
 
-            expect(mockJwtService.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
+            expect(mock_jwt_service.verifyAsync).toHaveBeenCalledWith('valid-refresh-token', {
                 secret: process.env.JWT_REFRESH_SECRET,
             });
-            expect(mockRedisService.get).toHaveBeenCalledWith('refresh:token123');
-            expect(mockRedisService.del).toHaveBeenCalledWith('refresh:token123');
+            expect(mock_redis_service.get).toHaveBeenCalledWith('refresh:token123');
+            expect(mock_redis_service.del).toHaveBeenCalledWith('refresh:token123');
             expect(service.generateTokens).toHaveBeenCalledWith('user123');
-            expect(result).toEqual(mockTokens);
+            expect(result).toEqual(mock_tokens);
         });
 
         it('should throw UnauthorizedException if refresh token not in Redis', async () => {
-            mockJwtService.verifyAsync.mockResolvedValue(mockPayload);
-            mockRedisService.get.mockResolvedValue(null);
+            mock_jwt_service.verifyAsync.mockResolvedValue(mock_payload);
+            mock_redis_service.get.mockResolvedValue(null);
 
             await expect(service.refresh('invalid-refresh')).rejects.toThrow(
                 new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            expect(mockRedisService.del).not.toHaveBeenCalled();
+            expect(mock_redis_service.del).not.toHaveBeenCalled();
         });
 
         it('should throw UnauthorizedException if JWT verification fails', async () => {
-            mockJwtService.verifyAsync.mockRejectedValue(new Error('invalid jwt'));
+            mock_jwt_service.verifyAsync.mockRejectedValue(new Error('invalid jwt'));
 
             await expect(service.refresh('bad-token')).rejects.toThrow(
                 new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            expect(mockRedisService.get).not.toHaveBeenCalled();
+            expect(mock_redis_service.get).not.toHaveBeenCalled();
         });
     });
 
     describe('validateGoogleUser', () => {
-        const mockGoogleUser = {
+        const mock_google_user = {
             google_id: 'google123',
             email: 'test@example.com',
             first_name: 'John',
@@ -1089,65 +1106,65 @@ describe('AuthService', () => {
         });
 
         it('should return user if found by google_id', async () => {
-            const existingUser = { id: '1', email: 'test@example.com' };
-            mockUserService.findUserByGoogleId.mockResolvedValueOnce(existingUser);
+            const existing_user = { id: '1', email: 'test@example.com' };
+            mock_user_service.findUserByGoogleId.mockResolvedValueOnce(existing_user);
 
-            const result = await service.validateGoogleUser(mockGoogleUser);
+            const result = await service.validateGoogleUser(mock_google_user);
 
-            expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
-            expect(result).toBe(existingUser);
-            expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
-            expect(mockUserService.createUser).not.toHaveBeenCalled();
+            expect(mock_user_service.findUserByGoogleId).toHaveBeenCalledWith('google123');
+            expect(result).toBe(existing_user);
+            expect(mock_user_service.findUserByEmail).not.toHaveBeenCalled();
+            expect(mock_user_service.createUser).not.toHaveBeenCalled();
         });
 
         it('should update existing user with googleId if found by email', async () => {
-            mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
-            const userByEmail = { id: '2', email: 'test@example.com' };
-            const updatedUser = { ...userByEmail, google_id: 'google123' };
+            mock_user_service.findUserByGoogleId.mockResolvedValueOnce(null);
+            const user_by_email = { id: '2', email: 'test@example.com' };
+            const updated_user = { ...user_by_email, google_id: 'google123' };
 
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(
-                userByEmail as any
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(
+                user_by_email as any
             );
-            mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+            mock_user_service.updateUser.mockResolvedValueOnce(updated_user);
 
-            const result = await service.validateGoogleUser(mockGoogleUser);
+            const result = await service.validateGoogleUser(mock_google_user);
 
-            expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
-            expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+            expect(mock_user_service.findUserByGoogleId).toHaveBeenCalledWith('google123');
+            expect(mock_user_service.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+            expect(mock_user_service.updateUser).toHaveBeenCalledWith('2', {
                 google_id: 'google123',
                 avatar_url: 'http://avatar.com/john',
             });
             expect(result).toEqual({
-                user: updatedUser,
+                user: updated_user,
                 needs_completion: false,
             });
         });
 
         it('should throw if updateUser fails to return user', async () => {
-            mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
-            const userByEmail = { id: '2', email: 'test@example.com' };
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(
-                userByEmail as any
+            mock_user_service.findUserByGoogleId.mockResolvedValueOnce(null);
+            const user_by_email = { id: '2', email: 'test@example.com' };
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(
+                user_by_email as any
             );
-            mockUserService.updateUser.mockResolvedValueOnce(null);
+            mock_user_service.updateUser.mockResolvedValueOnce(null);
 
-            await expect(service.validateGoogleUser(mockGoogleUser)).rejects.toThrow(
+            await expect(service.validateGoogleUser(mock_google_user)).rejects.toThrow(
                 new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
             );
         });
 
         it('should create a new user if not found by googleId or email', async () => {
-            mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mock_user_service.findUserByGoogleId.mockResolvedValueOnce(null);
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
 
-            const createdUser = { id: '3', ...mockGoogleUser };
-            mockUserService.createUser.mockResolvedValueOnce(createdUser);
+            const created_user = { id: '3', ...mock_google_user };
+            mock_user_service.createUser.mockResolvedValueOnce(created_user);
 
-            const result = await service.validateGoogleUser(mockGoogleUser);
+            const result = await service.validateGoogleUser(mock_google_user);
 
-            expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+            expect(mock_user_service.findUserByGoogleId).toHaveBeenCalledWith('google123');
+            expect(mock_user_service.findUserByEmail).toHaveBeenCalledWith('test@example.com');
             expect(result).toEqual({
                 needs_completion: true,
                 user: {
@@ -1170,7 +1187,7 @@ describe('AuthService', () => {
     });
 
     describe('validateFacebookUser', () => {
-        const mockFacebookUser = {
+        const mock_facebook_user = {
             facebook_id: 'fb123',
             email: 'test@example.com',
             first_name: 'John',
@@ -1183,61 +1200,61 @@ describe('AuthService', () => {
         });
 
         it('should return user if found by facebook_id', async () => {
-            const existingUser = { id: '1', email: 'test@example.com' };
-            mockUserService.findUserByFacebookId.mockResolvedValueOnce(existingUser);
+            const existing_user = { id: '1', email: 'test@example.com' };
+            mock_user_service.findUserByFacebookId.mockResolvedValueOnce(existing_user);
 
-            const result = await service.validateFacebookUser(mockFacebookUser);
+            const result = await service.validateFacebookUser(mock_facebook_user);
 
-            expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
-            expect(result).toBe(existingUser);
-            expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
-            expect(mockUserService.createUser).not.toHaveBeenCalled();
+            expect(mock_user_service.findUserByFacebookId).toHaveBeenCalledWith('fb123');
+            expect(result).toBe(existing_user);
+            expect(mock_user_service.findUserByEmail).not.toHaveBeenCalled();
+            expect(mock_user_service.createUser).not.toHaveBeenCalled();
         });
 
         it('should update existing user with facebook_id if found by email', async () => {
-            mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
-            const userByEmail = { id: '2', email: 'test@example.com' };
-            const updatedUser = { ...userByEmail, facebook_id: 'fb123' };
+            mock_user_service.findUserByFacebookId.mockResolvedValueOnce(null);
+            const user_by_email = { id: '2', email: 'test@example.com' };
+            const updated_user = { ...user_by_email, facebook_id: 'fb123' };
 
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
-            mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(user_by_email);
+            mock_user_service.updateUser.mockResolvedValueOnce(updated_user);
 
-            const result = await service.validateFacebookUser(mockFacebookUser);
+            const result = await service.validateFacebookUser(mock_facebook_user);
 
-            expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
-            expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+            expect(mock_user_service.findUserByFacebookId).toHaveBeenCalledWith('fb123');
+            expect(mock_user_service.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+            expect(mock_user_service.updateUser).toHaveBeenCalledWith('2', {
                 facebook_id: 'fb123',
                 avatar_url: 'http://avatar.com/john',
             });
             expect(result).toEqual({
-                user: updatedUser,
+                user: updated_user,
                 needs_completion: false,
             });
         });
 
         it('should throw if updateUser fails to return user', async () => {
-            mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
-            const userByEmail = { id: '2', email: 'test@example.com' };
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
-            mockUserService.updateUser.mockResolvedValueOnce(null);
+            mock_user_service.findUserByFacebookId.mockResolvedValueOnce(null);
+            const user_by_email = { id: '2', email: 'test@example.com' };
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(user_by_email);
+            mock_user_service.updateUser.mockResolvedValueOnce(null);
 
-            await expect(service.validateFacebookUser(mockFacebookUser)).rejects.toThrow(
+            await expect(service.validateFacebookUser(mock_facebook_user)).rejects.toThrow(
                 new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
             );
         });
 
         it('should create a new user if not found by facebook_id or email', async () => {
-            mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mock_user_service.findUserByFacebookId.mockResolvedValueOnce(null);
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
 
-            const createdUser = { id: '3', ...mockFacebookUser };
-            mockUserService.createUser.mockResolvedValueOnce(createdUser);
+            const created_user = { id: '3', ...mock_facebook_user };
+            mock_user_service.createUser.mockResolvedValueOnce(created_user);
 
-            const result = await service.validateFacebookUser(mockFacebookUser);
+            const result = await service.validateFacebookUser(mock_facebook_user);
 
-            expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+            expect(mock_user_service.findUserByFacebookId).toHaveBeenCalledWith('fb123');
+            expect(mock_user_service.findUserByEmail).toHaveBeenCalledWith('test@example.com');
             expect(result).toEqual({
                 needs_completion: true,
                 user: {
@@ -1251,7 +1268,7 @@ describe('AuthService', () => {
     });
 
     describe('findOrCreateGitHubUser', () => {
-        const mockGitHubUser = {
+        const mock_git_hub_user = {
             github_id: 'gh123',
             email: 'dev@example.com',
             first_name: 'Dev',
@@ -1264,61 +1281,61 @@ describe('AuthService', () => {
         });
 
         it('should return user if found by github_id', async () => {
-            const existingUser = { id: '1', email: 'dev@example.com' };
-            mockUserService.findUserByGithubId.mockResolvedValueOnce(existingUser);
+            const existing_user = { id: '1', email: 'dev@example.com' };
+            mock_user_service.findUserByGithubId.mockResolvedValueOnce(existing_user);
 
-            const result = await service.validateGitHubUser(mockGitHubUser);
+            const result = await service.validateGitHubUser(mock_git_hub_user);
 
-            expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
-            expect(result).toBe(existingUser);
-            expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
-            expect(mockUserService.createUser).not.toHaveBeenCalled();
+            expect(mock_user_service.findUserByGithubId).toHaveBeenCalledWith('gh123');
+            expect(result).toBe(existing_user);
+            expect(mock_user_service.findUserByEmail).not.toHaveBeenCalled();
+            expect(mock_user_service.createUser).not.toHaveBeenCalled();
         });
 
         it('should update existing user with github_id if found by email', async () => {
-            mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
-            const userByEmail = { id: '2', email: 'dev@example.com' };
-            const updatedUser = { ...userByEmail, github_id: 'gh123' };
+            mock_user_service.findUserByGithubId.mockResolvedValueOnce(null);
+            const user_by_email = { id: '2', email: 'dev@example.com' };
+            const updated_user = { ...user_by_email, github_id: 'gh123' };
 
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
-            mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(user_by_email);
+            mock_user_service.updateUser.mockResolvedValueOnce(updated_user);
 
-            const result = await service.validateGitHubUser(mockGitHubUser);
+            const result = await service.validateGitHubUser(mock_git_hub_user);
 
-            expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('dev@example.com');
-            expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+            expect(mock_user_service.findUserByGithubId).toHaveBeenCalledWith('gh123');
+            expect(mock_user_service.findUserByEmail).toHaveBeenCalledWith('dev@example.com');
+            expect(mock_user_service.updateUser).toHaveBeenCalledWith('2', {
                 github_id: 'gh123',
                 avatar_url: 'http://avatar.com/dev',
             });
             expect(result).toEqual({
-                user: updatedUser,
+                user: updated_user,
                 needs_completion: false,
             });
         });
 
         it('should throw if updateUser fails to return user', async () => {
-            mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
-            const userByEmail = { id: '2', email: 'dev@example.com' };
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
-            mockUserService.updateUser.mockResolvedValueOnce(null);
+            mock_user_service.findUserByGithubId.mockResolvedValueOnce(null);
+            const user_by_email = { id: '2', email: 'dev@example.com' };
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(user_by_email);
+            mock_user_service.updateUser.mockResolvedValueOnce(null);
 
-            await expect(service.validateGitHubUser(mockGitHubUser)).rejects.toThrow(
+            await expect(service.validateGitHubUser(mock_git_hub_user)).rejects.toThrow(
                 new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
             );
         });
 
         it('should create a new user if not found by github_id or email', async () => {
-            mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mock_user_service.findUserByGithubId.mockResolvedValueOnce(null);
+            (mock_user_service.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
 
-            const createdUser = { id: '3', ...mockGitHubUser };
-            mockUserService.createUser.mockResolvedValueOnce(createdUser);
+            const created_user = { id: '3', ...mock_git_hub_user };
+            mock_user_service.createUser.mockResolvedValueOnce(created_user);
 
-            const result = await service.validateGitHubUser(mockGitHubUser);
+            const result = await service.validateGitHubUser(mock_git_hub_user);
 
-            expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('dev@example.com');
+            expect(mock_user_service.findUserByGithubId).toHaveBeenCalledWith('gh123');
+            expect(mock_user_service.findUserByEmail).toHaveBeenCalledWith('dev@example.com');
             expect(result).toEqual({
                 needs_completion: true,
                 user: {
