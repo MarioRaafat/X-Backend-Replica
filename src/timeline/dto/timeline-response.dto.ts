@@ -1,18 +1,25 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { PaginationMeta } from './pagination-meta';
+import { Tweet } from 'src/tweets/entities';
+import { TweetResponseDTO, TweetsListResponseDTO } from 'src/tweets/dto';
 
 export class TimelineResponseDto {
-    //TODO: Uncomment after tweet implementation
-    //   @ApiProperty({
-    //     type: [TweetDto],
-    //     description: 'List of tweets in timeline',
-    //   })
-    //   tweets: [TweetDto];
+    @ApiProperty({
+        type: [Tweet],
+        description: 'List of tweets in timeline',
+    })
+    tweets: Tweet[];
+    @ApiProperty({
+        description: 'Cursor for next page (last tweet ID)',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+        required: false,
+    })
+    next_cursor?: string | null;
 
     @ApiProperty({
-        description: 'Pagiantion metadata',
+        description: 'Whether there are more tweets to load',
+        example: true,
     })
-    pagination: PaginationMeta;
+    has_more: boolean;
 
     @ApiProperty({
         example: '2024-01-15T10:35:00Z',
