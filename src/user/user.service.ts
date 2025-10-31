@@ -99,9 +99,11 @@ export class UserService {
     }
 
     async getMe(user_id: string): Promise<UserProfileDto> {
-        const result = await this.user_repository
-            .buildProfileQuery(user_id, 'id')
-            .getRawOne<UserProfileDto>();
+        const result = await this.user_repository.getMyProfile(user_id);
+
+        if (!result) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
 
         return plainToInstance(UserProfileDto, result, {
             enableImplicitConversion: true,
@@ -112,9 +114,7 @@ export class UserService {
         current_user_id: string | null,
         target_user_id: string
     ): Promise<DetailedUserProfileDto> {
-        const result = await this.user_repository
-            .buildProfileQuery(target_user_id, 'id', current_user_id)
-            .getRawOne<DetailedUserProfileDto>();
+        const result = await this.user_repository.getProfileById(current_user_id, target_user_id);
 
         if (!result) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -129,9 +129,10 @@ export class UserService {
         current_user_id: string | null,
         target_username: string
     ): Promise<DetailedUserProfileDto> {
-        const result = await this.user_repository
-            .buildProfileQuery(target_username, 'username', current_user_id)
-            .getRawOne<DetailedUserProfileDto>();
+        const result = await this.user_repository.getProfileByUsername(
+            current_user_id,
+            target_username
+        );
 
         if (!result) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
