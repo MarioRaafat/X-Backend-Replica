@@ -3,6 +3,7 @@ import {
     ConflictException,
     ForbiddenException,
     Injectable,
+    InternalServerErrorException,
     NotFoundException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -424,7 +425,7 @@ export class UserService {
                 image_name,
             };
         } catch (error) {
-            throw new Error(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
+            throw new InternalServerErrorException(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
         }
     }
 
@@ -454,7 +455,7 @@ export class UserService {
                 image_name,
             };
         } catch (error) {
-            throw new Error(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
+            throw new InternalServerErrorException(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
         }
     }
 }

@@ -15,6 +15,7 @@ import { UserService } from './user.service';
 import {
     ApiBearerAuth,
     ApiBody,
+    ApiConsumes,
     ApiCreatedResponse,
     ApiNoContentResponse,
     ApiOkResponse,
@@ -369,6 +370,7 @@ export class UserController {
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(upload_avatar.operation)
     @ApiBody(upload_avatar.body)
+    @ApiConsumes('multipart/form-data')
     @ApiCreatedResponse(upload_avatar.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
@@ -397,6 +399,7 @@ export class UserController {
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(upload_cover.operation)
     @ApiBody(upload_cover.body)
+    @ApiConsumes('multipart/form-data')
     @ApiCreatedResponse(upload_cover.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)

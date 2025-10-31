@@ -1103,7 +1103,6 @@ export const upload_avatar = {
 
     body: {
         description: 'Avatar image file',
-        type: 'multipart/form-data',
         schema: {
             type: 'object',
             properties: {
@@ -1167,15 +1166,14 @@ export const upload_cover = {
     },
 
     body: {
-        description: 'Avatar image file',
-        type: 'multipart/form-data',
+        description: 'Cover image file',
         schema: {
             type: 'object',
             properties: {
                 file: {
                     type: 'string',
                     format: 'binary',
-                    description: 'Avatar image file (JPEG, PNG, etc.)',
+                    description: 'Cover image file (JPEG, PNG, etc.)',
                 },
             },
             required: ['file'],
