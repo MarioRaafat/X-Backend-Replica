@@ -11,16 +11,21 @@ import { UserInterests } from '../user/entities/user-interests.entity';
 config({ path: resolve(__dirname, '../../config/.env') });
 const config_service = new ConfigService();
 
+const db_url = process.env.DB_URL || config_service.get<string>('DB_URL');
+
+if (!db_url) {
+    throw new Error('DB_URL environment variable is not defined');
+}
+
+const url = new URL(db_url);
+
 export default new DataSource({
     type: 'postgres',
-    host: process.env.POSTGRES_HOST || config_service.get<string>('POSTGRES_HOST'),
-    username: process.env.POSTGRES_USERNAME || config_service.get<string>('POSTGRES_USERNAME'),
-    password: process.env.POSTGRES_PASSWORD || config_service.get<string>('POSTGRES_PASSWORD'),
-    database: process.env.POSTGRES_DB || config_service.get<string>('POSTGRES_DB'),
-    port:
-        parseInt(process.env.POSTGRES_PORT || '5432') ||
-        config_service.get<number>('POSTGRES_PORT') ||
-        5432,
+    host: url.hostname,
+    port: parseInt(url.port) || 5432,
+    username: decodeURIComponent(url.username),
+    password: decodeURIComponent(url.password),
+    database: url.pathname.slice(1),
     entities: [
         User,
         Verification,
@@ -37,4 +42,5 @@ export default new DataSource({
     ],
     migrations: ['src/migrations/*{.ts,.js}'],
     synchronize: false,
+    uuidExtension: 'pgcrypto',
 });
