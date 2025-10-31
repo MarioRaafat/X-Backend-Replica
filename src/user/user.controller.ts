@@ -375,7 +375,12 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.AVATAR_UPLOADED)
     @Post('me/upload-avatar')
     @UseInterceptors(FileInterceptor('file'))
-    async uploadAvatar(@UploadedFile() file: Express.Multer.File) {}
+    async uploadAvatar(
+        @GetUserId() current_user_id: string,
+        @UploadedFile() file: Express.Multer.File
+    ) {
+        return await this.user_service.uploadAvatar(current_user_id, file);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -398,7 +403,12 @@ export class UserController {
     @ResponseMessage(SUCCESS_MESSAGES.COVER_UPLOADED)
     @Post('me/upload-cover')
     @UseInterceptors(FileInterceptor('file'))
-    async uploadCover(@UploadedFile() file: Express.Multer.File) {}
+    async uploadCover(
+        @GetUserId() current_user_id: string,
+        @UploadedFile() file: Express.Multer.File
+    ) {
+        return await this.user_service.uploadCover(current_user_id, file);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')

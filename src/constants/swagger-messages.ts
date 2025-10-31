@@ -92,6 +92,8 @@ export const ERROR_MESSAGES = {
     // file
     FILE_NOT_FOUND: 'File not found',
     INVALID_FILE_FORMAT: 'Invalid file format',
+    FILE_UPLOAD_FAILED: 'File upload failed',
+
     // search
     INVALID_SEARCH_QUERY: 'Invalid search query',
 

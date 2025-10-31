@@ -17,6 +17,7 @@ import { ExploreModule } from './explore/explore.module';
 import { TweetsModule } from './tweets/tweets.module';
 import { ChatModule } from './chat/chat.module';
 import { CategoryModule } from './category/category.module';
+import { AzureStorageModule } from './azure-storage/azure-storage.module';
 
 @Module({
     imports: [
@@ -40,6 +41,7 @@ import { CategoryModule } from './category/category.module';
         ChatModule,
         TimelineModule,
         CategoryModule,
+        AzureStorageModule,
     ],
     controllers: [AppController],
     providers: [AppService],

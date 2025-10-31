@@ -1088,7 +1088,12 @@ export const upload_avatar = {
             description: 'Avatar uploaded successfully',
             schema: {
                 example: {
-                    data: {},
+                    data: {
+                        image_url:
+                            'https://yapperdev.blob.core.windows.net/profile-images/3cda6108-8cb6-411b-9457-fbd8ffbf77ee-1761902534288-kurosensi.png',
+                        image_name:
+                            '3cda6108-8cb6-411b-9457-fbd8ffbf77ee-1761902534288-kurosensi.png',
+                    },
                     count: 0,
                     message: SUCCESS_MESSAGES.AVATAR_UPLOADED,
                 },
@@ -1148,7 +1153,12 @@ export const upload_cover = {
             description: 'Cover uploaded successfully',
             schema: {
                 example: {
-                    data: {},
+                    data: {
+                        image_url:
+                            'https://yapperdev.blob.core.windows.net/profile-images/3cda6108-8cb6-411b-9457-fbd8ffbf77ee-1761902534288-kurosensi.png',
+                        image_name:
+                            '3cda6108-8cb6-411b-9457-fbd8ffbf77ee-1761902534288-kurosensi.png',
+                    },
                     count: 0,
                     message: SUCCESS_MESSAGES.COVER_UPLOADED,
                 },

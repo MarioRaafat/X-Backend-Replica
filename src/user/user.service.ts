@@ -25,10 +25,16 @@ import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUsersByIdDto } from './dto/get-users-by-id.dto';
 import { GetUsersByUsernameDto } from './dto/get-users-by-username.dto';
 import { UserLookupDto } from './dto/user-lookup.dto';
+import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
+import { ConfigService } from '@nestjs/config';
 
 @Injectable()
 export class UserService {
-    constructor(private readonly user_repository: UserRepository) {}
+    constructor(
+        private readonly user_repository: UserRepository,
+        private readonly azure_storage_service: AzureStorageService,
+        private readonly config_service: ConfigService
+    ) {}
 
     async getUsersById(
         current_user_id: string | null,
@@ -390,5 +396,65 @@ export class UserService {
         return plainToInstance(UserProfileDto, updated_user, {
             excludeExtraneousValues: true,
         });
+    }
+
+    async uploadAvatar(current_user_id: string, file: Express.Multer.File) {
+        try {
+            if (!file || !file.buffer) {
+                throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+            }
+
+            const image_name = this.azure_storage_service.generateImageName(
+                current_user_id,
+                file.originalname
+            );
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
+            );
+
+            const image_url = await this.azure_storage_service.uploadImage(
+                file.buffer,
+                image_name,
+                container_name
+            );
+
+            return {
+                image_url,
+                image_name,
+            };
+        } catch (error) {
+            throw new Error(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
+        }
+    }
+
+    async uploadCover(current_user_id: string, file: Express.Multer.File) {
+        try {
+            if (!file || !file.buffer) {
+                throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+            }
+
+            const image_name = this.azure_storage_service.generateImageName(
+                current_user_id,
+                file.originalname
+            );
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
+            );
+
+            const image_url = await this.azure_storage_service.uploadImage(
+                file.buffer,
+                image_name,
+                container_name
+            );
+
+            return {
+                image_url,
+                image_name,
+            };
+        } catch (error) {
+            throw new Error(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
+        }
     }
 }
