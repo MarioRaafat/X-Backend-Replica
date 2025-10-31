@@ -1,4 +1,3 @@
-// src/category/category.entity.ts
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
 @Entity('category')

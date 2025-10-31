@@ -1,7 +1,11 @@
 import { Injectable } from '@nestjs/common';
-import { DataSource, Repository, SelectQueryBuilder } from 'typeorm';
+import { DataSource, DeleteResult, Repository, SelectQueryBuilder } from 'typeorm';
 import { User } from './entities/user.entity';
 import { UserListItemDto } from './dto/user-list-item.dto';
+import { UserBlocks, UserFollows, UserMutes } from './entities';
+import { InsertResult } from 'typeorm/browser';
+import { RelationshipType } from './enums/relationship-type.enum';
+import { UserInterests } from './entities/user-interests.entity';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
@@ -57,21 +61,18 @@ export class UserRepository extends Repository<User> {
         identifier_type: 'id' | 'username',
         viewer_id?: string | null
     ): SelectQueryBuilder<User> {
-        const query = this.createQueryBuilder('user')
-            .leftJoin('user_follows', 'followers', 'followers.followed_id = user.id')
-            .leftJoin('user_follows', 'following', 'following.follower_id = user.id')
-            .select([
-                'user.id AS user_id',
-                'user.name AS name',
-                'user.username AS username',
-                'user.bio AS bio',
-                'user.avatar_url AS avatar_url',
-                'user.cover_url AS cover_url',
-                'user.country AS country',
-                'user.created_at AS created_at',
-                'COUNT(DISTINCT followers.follower_id) AS followers_count',
-                'COUNT(DISTINCT following.followed_id) AS following_count',
-            ]);
+        const query = this.createQueryBuilder('user').select([
+            'user.id AS user_id',
+            'user.name AS name',
+            'user.username AS username',
+            'user.bio AS bio',
+            'user.avatar_url AS avatar_url',
+            'user.cover_url AS cover_url',
+            'user.country AS country',
+            'user.created_at AS created_at',
+            'user.followers AS followers_count',
+            'user.following AS following_count',
+        ]);
 
         if (identifier_type === 'id') {
             query.where('user.id = :identifier', { identifier });
@@ -80,7 +81,6 @@ export class UserRepository extends Repository<User> {
             console.log(identifier);
         }
 
-        // For authenticated viewer users
         if (viewer_id) {
             query
                 .addSelect(
@@ -190,6 +190,50 @@ export class UserRepository extends Repository<User> {
         return query;
     }
 
+    async getUsersById(
+        user_ids: string[],
+        current_user_id: string | null
+    ): Promise<UserListItemDto[]> {
+        let query;
+
+        if (current_user_id) {
+            query = this.buildUserListQuery(current_user_id);
+        } else {
+            query = this.createQueryBuilder('user').select([
+                '"user"."id" AS user_id',
+                'user.name AS name',
+                'user.username AS username',
+                'user.bio AS bio',
+                'user.avatar_url AS avatar_url',
+            ]);
+        }
+
+        return await query.where('"user"."id" IN (:...user_ids)', { user_ids }).getRawMany();
+    }
+
+    async getUsersByUsername(
+        usernames: string[],
+        current_user_id: string | null
+    ): Promise<UserListItemDto[]> {
+        let query;
+
+        if (current_user_id) {
+            query = this.buildUserListQuery(current_user_id);
+        } else {
+            query = this.createQueryBuilder('user').select([
+                '"user"."id" AS user_id',
+                'user.name AS name',
+                'user.username AS username',
+                'user.bio AS bio',
+                'user.avatar_url AS avatar_url',
+            ]);
+        }
+
+        return await query
+            .where('"user"."username" IN (:...usernames)', { usernames })
+            .getRawMany();
+    }
+
     async getFollowersList(
         current_user_id: string,
         target_user_id: string,
@@ -274,5 +318,158 @@ export class UserRepository extends Repository<User> {
             .limit(page_size)
             .offset(page_offset)
             .getRawMany();
+    }
+
+    async insertFollowRelationship(
+        follower_id: string,
+        followed_id: string
+    ): Promise<InsertResult> {
+        return await this.dataSource.transaction(async (manager) => {
+            const user_follows = new UserFollows({ follower_id, followed_id });
+            const insert_result = await manager.insert(UserFollows, user_follows);
+
+            await manager.increment(User, { id: follower_id }, 'following', 1);
+            await manager.increment(User, { id: followed_id }, 'followers', 1);
+
+            return insert_result;
+        });
+    }
+
+    async deleteFollowRelationship(
+        follower_id: string,
+        followed_id: string
+    ): Promise<DeleteResult> {
+        return await this.dataSource.transaction(async (manager) => {
+            const delete_result = await manager.delete(UserFollows, {
+                follower_id,
+                followed_id,
+            });
+
+            if (delete_result.affected && delete_result.affected > 0) {
+                await manager.decrement(User, { id: follower_id }, 'following', 1);
+                await manager.decrement(User, { id: followed_id }, 'followers', 1);
+            }
+
+            return delete_result;
+        });
+    }
+
+    async insertMuteRelationship(muter_id: string, muted_id: string): Promise<InsertResult> {
+        const user_mutes = new UserMutes({ muter_id, muted_id });
+        return await this.dataSource.getRepository(UserMutes).insert(user_mutes);
+    }
+
+    async deleteMuteRelationship(muter_id: string, muted_id: string): Promise<DeleteResult> {
+        return await this.dataSource.getRepository(UserMutes).delete({ muter_id, muted_id });
+    }
+
+    async insertBlockRelationship(blocker_id: string, blocked_id: string) {
+        const user_blocks = new UserBlocks({ blocker_id, blocked_id });
+        await this.dataSource.transaction(async (manager) => {
+            const user_blocks_repository = manager.getRepository(UserBlocks);
+            const user_follows_repository = manager.getRepository(UserFollows);
+
+            await user_blocks_repository.insert(user_blocks);
+
+            await user_follows_repository
+                .createQueryBuilder()
+                .delete()
+                .where('follower_id = :blocker_id AND followed_id = :blocked_id')
+                .orWhere('follower_id = :blocked_id AND followed_id = :blocker_id')
+                .setParameters({ blocker_id, blocked_id })
+                .execute();
+        });
+    }
+
+    async deleteBlockRelationship(blocker_id: string, blocked_id: string): Promise<DeleteResult> {
+        return await this.dataSource.getRepository(UserBlocks).delete({ blocker_id, blocked_id });
+    }
+
+    async validateRelationshipRequest(
+        current_user_id: string,
+        target_user_id: string,
+        relationship_type: RelationshipType,
+        operation: 'insert' | 'remove'
+    ): Promise<any> {
+        const { table_name, source_column, target_column } =
+            this.getRelationshipConfig(relationship_type);
+
+        const query = this.createQueryBuilder('user')
+            .addSelect(
+                `EXISTS(
+                    SELECT 1 FROM ${table_name} ur
+                    WHERE ur.${source_column} = :current_user_id 
+                    AND ur.${target_column} = :target_user_id
+                )`,
+                'relationship_exists'
+            )
+            .where('user.id = :target_user_id');
+
+        if (operation === 'insert') {
+            query.addSelect('user.id', 'user_exists');
+        }
+
+        return await query
+            .setParameter('current_user_id', current_user_id)
+            .setParameter('target_user_id', target_user_id)
+            .getRawOne();
+    }
+
+    async verifyFollowPermissions(current_user_id: string, target_user_id: string): Promise<any> {
+        const blocks = await this.dataSource
+            .getRepository(UserBlocks)
+            .createQueryBuilder('ub')
+            .select(['ub.blocker_id', 'ub.blocked_id'])
+            .where(
+                '(ub.blocker_id = :target_user_id AND ub.blocked_id = :current_user_id) OR ' +
+                    '(ub.blocker_id = :current_user_id AND ub.blocked_id = :target_user_id)'
+            )
+            .setParameters({ current_user_id, target_user_id })
+            .getMany();
+
+        return {
+            blocked_me: blocks.some(
+                (b) => b.blocker_id === target_user_id && b.blocked_id === current_user_id
+            ),
+            is_blocked: blocks.some(
+                (b) => b.blocker_id === current_user_id && b.blocked_id === target_user_id
+            ),
+        };
+    }
+
+    private getRelationshipConfig(relationship_type: RelationshipType): {
+        table_name: string;
+        source_column: string;
+        target_column: string;
+    } {
+        switch (relationship_type) {
+            case RelationshipType.FOLLOW:
+                return {
+                    table_name: 'user_follows',
+                    source_column: 'follower_id',
+                    target_column: 'followed_id',
+                };
+            case RelationshipType.MUTE:
+                return {
+                    table_name: 'user_mutes',
+                    source_column: 'muter_id',
+                    target_column: 'muted_id',
+                };
+            case RelationshipType.BLOCK:
+                return {
+                    table_name: 'user_blocks',
+                    source_column: 'blocker_id',
+                    target_column: 'blocked_id',
+                };
+            default:
+                throw new Error('Unknown relationship type');
+        }
+    }
+
+    async insertUserInterests(user_interests) {
+        return await this.dataSource.getRepository(UserInterests).upsert(user_interests, {
+            conflictPaths: ['user_id', 'category_id'],
+            skipUpdateIfNoValuesChanged: true,
+        });
     }
 }

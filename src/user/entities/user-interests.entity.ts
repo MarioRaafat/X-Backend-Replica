@@ -18,6 +18,6 @@ export class UserInterests {
     @JoinColumn({ name: 'category_id' })
     category: Category;
 
-    @Column({ type: 'int', default: 50 })
-    score: number;
+    @Column({ type: 'int', default: 100 })
+    score: number = 100;
 }

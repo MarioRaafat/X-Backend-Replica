@@ -16,4 +16,8 @@ export class UserBlocks {
     @ManyToMany(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'blocked_id' })
     blocked: User;
+
+    constructor(user_blocks: Partial<UserBlocks>) {
+        Object.assign(this, user_blocks);
+    }
 }

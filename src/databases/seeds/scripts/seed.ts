@@ -5,6 +5,7 @@ import AppDataSource from 'src/databases/data-source';
 import { TweetSeeder } from './tweet.seed';
 import { ReplySeeder } from './reply.seed';
 import { ISeederContext } from './seeder.interface';
+import { CategorySeeder } from './category.seed';
 
 async function main() {
     // Parse topics from command line
@@ -79,6 +80,12 @@ async function processTopic(
         data,
         results: {},
     };
+
+    // 0. Seed Categories
+    await runSeeder('CategorySeeder', async () => {
+        const seeder = new CategorySeeder();
+        await seeder.seed(context);
+    });
 
     // 1. Seed Users
     await runSeeder('UserSeeder', async () => {

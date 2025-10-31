@@ -1,5 +1,5 @@
 import { Exclude } from 'class-transformer';
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Column, Entity, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity()
 export class User {
@@ -51,7 +51,7 @@ export class User {
     verified: boolean;
 
     @Column({ type: 'varchar', nullable: true })
-    country: string;
+    country?: string;
 
     @Column({ type: 'boolean', default: false })
     online: boolean;
@@ -59,11 +59,7 @@ export class User {
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
 
-    @Column({
-        type: 'timestamp',
-        default: () => 'CURRENT_TIMESTAMP',
-        onUpdate: 'CURRENT_TIMESTAMP',
-    })
+    @UpdateDateColumn()
     updated_at: Date;
 
     @Column({ type: 'int', default: 0 })

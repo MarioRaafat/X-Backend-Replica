@@ -16,4 +16,8 @@ export class UserMutes {
     @ManyToMany(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'muted_id' })
     muted: User;
+
+    constructor(user_mutes: Partial<UserMutes>) {
+        Object.assign(this, user_mutes);
+    }
 }
