@@ -23,6 +23,7 @@ export class TimelineService {
             next_cursor,
             has_more: tweets.length === pagination.limit,
             timestamp: new Date().toISOString(),
+            count: tweets.length,
         };
         // quotes
         // reposts
@@ -43,6 +44,7 @@ export class TimelineService {
             next_cursor,
             has_more: tweets.length === pagination.limit,
             timestamp: new Date().toISOString(),
+            count: tweets.length,
         };
     }
 }

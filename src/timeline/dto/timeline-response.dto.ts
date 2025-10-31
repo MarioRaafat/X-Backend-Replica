@@ -22,6 +22,12 @@ export class TimelineResponseDto {
     has_more: boolean;
 
     @ApiProperty({
+        description: 'Total tweets count',
+        example: 100,
+    })
+    count: number;
+
+    @ApiProperty({
         example: '2024-01-15T10:35:00Z',
         description: 'Feed was fetched/generated at 10:35',
     })
