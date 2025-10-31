@@ -26,7 +26,7 @@ export class Tweet {
     @Column({ type: 'uuid', nullable: true })
     conversation_id: string | null;
 
-    @Column({ type: 'text' })
+    @Column({ type: 'text', nullable: true })
     content: string;
 
     @Column({ type: 'text', array: true, default: '{}' })

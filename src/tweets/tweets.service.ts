@@ -19,6 +19,8 @@ import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
 import { Hashtag } from './entities/hashtags.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { BlobServiceClient } from '@azure/storage-blob';
+import { GoogleGenAI } from '@google/genai';
 import { TweetMapper } from './mappers/tweet.mapper';
 
 interface ITweetWithTypeInfo extends Tweet {
@@ -43,6 +45,15 @@ export class TweetsService {
         private data_source: DataSource,
         private readonly paginate_service: PaginationService
     ) {}
+
+    private readonly TWEET_IMAGES_CONTAINER = 'post-images';
+    private readonly TWEET_VIDEOS_CONTAINER = 'post-videos';
+
+    private readonly API_KEY = process.env.GOOGLE_API_KEY ?? '';
+    private readonly genAI = new GoogleGenAI({ apiKey: this.API_KEY });
+
+    private readonly TOPICS = ['Sports', 'Entertainment', 'News'];
+
 
     /**
      * Helper method to attach type information from raw query results to tweet entities
@@ -79,22 +90,57 @@ export class TweetsService {
      * @param _user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
-    uploadImage(file: Express.Multer.File, _user_id: string): Promise<UploadMediaResponseDTO> {
-        // TODO: Implement image upload logic
-        // - Upload to cloud storage (S3, Cloudinary, etc.)
-        // - Save file metadata to database
-        // - Process/compress image if needed
-        // - Generate thumbnail
-        // - Return file URL and metadata
+    async uploadImage(file: Express.Multer.File, user_id: string) {
+        const image_name = `${user_id}-${Date.now()}-${file.originalname}`;
 
-        // File is in memory as file.buffer
-        // NOT saved to disk - discarded after request
-        return Promise.resolve({
-            url: `https://your-cdn.com/placeholder-url`, // Placeholder URL
+        const url = await this.uploadImageToAzure(
+            file.buffer,
+            image_name,
+            this.TWEET_IMAGES_CONTAINER
+        );
+
+        return {
+            url,
             filename: file.originalname,
             size: file.size,
             mime_type: file.mimetype,
-        });
+        };
+    }
+
+    private async uploadImageToAzure(
+        image_buffer: Buffer,
+        image_name: string,
+        container_name: string
+    ): Promise<string> {
+        const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+        if (!connection_string) {
+            throw new Error(
+                'AZURE_STORAGE_CONNECTION_STRING is not defined in environment variables'
+            );
+        }
+
+        // Debug: Check if connection string has placeholder key
+        if (connection_string.includes('YOUR_KEY_HERE')) {
+            throw new Error(
+                'Azure Storage AccountKey is still set to placeholder value. Please update with actual key.'
+            );
+        }
+
+        console.log(
+            'Azure Connection String (masked):',
+            connection_string.replace(/AccountKey=[^;]+/, 'AccountKey=***')
+        );
+
+        const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
+
+        const container_client = blob_service_client.getContainerClient(container_name);
+        await container_client.createIfNotExists({ access: 'blob' });
+
+        const block_blob_client = container_client.getBlockBlobClient(image_name);
+        await block_blob_client.upload(image_buffer, image_buffer.length);
+
+        return block_blob_client.url;
     }
 
     /**
@@ -103,22 +149,57 @@ export class TweetsService {
      * @param _user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
-    uploadVideo(file: Express.Multer.File, _user_id: string): Promise<UploadMediaResponseDTO> {
-        // TODO: Implement video upload logic
-        // - Upload to cloud storage (S3, Cloudinary, etc.)
-        // - Save file metadata to database
-        // - Transcode video if needed
-        // - Generate thumbnail/preview
-        // - Return file URL and metadata
+    async uploadVideo(
+        file: Express.Multer.File,
+        _user_id: string
+    ): Promise<UploadMediaResponseDTO> {
+        const video_name = `${Date.now()}-${file.originalname}`;
 
-        // File is in memory as file.buffer
-        // NOT saved to disk - discarded after request
-        return Promise.resolve({
-            url: `https://your-cdn.com/placeholder-url`, // Placeholder URL
+        const video_url = await this.uploadVideoToAzure(file.buffer, video_name);
+
+        return {
+            url: video_url,
             filename: file.originalname,
             size: file.size,
             mime_type: file.mimetype,
+        };
+    }
+
+    private async uploadVideoToAzure(video_buffer: Buffer, video_name: string): Promise<string> {
+        const container_name = this.TWEET_VIDEOS_CONTAINER;
+        const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+        if (!connection_string) {
+            throw new Error(
+                'AZURE_STORAGE_CONNECTION_STRING is not defined in environment variables'
+            );
+        }
+
+        if (connection_string.includes('YOUR_KEY_HERE')) {
+            throw new Error(
+                'Azure Storage AccountKey is still set to placeholder value. Please update with actual key.'
+            );
+        }
+
+        console.log(
+            'Azure Connection String (masked):',
+            connection_string.replace(/AccountKey=[^;]+/, 'AccountKey=***')
+        );
+
+        const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
+
+        const container_client = blob_service_client.getContainerClient(container_name);
+        await container_client.createIfNotExists({ access: 'blob' });
+
+        const block_blob_client = container_client.getBlockBlobClient(video_name);
+
+        await block_blob_client.upload(video_buffer, video_buffer.length, {
+            blobHTTPHeaders: {
+                blobContentType: 'video/mp4',
+            },
         });
+
+        return block_blob_client.url;
     }
 
     async createTweet(tweet: CreateTweetDTO, user_id: string): Promise<TweetResponseDTO> {
@@ -128,6 +209,7 @@ export class TweetsService {
 
         try {
             await this.extractDataFromTweets(tweet, user_id, query_runner);
+            const extracted_topics = this.extractTopics(tweet.content);
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 ...tweet,
@@ -910,11 +992,79 @@ export class TweetsService {
     ): Promise<void> {
         const { content } = tweet;
         if (!content) return;
+        console.log('content:', content);
+
+        // Extract mentions
         const mentions = content.match(/@([a-zA-Z0-9_]+)/g) || [];
         this.mentionNotification(mentions, user_id);
+
+        // Extract hashtags
         const hashtags =
             content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
         await this.updateHashtags(hashtags, user_id, query_runner);
+
+        // Extract topics using Gemini AI
+        const topics = await this.extractTopics(content);
+        console.log('Extracted topics:', topics);
+
+        // You can store topics in the tweet entity or use them for recommendations
+        // For example, you could add a 'topics' field to your Tweet entity
+        // tweet.topics = topics;
+    }
+
+    async extractTopics(content: string): Promise<Record<string, number>> {
+        try {
+            const prompt = `Analyze the following text and categorize it into these topics: ${this.TOPICS.join(', ')}.
+                Return ONLY a JSON object with topic names as keys and percentage values (0-100) as numbers. The percentages should add up to 100.
+                Only include topics that are relevant (percentage > 0).
+
+                Example format:
+                { "Sports": 60, "Entertainment": 30, "News": 10 }
+
+                Text to analyze:
+                "${content}"
+
+                Return only the JSON object, no additional text or explanation.
+            `;
+
+            const response = await this.genAI.models.generateContent({
+                model: 'gemini-2.0-flash-exp',
+                contents: prompt,
+            });
+
+            if (!response.text) {
+                console.warn('Gemini returned empty response');
+                const empty_response: Record<string, number> = {};
+                this.TOPICS.forEach((topic) => (empty_response[topic] = 0));
+                return empty_response;
+            }
+
+            const response_text = response.text.trim();
+            console.log('Gemini response:', response_text);
+
+            let json_text = response_text;
+            const json_match = response_text.match(/\{[^}]+\}/);
+            if (json_match) json_text = json_match[0];
+
+            const topic_percentages = JSON.parse(json_text);
+
+            const total = Object.values(topic_percentages).reduce(
+                (sum: number, val: any) => sum + Number(val),
+                0
+            ) as number;
+            if (Math.abs(total - 100) > 1) {
+                console.warn('Topic percentages do not sum to 100, normalizing...');
+
+                Object.keys(topic_percentages).forEach((key) => {
+                    topic_percentages[key] = Math.round((topic_percentages[key] / total) * 100);
+                });
+            }
+
+            return topic_percentages;
+        } catch (error) {
+            console.error('Error extracting topics with Gemini:', error);
+            throw error;
+        }
     }
 
     private mentionNotification(_ids: string[], _user_id: string): void {
