@@ -105,6 +105,7 @@ export const ERROR_MESSAGES = {
 
     // category
     CATEGORY_NOT_FOUND: 'Category not found',
+    CATEGORIES_NOT_FOUND: 'Categories not found',
 } as const;
 
 // Success Messages

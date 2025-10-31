@@ -7,7 +7,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { CreateUserDto } from './dto/create-user.dto';
-import { Repository } from 'typeorm';
+import { In, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserProfileDto } from './dto/user-profile.dto';
@@ -28,13 +28,17 @@ import { GetUsersByUsernameDto } from './dto/get-users-by-username.dto';
 import { UserLookupDto } from './dto/user-lookup.dto';
 import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { ConfigService } from '@nestjs/config';
+import { AssignInterestsDto } from './dto/assign-interests.dto';
+import { Category } from 'src/category/entities';
 
 @Injectable()
 export class UserService {
     constructor(
         private readonly user_repository: UserRepository,
         private readonly azure_storage_service: AzureStorageService,
-        private readonly config_service: ConfigService
+        private readonly config_service: ConfigService,
+        @InjectRepository(Category)
+        private readonly category_repository: Repository<Category>
     ) {}
 
     async getUsersById(
@@ -457,5 +461,24 @@ export class UserService {
         } catch (error) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
         }
+    }
+
+    async assignInserests(current_user_id: string, assign_interests_dto: AssignInterestsDto) {
+        const { category_ids } = assign_interests_dto;
+
+        const existing_categories = await this.category_repository.findBy({
+            id: In(category_ids),
+        });
+
+        if (existing_categories.length !== category_ids.length) {
+            throw new NotFoundException(ERROR_MESSAGES.CATEGORIES_NOT_FOUND);
+        }
+
+        const user_interests = category_ids.map((category_id) => ({
+            user_id: current_user_id,
+            category_id,
+        }));
+
+        await this.user_repository.insertUserInterests(user_interests);
     }
 }

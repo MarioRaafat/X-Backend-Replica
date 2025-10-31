@@ -433,5 +433,10 @@ export class UserController {
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.CATEGORY_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.INTERESTS_ASSIGNED)
     @Post('me/interests')
-    async assignInterests(@Body() assign_interests_dto: AssignInterestsDto) {}
+    async assignInterests(
+        @GetUserId() current_user_id: string,
+        @Body() assign_interests_dto: AssignInterestsDto
+    ) {
+        return await this.user_service.assignInserests(current_user_id, assign_interests_dto);
+    }
 }

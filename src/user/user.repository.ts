@@ -5,6 +5,7 @@ import { UserListItemDto } from './dto/user-list-item.dto';
 import { UserBlocks, UserFollows, UserMutes } from './entities';
 import { InsertResult } from 'typeorm/browser';
 import { RelationshipType } from './enums/relationship-type.enum';
+import { UserInterests } from './entities/user-interests.entity';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
@@ -450,5 +451,12 @@ export class UserRepository extends Repository<User> {
             default:
                 throw new Error('Unknown relationship type');
         }
+    }
+
+    async insertUserInterests(user_interests) {
+        return await this.dataSource.getRepository(UserInterests).upsert(user_interests, {
+            conflictPaths: ['user_id', 'category_id'],
+            skipUpdateIfNoValuesChanged: true,
+        });
     }
 }
