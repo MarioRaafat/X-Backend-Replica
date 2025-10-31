@@ -1,17 +1,13 @@
 import { Tweet } from '../entities/tweet.entity';
 import { TweetResponseDTO, TweetType } from '../dto/tweet-response.dto';
 import { UserResponseDTO } from '../dto/user-response.dto';
-import { User } from 'src/user/entities/user.entity';
-
-interface ITweetWithTypeInfo extends Tweet {
-    reply_info_original_tweet_id?: string;
-    quote_info_original_tweet_id?: string;
-    repost_info_original_tweet_id?: string;
-    reposted_by_user?: User;
-}
 
 export class TweetMapper {
-    static toDTO(tweet: Tweet, current_user_id?: string): TweetResponseDTO {
+    static toDTO(
+        tweet: Tweet,
+        current_user_id?: string,
+        is_reposted_view?: boolean
+    ): TweetResponseDTO {
         const user_dto: UserResponseDTO = {
             id: tweet.user.id,
             username: tweet.user.username,
@@ -20,20 +16,23 @@ export class TweetMapper {
             verified: tweet.user.verified,
         };
 
-        // Determine tweet type and parent_id based on loaded relationships
-        const tweet_with_type = tweet as ITweetWithTypeInfo;
+        // Determine tweet type based on loaded relationship data
         let type: TweetType = 'tweet';
         let parent_tweet_id: string | undefined = undefined;
 
-        if (tweet_with_type.reply_info_original_tweet_id) {
-            type = 'reply';
-            parent_tweet_id = tweet_with_type.reply_info_original_tweet_id;
-        } else if (tweet_with_type.quote_info_original_tweet_id) {
-            type = 'quote';
-            parent_tweet_id = tweet_with_type.quote_info_original_tweet_id;
-        } else if (tweet_with_type.repost_info_original_tweet_id) {
+        // If this tweet is being shown as a repost in timeline, mark it as repost
+        if (is_reposted_view) {
             type = 'repost';
-            parent_tweet_id = tweet_with_type.repost_info_original_tweet_id;
+        }
+        // Check if this tweet appears in reply_info (meaning it IS a reply)
+        else if (tweet.reply_info && tweet.reply_info.length > 0) {
+            type = 'reply';
+            parent_tweet_id = tweet.reply_info[0].original_tweet_id;
+        }
+        // Check if this tweet appears in quote_info (meaning it IS a quote)
+        else if (tweet.quote_info && tweet.quote_info.length > 0) {
+            type = 'quote';
+            parent_tweet_id = tweet.quote_info[0].original_tweet_id;
         }
 
         return {

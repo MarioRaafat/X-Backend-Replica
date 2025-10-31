@@ -23,12 +23,6 @@ import { BlobServiceClient } from '@azure/storage-blob';
 import { GoogleGenAI } from '@google/genai';
 import { TweetMapper } from './mappers/tweet.mapper';
 
-interface ITweetWithTypeInfo extends Tweet {
-    reply_info_original_tweet_id?: string;
-    quote_info_original_tweet_id?: string;
-    repost_info_original_tweet_id?: string;
-}
-
 @Injectable()
 export class TweetsService {
     constructor(
@@ -53,36 +47,6 @@ export class TweetsService {
     private readonly genAI = new GoogleGenAI({ apiKey: this.API_KEY });
 
     private readonly TOPICS = ['Sports', 'Entertainment', 'News'];
-
-
-    /**
-     * Helper method to attach type information from raw query results to tweet entities
-     */
-    private attachTypeInfo(tweet: Tweet, raw: Record<string, unknown>): ITweetWithTypeInfo {
-        const tweet_with_type = tweet as ITweetWithTypeInfo;
-
-        // TypeORM raw results can have different key formats
-        // Check: alias name, dotted path, and original column name
-        tweet_with_type.reply_info_original_tweet_id =
-            (raw.reply_info_original_tweet_id as string | undefined) ||
-            (raw['reply_info.original_tweet_id'] as string | undefined) ||
-            (raw['reply_info_original_tweet_id'] as string | undefined) ||
-            undefined;
-
-        tweet_with_type.quote_info_original_tweet_id =
-            (raw.quote_info_original_tweet_id as string | undefined) ||
-            (raw['quote_info.original_tweet_id'] as string | undefined) ||
-            (raw['quote_info_original_tweet_id'] as string | undefined) ||
-            undefined;
-
-        tweet_with_type.repost_info_original_tweet_id =
-            (raw.repost_info_tweet_id as string | undefined) ||
-            (raw['repost_info.tweet_id'] as string | undefined) ||
-            (raw['repost_info_tweet_id'] as string | undefined) ||
-            undefined;
-
-        return tweet_with_type;
-    }
 
     /**
      * Handles image upload processing
@@ -209,7 +173,7 @@ export class TweetsService {
 
         try {
             await this.extractDataFromTweets(tweet, user_id, query_runner);
-            const extracted_topics = this.extractTopics(tweet.content);
+            // const extracted_topics = this.extractTopics(tweet.content);
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 ...tweet,
@@ -217,23 +181,18 @@ export class TweetsService {
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
             await query_runner.commitTransaction();
 
-            // Fetch the complete tweet with only required user fields
-            const query = this.tweet_repository
-                .createQueryBuilder('tweet')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .where('tweet.tweet_id = :tweet_id', { tweet_id: saved_tweet.tweet_id });
+            // Fetch the complete tweet
+            const created_tweet = await this.tweet_repository.findOne({
+                where: { tweet_id: saved_tweet.tweet_id },
+                relations: ['user'],
+            });
 
-            const result_data = await this.selectTweetFields(query).getRawAndEntities();
+            if (!created_tweet) throw new NotFoundException('Tweet not found');
 
-            if (!result_data.entities[0]) throw new NotFoundException('Tweet not found');
+            // Load type information
+            await this.loadTweetTypeInfo(created_tweet);
 
-            // Attach type info from raw data
-            const tweet_with_type_info = this.attachTypeInfo(
-                result_data.entities[0],
-                result_data.raw[0] as Record<string, unknown>
-            );
-
-            return TweetMapper.toDTO(tweet_with_type_info);
+            return TweetMapper.toDTO(created_tweet);
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -269,23 +228,18 @@ export class TweetsService {
 
             await query_runner.commitTransaction();
 
-            // Fetch the updated tweet with only required fields
-            const query = this.tweet_repository
-                .createQueryBuilder('tweet')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .where('tweet.tweet_id = :tweet_id', { tweet_id });
+            // Fetch the updated tweet
+            const updated_tweet = await this.tweet_repository.findOne({
+                where: { tweet_id },
+                relations: ['user'],
+            });
 
-            const result_data = await this.selectTweetFields(query).getRawAndEntities();
+            if (!updated_tweet) throw new NotFoundException('Tweet not found');
 
-            if (!result_data.entities[0]) throw new NotFoundException('Tweet not found');
+            // Load type information
+            await this.loadTweetTypeInfo(updated_tweet);
 
-            // Attach type info from raw data
-            const tweet_with_type_info = this.attachTypeInfo(
-                result_data.entities[0],
-                result_data.raw[0] as Record<string, unknown>
-            );
-
-            return TweetMapper.toDTO(tweet_with_type_info);
+            return TweetMapper.toDTO(updated_tweet);
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -313,24 +267,17 @@ export class TweetsService {
     }
 
     async getTweetById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
-        const query = this.tweet_repository
-            .createQueryBuilder('tweet')
-            .leftJoinAndSelect('tweet.user', 'user')
-            .where('tweet.tweet_id = :tweet_id', { tweet_id });
+        const tweet = await this.tweet_repository.findOne({
+            where: { tweet_id },
+            relations: ['user', 'likes', 'reposts'],
+        });
 
-        this.selectTweetFields(query, !!current_user_id, current_user_id);
+        if (!tweet) throw new NotFoundException('Tweet Not Found');
 
-        const result_data = await query.getRawAndEntities();
+        // Load type information before mapping
+        await this.loadTweetTypeInfo(tweet);
 
-        if (!result_data.entities[0]) throw new NotFoundException('Tweet Not Found');
-
-        // Attach type info from raw data
-        const tweet_with_type_info = this.attachTypeInfo(
-            result_data.entities[0],
-            result_data.raw[0] as Record<string, unknown>
-        );
-
-        return TweetMapper.toDTO(tweet_with_type_info, current_user_id);
+        return TweetMapper.toDTO(tweet, current_user_id);
     }
 
     async likeTweet(tweet_id: string, user_id: string): Promise<void> {
@@ -404,7 +351,7 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            await this.extractDataFromTweets(quote, user_id, query_runner);
+            // await this.extractDataFromTweets(quote, user_id, query_runner);
 
             const new_quote_tweet = query_runner.manager.create(Tweet, {
                 ...quote,
@@ -423,22 +370,17 @@ export class TweetsService {
             await query_runner.commitTransaction();
 
             // Fetch the complete quote tweet
-            const query = this.tweet_repository
-                .createQueryBuilder('tweet')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .where('tweet.tweet_id = :tweet_id', { tweet_id: saved_quote_tweet.tweet_id });
+            const quote_tweet = await this.tweet_repository.findOne({
+                where: { tweet_id: saved_quote_tweet.tweet_id },
+                relations: ['user'],
+            });
 
-            const result_data = await this.selectTweetFields(query).getRawAndEntities();
+            if (!quote_tweet) throw new NotFoundException('Quote tweet not found');
 
-            if (!result_data.entities[0]) throw new NotFoundException('Quote tweet not found');
+            // Load type information before mapping
+            await this.loadTweetTypeInfo(quote_tweet);
 
-            // Attach type info from raw data
-            const tweet_with_type_info = this.attachTypeInfo(
-                result_data.entities[0],
-                result_data.raw[0] as Record<string, unknown>
-            );
-
-            return TweetMapper.toDTO(tweet_with_type_info);
+            return TweetMapper.toDTO(quote_tweet);
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -476,19 +418,17 @@ export class TweetsService {
         }
     }
 
-    async deleteRepost(repost_id: string, user_id: string): Promise<void> {
-        // Find the repost and verify ownership
+    async deleteRepost(tweet_id: string, user_id: string): Promise<void> {
+        // Find the repost by user_id and tweet_id
         const repost = await this.tweet_repost_repository.findOne({
-            where: { id: repost_id },
-            relations: ['tweet'],
+            where: {
+                user_id,
+                tweet_id,
+            },
         });
 
         if (!repost) {
             throw new NotFoundException('Repost not found');
-        }
-
-        if (repost.user_id !== user_id) {
-            throw new ForbiddenException('You can only delete your own reposts');
         }
 
         const query_runner = this.data_source.createQueryRunner();
@@ -497,15 +437,13 @@ export class TweetsService {
 
         try {
             // Delete the repost
-            await query_runner.manager.delete(TweetRepost, { id: repost_id });
+            await query_runner.manager.delete(TweetRepost, {
+                user_id,
+                tweet_id,
+            });
 
             // Decrement the repost count
-            await query_runner.manager.decrement(
-                Tweet,
-                { tweet_id: repost.tweet_id },
-                'num_reposts',
-                1
-            );
+            await query_runner.manager.decrement(Tweet, { tweet_id }, 'num_reposts', 1);
 
             await query_runner.commitTransaction();
         } catch (error) {
@@ -533,7 +471,7 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            await this.extractDataFromTweets(reply_dto, user_id, query_runner);
+            // await this.extractDataFromTweets(reply_dto, user_id, query_runner);
 
             // Create the reply tweet
             const new_reply_tweet = query_runner.manager.create(Tweet, {
@@ -563,22 +501,17 @@ export class TweetsService {
             await query_runner.commitTransaction();
 
             // Fetch the complete reply tweet
-            const query = this.tweet_repository
-                .createQueryBuilder('tweet')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .where('tweet.tweet_id = :tweet_id', { tweet_id: saved_reply_tweet.tweet_id });
+            const reply_tweet = await this.tweet_repository.findOne({
+                where: { tweet_id: saved_reply_tweet.tweet_id },
+                relations: ['user'],
+            });
 
-            const result_data = await this.selectTweetFields(query).getRawAndEntities();
+            if (!reply_tweet) throw new NotFoundException('Reply tweet not found');
 
-            if (!result_data.entities[0]) throw new NotFoundException('Reply tweet not found');
+            // Load type information before mapping
+            await this.loadTweetTypeInfo(reply_tweet);
 
-            // Attach type info from raw data
-            const tweet_with_type_info = this.attachTypeInfo(
-                result_data.entities[0],
-                result_data.raw[0] as Record<string, unknown>
-            );
-
-            return TweetMapper.toDTO(tweet_with_type_info);
+            return TweetMapper.toDTO(reply_tweet);
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -594,29 +527,19 @@ export class TweetsService {
     ): Promise<{ data: TweetResponseDTO[]; count: number }> {
         const skip = (page_offset - 1) * page_size;
 
-        const query = this.tweet_repository
-            .createQueryBuilder('tweet')
-            .leftJoinAndSelect('tweet.user', 'user')
-            .where('tweet.user_id = :user_id', { user_id })
-            .orderBy('tweet.created_at', 'DESC')
-            .skip(skip)
-            .take(page_size);
+        const [tweets, total] = await this.tweet_repository.findAndCount({
+            where: { user_id },
+            relations: ['user', 'likes', 'reposts'],
+            order: { created_at: 'DESC' },
+            skip,
+            take: page_size,
+        });
 
-        this.selectTweetFields(query);
-
-        const result_data = await query.getRawAndEntities();
-
-        // Attach type info from raw data to each tweet
-        const tweets_with_type_info: ITweetWithTypeInfo[] = result_data.entities.map(
-            (tweet, index) =>
-                this.attachTypeInfo(tweet, result_data.raw[index] as Record<string, unknown>)
-        );
-
-        // Get count
-        const total = await query.getCount();
+        // Load type information for all tweets
+        await Promise.all(tweets.map((tweet) => this.loadTweetTypeInfo(tweet)));
 
         return {
-            data: TweetMapper.toDTOList(tweets_with_type_info),
+            data: TweetMapper.toDTOList(tweets),
             count: total,
         };
     }
@@ -632,112 +555,73 @@ export class TweetsService {
     }> {
         const { user_id, cursor, limit = 20 } = query_dto;
 
-        // Get original tweets
+        // Build query for original tweets
         const tweets_query = this.tweet_repository
             .createQueryBuilder('tweet')
             .leftJoinAndSelect('tweet.user', 'user')
+            .leftJoinAndSelect('tweet.likes', 'likes')
+            .leftJoinAndSelect('tweet.reposts', 'reposts')
             .orderBy('tweet.created_at', 'DESC')
             .addOrderBy('tweet.tweet_id', 'DESC')
-            .take(limit * 2); // Fetch more to account for reposts
+            .take(limit * 2);
 
-        // Filter by user_id if provided (get tweets BY this user)
         if (user_id) {
             tweets_query.andWhere('tweet.user_id = :user_id', { user_id });
         }
 
-        // Apply field selection, type detection joins, and user interaction joins
-        this.selectTweetFields(tweets_query, !!current_user_id, current_user_id);
-
-        // Get ALL reposts (or filter by user_id if provided)
+        // Get reposts query
         const reposts_query = this.tweet_repost_repository
             .createQueryBuilder('repost')
             .leftJoinAndSelect('repost.tweet', 'tweet')
             .leftJoinAndSelect('tweet.user', 'tweet_user')
+            .leftJoinAndSelect('tweet.likes', 'likes')
+            .leftJoinAndSelect('tweet.reposts', 'reposts')
             .leftJoinAndSelect('repost.user', 'reposter')
             .orderBy('repost.created_at', 'DESC')
             .addOrderBy('repost.id', 'DESC')
-            .take(limit * 2); // Fetch more to account for original tweets
+            .take(limit * 2);
 
-        // If filtering by user_id, only get reposts BY this user
         if (user_id) {
             reposts_query.andWhere('repost.user_id = :user_id', { user_id });
         }
 
-        // Add joins for user interactions on reposted tweets
-        if (current_user_id) {
-            reposts_query
-                .leftJoin('tweet.likes', 'tweet_likes', 'tweet_likes.user_id = :current_user_id', {
-                    current_user_id,
-                })
-                .leftJoin(
-                    'tweet.reposts',
-                    'tweet_reposts',
-                    'tweet_reposts.user_id = :current_user_id',
-                    {
-                        current_user_id,
-                    }
-                );
-        }
-
-        // Add joins for tweet type detection
-        reposts_query
-            .leftJoin('TweetReply', 'reply_info', 'reply_info.reply_tweet_id = tweet.tweet_id')
-            .leftJoin('TweetQuote', 'quote_info', 'quote_info.quote_tweet_id = tweet.tweet_id')
-            .addSelect('reply_info.original_tweet_id', 'reply_info_original_tweet_id')
-            .addSelect('quote_info.original_tweet_id', 'quote_info_original_tweet_id');
-
         // Execute both queries
-        const [tweets_result, reposts_result] = await Promise.all([
-            tweets_query.getRawAndEntities(),
-            reposts_query.getRawAndEntities(),
+        const [tweets, reposts] = await Promise.all([
+            tweets_query.getMany(),
+            reposts_query.getMany(),
         ]);
 
-        // Attach type info from raw data to each original tweet
-        const tweets_with_type_info: ITweetWithTypeInfo[] = tweets_result.entities.map(
-            (tweet, index) =>
-                this.attachTypeInfo(tweet, tweets_result.raw[index] as Record<string, unknown>)
-        );
+        // Load type information for all tweets
+        const all_tweet_entities = [...tweets, ...reposts.map((repost) => repost.tweet)];
+        await Promise.all(all_tweet_entities.map((tweet) => this.loadTweetTypeInfo(tweet)));
 
-        // Process reposts with their repost timestamp and reposter info
-        const reposts_data = reposts_result.entities.map((repost, index) => ({
-            tweet: this.attachTypeInfo(
-                repost.tweet,
-                reposts_result.raw[index] as Record<string, unknown>
-            ),
-            reposter_user: repost.user,
-            repost_created_at: repost.created_at, // Use REPOST timestamp for sorting
-            repost_id: repost.id,
-        }));
-
-        // Combine tweets and reposts with their respective timestamps
+        // Combine tweets and reposts
         const all_items = [
-            ...tweets_with_type_info.map((tweet) => ({
+            ...tweets.map((tweet) => ({
                 tweet,
                 reposter_user: null as any,
                 repost_id: null,
                 repost_created_at: null,
-                sort_date: tweet.created_at, // Original tweet uses tweet.created_at
-                sort_id: `tweet_${tweet.tweet_id}`, // Prefix to distinguish from reposts
+                sort_date: tweet.created_at,
+                sort_id: `tweet_${tweet.tweet_id}`,
             })),
-            ...reposts_data.map((repost) => ({
+            ...reposts.map((repost) => ({
                 tweet: repost.tweet,
-                reposter_user: repost.reposter_user,
-                repost_id: repost.repost_id,
-                repost_created_at: repost.repost_created_at,
-                sort_date: repost.repost_created_at, // Repost uses repost.created_at
-                sort_id: `repost_${repost.repost_id}`, // Prefix to distinguish from tweets
+                reposter_user: repost.user,
+                repost_id: repost.id,
+                repost_created_at: repost.created_at,
+                sort_date: repost.created_at,
+                sort_id: `repost_${repost.id}`,
             })),
         ]
             .sort((a, b) => {
-                // Sort by date descending (newest first)
                 const date_diff = b.sort_date.getTime() - a.sort_date.getTime();
                 if (date_diff !== 0) return date_diff;
-                // If same date, sort by ID
                 return b.sort_id.localeCompare(a.sort_id);
             })
-            .slice(0, limit); // Take only the limit after combining
+            .slice(0, limit);
 
-        // Apply cursor pagination if provided
+        // Apply cursor pagination
         let filtered_items = all_items;
         if (cursor) {
             const [cursor_timestamp, cursor_id] = cursor.split('_');
@@ -757,9 +641,11 @@ export class TweetsService {
             }
         }
 
-        // Map to DTOs and attach reposter info
+        // Map to DTOs
         const result_tweets = filtered_items.map((item) => {
-            const dto = TweetMapper.toDTO(item.tweet, current_user_id);
+            // Pass true for is_reposted_view if this item has a reposter
+            const is_reposted_view = !!(item.reposter_user && item.repost_id);
+            const dto = TweetMapper.toDTO(item.tweet, current_user_id, is_reposted_view);
             if (item.reposter_user && item.repost_id) {
                 dto.reposted_by = {
                     repost_id: item.repost_id,
@@ -771,13 +657,12 @@ export class TweetsService {
             return dto;
         });
 
-        // Generate next_cursor from the last item
         const next_cursor =
             filtered_items.length > 0
                 ? `${filtered_items[filtered_items.length - 1].sort_date.toISOString()}_${filtered_items[filtered_items.length - 1].sort_id}`
                 : null;
 
-        const total_count = tweets_with_type_info.length + reposts_data.length;
+        const total_count = tweets.length + reposts.length;
 
         return {
             data: result_tweets,
@@ -929,60 +814,107 @@ export class TweetsService {
         };
     }
 
-    /***************************************Helper Methods***************************************/
+    async getTweetQuotes(
+        tweet_id: string,
+        current_user_id?: string,
+        cursor?: string,
+        limit: number = 20
+    ): Promise<{
+        data: TweetResponseDTO[];
+        count: number;
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        // Check if tweet exists
+        const tweet = await this.tweet_repository.findOne({
+            where: { tweet_id },
+            select: ['tweet_id', 'num_quotes'],
+        });
 
-    private selectTweetFields(
-        query: SelectQueryBuilder<Tweet>,
-        include_user_interaction: boolean = false,
-        current_user_id?: string
-    ): SelectQueryBuilder<Tweet> {
-        query.select([
-            'tweet.tweet_id',
-            'tweet.conversation_id',
-            'tweet.content',
-            'tweet.images',
-            'tweet.videos',
-            'tweet.num_likes',
-            'tweet.num_reposts',
-            'tweet.num_views',
-            'tweet.num_quotes',
-            'tweet.num_replies',
-            'tweet.created_at',
-            'tweet.updated_at',
-            'user.id',
-            'user.username',
-            'user.name',
-            'user.avatar_url',
-            'user.verified',
-        ]);
+        if (!tweet) throw new NotFoundException('Tweet not found');
 
-        // Join tables to determine tweet type and select the original_tweet_id
-        query
-            .leftJoin('TweetReply', 'reply_info', 'reply_info.reply_tweet_id = tweet.tweet_id')
-            .leftJoin('TweetQuote', 'quote_info', 'quote_info.quote_tweet_id = tweet.tweet_id')
-            .leftJoin(
-                'TweetRepost',
-                'repost_info',
-                'repost_info.tweet_id = tweet.tweet_id AND repost_info.user_id = tweet.user_id'
-            )
-            .addSelect([
-                'reply_info.original_tweet_id',
-                'quote_info.original_tweet_id',
-                'repost_info.tweet_id',
-            ]);
+        // Build query for quote tweets
+        const query = this.tweet_quote_repository
+            .createQueryBuilder('quote')
+            .leftJoinAndSelect('quote.quote_tweet', 'quote_tweet')
+            .leftJoinAndSelect('quote_tweet.user', 'user')
+            .leftJoinAndSelect('quote_tweet.likes', 'likes')
+            .leftJoinAndSelect('quote_tweet.reposts', 'reposts')
+            .where('quote.original_tweet_id = :tweet_id', { tweet_id })
+            .orderBy('quote_tweet.created_at', 'DESC')
+            .addOrderBy('quote_tweet.tweet_id', 'DESC')
+            .take(limit);
 
-        if (include_user_interaction && current_user_id) {
-            query
-                .leftJoin('tweet.likes', 'likes', 'likes.user_id = :current_user_id', {
-                    current_user_id,
-                })
-                .leftJoin('tweet.reposts', 'reposts', 'reposts.user_id = :current_user_id', {
-                    current_user_id,
-                })
-                .addSelect(['likes.user_id', 'reposts.user_id']);
+        // Apply cursor-based pagination
+        if (cursor) {
+            const [cursor_timestamp, cursor_id] = cursor.split('_');
+            if (cursor_timestamp && cursor_id) {
+                const cursor_date = new Date(cursor_timestamp);
+                query.andWhere(
+                    '(quote_tweet.created_at < :cursor_date OR (quote_tweet.created_at = :cursor_date AND quote_tweet.tweet_id < :cursor_id))',
+                    {
+                        cursor_date,
+                        cursor_id,
+                    }
+                );
+            }
         }
 
-        return query;
+        const quotes = await query.getMany();
+
+        // Load type information for all quote tweets
+        const quote_tweets = quotes.map((q) => q.quote_tweet);
+        await Promise.all(quote_tweets.map((qt) => this.loadTweetTypeInfo(qt)));
+
+        // Map to DTOs
+        const quote_dtos = quote_tweets.map((qt) => TweetMapper.toDTO(qt, current_user_id));
+
+        // Generate next_cursor
+        const next_cursor =
+            quote_tweets.length > 0
+                ? `${quote_tweets[quote_tweets.length - 1].created_at.toISOString()}_${quote_tweets[quote_tweets.length - 1].tweet_id}`
+                : null;
+
+        return {
+            data: quote_dtos,
+            count: tweet.num_quotes,
+            next_cursor,
+            has_more: quote_tweets.length === limit,
+        };
+    }
+
+    /***************************************Helper Methods***************************************/
+
+    /**
+     * Load tweet type information (reply_info, quote_info, repost_info) for proper type detection
+     */
+    private async loadTweetTypeInfo(tweet: Tweet): Promise<Tweet> {
+        // Check if this tweet is a reply
+        const reply_check = await this.tweet_reply_repository.find({
+            where: { reply_tweet_id: tweet.tweet_id },
+            take: 1,
+        });
+
+        // Check if this tweet is a quote
+        const quote_check = await this.tweet_quote_repository.find({
+            where: { quote_tweet_id: tweet.tweet_id },
+            take: 1,
+        });
+
+        // Check if this tweet is a repost (posted by this user)
+        const repost_check = await this.tweet_repost_repository.find({
+            where: {
+                tweet_id: tweet.tweet_id,
+                user_id: tweet.user_id,
+            },
+            take: 1,
+        });
+
+        tweet.reply_info = reply_check;
+        tweet.quote_info = quote_check;
+        tweet.repost_info = repost_check;
+
+        return tweet;
     }
 
     private async extractDataFromTweets(

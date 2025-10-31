@@ -90,12 +90,13 @@ export const get_all_tweets_swagger = {
             '- Reposts: `type="repost"` - includes parent_tweet_id only\n\n' +
             '**Repost Field (reposted_by):**\n' +
             '- Only present when this tweet appears because someone reposted it\n' +
-            '- `repost_id`: UUID of the repost record (use this for DELETE /tweets/repost/:repost_id)\n' +
+            '- `repost_id`: UUID of the repost record (maintained for cursor-based pagination)\n' +
             '- `id`: User ID who reposted the tweet\n' +
             '- `name`: Display name of the user who reposted\n' +
             '- `reposted_at`: Timestamp when the tweet was reposted (matches the cursor sort order)\n' +
             '- Note: `created_at`/`updated_at` show ORIGINAL tweet dates, `reposted_at` shows WHEN it was shared\n' +
-            '- The main `user` field always shows the ORIGINAL tweet author',
+            '- The main `user` field always shows the ORIGINAL tweet author\n' +
+            '- To unrepost: Use `DELETE /tweets/:tweet_id/repost` (not the repost_id)',
     },
 
     queries: {
@@ -414,20 +415,30 @@ export const repost_tweet_swagger = {
     operation: {
         summary: 'Repost a tweet',
         description:
-            'Creates a simple repost of an existing tweet without additional commentary. User ID is from JWT token.\n\n' +
-            '**Note:** Each repost creates a new entry with a unique repost_id that can be used for deletion.',
+            'Creates a simple repost of an existing tweet without additional commentary. ' +
+            'This shares the tweet to your followers timeline.\n\n' +
+            '**How it works:**\n' +
+            '1. Creates a repost entry linking you to the original tweet\n' +
+            "2. Increments the original tweet's repost count\n" +
+            "3. The reposted tweet appears in your followers' timelines with your attribution\n" +
+            '4. A unique repost_id is generated for cursor-based pagination\n\n' +
+            '**Important Constraints:**\n' +
+            '- Each user can only repost a tweet **once** (enforced by database unique constraint)\n' +
+            '- Attempting to repost the same tweet again will return a 400 Bad Request error\n' +
+            '- You cannot repost your own tweets (if implemented in service layer)\n\n' +
+            '**To remove a repost:** Use `DELETE /tweets/:id/repost`',
     },
 
     param: {
         name: 'id',
         type: String,
-        description: 'Original tweet ID to repost (UUID format)',
+        description: 'The UUID of the original tweet to repost',
         example: UUID_EXAMPLE,
     },
 
     responses: {
         created: {
-            description: 'Tweet reposted successfully',
+            description: 'Tweet reposted successfully. The repost entry has been created.',
             schema: {
                 example: {
                     message: 'Tweet reposted successfully',
@@ -439,26 +450,40 @@ export const repost_tweet_swagger = {
 
 export const delete_repost_swagger = {
     operation: {
-        summary: 'Delete a repost',
+        summary: 'Delete a repost (unrepost a tweet)',
         description:
-            'Deletes a specific repost by its repost_id. Users can only delete their own reposts.\n\n' +
-            '**Usage:**\n' +
-            '1. Get the repost_id from the `reposted_by.repost_id` field in GET /tweets response\n' +
-            '2. Call DELETE /tweets/repost/:repost_id to remove that specific repost\n' +
-            '3. The original tweet remains unchanged, only the repost entry is removed\n' +
-            "4. The tweet's repost count is decremented by 1",
+            'Removes your repost of a specific tweet. This is commonly called "unreposting" or "un-retweeting".\n\n' +
+            '**How it works:**\n' +
+            '1. Finds your repost entry for the specified tweet using (user_id, tweet_id)\n' +
+            '2. Deletes the repost entry from the database\n' +
+            "3. Decrements the original tweet's repost count by 1\n" +
+            '4. The tweet no longer appears as reposted in your timeline\n\n' +
+            '**Endpoint Pattern:**\n' +
+            '- URL: `DELETE /tweets/:id/repost`\n' +
+            '- `:id` is the **tweet_id** of the original tweet (not the repost_id)\n' +
+            '- User ID is automatically extracted from the JWT token\n\n' +
+            '**Database Design:**\n' +
+            '- Uses composite unique constraint on (user_id, tweet_id)\n' +
+            '- This ensures one user can only have one repost per tweet\n' +
+            '- The repost_id is still maintained for cursor-based pagination in timelines\n\n' +
+            '**Error Handling:**\n' +
+            '- Returns 404 if you never reposted this tweet\n' +
+            '- Returns 404 if the tweet does not exist\n' +
+            '- Automatically handles authentication (401 if not logged in)',
     },
 
     param: {
-        name: 'repost_id',
+        name: 'id',
         type: String,
-        description: 'The unique ID of the repost to delete (UUID format)',
-        example: '650e8400-e29b-41d4-a716-446655440001',
+        description:
+            'The UUID of the tweet you want to unrepost (the original tweet ID, not the repost ID)',
+        example: '550e8400-e29b-41d4-a716-446655440000',
     },
 
     responses: {
         no_content: {
-            description: 'Repost deleted successfully',
+            description:
+                'Repost deleted successfully. The tweet has been unreposted and its repost count decremented.',
         },
     },
 };
@@ -870,7 +895,13 @@ export const get_tweet_reposts_swagger = {
         description: `Retrieves a paginated list of users who reposted the specified tweet.
         
 **Access Control:**
-- Only the tweet owner can see who reposted their tweet
+- Available to all authenticated users
+- Anyone can see who reposted any public tweet
+
+**Important Notes:**
+- Each user can only repost a tweet once (enforced by unique constraint)
+- The list shows unique users who have reposted this tweet
+- Users are sorted by when they reposted (most recent first)
 
 **Pagination:**
 - Uses cursor-based pagination with user_id
@@ -882,8 +913,8 @@ All responses are wrapped in the standard format:
 \`\`\`json
 {
   "data": {
-    "data": [...],      // Array of users
-    "count": 150,       // Total number of reposts
+    "data": [...],      // Array of users who reposted
+    "count": 150,       // Total number of unique users who reposted
     "next_cursor": "user-id",  // Cursor for next page
     "has_more": true    // Whether more results exist
   },
@@ -945,6 +976,107 @@ All responses are wrapped in the standard format:
                     next_cursor: '36945dc1-7853-46db-93b9-3f4201cfb780',
                     has_more: true,
                     message: 'Users who reposted the tweet retrieved successfully',
+                },
+            },
+        },
+    },
+};
+
+export const get_tweet_quotes_swagger = {
+    operation: {
+        summary: 'Get quote tweets for a tweet',
+        description: `Retrieves a paginated list of quote tweets for the specified tweet.
+        
+**Access Control:**
+- Available to all authenticated users
+- Anyone can see quote tweets for any public tweet
+
+**What are Quote Tweets:**
+- Tweets that repost with additional commentary
+- Each quote tweet is a full tweet object with its own content
+- Shows the user's thoughts about the original tweet
+
+**Pagination:**
+- Uses cursor-based pagination with timestamp_tweetid format
+- Returns up to 100 quotes per request (default: 20)
+- Sorted by creation time (most recent first)
+- Use next_cursor from response to fetch next page
+
+**Response Structure:**
+Returns full tweet objects for each quote tweet:
+\`\`\`json
+{
+  "data": {
+    "data": [...],           // Array of tweet objects
+    "count": 45,             // Total number of quote tweets
+    "next_cursor": "2025...", // Cursor for next page
+    "has_more": true         // Whether more results exist
+  },
+  "message": "Quote tweets retrieved successfully"
+}
+\`\`\``,
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'The UUID of the tweet to get quotes for',
+        example: UUID_EXAMPLE,
+    },
+
+    queries: {
+        cursor: {
+            name: 'cursor',
+            required: false,
+            type: String,
+            description:
+                'Cursor for pagination (timestamp_tweetid format). Use next_cursor from previous response.',
+            example: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+        },
+        limit: {
+            name: 'limit',
+            required: false,
+            type: Number,
+            description: 'Number of quote tweets to return (default: 20, max: 100)',
+            example: 20,
+        },
+    },
+
+    responses: {
+        success: {
+            description: 'Quote tweets retrieved successfully with pagination metadata',
+            schema: {
+                example: {
+                    data: [
+                        {
+                            tweet_id: '770e8400-e29b-41d4-a716-446655440002',
+                            type: 'quote',
+                            parent_tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                            content: 'This is so true! Adding my thoughts here...',
+                            images: [],
+                            videos: [],
+                            likes_count: 12,
+                            reposts_count: 3,
+                            views_count: 156,
+                            quotes_count: 1,
+                            replies_count: 4,
+                            is_liked: false,
+                            is_reposted: false,
+                            created_at: '2025-10-31T14:30:00.000Z',
+                            updated_at: '2025-10-31T14:30:00.000Z',
+                            user: {
+                                id: '26945dc1-7853-46db-93b9-3f4201cfb77e',
+                                username: 'janedoe',
+                                name: 'Jane Doe',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1974533037804122112/abc123_normal.jpg',
+                                verified: false,
+                            },
+                        },
+                    ],
+                    count: 45,
+                    next_cursor: '2025-10-31T14:30:00.000Z_770e8400-e29b-41d4-a716-446655440002',
+                    has_more: true,
                 },
             },
         },
