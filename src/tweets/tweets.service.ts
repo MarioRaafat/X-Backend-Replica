@@ -823,8 +823,8 @@ export class TweetsService {
             name: string;
             avatar_url: string;
             verified: boolean;
-            is_followed_by_current_user: boolean;
-            is_following_current_user: boolean;
+            is_followed: boolean;
+            is_following: boolean;
         }[];
         pagination: {
             total_items: number;
@@ -864,8 +864,8 @@ export class TweetsService {
                 'user_follows_current.follower_id = user.id AND user_follows_current.followed_id = :current_user_id',
                 { current_user_id }
             )
-            .addSelect('current_user_follows.followed_id', 'is_followed_by_current_user')
-            .addSelect('user_follows_current.follower_id', 'is_following_current_user')
+            .addSelect('current_user_follows.followed_id', 'is_followed')
+            .addSelect('user_follows_current.follower_id', 'is_following')
             .where('like.tweet_id = :tweet_id', { tweet_id });
 
         // Use pagination service (sort by user_id since created_at doesn't exist)
@@ -883,8 +883,8 @@ export class TweetsService {
             name: like.user.name,
             avatar_url: like.user.avatar_url || '',
             verified: like.user.verified,
-            is_followed_by_current_user: !!like.is_followed_by_current_user,
-            is_following_current_user: !!like.is_following_current_user,
+            is_followed: !!like.is_followed,
+            is_following: !!like.is_following,
         }));
 
         return {
@@ -905,8 +905,8 @@ export class TweetsService {
             name: string;
             avatar_url: string;
             verified: boolean;
-            is_followed_by_current_user: boolean;
-            is_following_current_user: boolean;
+            is_followed: boolean;
+            is_following: boolean;
         }[];
         pagination: {
             total_items: number;
@@ -946,8 +946,8 @@ export class TweetsService {
                 'user_follows_current.follower_id = user.id AND user_follows_current.followed_id = :current_user_id',
                 { current_user_id }
             )
-            .addSelect('current_user_follows.followed_id', 'is_followed_by_current_user')
-            .addSelect('user_follows_current.follower_id', 'is_following_current_user')
+            .addSelect('current_user_follows.followed_id', 'is_followed')
+            .addSelect('user_follows_current.follower_id', 'is_following')
             .where('repost.tweet_id = :tweet_id', { tweet_id });
 
         // Use pagination service (sort by created_at descending)
@@ -965,8 +965,8 @@ export class TweetsService {
             name: repost.user.name,
             avatar_url: repost.user.avatar_url || '',
             verified: repost.user.verified,
-            is_followed_by_current_user: !!repost.is_followed_by_current_user,
-            is_following_current_user: !!repost.is_following_current_user,
+            is_followed: !!repost.is_followed,
+            is_following: !!repost.is_following,
         }));
 
         return {
