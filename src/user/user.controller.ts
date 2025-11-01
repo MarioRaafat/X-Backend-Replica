@@ -321,32 +321,55 @@ export class UserController {
     @ApiOkResponse(get_liked_posts.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.LIKED_POSTS_RETRIEVED)
-    @Get('me/liked-yaps')
-    async getLikedYaps(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {}
+    @Get('me/liked-posts')
+    async getLikedPosts(
+        @GetUserId() current_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getLikedPosts(current_user_id, query_dto);
+    }
 
-    @UseGuards(OptionalJwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
     @ApiOperation(get_user_posts.operation)
     @ApiOkResponse(get_user_posts.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.POSTS_RETRIEVED)
-    @Get(':userId/posts')
-    async getPosts(@Param('userId') user_id: string, @Query() query_dto: PaginationParamsDto) {}
+    @Get(':target_user_id/posts')
+    async getPosts(
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getPosts(current_user_id, target_user_id, query_dto);
+    }
 
-    @UseGuards(OptionalJwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
     @ApiOperation(get_user_replies.operation)
     @ApiOkResponse(get_user_replies.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.REPLIES_RETRIEVED)
-    @Get(':user_id/replies')
-    async getReplies(@Param('user_id') user_id: string, @Query() query_dto: PaginationParamsDto) {}
+    @Get(':target_user_id/replies')
+    async getReplies(
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getReplies(current_user_id, target_user_id, query_dto);
+    }
 
-    @UseGuards(OptionalJwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
     @ApiOperation(get_user_media.operation)
     @ApiOkResponse(get_user_media.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.MEDIA_RETRIEVED)
-    @Get(':user_id/media')
-    async getMedia(@Param('user_id') user_id: string, @Query() query_dto: PaginationParamsDto) {}
+    @Get(':target_user_id/media')
+    async getMedia(
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getMedia(current_user_id, target_user_id, query_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')

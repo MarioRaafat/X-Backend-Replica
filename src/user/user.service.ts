@@ -35,6 +35,7 @@ import { DeleteFileDto } from './dto/delete-file.dto';
 import { delete_cover } from './user.swagger';
 import { promises } from 'dns';
 import { UploadFileResponseDto } from './dto/upload-file-response.dto';
+import { TweetsService } from 'src/tweets/tweets.service';
 
 @Injectable()
 export class UserService {
@@ -386,6 +387,26 @@ export class UserService {
 
         await this.user_repository.deleteBlockRelationship(current_user_id, target_user_id);
     }
+
+    async getLikedPosts(current_user_id: string, query_dto: PaginationParamsDto) {}
+
+    async getPosts(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: PaginationParamsDto
+    ) {}
+
+    async getReplies(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: PaginationParamsDto
+    ) {}
+
+    async getMedia(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: PaginationParamsDto
+    ) {}
 
     async updateUser(user_id: string, update_user_dto: UpdateUserDto): Promise<UserProfileDto> {
         const user = await this.user_repository.findOne({
