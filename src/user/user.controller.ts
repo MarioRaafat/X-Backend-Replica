@@ -83,14 +83,13 @@ export class UserController {
     @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_users_by_ids.operation)
     @ApiOkResponse(get_users_by_ids.responses.success)
-    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USERS_RETRIEVED)
     @Get()
     async getUsersByIds(
         @GetUserId() current_user_id: string | null,
         @Query() get_users_by_id_dto: GetUsersByIdDto
     ) {
-        return await this.user_service.getUsersById(current_user_id, get_users_by_id_dto);
+        return await this.user_service.getUsersByIds(current_user_id, get_users_by_id_dto);
     }
 
     @UseGuards(OptionalJwtAuthGuard)
@@ -103,7 +102,7 @@ export class UserController {
         @GetUserId() current_user_id: string | null,
         @Query() get_users_by_username_dto: GetUsersByUsernameDto
     ) {
-        return await this.user_service.getUsersByUsername(
+        return await this.user_service.getUsersByUsernames(
             current_user_id,
             get_users_by_username_dto
         );
@@ -376,6 +375,7 @@ export class UserController {
     @ApiOperation(update_user.operation)
     @ApiOkResponse(update_user.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USER_UPDATED)
     @Patch('me')
     async updateUser(@GetUserId() user_id: string, @Body() update_user_dto: UpdateUserDto) {
@@ -477,7 +477,7 @@ export class UserController {
         @GetUserId() current_user_id: string,
         @Body() assign_interests_dto: AssignInterestsDto
     ) {
-        return await this.user_service.assignInserests(current_user_id, assign_interests_dto);
+        return await this.user_service.assignInterests(current_user_id, assign_interests_dto);
     }
 
     @UseGuards(JwtAuthGuard)

@@ -6,6 +6,7 @@ export const get_users_by_ids = {
         description: `
     Get a list of users' data.
     IDs are passed as a comma separated string of users IDs in query parameters
+    If no authenticated current  user, no relationship flags are returned
     `,
     },
 
@@ -16,9 +17,10 @@ export const get_users_by_ids = {
                 example: {
                     data: [
                         {
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            identifier: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                             success: true,
                             user: {
+                                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                                 name: 'Alyaa Ali',
                                 username: 'Alyaali242',
                                 bio: 'hi there!',
@@ -48,7 +50,8 @@ export const get_users_by_username = {
         summary: "Get users' data by their usernames",
         description: `
     Get a list of users' data.
-    Usernames are passed as a comma separated string of usernames in query parameters 
+    Usernames are passed as a comma separated string of usernames in query parameters
+    If no authenticated current  user, no relationship flags are returned
     `,
     },
 
@@ -59,9 +62,10 @@ export const get_users_by_username = {
                 example: {
                     data: [
                         {
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            identifier: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                             success: true,
                             user: {
+                                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                                 name: 'Alyaa Ali',
                                 username: 'Alyaali242',
                                 bio: 'hi there!',
@@ -1037,9 +1041,11 @@ export const update_user = {
                 example: {
                     data: {
                         user_id: '809334b7-d429-4d83-8e78-0418731ea97d',
+                        name: 'Alyaa Ali',
                         username: 'alyaa242',
                         bio: "Hi there, I'm Alyaa",
                         avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        cover_url: 'https://cdn.app.com/profiles/u877.jpg',
                         country: null,
                         created_at: '2025-10-21T09:26:17.432Z',
                         followers_count: 5,

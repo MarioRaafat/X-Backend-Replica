@@ -12,16 +12,16 @@ export class UserProfileDto {
     username: string;
 
     @Expose()
-    bio?: string;
+    bio?: string | null;
 
     @Expose()
-    avatar_url?: string;
+    avatar_url?: string | null;
 
     @Expose()
-    cover_url?: string;
+    cover_url?: string | null;
 
     @Expose()
-    country?: string;
+    country?: string | null;
 
     @Expose()
     created_at: Date;

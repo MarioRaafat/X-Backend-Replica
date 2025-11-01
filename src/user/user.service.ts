@@ -36,6 +36,7 @@ import { delete_cover } from './user.swagger';
 import { promises } from 'dns';
 import { UploadFileResponseDto } from './dto/upload-file-response.dto';
 import { TweetsService } from 'src/tweets/tweets.service';
+import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
 
 @Injectable()
 export class UserService {
@@ -47,11 +48,11 @@ export class UserService {
         private readonly category_repository: Repository<Category>
     ) {}
 
-    async getUsersById(
+    async getUsersByIds(
         current_user_id: string | null,
         get_users_by_id_dto: GetUsersByIdDto
     ): Promise<UserLookupDto[]> {
-        const results = await this.user_repository.getUsersById(
+        const results = await this.user_repository.getUsersByIds(
             get_users_by_id_dto.ids,
             current_user_id
         );
@@ -75,11 +76,11 @@ export class UserService {
         });
     }
 
-    async getUsersByUsername(
+    async getUsersByUsernames(
         current_user_id: string | null,
         get_users_by_username_dto: GetUsersByUsernameDto
     ): Promise<UserLookupDto[]> {
-        const results = await this.user_repository.getUsersByUsername(
+        const results = await this.user_repository.getUsersByUsernames(
             get_users_by_username_dto.usernames,
             current_user_id
         );
@@ -538,7 +539,10 @@ export class UserService {
         return await this.azure_storage_service.deleteFile(file_name, container_name);
     }
 
-    async assignInserests(user_id: string, assign_interests_dto: AssignInterestsDto) {
+    async assignInterests(
+        user_id: string,
+        assign_interests_dto: AssignInterestsDto
+    ): Promise<void> {
         const { category_ids } = assign_interests_dto;
 
         const existing_categories = await this.category_repository.findBy({
@@ -557,7 +561,10 @@ export class UserService {
         await this.user_repository.insertUserInterests(user_interests);
     }
 
-    async changeLanguage(user_id: string, change_language_dto: ChangeLanguageDto) {
+    async changeLanguage(
+        user_id: string,
+        change_language_dto: ChangeLanguageDto
+    ): Promise<ChangeLanguageResponseDto> {
         const user = await this.user_repository.findOne({ where: { id: user_id } });
 
         if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);

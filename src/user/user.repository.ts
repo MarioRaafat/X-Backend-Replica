@@ -243,7 +243,7 @@ export class UserRepository extends Repository<User> {
         return query;
     }
 
-    async getUsersById(
+    async getUsersByIds(
         user_ids: string[],
         current_user_id: string | null
     ): Promise<UserListItemDto[]> {
@@ -264,7 +264,7 @@ export class UserRepository extends Repository<User> {
         return await query.where('"user"."id" IN (:...user_ids)', { user_ids }).getRawMany();
     }
 
-    async getUsersByUsername(
+    async getUsersByUsernames(
         usernames: string[],
         current_user_id: string | null
     ): Promise<UserListItemDto[]> {

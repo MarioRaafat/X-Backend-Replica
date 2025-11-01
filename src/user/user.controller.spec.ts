@@ -15,6 +15,15 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
+import { GetUsersByIdDto } from './dto/get-users-by-id.dto';
+import { GetUsersByUsernameDto } from './dto/get-users-by-username.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
+import { ChangeLanguageDto } from './dto/change-language.dto';
+import { UploadFileResponseDto } from './dto/upload-file-response.dto';
+import { Readable } from 'stream';
+import { DeleteFileDto } from './dto/delete-file.dto';
+import { AssignInterestsDto } from './dto/assign-interests.dto';
 
 describe('UserController', () => {
     let controller: UserController;
@@ -22,6 +31,8 @@ describe('UserController', () => {
 
     beforeEach(async () => {
         const mock_user_service = {
+            getUsersByIds: jest.fn(),
+            getUsersByUsernames: jest.fn(),
             getMe: jest.fn(),
             getUserById: jest.fn(),
             getUserByUsername: jest.fn(),
@@ -35,6 +46,18 @@ describe('UserController', () => {
             unblockUser: jest.fn(),
             getMutedList: jest.fn(),
             getBlockedList: jest.fn(),
+            getPosts: jest.fn(),
+            getLikedPosts: jest.fn(),
+            getMedia: jest.fn(),
+            getReplies: jest.fn(),
+            updateUser: jest.fn(),
+            deleteUser: jest.fn(),
+            uploadAvatar: jest.fn(),
+            deleteAvatar: jest.fn(),
+            uploadCover: jest.fn(),
+            deleteCover: jest.fn(),
+            assignInterests: jest.fn(),
+            changeLanguage: jest.fn(),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -52,6 +75,181 @@ describe('UserController', () => {
     });
 
     afterEach(() => jest.clearAllMocks());
+
+    describe('getUsersByIds', () => {
+        it('should call user_service.getUsersByIds with the current user id and dto', async () => {
+            const mock_response = [
+                {
+                    identifier: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    success: true,
+                    user: {
+                        user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                        name: 'Grok',
+                        username: 'grok',
+                        bio: 'grok it',
+                        avatar_url:
+                            'https://pbs.twimg.com/profile_images/1893219113717342208/Vgg2hEPa_normal.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: false,
+                    },
+                },
+                {
+                    identifier: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    success: false,
+                    user: null,
+                },
+            ];
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const get_users_by_id_dto: GetUsersByIdDto = {
+                ids: [
+                    '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    'b2d59899-f706-4c8f-97d7-ba2e9fc22d90',
+                ],
+            };
+
+            const get_users_by_ids = jest
+                .spyOn(user_service, 'getUsersByIds')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getUsersByIds(current_user_id, get_users_by_id_dto);
+
+            expect(get_users_by_ids).toHaveBeenCalledWith(current_user_id, get_users_by_id_dto);
+            expect(get_users_by_ids).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should call user_service.getUsersByIds with dto only', async () => {
+            const mock_response = [
+                {
+                    identifier: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    success: true,
+                    user: {
+                        user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                        name: 'Grok',
+                        username: 'grok',
+                        bio: 'grok it',
+                        avatar_url:
+                            'https://pbs.twimg.com/profile_images/1893219113717342208/Vgg2hEPa_normal.jpg',
+                    },
+                },
+                {
+                    identifier: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    success: false,
+                    user: null,
+                },
+            ];
+
+            const current_user_id = null;
+            const get_users_by_id_dto: GetUsersByIdDto = {
+                ids: ['0c059899-f706-4c8f-97d7-ba2e9fc22d6d'],
+            };
+
+            const get_users_by_ids = jest
+                .spyOn(user_service, 'getUsersByIds')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getUsersByIds(current_user_id, get_users_by_id_dto);
+
+            expect(get_users_by_ids).toHaveBeenCalledWith(current_user_id, get_users_by_id_dto);
+            expect(get_users_by_ids).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+    });
+
+    describe('getUsersByUsernames', () => {
+        it('should call user_service.getUsersByUsernames with the current user id and dto', async () => {
+            const mock_response = [
+                {
+                    identifier: 'grok',
+                    success: true,
+                    user: {
+                        user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                        name: 'Grok',
+                        username: 'grok',
+                        bio: 'grok it',
+                        avatar_url:
+                            'https://pbs.twimg.com/profile_images/1893219113717342208/Vgg2hEPa_normal.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: false,
+                    },
+                },
+                {
+                    identifier: 'grok',
+                    success: false,
+                    user: null,
+                },
+            ];
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const get_users_by_username_dto: GetUsersByUsernameDto = {
+                usernames: ['grok', 'non-existing-username'],
+            };
+
+            const get_users_by_usernames = jest
+                .spyOn(user_service, 'getUsersByUsernames')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getUsersByUsernames(
+                current_user_id,
+                get_users_by_username_dto
+            );
+
+            expect(get_users_by_usernames).toHaveBeenCalledWith(
+                current_user_id,
+                get_users_by_username_dto
+            );
+            expect(get_users_by_usernames).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should call user_service.getUsersByUsernames with dto only', async () => {
+            const mock_response = [
+                {
+                    identifier: 'grok',
+                    success: true,
+                    user: {
+                        user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                        name: 'Grok',
+                        username: 'grok',
+                        bio: 'grok it',
+                        avatar_url:
+                            'https://pbs.twimg.com/profile_images/1893219113717342208/Vgg2hEPa_normal.jpg',
+                    },
+                },
+                {
+                    identifier: 'grok',
+                    success: false,
+                    user: null,
+                },
+            ];
+
+            const current_user_id = null;
+            const get_users_by_username_dto: GetUsersByUsernameDto = {
+                usernames: ['grok', 'non-existing-username'],
+            };
+
+            const get_users_by_usernames = jest
+                .spyOn(user_service, 'getUsersByUsernames')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getUsersByUsernames(
+                current_user_id,
+                get_users_by_username_dto
+            );
+
+            expect(get_users_by_usernames).toHaveBeenCalledWith(
+                current_user_id,
+                get_users_by_username_dto
+            );
+            expect(get_users_by_usernames).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+    });
 
     describe('getMe', () => {
         it('should call user_service.getMe with the current user id', async () => {
@@ -79,6 +277,19 @@ describe('UserController', () => {
             expect(get_me_spy).toHaveBeenCalledWith(user_id);
             expect(get_me_spy).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws', async () => {
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            const get_me_spy = jest.spyOn(user_service, 'getMe').mockRejectedValueOnce(error);
+
+            await expect(controller.getMe(user_id)).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            expect(get_me_spy).toHaveBeenCalledWith(user_id);
+            expect(get_me_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -849,6 +1060,552 @@ describe('UserController', () => {
 
             expect(unblock_user).toHaveBeenCalledWith(current_user_id, target_user_id);
             expect(unblock_user).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('getLikedPosts', () => {
+        it('should call user_service.getLikedPosts with the current user id and query dto', async () => {
+            const mock_response: any = {
+                data: [],
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PaginationParamsDto = {
+                page_offset: 0,
+                page_size: 10,
+            };
+
+            const get_liked_posts = jest
+                .spyOn(user_service, 'getLikedPosts')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getLikedPosts(current_user_id, query_dto);
+
+            expect(get_liked_posts).toHaveBeenCalledWith(current_user_id, query_dto);
+            expect(get_liked_posts).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+    });
+
+    describe('getPosts', () => {
+        it('should call user_service.getPosts with the current user id, target user id, and query dto', async () => {
+            const mock_response: any = {
+                data: [],
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const query_dto: PaginationParamsDto = {
+                page_offset: 0,
+                page_size: 10,
+            };
+
+            const get_posts = jest
+                .spyOn(user_service, 'getPosts')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getPosts(current_user_id, target_user_id, query_dto);
+
+            expect(get_posts).toHaveBeenCalledWith(current_user_id, target_user_id, query_dto);
+            expect(get_posts).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'nonexistent-id';
+            const query_dto: PaginationParamsDto = {
+                page_offset: 0,
+                page_size: 10,
+            };
+
+            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            const get_posts = jest.spyOn(user_service, 'getPosts').mockRejectedValueOnce(error);
+
+            await expect(
+                controller.getPosts(current_user_id, target_user_id, query_dto)
+            ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            expect(get_posts).toHaveBeenCalledWith(current_user_id, target_user_id, query_dto);
+            expect(get_posts).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('getReplies', () => {
+        it('should call user_service.getReplies with the current user id, target user id, and query dto', async () => {
+            const mock_response: any = {
+                data: [],
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const query_dto: PaginationParamsDto = {
+                page_offset: 0,
+                page_size: 10,
+            };
+
+            const get_replies = jest
+                .spyOn(user_service, 'getReplies')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getReplies(current_user_id, target_user_id, query_dto);
+
+            expect(get_replies).toHaveBeenCalledWith(current_user_id, target_user_id, query_dto);
+            expect(get_replies).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'nonexistent-id';
+            const query_dto: PaginationParamsDto = {
+                page_offset: 0,
+                page_size: 10,
+            };
+
+            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            const get_replies = jest.spyOn(user_service, 'getReplies').mockRejectedValueOnce(error);
+
+            await expect(
+                controller.getReplies(current_user_id, target_user_id, query_dto)
+            ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            expect(get_replies).toHaveBeenCalledWith(current_user_id, target_user_id, query_dto);
+            expect(get_replies).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('getMedia', () => {
+        it('should call user_service.getMedia with the current user id, target user id, and query dto', async () => {
+            const mock_response: any = {
+                data: [],
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const query_dto: PaginationParamsDto = {
+                page_offset: 0,
+                page_size: 10,
+            };
+
+            const get_media = jest
+                .spyOn(user_service, 'getMedia')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getMedia(current_user_id, target_user_id, query_dto);
+
+            expect(get_media).toHaveBeenCalledWith(current_user_id, target_user_id, query_dto);
+            expect(get_media).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'nonexistent-id';
+            const query_dto: PaginationParamsDto = {
+                page_offset: 0,
+                page_size: 10,
+            };
+
+            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            const get_media = jest.spyOn(user_service, 'getMedia').mockRejectedValueOnce(error);
+
+            await expect(
+                controller.getMedia(current_user_id, target_user_id, query_dto)
+            ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            expect(get_media).toHaveBeenCalledWith(current_user_id, target_user_id, query_dto);
+            expect(get_media).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('updateUser', () => {
+        it('should call user_service.updateUser with the user id and update dto', async () => {
+            const mock_response: UserProfileDto = {
+                user_id: '809334b7-d429-4d83-8e78-0418731ea97d',
+                name: 'Alyaa Ali',
+                username: 'alyaa242',
+                bio: "Hi there, I'm Alyaa",
+                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                cover_url: 'https://cdn.app.com/profiles/u877.jpg',
+                country: null,
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                followers_count: 5,
+                following_count: 10,
+            };
+
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const update_user_dto: UpdateUserDto = {
+                name: 'Updated Name',
+                bio: 'Updated bio',
+                avatar_url: 'https://cdn.app.com/profiles/updated.jpg',
+            };
+
+            const update_user = jest
+                .spyOn(user_service, 'updateUser')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.updateUser(user_id, update_user_dto);
+
+            expect(update_user).toHaveBeenCalledWith(user_id, update_user_dto);
+            expect(update_user).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws', async () => {
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const update_user_dto: UpdateUserDto = {
+                name: 'Updated Name',
+            };
+
+            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            const update_user = jest.spyOn(user_service, 'updateUser').mockRejectedValueOnce(error);
+
+            await expect(controller.updateUser(user_id, update_user_dto)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
+            );
+
+            expect(update_user).toHaveBeenCalledWith(user_id, update_user_dto);
+            expect(update_user).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('deleteUser', () => {
+        it('should call user_service.deleteUser with the current user id', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const delete_user = jest
+                .spyOn(user_service, 'deleteUser')
+                .mockResolvedValueOnce(undefined);
+
+            const result = await controller.deleteUser(current_user_id);
+
+            expect(delete_user).toHaveBeenCalledWith(current_user_id);
+            expect(delete_user).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(undefined);
+        });
+
+        it('should throw if service throws', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            const delete_user = jest.spyOn(user_service, 'deleteUser').mockRejectedValueOnce(error);
+
+            await expect(controller.deleteUser(current_user_id)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
+            );
+
+            expect(delete_user).toHaveBeenCalledWith(current_user_id);
+            expect(delete_user).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('changeLanguage', () => {
+        it('should call user_service.changeLanguage with the current user id and change language dto', async () => {
+            const mock_response: ChangeLanguageResponseDto = {
+                language: 'ar',
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const change_language_dto: ChangeLanguageDto = {
+                language: 'ar',
+            };
+
+            const change_language = jest
+                .spyOn(user_service, 'changeLanguage')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.changeLanguage(current_user_id, change_language_dto);
+
+            expect(change_language).toHaveBeenCalledWith(current_user_id, change_language_dto);
+            expect(change_language).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+    });
+
+    describe('uploadAvatar', () => {
+        it('should call user_service.uploadAvatar with the current user id and file', async () => {
+            const mock_response: UploadFileResponseDto = {
+                image_name: 'new-avatar.jpg',
+                image_url: 'https://cdn.app.com/profiles/new-avatar.jpg',
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file: Express.Multer.File = {
+                fieldname: 'file',
+                originalname: 'avatar.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                size: 1024,
+                buffer: Buffer.from('fake-image-data'),
+                stream: new Readable(),
+                destination: '',
+                filename: '',
+                path: '',
+            };
+
+            const upload_avatar = jest
+                .spyOn(user_service, 'uploadAvatar')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.uploadAvatar(current_user_id, file);
+
+            expect(upload_avatar).toHaveBeenCalledWith(current_user_id, file);
+            expect(upload_avatar).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file: Express.Multer.File = {
+                fieldname: 'file',
+                originalname: 'avatar.txt',
+                encoding: '7bit',
+                mimetype: 'text/plain',
+                size: 1024,
+                buffer: Buffer.from('fake-file-data'),
+                stream: new Readable(),
+                destination: '',
+                filename: '',
+                path: '',
+            };
+
+            const error = new BadRequestException(ERROR_MESSAGES.INVALID_FILE_FORMAT);
+
+            const upload_avatar = jest
+                .spyOn(user_service, 'uploadAvatar')
+                .mockRejectedValueOnce(error);
+
+            await expect(controller.uploadAvatar(current_user_id, file)).rejects.toThrow(
+                ERROR_MESSAGES.INVALID_FILE_FORMAT
+            );
+
+            expect(upload_avatar).toHaveBeenCalledWith(current_user_id, file);
+            expect(upload_avatar).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('deleteAvatar', () => {
+        it('should call user_service.deleteAvatar with the current user id and delete file dto', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const delete_file_dto: DeleteFileDto = {
+                file_url: 'https://cdn.app.com/profiles/old-avatar.jpg',
+            };
+
+            const delete_avatar = jest
+                .spyOn(user_service, 'deleteAvatar')
+                .mockResolvedValueOnce(undefined);
+
+            const result = await controller.deleteAvatar(current_user_id, delete_file_dto);
+
+            expect(delete_avatar).toHaveBeenCalledWith(current_user_id, delete_file_dto);
+            expect(delete_avatar).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(undefined);
+        });
+
+        it('should throw if service throws invalid file url', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const delete_file_dto: DeleteFileDto = {
+                file_url: 'invalid.jpg',
+            };
+
+            const error = new BadRequestException(ERROR_MESSAGES.INVALID_FILE_URL);
+
+            const delete_avatar = jest
+                .spyOn(user_service, 'deleteAvatar')
+                .mockRejectedValueOnce(error);
+
+            await expect(controller.deleteAvatar(current_user_id, delete_file_dto)).rejects.toThrow(
+                ERROR_MESSAGES.INVALID_FILE_URL
+            );
+
+            expect(delete_avatar).toHaveBeenCalledWith(current_user_id, delete_file_dto);
+            expect(delete_avatar).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw if service throws file not found', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const delete_file_dto: DeleteFileDto = {
+                file_url: 'https://cdn.app.com/profiles/nonexistent.jpg',
+            };
+
+            const error = new NotFoundException(ERROR_MESSAGES.FILE_NOT_FOUND);
+
+            const delete_avatar = jest
+                .spyOn(user_service, 'deleteAvatar')
+                .mockRejectedValueOnce(error);
+
+            await expect(controller.deleteAvatar(current_user_id, delete_file_dto)).rejects.toThrow(
+                ERROR_MESSAGES.FILE_NOT_FOUND
+            );
+
+            expect(delete_avatar).toHaveBeenCalledWith(current_user_id, delete_file_dto);
+            expect(delete_avatar).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('uploadCover', () => {
+        it('should call user_service.uploadCover with the current user id and file', async () => {
+            const mock_response: UploadFileResponseDto = {
+                image_name: 'new-avatar.jpg',
+                image_url: 'https://cdn.app.com/profiles/new-avatar.jpg',
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file: Express.Multer.File = {
+                fieldname: 'file',
+                originalname: 'avatar.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                size: 1024,
+                buffer: Buffer.from('fake-image-data'),
+                stream: new Readable(),
+                destination: '',
+                filename: '',
+                path: '',
+            };
+
+            const upload_cover = jest
+                .spyOn(user_service, 'uploadCover')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.uploadCover(current_user_id, file);
+
+            expect(upload_cover).toHaveBeenCalledWith(current_user_id, file);
+            expect(upload_cover).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file: Express.Multer.File = {
+                fieldname: 'file',
+                originalname: 'avatar.txt',
+                encoding: '7bit',
+                mimetype: 'text/plain',
+                size: 1024,
+                buffer: Buffer.from('fake-file-data'),
+                stream: new Readable(),
+                destination: '',
+                filename: '',
+                path: '',
+            };
+
+            const error = new BadRequestException(ERROR_MESSAGES.INVALID_FILE_FORMAT);
+
+            const upload_cover = jest
+                .spyOn(user_service, 'uploadCover')
+                .mockRejectedValueOnce(error);
+
+            await expect(controller.uploadCover(current_user_id, file)).rejects.toThrow(
+                ERROR_MESSAGES.INVALID_FILE_FORMAT
+            );
+
+            expect(upload_cover).toHaveBeenCalledWith(current_user_id, file);
+            expect(upload_cover).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('deleteCover', () => {
+        it('should call user_service.deleteCover with the current user id and delete file dto', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const delete_file_dto: DeleteFileDto = {
+                file_url: 'https://cdn.app.com/profiles/old-avatar.jpg',
+            };
+
+            const delete_cover = jest
+                .spyOn(user_service, 'deleteCover')
+                .mockResolvedValueOnce(undefined);
+
+            const result = await controller.deleteCover(current_user_id, delete_file_dto);
+
+            expect(delete_cover).toHaveBeenCalledWith(current_user_id, delete_file_dto);
+            expect(delete_cover).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(undefined);
+        });
+
+        it('should throw if service throws invalid file url', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const delete_file_dto: DeleteFileDto = {
+                file_url: 'invalid.jpg',
+            };
+
+            const error = new BadRequestException(ERROR_MESSAGES.INVALID_FILE_URL);
+
+            const delete_cover = jest
+                .spyOn(user_service, 'deleteCover')
+                .mockRejectedValueOnce(error);
+
+            await expect(controller.deleteCover(current_user_id, delete_file_dto)).rejects.toThrow(
+                ERROR_MESSAGES.INVALID_FILE_URL
+            );
+
+            expect(delete_cover).toHaveBeenCalledWith(current_user_id, delete_file_dto);
+            expect(delete_cover).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw if service throws file not found', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const delete_file_dto: DeleteFileDto = {
+                file_url: 'https://cdn.app.com/profiles/nonexistent.jpg',
+            };
+
+            const error = new NotFoundException(ERROR_MESSAGES.FILE_NOT_FOUND);
+
+            const delete_cover = jest
+                .spyOn(user_service, 'deleteCover')
+                .mockRejectedValueOnce(error);
+
+            await expect(controller.deleteCover(current_user_id, delete_file_dto)).rejects.toThrow(
+                ERROR_MESSAGES.FILE_NOT_FOUND
+            );
+
+            expect(delete_cover).toHaveBeenCalledWith(current_user_id, delete_file_dto);
+            expect(delete_cover).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('assignInterests', () => {
+        it('should call user_service.assignInterests with the current user id and assign interests dto', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const assign_interests_dto: AssignInterestsDto = {
+                category_ids: [1, 2, 3],
+            };
+
+            const assign_interests = jest
+                .spyOn(user_service, 'assignInterests')
+                .mockResolvedValueOnce(undefined);
+
+            const result = await controller.assignInterests(current_user_id, assign_interests_dto);
+
+            expect(assign_interests).toHaveBeenCalledWith(current_user_id, assign_interests_dto);
+            expect(assign_interests).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(undefined);
+        });
+
+        it('should throw if service throws', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const assign_interests_dto: AssignInterestsDto = {
+                category_ids: [88],
+            };
+
+            const error = new NotFoundException(ERROR_MESSAGES.CATEGORIES_NOT_FOUND);
+
+            const assign_interests = jest
+                .spyOn(user_service, 'assignInterests')
+                .mockRejectedValueOnce(error);
+
+            await expect(
+                controller.assignInterests(current_user_id, assign_interests_dto)
+            ).rejects.toThrow(ERROR_MESSAGES.CATEGORIES_NOT_FOUND);
+
+            expect(assign_interests).toHaveBeenCalledWith(current_user_id, assign_interests_dto);
+            expect(assign_interests).toHaveBeenCalledTimes(1);
         });
     });
 });
