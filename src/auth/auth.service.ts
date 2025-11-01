@@ -257,11 +257,8 @@ export class AuthService {
         const otp_key = OTP_KEY('email', email);
         await this.redis_service.del(otp_key);
 
-        // Return user data with tokens for automatic login
-        const user = instanceToPlain(created_user);
-
         return {
-            user_id: created_user.id,
+            user: created_user,
             access_token,
             refresh_token,
         };
@@ -274,9 +271,7 @@ export class AuthService {
         if (identifier.includes('@')) {
             identifier_type = 'email';
             user = await this.user_repository.findByEmail(identifier);
-            // should be fixed :
-            // eslint-disable-next-line no-useless-escape
-        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
+        } else if (/^[+]?[0-9\-()\s]+$/.test(identifier)) {
             identifier_type = 'phone_number';
             user = await this.user_repository.findByPhoneNumber(identifier);
         } else {
@@ -314,7 +309,11 @@ export class AuthService {
 
         const { access_token, refresh_token } = await this.generateTokens(id);
 
-        return { user, access_token, refresh_token };
+        return {
+            user: user,
+            access_token: access_token,
+            refresh_token: refresh_token,
+        };
     }
 
     async generateEmailVerification(email: string) {

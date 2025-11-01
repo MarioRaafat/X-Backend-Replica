@@ -209,6 +209,10 @@ export class UserRepository extends Repository<User> {
                 'user.username AS username',
                 'user.bio AS bio',
                 'user.avatar_url AS avatar_url',
+                'user.cover_url AS cover_url',
+                'user.verified AS verified',
+                'user.followers AS followers',
+                'user.following AS following',
             ])
             .addSelect(
                 `CASE WHEN EXISTS(
@@ -258,6 +262,10 @@ export class UserRepository extends Repository<User> {
                 'user.username AS username',
                 'user.bio AS bio',
                 'user.avatar_url AS avatar_url',
+                'user.cover_url AS cover_url',
+                'user.verified AS verified',
+                'user.followers AS followers',
+                'user.following AS following',
             ]);
         }
 
@@ -279,6 +287,10 @@ export class UserRepository extends Repository<User> {
                 'user.username AS username',
                 'user.bio AS bio',
                 'user.avatar_url AS avatar_url',
+                'user.cover_url AS cover_url',
+                'user.verified AS verified',
+                'user.followers AS followers',
+                'user.following AS following',
             ]);
         }
 
