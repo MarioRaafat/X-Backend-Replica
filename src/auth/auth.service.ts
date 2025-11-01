@@ -257,11 +257,8 @@ export class AuthService {
         const otp_key = OTP_KEY('email', email);
         await this.redis_service.del(otp_key);
 
-        // Return user data with tokens for automatic login
-        const user = instanceToPlain(created_user);
-
         return {
-            user_id: created_user.id,
+            user: created_user,
             access_token,
             refresh_token,
         };

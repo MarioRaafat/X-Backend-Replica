@@ -137,10 +137,10 @@ export class AuthController {
     @ResponseMessage(SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED)
     @Post('signup/step3')
     async signupStep3(@Body() dto: SignupStep3Dto, @Res({ passthrough: true }) response: Response) {
-        const { user_id, access_token, refresh_token } = await this.auth_service.signupStep3(dto);
+        const { user, access_token, refresh_token } = await this.auth_service.signupStep3(dto);
 
         this.httpOnlyRefreshToken(response, refresh_token);
-        return { user_id, access_token };
+        return { user, access_token };
     }
 
     @ApiOperation(login_swagger.operation)
