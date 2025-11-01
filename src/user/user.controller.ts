@@ -367,7 +367,9 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_DELETED)
     @Delete('me/delete-account')
-    async deleteUser(@GetUserId() current_user_id: string) {}
+    async deleteUser(@GetUserId() current_user_id: string) {
+        return await this.user_service.deleteUser(current_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')

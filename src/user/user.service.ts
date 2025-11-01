@@ -33,6 +33,7 @@ import { Category } from 'src/category/entities';
 import { ChangeLanguageDto } from './dto/change-language.dto';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { delete_cover } from './user.swagger';
+import { promises } from 'dns';
 
 @Injectable()
 export class UserService {
@@ -403,6 +404,18 @@ export class UserService {
         });
     }
 
+    async deleteUser(current_user_id: string): Promise<void> {
+        const user = await this.user_repository.findOne({
+            where: { id: current_user_id },
+        });
+
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        await this.user_repository.delete(current_user_id);
+    }
+
     async uploadAvatar(current_user_id: string, file: Express.Multer.File) {
         try {
             if (!file || !file.buffer) {
@@ -433,7 +446,7 @@ export class UserService {
         }
     }
 
-    async deleteAvatar(current_user_id: string, delete_file_dto: DeleteFileDto) {
+    async deleteAvatar(current_user_id: string, delete_file_dto: DeleteFileDto): Promise<void> {
         const { file_url } = delete_file_dto;
 
         const file_name = this.azure_storage_service.extractFileName(file_url);
@@ -480,7 +493,7 @@ export class UserService {
         }
     }
 
-    async deleteCover(current_user_id: string, delete_file_dto: DeleteFileDto) {
+    async deleteCover(current_user_id: string, delete_file_dto: DeleteFileDto): Promise<void> {
         const { file_url } = delete_file_dto;
 
         const file_name = this.azure_storage_service.extractFileName(file_url);
