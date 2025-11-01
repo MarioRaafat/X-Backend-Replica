@@ -848,27 +848,26 @@ export class TweetsService {
             throw new BadRequestException('Only the tweet owner can see who liked their tweet');
         }
 
-        // Build query for tweet likes with user information and follow relationships
+        // Build single query with all joins including follow relationships
         const query_builder = this.tweet_like_repository
             .createQueryBuilder('like')
             .leftJoinAndSelect('like.user', 'user')
-            .leftJoin(
-                'user_follows',
-                'current_user_follows',
-                'current_user_follows.follower_id = :current_user_id AND current_user_follows.followed_id = user.id',
+            .leftJoinAndMapOne(
+                'like.follower_relation',
+                UserFollows,
+                'follower_relation',
+                'follower_relation.follower_id = user.id AND follower_relation.followed_id = :current_user_id',
                 { current_user_id }
             )
-            .leftJoin(
-                'user_follows',
-                'user_follows_current',
-                'user_follows_current.follower_id = user.id AND user_follows_current.followed_id = :current_user_id',
+            .leftJoinAndMapOne(
+                'like.following_relation',
+                UserFollows,
+                'following_relation',
+                'following_relation.follower_id = :current_user_id AND following_relation.followed_id = user.id',
                 { current_user_id }
             )
-            .addSelect('current_user_follows.followed_id', 'is_follower')
-            .addSelect('user_follows_current.follower_id', 'is_following')
             .where('like.tweet_id = :tweet_id', { tweet_id });
 
-        // Use pagination service (sort by user_id since created_at doesn't exist)
         const paginated_result = await this.paginate_service.paginate(
             query_builder,
             { page, limit, sort_by: 'user_id', sort_order: 'DESC' },
@@ -876,15 +875,14 @@ export class TweetsService {
             ['user_id', 'tweet_id']
         );
 
-        // Map to user response format with follow information from the query
-        const users = paginated_result.data.map((like: any) => ({
+        const users = paginated_result.data.map((like) => ({
             id: like.user.id,
             username: like.user.username,
             name: like.user.name,
             avatar_url: like.user.avatar_url || '',
             verified: like.user.verified,
-            is_follower: !!like.is_follower,
-            is_following: !!like.is_following,
+            is_follower: !!like.follower_relation,
+            is_following: !!like.following_relation,
         }));
 
         return {
@@ -930,48 +928,64 @@ export class TweetsService {
             throw new BadRequestException('Only the tweet owner can see who reposted their tweet');
         }
 
-        // Build query for tweet reposts with user information and follow relationships
+        // Calculate pagination
+        const skip = (page - 1) * limit;
+
+        // Build single query with all joins including follow relationships
         const query_builder = this.tweet_repost_repository
             .createQueryBuilder('repost')
             .leftJoinAndSelect('repost.user', 'user')
             .leftJoin(
                 'user_follows',
-                'current_user_follows',
-                'current_user_follows.follower_id = :current_user_id AND current_user_follows.followed_id = user.id',
+                'follower_relation',
+                'follower_relation.follower_id = user.id AND follower_relation.followed_id = :current_user_id',
                 { current_user_id }
             )
             .leftJoin(
                 'user_follows',
-                'user_follows_current',
-                'user_follows_current.follower_id = user.id AND user_follows_current.followed_id = :current_user_id',
+                'following_relation',
+                'following_relation.follower_id = :current_user_id AND following_relation.followed_id = user.id',
                 { current_user_id }
             )
-            .addSelect('current_user_follows.followed_id', 'is_follower')
-            .addSelect('user_follows_current.follower_id', 'is_following')
-            .where('repost.tweet_id = :tweet_id', { tweet_id });
+            .where('repost.tweet_id = :tweet_id', { tweet_id })
+            .orderBy('repost.created_at', 'DESC')
+            .skip(skip)
+            .take(limit)
+            .addSelect('follower_relation.followed_id', 'is_follower_check')
+            .addSelect('following_relation.followed_id', 'is_following_check');
 
-        // Use pagination service (sort by created_at descending)
-        const paginated_result = await this.paginate_service.paginate(
-            query_builder,
-            { page, limit, sort_by: 'created_at', sort_order: 'DESC' },
-            'repost',
-            ['created_at', 'id']
-        );
+        // Get both raw and entity data
+        const [raw_and_entities, total_items] = await Promise.all([
+            query_builder.getRawAndEntities(),
+            query_builder.getCount(),
+        ]);
 
-        // Map to user response format with follow information from the query
-        const users = paginated_result.data.map((repost: any) => ({
-            id: repost.user.id,
-            username: repost.user.username,
-            name: repost.user.name,
-            avatar_url: repost.user.avatar_url || '',
-            verified: repost.user.verified,
-            is_follower: !!repost.is_follower,
-            is_following: !!repost.is_following,
-        }));
+        // Map to user response format with follow information from raw data
+        const users = raw_and_entities.entities.map((repost, index) => {
+            const raw_row = raw_and_entities.raw[index];
+            return {
+                id: repost.user.id,
+                username: repost.user.username,
+                name: repost.user.name,
+                avatar_url: repost.user.avatar_url || '',
+                verified: repost.user.verified,
+                is_follower: !!raw_row.is_follower_check,
+                is_following: !!raw_row.is_following_check,
+            };
+        });
+
+        const total_pages = Math.ceil(total_items / limit);
 
         return {
             data: users,
-            pagination: paginated_result.pagination,
+            pagination: {
+                total_items,
+                total_pages,
+                current_page: page,
+                items_per_page: limit,
+                has_next_page: page < total_pages,
+                has_previous_page: page > 1,
+            },
         };
     }
 
