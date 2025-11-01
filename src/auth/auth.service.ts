@@ -147,12 +147,12 @@ export class AuthService {
     async signupStep1(dto: SignupStep1Dto) {
         const { name, birth_date, email, captcha_token } = dto;
 
-        // Verify CAPTCHA first (uncomment in production)
-        // try {
-        //     await this.captcha_service.validateCaptcha(captcha_token);
-        // } catch (error) {
-        //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
-        // }
+        // Verify CAPTCHA first
+        try {
+            await this.captcha_service.validateCaptcha(captcha_token);
+        } catch (error) {
+            throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
+        }
 
         const existing_user = await this.user_repository.findByEmail(email);
         if (existing_user) {
@@ -307,12 +307,10 @@ export class AuthService {
             login_dto.type
         );
 
-        const user_instance = await this.user_repository.findById(id);
-        if (!user_instance) {
+        const user = await this.user_repository.findById(id);
+        if (!user) {
             throw new InternalServerErrorException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
-
-        const user = instanceToPlain(user_instance);
 
         const { access_token, refresh_token } = await this.generateTokens(id);
 
