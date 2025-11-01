@@ -96,8 +96,7 @@ export class AuthController {
     constructor(private readonly auth_service: AuthService) {}
 
     private httpOnlyRefreshToken(response: Response, refresh: string) {
-        // for now productionn, till check it with frontend team
-        const is_production = process.env.NODE_ENV === 'productionn';
+        const is_production = process.env.NODE_ENV === 'production';
 
         response.cookie('refresh_token', refresh, {
             httpOnly: true,
