@@ -322,7 +322,7 @@ export class TweetsController {
         @Query() query: GetTweetRepostsQueryDto,
         @GetUserId() user_id: string
     ) {
-        return await this.tweets_service.getTweetReposts(id, user_id, query.cursor, query.limit);
+        return await this.tweets_service.getTweetReposts(id, user_id, query.page, query.limit);
     }
 
     @ApiOperation(update_quote_tweet_swagger.operation)
