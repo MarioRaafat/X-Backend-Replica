@@ -96,10 +96,13 @@ export class AuthController {
     constructor(private readonly auth_service: AuthService) {}
 
     private httpOnlyRefreshToken(response: Response, refresh: string) {
+        // for now productionn, till check it with frontend team
+        const is_production = process.env.NODE_ENV === 'productionn';
+
         response.cookie('refresh_token', refresh, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: is_production,
+            sameSite: is_production ? 'strict' : 'none',
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
     }
