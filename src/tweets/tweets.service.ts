@@ -221,7 +221,7 @@ export class TweetsService {
 
         try {
             await this.extractDataFromTweets(tweet, user_id, query_runner);
-            // const extracted_topics = this.extractTopics(tweet.content);
+            const extracted_topics = this.extractTopics(tweet.content);
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 ...tweet,
