@@ -1,16 +1,20 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export class GetTweetLikesQueryDto {
     @ApiProperty({
-        description: 'Cursor for pagination (format: "timestamp_userId")',
+        description: 'Page number (starts from 1)',
         required: false,
-        example: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+        default: 1,
+        minimum: 1,
+        example: 1,
     })
     @IsOptional()
-    @IsString()
-    cursor?: string;
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page?: number = 1;
 
     @ApiProperty({
         description: 'Number of users to return per page',
