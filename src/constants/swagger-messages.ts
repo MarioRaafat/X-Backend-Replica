@@ -59,11 +59,6 @@ export const ERROR_MESSAGES = {
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
 
-    // file upload
-    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
-    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
-    NO_FILE_PROVIDED: 'No file provided',
-
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
     INVALID_OR_EXPIRED_LINK: 'Invalid or expired link',
@@ -90,9 +85,14 @@ export const ERROR_MESSAGES = {
     INVALID_CATEGORY_PARAMETER: 'Invalid category parameter',
 
     // file
+    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
+    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
+    NO_FILE_PROVIDED: 'No file provided',
     FILE_NOT_FOUND: 'File not found',
     INVALID_FILE_FORMAT: 'Invalid file format',
     FILE_UPLOAD_FAILED: 'File upload failed',
+    INVALID_FILE_URL: 'Invalid file url',
+    UNAUTHORIZED_FILE_DELETE: 'You are not allowed to delete this file',
 
     // search
     INVALID_SEARCH_QUERY: 'Invalid search query',

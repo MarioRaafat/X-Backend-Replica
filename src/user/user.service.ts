@@ -31,6 +31,8 @@ import { ConfigService } from '@nestjs/config';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
 import { Category } from 'src/category/entities';
 import { ChangeLanguageDto } from './dto/change-language.dto';
+import { DeleteFileDto } from './dto/delete-file.dto';
+import { delete_cover } from './user.swagger';
 
 @Injectable()
 export class UserService {
@@ -407,7 +409,7 @@ export class UserService {
                 throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
             }
 
-            const image_name = this.azure_storage_service.generateImageName(
+            const image_name = this.azure_storage_service.generateFileName(
                 current_user_id,
                 file.originalname
             );
@@ -416,7 +418,7 @@ export class UserService {
                 'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
             );
 
-            const image_url = await this.azure_storage_service.uploadImage(
+            const image_url = await this.azure_storage_service.uploadFile(
                 file.buffer,
                 image_name,
                 container_name
@@ -431,13 +433,30 @@ export class UserService {
         }
     }
 
+    async deleteAvatar(current_user_id: string, delete_file_dto: DeleteFileDto) {
+        const { file_url } = delete_file_dto;
+
+        const file_name = this.azure_storage_service.extractFileName(file_url);
+        const user_id = this.azure_storage_service.extractUserIdFromFileName(file_name);
+
+        if (user_id !== current_user_id) {
+            throw new ForbiddenException(ERROR_MESSAGES.UNAUTHORIZED_FILE_DELETE);
+        }
+
+        const container_name = this.config_service.get<string>(
+            'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
+        );
+
+        return await this.azure_storage_service.deleteFile(file_name, container_name);
+    }
+
     async uploadCover(current_user_id: string, file: Express.Multer.File) {
         try {
             if (!file || !file.buffer) {
                 throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
             }
 
-            const image_name = this.azure_storage_service.generateImageName(
+            const image_name = this.azure_storage_service.generateFileName(
                 current_user_id,
                 file.originalname
             );
@@ -446,7 +465,7 @@ export class UserService {
                 'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
             );
 
-            const image_url = await this.azure_storage_service.uploadImage(
+            const image_url = await this.azure_storage_service.uploadFile(
                 file.buffer,
                 image_name,
                 container_name
@@ -459,6 +478,23 @@ export class UserService {
         } catch (error) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
         }
+    }
+
+    async deleteCover(current_user_id: string, delete_file_dto: DeleteFileDto) {
+        const { file_url } = delete_file_dto;
+
+        const file_name = this.azure_storage_service.extractFileName(file_url);
+        const user_id = this.azure_storage_service.extractUserIdFromFileName(file_name);
+
+        if (user_id !== current_user_id) {
+            throw new ForbiddenException(ERROR_MESSAGES.UNAUTHORIZED_FILE_DELETE);
+        }
+
+        const container_name = this.config_service.get<string>(
+            'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
+        );
+
+        return await this.azure_storage_service.deleteFile(file_name, container_name);
     }
 
     async assignInserests(user_id: string, assign_interests_dto: AssignInterestsDto) {

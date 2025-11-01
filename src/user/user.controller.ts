@@ -393,10 +393,16 @@ export class UserController {
     @ApiOkResponse(delete_avatar.responses.success)
     @ApiBody({ type: DeleteFileDto })
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_URL)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.FILE_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.AVATAR_DELETED)
     @Delete('me/delete-avatar')
-    async deleteAvatar(@Body() file_url: DeleteFileDto) {}
+    async deleteAvatar(
+        @GetUserId() current_user_id: string,
+        @Body() delete_file_dto: DeleteFileDto
+    ) {
+        return await this.user_service.deleteAvatar(current_user_id, delete_file_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -422,10 +428,16 @@ export class UserController {
     @ApiBody({ type: DeleteFileDto })
     @ApiOkResponse(delete_cover.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_URL)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.FILE_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.COVER_DELETED)
     @Delete('me/delete-cover')
-    async deleteCover(@Body() file_url: DeleteFileDto) {}
+    async deleteCover(
+        @GetUserId() current_user_id: string,
+        @Body() delete_file_dto: DeleteFileDto
+    ) {
+        return await this.user_service.deleteCover(current_user_id, delete_file_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
