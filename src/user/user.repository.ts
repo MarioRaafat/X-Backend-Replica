@@ -327,7 +327,7 @@ export class UserRepository extends Repository<User> {
             .innerJoin(
                 'user_follows',
                 'target_following',
-                'target_following.follower_id = :target_user_id AND target_following.followed_id = user.id'
+                'target_following.follower_id = :target_user_id AND target_following.followed_id = "user"."id"'
             )
             .setParameter('target_user_id', target_user_id)
             .limit(page_size)
