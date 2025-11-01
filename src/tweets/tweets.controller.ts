@@ -33,10 +33,12 @@ import { UpdateTweetWithQuoteDTO } from './dto/update-tweet-with-quote.dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
 import { GetTweetLikesQueryDto } from './dto/get-tweet-likes-query.dto';
 import { GetTweetRepostsQueryDto } from './dto/get-tweet-reposts-query.dto';
+import { GetTweetRepliesQueryDto } from './dto/get-tweet-replies-query.dto';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import { PaginatedTweetsResponseDTO } from './dto/paginated-tweets-response.dto';
 import { PaginatedTweetLikesResponseDTO } from './dto/paginated-tweet-likes-response.dto';
 import { PaginatedTweetRepostsResponseDTO } from './dto/paginated-tweet-reposts-response.dto';
+import { PaginatedTweetRepliesResponseDTO } from './dto/paginated-tweet-replies-response.dto';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
@@ -58,6 +60,7 @@ import {
     get_tweet_by_id_swagger,
     get_tweet_likes_swagger,
     get_tweet_quotes_swagger,
+    get_tweet_replies_swagger,
     get_tweet_reposts_swagger,
     like_tweet_swagger,
     quote_tweet_swagger,
@@ -341,6 +344,21 @@ export class TweetsController {
         @GetUserId() user_id?: string
     ) {
         return await this.tweets_service.getTweetQuotes(id, user_id, query.cursor, query.limit);
+    }
+
+    @ApiOperation(get_tweet_replies_swagger.operation)
+    @ApiOkResponse(get_tweet_replies_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(ERROR_MESSAGES.TWEET_REPLIES_RETRIEVED_SUCCESSFULLY)
+    @Get(':id/replies')
+    async getTweetReplies(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: GetTweetRepliesQueryDto,
+        @GetUserId() user_id: string
+    ) {
+        return await this.tweets_service.getTweetReplies(id, user_id, query);
     }
 
     @ApiOperation(update_quote_tweet_swagger.operation)

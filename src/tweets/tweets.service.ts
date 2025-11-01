@@ -23,6 +23,9 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { BlobServiceClient } from '@azure/storage-blob';
 import { GoogleGenAI } from '@google/genai';
 import { TweetMapper } from './mappers/tweet.mapper';
+import { TweetsRepository } from './tweets.repository';
+import { TimelinePaginationDto } from 'src/timeline/dto/timeline-pagination.dto';
+import { GetTweetRepliesQueryDto, PaginatedTweetRepliesResponseDTO } from './dto';
 
 @Injectable()
 export class TweetsService {
@@ -40,7 +43,8 @@ export class TweetsService {
         @InjectRepository(UserFollows)
         private readonly user_follows_repository: Repository<UserFollows>,
         private data_source: DataSource,
-        private readonly paginate_service: PaginationService
+        private readonly paginate_service: PaginationService,
+        private readonly tweets_repository: TweetsRepository
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
@@ -831,6 +835,10 @@ export class TweetsService {
             name: like.user.name,
             avatar_url: like.user.avatar_url || '',
             verified: like.user.verified,
+            bio: like.user.bio,
+            cover_url: like.user.cover_url,
+            followers: like.user.followers,
+            following: like.user.following,
             is_following: following_map.get(like.user.id),
         }));
 
@@ -897,6 +905,10 @@ export class TweetsService {
             name: repost.user.name,
             avatar_url: repost.user.avatar_url || '',
             verified: repost.user.verified,
+            bio: repost.user.bio,
+            cover_url: repost.user.cover_url,
+            followers: repost.user.followers,
+            following: repost.user.following,
             is_following: following_map.get(repost.user.id),
         }));
 
@@ -1124,5 +1136,43 @@ export class TweetsService {
             await query_runner.rollbackTransaction();
             throw error;
         }
+    }
+
+    async getTweetReplies(
+        tweet_id: string,
+        current_user_id: string,
+        query_dto: GetTweetRepliesQueryDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        count: number;
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        // First, check if the tweet exists
+        const tweet = await this.tweet_repository.findOne({
+            where: { tweet_id },
+        });
+
+        if (!tweet) {
+            throw new NotFoundException('Tweet not found');
+        }
+
+        const pagination: TimelinePaginationDto = {
+            limit: query_dto.limit ?? 20,
+            cursor: query_dto.cursor,
+        };
+
+        const { tweets, next_cursor } = await this.tweets_repository.getReplies(
+            tweet_id,
+            current_user_id,
+            pagination
+        );
+
+        return {
+            data: tweets,
+            count: tweets.length,
+            next_cursor,
+            has_more: next_cursor !== null,
+        };
     }
 }

@@ -1082,3 +1082,89 @@ Returns full tweet objects for each quote tweet:
         },
     },
 };
+
+export const get_tweet_replies_swagger = {
+    operation: {
+        summary: 'Get replies for a specific tweet',
+        description:
+            'Retrieves all replies for a given tweet with pagination support using cursor-based pagination.\n\n' +
+            '**Pagination:**\n' +
+            '- Use `cursor` parameter for pagination (timestamp_tweetId format)\n' +
+            '- `limit` parameter controls number of replies returned (default: 20, max: 100)\n' +
+            '- `next_cursor` in response contains cursor for next page\n' +
+            '- `has_more` indicates if there are more replies available\n\n' +
+            '**Response Structure:**\n' +
+            '- `data`: Array of reply tweets (parent_tweet object omitted for simplicity)\n' +
+            '- `count`: Number of replies in current response\n' +
+            '- `next_cursor`: Cursor for next page (null if no more replies)\n' +
+            '- `has_more`: Boolean indicating if more replies exist',
+    },
+
+    params: {
+        name: 'tweet_id',
+        description: 'UUID of the tweet to get replies for',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+    },
+
+    query: {
+        type: 'GetTweetRepliesQueryDto',
+    },
+
+    responses: {
+        success: {
+            description: 'Tweet replies retrieved successfully',
+            schema: {
+                example: {
+                    data: [
+                        {
+                            tweet_id: '550e8400-e29b-41d4-a716-446655440001',
+                            type: 'reply',
+                            content: 'This is a reply to the original tweet!',
+                            conversation_id: '550e8400-e29b-41d4-a716-446655440000',
+                            parent_tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                            images: [],
+                            videos: [],
+                            likes_count: 5,
+                            reposts_count: 2,
+                            views_count: 50,
+                            quotes_count: 0,
+                            replies_count: 0,
+                            is_liked: false,
+                            is_reposted: false,
+                            created_at: '2025-10-31T11:30:00.000Z',
+                            updated_at: '2025-10-31T11:30:00.000Z',
+                            user: {
+                                id: '16945dc1-7853-46db-93b9-3f4201cfb77f',
+                                username: 'janedoe',
+                                name: 'Jane Doe',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                                verified: false,
+                                bio: 'Software engineer and tech enthusiast',
+                                cover_url: 'https://example.com/jane_cover.jpg',
+                                followers: 150,
+                                following: 89,
+                            },
+                            // Note: parent_tweet object is intentionally omitted to keep replies response simple
+                            // Only parent_tweet_id is included for reference
+                        },
+                    ],
+                    count: 1,
+                    next_cursor: '2025-10-31T11:30:00.000Z_550e8400-e29b-41d4-a716-446655440001',
+                    has_more: true,
+                    message: 'Tweet replies retrieved successfully',
+                },
+            },
+        },
+        not_found: {
+            description: 'Tweet not found',
+            schema: {
+                example: {
+                    message: 'Tweet not found',
+                    error: 'Not Found',
+                    statusCode: 404,
+                },
+            },
+        },
+    },
+};

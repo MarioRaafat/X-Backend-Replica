@@ -7,6 +7,7 @@ export { UpdateTweetWithQuoteDTO } from './update-tweet-with-quote.dto';
 export { GetTweetsQueryDto } from './get-tweets-query.dto';
 export { GetTweetLikesQueryDto } from './get-tweet-likes-query.dto';
 export { GetTweetRepostsQueryDto } from './get-tweet-reposts-query.dto';
+export { GetTweetRepliesQueryDto } from './get-tweet-replies-query.dto';
 export { UploadMediaResponseDTO } from './upload-media.dto';
 
 // Response DTOs
@@ -18,3 +19,4 @@ export { TweetLikesResponseDTO } from './tweet-likes-response.dto';
 export { PaginatedTweetsResponseDTO } from './paginated-tweets-response.dto';
 export { PaginatedTweetLikesResponseDTO } from './paginated-tweet-likes-response.dto';
 export { PaginatedTweetRepostsResponseDTO } from './paginated-tweet-reposts-response.dto';
+export { PaginatedTweetRepliesResponseDTO } from './paginated-tweet-replies-response.dto';
