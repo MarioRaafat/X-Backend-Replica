@@ -34,6 +34,7 @@ import { ChangeLanguageDto } from './dto/change-language.dto';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { delete_cover } from './user.swagger';
 import { promises } from 'dns';
+import { UploadFileResponseDto } from './dto/upload-file-response.dto';
 
 @Injectable()
 export class UserService {
@@ -416,7 +417,10 @@ export class UserService {
         await this.user_repository.delete(current_user_id);
     }
 
-    async uploadAvatar(current_user_id: string, file: Express.Multer.File) {
+    async uploadAvatar(
+        current_user_id: string,
+        file: Express.Multer.File
+    ): Promise<UploadFileResponseDto> {
         try {
             if (!file || !file.buffer) {
                 throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
@@ -463,7 +467,10 @@ export class UserService {
         return await this.azure_storage_service.deleteFile(file_name, container_name);
     }
 
-    async uploadCover(current_user_id: string, file: Express.Multer.File) {
+    async uploadCover(
+        current_user_id: string,
+        file: Express.Multer.File
+    ): Promise<UploadFileResponseDto> {
         try {
             if (!file || !file.buffer) {
                 throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
