@@ -12,6 +12,10 @@ export class TimelineService {
         pagination: TimelinePaginationDto
     ): Promise<TimelineResponseDto> {
         // tweets
+        // quotes
+        // reposts
+        // replies
+        //get my tweets
 
         const { tweets, next_cursor } = await this.tweet_repository.getFollowingTweets(
             user_id,
@@ -25,10 +29,6 @@ export class TimelineService {
             timestamp: new Date().toISOString(),
             count: tweets.length,
         };
-        // quotes
-        // reposts
-        // replies
-        //get my tweets
     }
     async getForyouTimeline(
         user_id: string,
