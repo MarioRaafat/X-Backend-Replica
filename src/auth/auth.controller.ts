@@ -509,38 +509,29 @@ export class AuthController {
         @Body() dto: MobileGitHubAuthDto,
         @Res({ passthrough: true }) response: Response
     ) {
-        try {
-            const result = await this.auth_service.verifyGitHubMobileToken(
-                dto.code,
-                dto.redirect_uri,
-                dto.code_verifier
-            );
+        const result = await this.auth_service.verifyGitHubMobileToken(dto.code, dto.redirect_uri, dto.code_verifier);
 
-            if ('needs_completion' in result && result.needs_completion) {
-                const session_token = await this.auth_service.createOAuthSession(result.user);
-                return {
-                    needs_completion: true,
-                    session_token: session_token,
-                    provider: 'github',
-                };
-            }
-
-            if (!('user' in result) || !('id' in result.user)) {
-                throw new BadRequestException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
-            }
-
-            const user = result.user;
-            const { access_token, refresh_token } = await this.auth_service.generateTokens(user.id);
-            this.httpOnlyRefreshToken(response, refresh_token);
-
+        if ('needs_completion' in result && result.needs_completion) {
+            const sessionToken = await this.auth_service.createOAuthSession(result.user);
             return {
-                access_token,
-                user: user,
+                needs_completion: true,
+                session_token: sessionToken,
+                provider: 'github',
             };
-        } catch (error) {
-            console.error('Error in mobileGitHubAuth:', error);
-            throw new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
         }
+
+        if (!("user" in result) || !("id" in result.user)) {
+            throw new BadRequestException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+        }
+
+        const user = result.user;
+        const { access_token, refresh_token } = await this.auth_service.generateTokens(user.id);
+        this.httpOnlyRefreshToken(response, refresh_token);
+
+        return {
+            access_token,
+            user: user,
+        };
     }
 
     @UseGuards(GitHubAuthGuard)

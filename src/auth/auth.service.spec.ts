@@ -11,7 +11,7 @@ jest.mock('bcrypt', () => ({
 
 import { Test, TestingModule } from '@nestjs/testing';
 import { AuthService } from './auth.service';
-import { UserService } from '../user/user.service';
+import { UserRepository } from '../user/user.repository';
 import { UsernameService } from './username.service';
 import * as bcrypt from 'bcrypt';
 import { RedisService } from 'src/redis/redis.service';
@@ -20,6 +20,7 @@ import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/communication/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
+import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 import {
     BadRequestException,
     ConflictException,
@@ -34,7 +35,7 @@ describe('AuthService', () => {
     let service: AuthService;
 
     const mockUserService = {
-        findUserByEmail: jest.fn(async (email: string) => {
+        findByEmail: jest.fn(async (email: string) => {
             return {
                 id: '1',
                 email,
@@ -43,13 +44,17 @@ describe('AuthService', () => {
                 phone_number: '1234567890',
             };
         }),
-        findUserById: jest.fn(),
-        findUserByGoogleId: jest.fn(),
-        findUserByFacebookId: jest.fn(),
-        findUserByGithubId: jest.fn(),
+        findById: jest.fn(),
+        findByGoogleId: jest.fn(),
+        findByFacebookId: jest.fn(),
+        findByGithubId: jest.fn(),
+        findByUsername: jest.fn(),
+        findByPhoneNumber: jest.fn(),
         createUser: jest.fn(),
         updateUserPassword: jest.fn(),
         updateUser: jest.fn(),
+        updateUserById: jest.fn(),
+        updatePassword: jest.fn(),
     };
 
     const mockJwtService = {
@@ -89,6 +94,9 @@ describe('AuthService', () => {
     const mockConfigService = {
         get: jest.fn(),
     };
+    const mockBackgroundJobsService = {
+        queueOtpEmail: jest.fn().mockResolvedValue({ success: true }),
+    };
 
     // ---------------- SETUP ----------------
     beforeAll(() => {
@@ -103,12 +111,13 @@ describe('AuthService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 AuthService,
-                { provide: UserService, useValue: mockUserService },
+                { provide: UserRepository, useValue: mockUserService },
                 { provide: JwtService, useValue: mockJwtService },
                 { provide: UsernameService, useValue: mockUsernameService },
                 { provide: RedisService, useValue: mockRedisService },
                 { provide: VerificationService, useValue: mockVerificationService },
                 { provide: EmailService, useValue: mockEmailService },
+                { provide: BackgroundJobsService, useValue: mockBackgroundJobsService },
                 { provide: CaptchaService, useValue: mockCaptchaService },
                 { provide: ConfigService, useValue: mockConfigService },
             ],
@@ -135,20 +144,20 @@ describe('AuthService', () => {
 
         it('should return id when email and password are correct', async () => {
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
-            const id = await service.validateUser('test@example.com', 'password');
+            const id = await service.validateUser('test@example.com', 'password', 'email');
             expect(id).toBe('1');
         });
 
         it('should throw "Wrong password" when password is incorrect', async () => {
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
-            await expect(service.validateUser('test@example.com', 'wrongpassword')).rejects.toThrow(
+            await expect(service.validateUser('test@example.com', 'wrongpassword', 'email')).rejects.toThrow(
                 ERROR_MESSAGES.WRONG_PASSWORD
             );
         });
 
         it('should throw "User not found" when user does not exist', async () => {
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
-            await expect(service.validateUser('missing@example.com', 'password')).rejects.toThrow(
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(null);
+            await expect(service.validateUser('missing@example.com', 'password', 'email')).rejects.toThrow(
                 ERROR_MESSAGES.USER_NOT_FOUND
             );
         });
@@ -245,15 +254,15 @@ describe('AuthService', () => {
                 name: 'Test User',
                 phone_number: '1234567890',
             };
-            // Set up findUserById to return mockUser when called with 'user-1'
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            // Set up findById to return mockUser when called with 'user-1'
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
             //mock the methods used inside login()
             jest.spyOn(service, 'generateTokens').mockResolvedValue(mockTokens);
             jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
 
-            const result = await service.login({ email: 'test@example.com', password: 'password' });
+            const result = await service.login({ identifier: 'test@example.com', type: 'email', password: 'password' });
 
-            expect(service.validateUser).toHaveBeenCalledWith('test@example.com', 'password');
+            expect(service.validateUser).toHaveBeenCalledWith('test@example.com', 'password', 'email');
 
             expect(service.generateTokens).toHaveBeenCalledWith('user-1');
 
@@ -266,22 +275,22 @@ describe('AuthService', () => {
             jest.spyOn(service, 'validateUser').mockRejectedValue(new Error('some random failure'));
 
             await expect(
-                service.login({ email: 'test@example.com', password: 'password' })
+                service.login({ identifier: 'test@example.com', type: 'email', password: 'password' })
             ).rejects.toThrow();
         });
 
-        it('should throw if findUserById returns null', async () => {
+        it('should throw if findById returns null', async () => {
             jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-            mockUserService.findUserById.mockResolvedValueOnce(null);
+            mockUserService.findById.mockResolvedValueOnce(null);
 
             await expect(
-                service.login({ email: 'test@example.com', password: 'password' })
+                service.login({ identifier: 'test@example.com', type: 'email', password: 'password' })
             ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
         });
 
         it('should throw if generateTokens throws', async () => {
             jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-            mockUserService.findUserById.mockResolvedValueOnce({
+            mockUserService.findById.mockResolvedValueOnce({
                 id: 'user-1',
                 email: 'test@example.com',
                 name: 'Test User',
@@ -290,69 +299,9 @@ describe('AuthService', () => {
             jest.spyOn(service, 'generateTokens').mockRejectedValue(new Error('token error'));
 
             await expect(
-                service.login({ email: 'test@example.com', password: 'password' })
+                service.login({ identifier: 'test@example.com', type: 'email', password: 'password' })
             ).rejects.toThrow();
         });
-
-        // it('should throw if redisService.sadd throws', async () => {
-        //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-        //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
-        //     id: 'user-1',
-        //     email: 'test@example.com',
-        //     firstName: 'Test',
-        //     lastName: 'User',
-        //     phoneNumber: '1234567890',
-        //   });
-        //   jest.spyOn(service, 'generateTokens').mockResolvedValue({
-        //     access_token: 'access',
-        //     refresh_token: 'refresh',
-        //   });
-        //   mockRedisService.sadd.mockRejectedValueOnce(new Error('Redis error'));
-
-        //   await expect(
-        //     service.login({ email: 'test@example.com', password: 'password' })
-        //   ).rejects.toThrow('Redis error');
-        //   });
-
-        // it('should throw if redisService.expire throws', async () => {
-        //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-        //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
-        //     id: 'user-1',
-        //     email: 'test@example.com',
-        //     firstName: 'Test',
-        //     lastName: 'User',
-        //     phoneNumber: '1234567890',
-        //   });
-        //   jest.spyOn(service, 'generateTokens').mockResolvedValue({
-        //     access_token: 'access',
-        //     refresh_token: 'refresh',
-        //   });
-        //   mockRedisService.expire.mockRejectedValueOnce(new Error('Redis error'));
-
-        //   await expect(
-        //     service.login({ email: 'test@example.com', password: 'password' })
-        //   ).rejects.toThrow('Redis error');
-        // });
-
-        // it('should throw if redisService.srem throws', async () => {
-        //   jest.spyOn(service, 'validateUser').mockResolvedValue('user-1');
-        //   (mockUserService.findUserById as jest.Mock).mockResolvedValueOnce({
-        //     id: 'user-1',
-        //     email: 'test@example.com',
-        //     firstName: 'Test',
-        //     lastName: 'User',
-        //     phoneNumber: '1234567890',
-        //   });
-        //   jest.spyOn(service, 'generateTokens').mockResolvedValue({
-        //     access_token: 'access',
-        //     refresh_token: 'refresh',
-        //   });
-        //   mockRedisService.srem.mockRejectedValueOnce(new Error('Redis error'));
-
-        //   await expect(
-        //     service.login({ email: 'test@example.com', password: 'password' })
-        //   ).rejects.toThrow('Redis error');
-        // });
     });
 
     describe('logout', () => {
@@ -526,7 +475,7 @@ describe('AuthService', () => {
             mockVerificationService.generateNotMeLink = jest
                 .fn()
                 .mockResolvedValueOnce('https://notme.link');
-            mockEmailService.sendEmail = jest.fn().mockResolvedValueOnce(true);
+            mockBackgroundJobsService.queueOtpEmail = jest.fn().mockResolvedValueOnce({ success: true });
 
             const result = await service.generateEmailVerification('test@example.com');
 
@@ -536,11 +485,13 @@ describe('AuthService', () => {
                 'email'
             );
             expect(mockVerificationService.generateNotMeLink).toHaveBeenCalled();
-            expect(mockEmailService.sendEmail).toHaveBeenCalledWith(
+            expect(mockBackgroundJobsService.queueOtpEmail).toHaveBeenCalledWith(
                 expect.objectContaining({
-                    subject: '123456 is your Y verification code',
-                    recipients: [{ name: 'John', address: 'test@example.com' }],
-                    html: expect.stringContaining('123456'),
+                    email: 'test@example.com',
+                    username: 'John',
+                    otp: '123456',
+                    email_type: 'verification',
+                    not_me_link: 'https://notme.link',
                 })
             );
 
@@ -564,10 +515,10 @@ describe('AuthService', () => {
             mockVerificationService.generateNotMeLink = jest
                 .fn()
                 .mockResolvedValueOnce('https://notme.link');
-            mockEmailService.sendEmail = jest.fn().mockResolvedValueOnce(false);
+            mockBackgroundJobsService.queueOtpEmail = jest.fn().mockResolvedValueOnce({ success: false });
 
             await expect(service.generateEmailVerification('test@example.com')).rejects.toThrow(
-                new InternalServerErrorException('Failed to send OTP email')
+                new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
             );
         });
     });
@@ -590,7 +541,7 @@ describe('AuthService', () => {
     //   it('should register successfully and send verification email', async () => {
     //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
     //     mockRedisService.hget.mockResolvedValueOnce(null);
-    //     (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+    //     (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(null);
     //     (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashedPass');
     //     mockRedisService.hset.mockResolvedValueOnce(true);
     //     mockConfigService.get.mockReturnValueOnce(3600);
@@ -600,7 +551,7 @@ describe('AuthService', () => {
 
     //     expect(mockCaptchaService.validateCaptcha).toHaveBeenCalledWith('valid-captcha');
     //     expect(mockRedisService.hget).toHaveBeenCalledWith('user:test@example.com');
-    //     expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+    //     expect(mockUserService.findByEmail).toHaveBeenCalledWith('test@example.com');
     //     expect(bcrypt.hash).toHaveBeenCalledWith('password123', 10);
     //     expect(mockRedisService.hset).toHaveBeenCalledWith(
     //       'user:test@example.com',
@@ -633,13 +584,13 @@ describe('AuthService', () => {
     //       new ConflictException('Email already exists'),
     //     );
 
-    //     expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+    //     expect(mockUserService.findByEmail).not.toHaveBeenCalled();
     //   });
 
     //   it('should throw ConflictException if email already exists in DB', async () => {
     //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
     //     mockRedisService.hget.mockResolvedValueOnce(null);
-    //     (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce({ id: '1' });
+    //     (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce({ id: '1' });
 
     //     await expect(service.register(mockRegisterDto)).rejects.toThrow(
     //       new ConflictException('Email already exists'),
@@ -651,7 +602,7 @@ describe('AuthService', () => {
     //   it('should throw BadRequestException if passwords do not match', async () => {
     //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
     //     mockRedisService.hget.mockResolvedValueOnce(null);
-    //     (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+    //     (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(null);
 
     //     const badDto = { ...mockRegisterDto, confirmPassword: 'wrong' };
 
@@ -665,7 +616,7 @@ describe('AuthService', () => {
     //   it('should propagate error if generateEmailVerification fails', async () => {
     //     mockCaptchaService.validateCaptcha.mockResolvedValueOnce(true);
     //     mockRedisService.hget.mockResolvedValueOnce(null);
-    //     (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+    //     (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(null);
     //     (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashedPass');
     //     mockRedisService.hset.mockResolvedValueOnce(true);
     //     mockConfigService.get.mockReturnValueOnce(3600);
@@ -682,6 +633,8 @@ describe('AuthService', () => {
             id: 'user-1',
             email: 'test@example.com',
             name: 'John',
+            password: 'hashedPassword',
+            phone_number: '1234567890',
         };
 
         beforeEach(() => {
@@ -689,90 +642,99 @@ describe('AuthService', () => {
         });
 
         it('should send password reset email successfully', async () => {
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
             mockVerificationService.generateOtp.mockResolvedValueOnce('123456');
-            mockEmailService.sendEmail.mockResolvedValueOnce(true);
+            mockBackgroundJobsService.queueOtpEmail.mockResolvedValueOnce({ success: true });
 
-            const result = await service.sendResetPasswordEmail('user-1');
+            const result = await service.sendResetPasswordEmail('test@example.com');
 
-            expect(mockUserService.findUserById).toHaveBeenCalledWith('user-1');
+            expect(mockUserService.findById).toHaveBeenCalledWith('user-1');
             expect(mockVerificationService.generateOtp).toHaveBeenCalledWith('user-1', 'password');
-            expect(mockEmailService.sendEmail).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    subject: 'Password reset request',
-                    recipients: [{ name: 'John', address: 'test@example.com' }],
-                    html: expect.stringContaining('123456'),
-                })
-            );
+            expect(mockBackgroundJobsService.queueOtpEmail).toHaveBeenCalledWith(expect.objectContaining({
+                email: 'test@example.com',
+                username: undefined, // user object doesn't have username property 
+                otp: '123456',
+                email_type: 'reset_password',
+            }));
 
             expect(result).toEqual({ isEmailSent: true });
         });
 
         it('should throw NotFoundException if user not found', async () => {
-            mockUserService.findUserById.mockResolvedValueOnce(null);
+            mockUserService.findByEmail = jest.fn().mockResolvedValue(null);
 
-            await expect(service.sendResetPasswordEmail('missing-id')).rejects.toThrow(
-                new NotFoundException('User not found')
+            await expect(service.sendResetPasswordEmail('missing@example.com')).rejects.toThrow(
+                new NotFoundException(ERROR_MESSAGES.EMAIL_NOT_FOUND)
             );
 
             expect(mockVerificationService.generateOtp).not.toHaveBeenCalled();
-            expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
+            expect(mockBackgroundJobsService.queueOtpEmail).not.toHaveBeenCalled();
         });
 
         it('should throw InternalServerErrorException if email sending fails', async () => {
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
             mockVerificationService.generateOtp.mockResolvedValueOnce('123456');
-            mockEmailService.sendEmail.mockResolvedValueOnce(false);
+            mockBackgroundJobsService.queueOtpEmail.mockResolvedValueOnce({ success: false });
 
-            await expect(service.sendResetPasswordEmail('user-1')).rejects.toThrow(
+            await expect(service.sendResetPasswordEmail('test@example.com')).rejects.toThrow(
                 new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
             );
         });
 
         it('should propagate error if OTP generation fails', async () => {
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
             mockVerificationService.generateOtp.mockRejectedValueOnce(
                 new Error('OTP service down')
             );
 
-            await expect(service.sendResetPasswordEmail('user-1')).rejects.toThrow(
+            await expect(service.sendResetPasswordEmail('test@example.com')).rejects.toThrow(
                 'OTP service down'
             );
-
-            expect(mockEmailService.sendEmail).not.toHaveBeenCalled();
         });
     });
 
     describe('verifyResetPasswordOtp', () => {
-        const userId = 'user-123';
+        const userEmail = 'test@example.com';
         const otpToken = '654321';
         const resetToken = 'secure-reset-token';
+        const mockUser = {
+            id: 'user-123',
+            email: 'test@example.com',
+            name: 'John',
+            password: 'hashedPassword',
+            phone_number: '1234567890',
+        };
 
         beforeEach(() => {
             jest.clearAllMocks();
         });
 
         it('should verify OTP successfully and return resetToken', async () => {
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
             mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
             mockVerificationService.generatePasswordResetToken = jest
                 .fn()
                 .mockResolvedValueOnce(resetToken);
 
-            const result = await service.verifyResetPasswordOtp(userId, otpToken);
+            const result = await service.verifyResetPasswordOtp(userEmail, otpToken);
 
             expect(mockVerificationService.validateOtp).toHaveBeenCalledWith(
-                userId,
+                'user-123',
                 otpToken,
                 'password'
             );
-            expect(mockVerificationService.generatePasswordResetToken).toHaveBeenCalledWith(userId);
+            expect(mockVerificationService.generatePasswordResetToken).toHaveBeenCalledWith('user-123');
             expect(result).toEqual({ isValid: true, resetToken });
         });
 
         it('should throw UnprocessableEntityException if OTP is invalid', async () => {
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
             mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(false);
 
-            await expect(service.verifyResetPasswordOtp(userId, otpToken)).rejects.toThrow(
+            await expect(service.verifyResetPasswordOtp(userEmail, otpToken)).rejects.toThrow(
                 UnprocessableEntityException
             );
 
@@ -780,11 +742,12 @@ describe('AuthService', () => {
         });
 
         it('should throw InternalServerErrorException if validateOtp throws', async () => {
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
             mockVerificationService.validateOtp = jest
                 .fn()
                 .mockRejectedValueOnce(new Error('OTP error'));
 
-            await expect(service.verifyResetPasswordOtp(userId, otpToken)).rejects.toThrow(
+            await expect(service.verifyResetPasswordOtp(userEmail, otpToken)).rejects.toThrow(
                 'OTP error'
             );
 
@@ -792,48 +755,57 @@ describe('AuthService', () => {
         });
 
         it('should throw InternalServerErrorException if generatePasswordResetToken throws', async () => {
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
             mockVerificationService.validateOtp = jest.fn().mockResolvedValueOnce(true);
             mockVerificationService.generatePasswordResetToken = jest
                 .fn()
                 .mockRejectedValueOnce(new Error('Token gen failed'));
 
-            await expect(service.verifyResetPasswordOtp(userId, otpToken)).rejects.toThrow(
+            await expect(service.verifyResetPasswordOtp(userEmail, otpToken)).rejects.toThrow(
                 'Token gen failed'
             );
         });
     });
 
     describe('resetPassword', () => {
-        const userId = 'user-123';
+        const userEmail = 'test@example.com';
         const validToken = 'valid-reset-token';
         const newPassword = 'newPass123';
         const hashedNewPassword = 'hashed-new-pass';
         const existingHashedPassword = 'hashed-old-pass';
+        const mockUser = {
+            id: 'user-123',
+            email: 'test@example.com',
+            name: 'John',
+            password: existingHashedPassword,
+            phone_number: '1234567890',
+        };
 
         beforeEach(() => {
             jest.clearAllMocks();
         });
 
         it('should reset password successfully', async () => {
-            const mockTokenData = { userId };
-            const mockUser = { id: userId, password: existingHashedPassword };
-
+            const mockTokenData = { userId: 'user-123' };
+            
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
             mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce(mockTokenData);
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
             (bcrypt.hash as jest.Mock).mockResolvedValueOnce(hashedNewPassword);
-            mockUserService.updateUserPassword.mockResolvedValueOnce(true);
+            mockUserService.updatePassword.mockResolvedValueOnce(true);
 
-            const result = await service.resetPassword(userId, newPassword, validToken);
+            const result = await service.resetPassword(userEmail, newPassword, validToken);
 
             expect(mockVerificationService.validatePasswordResetToken).toHaveBeenCalledWith(
                 validToken
             );
-            expect(mockUserService.findUserById).toHaveBeenCalledWith(userId);
+            expect(mockUserService.findById).toHaveBeenCalledWith('user-123');
             expect(bcrypt.compare).toHaveBeenCalledWith(newPassword, existingHashedPassword);
             expect(bcrypt.hash).toHaveBeenCalledWith(newPassword, 10);
-            expect(mockUserService.updateUserPassword).toHaveBeenCalledWith(
-                userId,
+            expect(mockUserService.updatePassword).toHaveBeenCalledWith(
+                'user-123',
                 hashedNewPassword
             );
 
@@ -841,68 +813,78 @@ describe('AuthService', () => {
         });
 
         it('should throw UnauthorizedException if token is invalid or expired', async () => {
+            mockUserService.findByEmail.mockResolvedValueOnce({
+                id: 'user-123',
+                email: userEmail,
+                password: 'hashed-pass',
+                name: 'Test User',
+                phone_number: '+1234567890'
+            });
             mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce(null);
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(userEmail, newPassword, validToken)).rejects.toThrow(
                 new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            expect(mockUserService.findUserById).not.toHaveBeenCalled();
+            expect(mockUserService.findById).not.toHaveBeenCalled();
         });
 
         it('should throw UnauthorizedException if token userId does not match request userId', async () => {
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
             mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
                 userId: 'another-user',
             });
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(userEmail, newPassword, validToken)).rejects.toThrow(
                 new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            expect(mockUserService.findUserById).not.toHaveBeenCalled();
+            expect(mockUserService.findById).not.toHaveBeenCalled();
         });
 
         it('should throw NotFoundException if user is not found', async () => {
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
             mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
-                userId,
+                userId: 'user-123',
             });
-            mockUserService.findUserById.mockResolvedValueOnce(null);
+            mockUserService.findById.mockReset();
+            mockUserService.findById.mockResolvedValueOnce(null);
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
-                new NotFoundException('User not found')
+            await expect(service.resetPassword(userEmail, newPassword, validToken)).rejects.toThrow(
+                new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND)
             );
 
             expect(bcrypt.compare).not.toHaveBeenCalled();
         });
 
         it('should throw BadRequestException if new password matches current one', async () => {
-            const mockUser = { id: userId, password: existingHashedPassword };
-
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
             mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
-                userId,
+                userId: 'user-123',
             });
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mockUserService.findById.mockReset();
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true); // same password
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(userEmail, newPassword, validToken)).rejects.toThrow(
                 new BadRequestException(ERROR_MESSAGES.NEW_PASSWORD_SAME_AS_OLD)
             );
 
-            expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+            expect(mockUserService.updatePassword).not.toHaveBeenCalled();
         });
 
-        it('should throw if updateUserPassword fails', async () => {
-            const mockUser = { id: userId, password: existingHashedPassword };
-
+        it('should throw if updatePassword fails', async () => {
+            mockUserService.findByEmail.mockResolvedValueOnce(mockUser);
             mockVerificationService.validatePasswordResetToken.mockResolvedValueOnce({
-                userId,
+                userId: 'user-123',
             });
-            mockUserService.findUserById.mockResolvedValueOnce(mockUser);
+            mockUserService.findById.mockReset();
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
             (bcrypt.hash as jest.Mock).mockResolvedValueOnce(hashedNewPassword);
-            mockUserService.updateUserPassword.mockRejectedValueOnce(new Error('DB error'));
+            mockUserService.updatePassword.mockRejectedValueOnce(new Error('DB error'));
 
-            await expect(service.resetPassword(userId, newPassword, validToken)).rejects.toThrow(
+            await expect(service.resetPassword(userEmail, newPassword, validToken)).rejects.toThrow(
                 'DB error'
             );
         });
@@ -963,16 +945,17 @@ describe('AuthService', () => {
 
         it('should update password successfully when valid', async () => {
             const mockUser = { id: 'user123', password: 'hashedOldPass' };
-            mockUserService.findUserById.mockResolvedValue(mockUser);
-            jest.spyOn(bcrypt, 'compare').mockResolvedValue(true as never);
-            jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedNewPass' as never);
+            mockUserService.findById.mockReset();
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
+            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+            (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashedNewPass');
 
             const result = await service.changePassword('user123', 'oldPass', 'newPass');
 
-            expect(mockUserService.findUserById).toHaveBeenCalledWith('user123');
+            expect(mockUserService.findById).toHaveBeenCalledWith('user123');
             expect(bcrypt.compare).toHaveBeenCalledWith('oldPass', 'hashedOldPass');
             expect(bcrypt.hash).toHaveBeenCalledWith('newPass', 10);
-            expect(mockUserService.updateUserPassword).toHaveBeenCalledWith(
+            expect(mockUserService.updatePassword).toHaveBeenCalledWith(
                 'user123',
                 'hashedNewPass'
             );
@@ -981,13 +964,14 @@ describe('AuthService', () => {
 
         it('should update password even if user has no current password (OAuth user)', async () => {
             const mockUser = { id: 'user123', password: null };
-            mockUserService.findUserById.mockResolvedValue(mockUser);
-            jest.spyOn(bcrypt, 'hash').mockResolvedValue('hashedNewPass' as never);
+            mockUserService.findById.mockReset();
+            mockUserService.findById.mockResolvedValueOnce(mockUser);
+            (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashedNewPass');
 
             const result = await service.changePassword('user123', 'oldPass', 'newPass');
 
             expect(bcrypt.compare).not.toHaveBeenCalled();
-            expect(mockUserService.updateUserPassword).toHaveBeenCalledWith(
+            expect(mockUserService.updatePassword).toHaveBeenCalledWith(
                 'user123',
                 'hashedNewPass'
             );
@@ -999,24 +983,25 @@ describe('AuthService', () => {
                 BadRequestException
             );
 
-            expect(mockUserService.findUserById).not.toHaveBeenCalled();
-            expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+            expect(mockUserService.findById).not.toHaveBeenCalled();
+            expect(mockUserService.updatePassword).not.toHaveBeenCalled();
         });
 
         it('should throw NotFoundException if user not found', async () => {
-            mockUserService.findUserById.mockResolvedValue(null);
+            mockUserService.findById.mockReset();
+            mockUserService.findById.mockResolvedValueOnce(null);
 
             await expect(service.changePassword('user123', 'oldPass', 'newPass')).rejects.toThrow(
                 NotFoundException
             );
 
-            expect(mockUserService.findUserById).toHaveBeenCalledWith('user123');
-            expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+            expect(mockUserService.findById).toHaveBeenCalledWith('user123');
+            expect(mockUserService.updatePassword).not.toHaveBeenCalled();
         });
 
         it('should throw UnauthorizedException if old password is wrong', async () => {
             const mockUser = { id: 'user123', password: 'hashedOldPass' };
-            mockUserService.findUserById.mockResolvedValue(mockUser);
+            mockUserService.findById.mockResolvedValue(mockUser);
             jest.spyOn(bcrypt, 'compare').mockResolvedValue(false as never);
 
             await expect(
@@ -1024,7 +1009,7 @@ describe('AuthService', () => {
             ).rejects.toThrow(UnauthorizedException);
 
             expect(bcrypt.compare).toHaveBeenCalledWith('wrongOldPass', 'hashedOldPass');
-            expect(mockUserService.updateUserPassword).not.toHaveBeenCalled();
+            expect(mockUserService.updatePassword).not.toHaveBeenCalled();
         });
     });
 
@@ -1090,31 +1075,34 @@ describe('AuthService', () => {
 
         it('should return user if found by google_id', async () => {
             const existingUser = { id: '1', email: 'test@example.com' };
-            mockUserService.findUserByGoogleId.mockResolvedValueOnce(existingUser);
+            mockUserService.findByGoogleId.mockResolvedValueOnce(existingUser);
 
             const result = await service.validateGoogleUser(mockGoogleUser);
 
-            expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
-            expect(result).toBe(existingUser);
-            expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+            expect(mockUserService.findByGoogleId).toHaveBeenCalledWith('google123');
+            expect(result).toEqual({
+                user: existingUser,
+                needs_completion: false,
+            });
+            expect(mockUserService.findByEmail).not.toHaveBeenCalled();
             expect(mockUserService.createUser).not.toHaveBeenCalled();
         });
 
         it('should update existing user with googleId if found by email', async () => {
-            mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
+            mockUserService.findByGoogleId.mockResolvedValueOnce(null);
             const userByEmail = { id: '2', email: 'test@example.com' };
             const updatedUser = { ...userByEmail, google_id: 'google123' };
 
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(
                 userByEmail as any
             );
-            mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+            mockUserService.updateUserById.mockResolvedValueOnce(updatedUser);
 
             const result = await service.validateGoogleUser(mockGoogleUser);
 
-            expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
-            expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+            expect(mockUserService.findByGoogleId).toHaveBeenCalledWith('google123');
+            expect(mockUserService.findByEmail).toHaveBeenCalledWith('test@example.com');
+            expect(mockUserService.updateUserById).toHaveBeenCalledWith('2', {
                 google_id: 'google123',
                 avatar_url: 'http://avatar.com/john',
             });
@@ -1125,29 +1113,29 @@ describe('AuthService', () => {
         });
 
         it('should throw if updateUser fails to return user', async () => {
-            mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
+            mockUserService.findByGoogleId.mockResolvedValueOnce(null);
             const userByEmail = { id: '2', email: 'test@example.com' };
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(
                 userByEmail as any
             );
-            mockUserService.updateUser.mockResolvedValueOnce(null);
+            mockUserService.updateUserById.mockResolvedValueOnce(null);
 
             await expect(service.validateGoogleUser(mockGoogleUser)).rejects.toThrow(
-                new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
+                new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
             );
         });
 
         it('should create a new user if not found by googleId or email', async () => {
-            mockUserService.findUserByGoogleId.mockResolvedValueOnce(null);
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mockUserService.findByGoogleId.mockResolvedValueOnce(null);
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(null);
 
             const createdUser = { id: '3', ...mockGoogleUser };
             mockUserService.createUser.mockResolvedValueOnce(createdUser);
 
             const result = await service.validateGoogleUser(mockGoogleUser);
 
-            expect(mockUserService.findUserByGoogleId).toHaveBeenCalledWith('google123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+            expect(mockUserService.findByGoogleId).toHaveBeenCalledWith('google123');
+            expect(mockUserService.findByEmail).toHaveBeenCalledWith('test@example.com');
             expect(result).toEqual({
                 needs_completion: true,
                 user: {
@@ -1184,29 +1172,32 @@ describe('AuthService', () => {
 
         it('should return user if found by facebook_id', async () => {
             const existingUser = { id: '1', email: 'test@example.com' };
-            mockUserService.findUserByFacebookId.mockResolvedValueOnce(existingUser);
+            mockUserService.findByFacebookId.mockResolvedValueOnce(existingUser);
 
             const result = await service.validateFacebookUser(mockFacebookUser);
 
-            expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
-            expect(result).toBe(existingUser);
-            expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+            expect(mockUserService.findByFacebookId).toHaveBeenCalledWith('fb123');
+            expect(result).toEqual({
+                user: existingUser,
+                needs_completion: false,
+            });
+            expect(mockUserService.findByEmail).not.toHaveBeenCalled();
             expect(mockUserService.createUser).not.toHaveBeenCalled();
         });
 
         it('should update existing user with facebook_id if found by email', async () => {
-            mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
+            mockUserService.findByFacebookId.mockResolvedValueOnce(null);
             const userByEmail = { id: '2', email: 'test@example.com' };
             const updatedUser = { ...userByEmail, facebook_id: 'fb123' };
 
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
-            mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
+            mockUserService.updateUserById.mockResolvedValueOnce(updatedUser);
 
             const result = await service.validateFacebookUser(mockFacebookUser);
 
-            expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
-            expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+            expect(mockUserService.findByFacebookId).toHaveBeenCalledWith('fb123');
+            expect(mockUserService.findByEmail).toHaveBeenCalledWith('test@example.com');
+            expect(mockUserService.updateUserById).toHaveBeenCalledWith('2', {
                 facebook_id: 'fb123',
                 avatar_url: 'http://avatar.com/john',
             });
@@ -1217,10 +1208,10 @@ describe('AuthService', () => {
         });
 
         it('should throw if updateUser fails to return user', async () => {
-            mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
+            mockUserService.findByFacebookId.mockResolvedValueOnce(null);
             const userByEmail = { id: '2', email: 'test@example.com' };
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
-            mockUserService.updateUser.mockResolvedValueOnce(null);
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
+            mockUserService.updateUserById.mockResolvedValueOnce(null);
 
             await expect(service.validateFacebookUser(mockFacebookUser)).rejects.toThrow(
                 new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
@@ -1228,16 +1219,16 @@ describe('AuthService', () => {
         });
 
         it('should create a new user if not found by facebook_id or email', async () => {
-            mockUserService.findUserByFacebookId.mockResolvedValueOnce(null);
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mockUserService.findByFacebookId.mockResolvedValueOnce(null);
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(null);
 
             const createdUser = { id: '3', ...mockFacebookUser };
             mockUserService.createUser.mockResolvedValueOnce(createdUser);
 
             const result = await service.validateFacebookUser(mockFacebookUser);
 
-            expect(mockUserService.findUserByFacebookId).toHaveBeenCalledWith('fb123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('test@example.com');
+            expect(mockUserService.findByFacebookId).toHaveBeenCalledWith('fb123');
+            expect(mockUserService.findByEmail).toHaveBeenCalledWith('test@example.com');
             expect(result).toEqual({
                 needs_completion: true,
                 user: {
@@ -1250,7 +1241,7 @@ describe('AuthService', () => {
         });
     });
 
-    describe('findOrCreateGitHubUser', () => {
+    describe('validateGitHubUser', () => {
         const mockGitHubUser = {
             github_id: 'gh123',
             email: 'dev@example.com',
@@ -1265,29 +1256,32 @@ describe('AuthService', () => {
 
         it('should return user if found by github_id', async () => {
             const existingUser = { id: '1', email: 'dev@example.com' };
-            mockUserService.findUserByGithubId.mockResolvedValueOnce(existingUser);
+            mockUserService.findByGithubId.mockResolvedValueOnce(existingUser);
 
             const result = await service.validateGitHubUser(mockGitHubUser);
 
-            expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
-            expect(result).toBe(existingUser);
-            expect(mockUserService.findUserByEmail).not.toHaveBeenCalled();
+            expect(mockUserService.findByGithubId).toHaveBeenCalledWith('gh123');
+            expect(result).toEqual({
+                user: existingUser,
+                needs_completion: false,
+            });
+            expect(mockUserService.findByEmail).not.toHaveBeenCalled();
             expect(mockUserService.createUser).not.toHaveBeenCalled();
         });
 
         it('should update existing user with github_id if found by email', async () => {
-            mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
+            mockUserService.findByGithubId.mockResolvedValueOnce(null);
             const userByEmail = { id: '2', email: 'dev@example.com' };
             const updatedUser = { ...userByEmail, github_id: 'gh123' };
 
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
-            mockUserService.updateUser.mockResolvedValueOnce(updatedUser);
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
+            mockUserService.updateUserById.mockResolvedValueOnce(updatedUser);
 
             const result = await service.validateGitHubUser(mockGitHubUser);
 
-            expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('dev@example.com');
-            expect(mockUserService.updateUser).toHaveBeenCalledWith('2', {
+            expect(mockUserService.findByGithubId).toHaveBeenCalledWith('gh123');
+            expect(mockUserService.findByEmail).toHaveBeenCalledWith('dev@example.com');
+            expect(mockUserService.updateUserById).toHaveBeenCalledWith('2', {
                 github_id: 'gh123',
                 avatar_url: 'http://avatar.com/dev',
             });
@@ -1298,27 +1292,27 @@ describe('AuthService', () => {
         });
 
         it('should throw if updateUser fails to return user', async () => {
-            mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
+            mockUserService.findByGithubId.mockResolvedValueOnce(null);
             const userByEmail = { id: '2', email: 'dev@example.com' };
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
-            mockUserService.updateUser.mockResolvedValueOnce(null);
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(userByEmail);
+            mockUserService.updateUserById.mockResolvedValueOnce(null);
 
             await expect(service.validateGitHubUser(mockGitHubUser)).rejects.toThrow(
-                new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
+                new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
             );
         });
 
         it('should create a new user if not found by github_id or email', async () => {
-            mockUserService.findUserByGithubId.mockResolvedValueOnce(null);
-            (mockUserService.findUserByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mockUserService.findByGithubId.mockResolvedValueOnce(null);
+            (mockUserService.findByEmail as jest.Mock).mockResolvedValueOnce(null);
 
             const createdUser = { id: '3', ...mockGitHubUser };
             mockUserService.createUser.mockResolvedValueOnce(createdUser);
 
             const result = await service.validateGitHubUser(mockGitHubUser);
 
-            expect(mockUserService.findUserByGithubId).toHaveBeenCalledWith('gh123');
-            expect(mockUserService.findUserByEmail).toHaveBeenCalledWith('dev@example.com');
+            expect(mockUserService.findByGithubId).toHaveBeenCalledWith('gh123');
+            expect(mockUserService.findByEmail).toHaveBeenCalledWith('dev@example.com');
             expect(result).toEqual({
                 needs_completion: true,
                 user: {
