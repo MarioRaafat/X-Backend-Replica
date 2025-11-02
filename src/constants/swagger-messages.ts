@@ -23,8 +23,10 @@ export const ERROR_MESSAGES = {
     USER_NOT_FOUND_OAUTH_COMPLETION_REQUIRED: 'User not found, OAuth completion required',
     GOOGLE_TOKEN_INVALID: 'Invalid Google access token',
     GITHUB_TOKEN_INVALID: 'Invalid GitHub access token',
-    GITHUB_CODE_INVALID: 'GitHub authorization code is invalid or expired. Please try signing in again',
-    GITHUB_CODE_VERIFIER_REQUIRED: 'GitHub authorization failed. Please ensure you include the code_verifier if using PKCE',
+    GITHUB_CODE_INVALID:
+        'GitHub authorization code is invalid or expired. Please try signing in again',
+    GITHUB_CODE_VERIFIER_REQUIRED:
+        'GitHub authorization failed. Please ensure you include the code_verifier if using PKCE',
     GITHUB_OAUTH_FAILED: 'Failed to authenticate with GitHub. Please try again',
     EMAIL_NOT_PROVIDED_BY_OAUTH_GOOGLE: 'Unable to retrieve user email from Google',
     EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB: 'Unable to retrieve user email from GitHub',
@@ -33,6 +35,21 @@ export const ERROR_MESSAGES = {
     USER_NOT_FOUND: 'User not found',
     USER_NOT_FOUND_OR_VERIFIED: 'User not found or already verified',
     CANNOT_FOLLOW_YOURSELF: 'You cannot follow yourself',
+    ALREADY_FOLLOWING: 'Already following this user',
+    CANNOT_FOLLOW_USER: 'Cannot follow user, user blocked you',
+    CANNOT_FOLLOW_BLOCKED_USER: 'Cannot follow a blocked user',
+    CANNOT_MUTE_YOURSELF: 'You cannot mute yourself',
+    ALREADY_MUTED: 'Already muted this user',
+    CANNOT_BLOCK_YOURSELF: 'You cannot block yourself',
+    ALREADY_BLOCKED: 'Already blocked this user',
+    CANNOT_UNFOLLOW_YOURSELF: 'You cannot unblock yourself',
+    CANNOT_REMOVE_SELF: 'You are not a follower to yourself',
+    NOT_FOLLOWED: 'User is not followed',
+    NOT_A_FOLLOWER: 'User is not a follower',
+    CANNOT_UNMUTE_YOURSELF: 'You cannot unmute yourself',
+    NOT_MUTED: 'User is not muted',
+    CANNOT_UNBLOCK_YOURSELF: 'You cannot unblock yourself',
+    NOT_BLOCKED: 'User is not blocked',
 
     // communication
     FAILED_TO_SEND_OTP_EMAIL: 'Failed to send OTP email',
@@ -75,6 +92,8 @@ export const ERROR_MESSAGES = {
     // file
     FILE_NOT_FOUND: 'File not found',
     INVALID_FILE_FORMAT: 'Invalid file format',
+    FILE_UPLOAD_FAILED: 'File upload failed',
+
     // search
     INVALID_SEARCH_QUERY: 'Invalid search query',
 
@@ -83,9 +102,11 @@ export const ERROR_MESSAGES = {
     TWEET_ALREADY_LIKED: 'Tweet already liked',
     TWEET_NOT_LIKED: 'Tweet not liked yet',
     UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
+    TWEET_REPLIES_RETRIEVED_SUCCESSFULLY: 'Tweet replies retrieved successfully',
 
     // category
     CATEGORY_NOT_FOUND: 'Category not found',
+    CATEGORIES_NOT_FOUND: 'Categories not found',
 } as const;
 
 // Success Messages
@@ -137,7 +158,7 @@ export const SUCCESS_MESSAGES = {
     USERS_RETRIEVED: 'Users retrieved successfully',
     USER_RETRIEVED: 'User retrieved successfully',
     FOLLOWERS_LIST_RETRIEVED: 'Followers retrieved successfully',
-    FOLLOWER_REMOVED: 'Followers removed successfully',
+    FOLLOWER_REMOVED: 'Follower removed successfully',
     FOLLOWING_LIST_RETRIEVED: 'Following list retrieved successfully',
     FOLLOW_USER: 'Followed user successfully',
     UNFOLLOW_USER: 'Unfollowed user successfully',
@@ -152,14 +173,13 @@ export const SUCCESS_MESSAGES = {
     REPLIES_RETRIEVED: 'Retrieved replies successfully',
     MEDIA_RETRIEVED: 'Retrieved media successfully',
     USER_UPDATED: 'Updated user successfully',
-    PHONE_NUMBER_CHANGED: 'Phone number changed successfully',
-    ACCOUNT_DEACTIVATED: 'Account deactivated successfully',
-    ACCOUNT_REACTIVATED: 'Account reactivated successfully',
+    ACCOUNT_DELETED: 'Account deleted successfully',
     AVATAR_UPLOADED: 'Avatar uploaded successfully',
     COVER_UPLOADED: 'Cover uploaded successfully',
     AVATAR_DELETED: 'Avatar deleted successfully',
     COVER_DELETED: 'Cover deleted successfully',
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
+    LANGUAGE_CHANGED: 'Language changed successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
@@ -188,9 +208,11 @@ export const SUCCESS_MESSAGES = {
     TWEET_UPDATED: 'Tweet updated successfully',
     TWEET_DELETED: 'Tweet deleted successfully',
     TWEET_REPOSTED: 'Tweet reposted successfully',
+    REPOST_DELETED: 'Repost deleted successfully',
     TWEET_QUOTED: 'Tweet quoted successfully',
     TWEET_LIKED: 'Tweet liked successfully',
     TWEET_UNLIKED: 'Tweet unliked successfully',
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
+    TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
 } as const;

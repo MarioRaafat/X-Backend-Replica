@@ -17,6 +17,7 @@ import { TweetsModule } from './tweets/tweets.module';
 import { ChatModule } from './chat/chat.module';
 import { CategoryModule } from './category/category.module';
 import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
+import { AzureStorageModule } from './azure-storage/azure-storage.module';
 
 @Module({
     imports: [
@@ -40,6 +41,7 @@ import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
         TimelineModule,
         CategoryModule,
         BackgroundJobsModule,
+        AzureStorageModule,
     ],
     controllers: [AppController],
     providers: [AppService],

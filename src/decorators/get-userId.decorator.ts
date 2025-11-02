@@ -17,7 +17,7 @@ export const GetUserId = createParamDecorator(
         const request = ctx.switchToHttp().getRequest<IAuthenticatedRequest>();
         const user = request.user;
 
-        if (!user || !user.id) {
+        if (!user) {
             return null;
         }
 

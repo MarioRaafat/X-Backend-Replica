@@ -1,10 +1,10 @@
 import { FileInterceptor } from '@nestjs/platform-express';
 import { memoryStorage } from 'multer';
 import {
+    image_file_filter,
     IMAGE_MAX_SIZE,
-    imageFileFilter,
+    video_file_filter,
     VIDEO_MAX_SIZE,
-    videoFileFilter,
 } from './file-upload.config';
 
 /**
@@ -14,7 +14,7 @@ import {
  */
 export const ImageUploadInterceptor = FileInterceptor('file', {
     storage: memoryStorage(), // ← Store in memory,temporarily
-    fileFilter: imageFileFilter,
+    fileFilter: image_file_filter,
     limits: { fileSize: IMAGE_MAX_SIZE },
 });
 
@@ -25,6 +25,6 @@ export const ImageUploadInterceptor = FileInterceptor('file', {
  */
 export const VideoUploadInterceptor = FileInterceptor('file', {
     storage: memoryStorage(), // ← Store in memory, temporarily
-    fileFilter: videoFileFilter,
+    fileFilter: video_file_filter,
     limits: { fileSize: VIDEO_MAX_SIZE },
 });

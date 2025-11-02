@@ -1,11 +1,13 @@
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
 // OAuth Response Constants
-const getOAuthResponseDescription = (provider: 'Google' | 'GitHub' | 'Facebook') => `
+function getOAuthResponseDescription(provider: 'Google' | 'GitHub' | 'Facebook') {
+    return `
 **Two Possible Responses:**
 1. **Existing User**: ${provider} account linked to existing user - Returns user data with access_token and refresh_token (direct login)
 2. **New User**: New ${provider} account - Returns session_token requiring OAuth completion flow (birth date + username)
 `;
+}
 
 const OAUTH_RESPONSE_EXISTING_USER = {
     description: 'Existing user - successfully logged in',
@@ -17,28 +19,34 @@ const OAUTH_RESPONSE_EXISTING_USER = {
                 name: 'Messi 3amk',
                 username: 'lionel_messi',
                 birth_date: '1987-06-24',
-                avatar_url: 'https://media.cnn.com/api/v1/images/stellar/prod/221218184732-messi-wc-trophy.jpg?c=16x9&q=h_833,w_1480,c_fill',
+                avatar_url:
+                    'https://media.cnn.com/api/v1/images/stellar/prod/221218184732-messi-wc-trophy.jpg?c=16x9&q=h_833,w_1480,c_fill',
+                verified: true,
+                country: 'Argentina',
+                followers: 1000000,
+                following: 150,
             },
-            access_token: 'messi doesn\'t need a token to be authenticated bro',
-            refresh_token: 'suiiiiiiiiiiiiiiii',
+            access_token: "messi doesn't need a token to be authenticated bro",
         },
         count: 1,
         message: SUCCESS_MESSAGES.LOGGED_IN,
     },
 };
 
-const getOAuthResponseNewUser = (provider: 'google' | 'github' | 'facebook') => ({
-    description: 'New user - needs to complete registration',
-    example: {
-        data: {
-            needs_completion: true,
-            session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-            provider: provider,
+function getOAuthResponseNewUser(provider: 'google' | 'github' | 'facebook') {
+    return {
+        description: 'New user - needs to complete registration',
+        example: {
+            data: {
+                needs_completion: true,
+                session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                provider: provider,
+            },
+            count: 1,
+            message: SUCCESS_MESSAGES.LOGGED_IN,
         },
-        count: 1,
-        message: SUCCESS_MESSAGES.LOGGED_IN,
-    },
-});
+    };
+}
 
 export const signup_step1_swagger = {
     operation: {
@@ -145,7 +153,19 @@ Complete your registration by setting a password, choosing a username, and optio
             schema: {
                 example: {
                     data: {
-                        userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                        user: {
+                            id: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                            email: 'mario.raafat@example.com',
+                            name: 'Mario Raafat',
+                            username: 'mario_raafat',
+                            birth_date: '1995-06-15',
+                            avatar_url: null,
+                            language: 'en',
+                            verified: false,
+                            country: null,
+                            followers: 0,
+                            following: 0,
+                        },
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
                     },
@@ -238,6 +258,10 @@ export const login_swagger = {
                             facebook_id: null,
                             google_id: null,
                             avatar_url: null,
+                            verified: false,
+                            country: null,
+                            followers: 0,
+                            following: 0,
                         },
                     },
                     count: 1,
@@ -312,7 +336,7 @@ export const google_oauth_swagger = {
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
 
-${getOAuthResponseDescription('Google')}
+export ${getOAuthResponseDescription('Google')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -361,7 +385,7 @@ This endpoint is specifically designed for mobile applications (React Native/Exp
 - Backend verifies the token with Google's API
 - Returns user data and JWT tokens (or session token for new users)
 
-${getOAuthResponseDescription('Google')}
+export ${getOAuthResponseDescription('Google')}
 
 **For web applications, use:** \`GET /auth/google\` instead
         `,
@@ -371,12 +395,9 @@ ${getOAuthResponseDescription('Google')}
         success: {
             description: 'Google authentication successful - User logged in or needs completion',
             schema: {
-                oneOf: [
-                    OAUTH_RESPONSE_EXISTING_USER,
-                    getOAuthResponseNewUser('google'),
-                ],
+                oneOf: [OAUTH_RESPONSE_EXISTING_USER, getOAuthResponseNewUser('google')],
             },
-        }
+        },
     },
 };
 
@@ -464,7 +485,7 @@ export const facebook_oauth_swagger = {
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
 
-${getOAuthResponseDescription('Facebook')}
+export ${getOAuthResponseDescription('Facebook')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -583,7 +604,7 @@ export const github_oauth_swagger = {
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
 
-${getOAuthResponseDescription('GitHub')}
+export ${getOAuthResponseDescription('GitHub')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -634,7 +655,7 @@ This endpoint is specifically designed for mobile applications (React Native/Exp
 - Backend validates token with GitHub API
 - Returns user data and JWT tokens (or session token for new users)
 
-${getOAuthResponseDescription('GitHub')}
+export ${getOAuthResponseDescription('GitHub')}
 
 **Important Notes:**
 - PKCE \`code_verifier\` is **required** for mobile OAuth flows
@@ -649,10 +670,7 @@ ${getOAuthResponseDescription('GitHub')}
         success: {
             description: 'GitHub authentication successful - User logged in or needs completion',
             schema: {
-                oneOf: [
-                    OAUTH_RESPONSE_EXISTING_USER,
-                    getOAuthResponseNewUser('github'),
-                ],
+                oneOf: [OAUTH_RESPONSE_EXISTING_USER, getOAuthResponseNewUser('github')],
             },
         },
     },
@@ -898,7 +916,7 @@ export const logout_swagger = {
     },
 };
 
-export const logout_All_swagger = {
+export const logout_all_swagger = {
     operation: {
         summary: 'Logout from all devices',
         description:
@@ -980,6 +998,10 @@ export const oauth_completion_step2_swagger = {
                             facebook_id: null,
                             google_id: '1234567890',
                             avatar_url: 'https://lh3.googleusercontent.com/a/avatar.jpg',
+                            verified: false,
+                            country: null,
+                            followers: 0,
+                            following: 0,
                         },
                     },
                     count: 1,

@@ -23,7 +23,10 @@ export class Tweet {
     @Column({ type: 'uuid' })
     user_id: string;
 
-    @Column({ type: 'text' })
+    @Column({ type: 'uuid', nullable: true })
+    conversation_id: string | null;
+
+    @Column({ type: 'text', nullable: true })
     content: string;
 
     @Column({ type: 'text', array: true, default: '{}' })
@@ -46,6 +49,7 @@ export class Tweet {
 
     @Column({ name: 'num_replies', type: 'int', default: 0 })
     num_replies: number;
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
@@ -55,7 +59,7 @@ export class Tweet {
     @DeleteDateColumn({ name: 'deleted_at' })
     deleted_at: Date;
 
-    @ManyToOne(() => User, { onDelete: 'CASCADE' })
+    @ManyToOne(() => User, { onDelete: 'CASCADE', nullable: false })
     @JoinColumn({ name: 'user_id' })
     user: User;
 
@@ -78,4 +82,9 @@ export class Tweet {
 
     @OneToMany(() => TweetRepost, (tweet_repost) => tweet_repost.tweet, { onDelete: 'CASCADE' })
     reposts: TweetRepost[];
+
+    // Virtual fields to identify tweet type (loaded via leftJoin in queries)
+    reply_info?: TweetReply[];
+    quote_info?: TweetQuote[];
+    repost_info?: TweetRepost[];
 }

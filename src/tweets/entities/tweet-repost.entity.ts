@@ -1,14 +1,29 @@
-import { Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import {
+    Column,
+    CreateDateColumn,
+    Entity,
+    JoinColumn,
+    ManyToOne,
+    PrimaryGeneratedColumn,
+    Unique,
+} from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('tweet_reposts')
+@Unique('UQ_tweet_reposts_user_tweet', ['user_id', 'tweet_id'])
 export class TweetRepost {
-    @PrimaryColumn({ type: 'uuid' })
+    @PrimaryGeneratedColumn('uuid')
+    id: string;
+
+    @Column({ type: 'uuid' })
     user_id: string;
 
-    @PrimaryColumn({ type: 'uuid' })
+    @Column({ type: 'uuid' })
     tweet_id: string;
+
+    @CreateDateColumn()
+    created_at: Date;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })

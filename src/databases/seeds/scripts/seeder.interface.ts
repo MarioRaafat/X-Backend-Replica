@@ -13,6 +13,7 @@ export interface ISeederContext {
         replies: any[];
     };
     results?: {
+        categories?: any[];
         users?: any[];
         tweets?: any[];
         replies?: any[];

@@ -31,4 +31,37 @@ export class UserResponseDTO {
         example: true,
     })
     verified: boolean;
+
+    @ApiProperty({
+        description: 'User bio/description',
+        example: 'Software developer passionate about tech',
+        required: false,
+    })
+    bio?: string;
+
+    @ApiProperty({
+        description: 'User cover image URL',
+        example: 'https://example.com/cover.jpg',
+        required: false,
+    })
+    cover_url?: string;
+
+    @ApiProperty({
+        description: 'Number of followers',
+        example: 1250,
+    })
+    followers: number;
+
+    @ApiProperty({
+        description: 'Number of users following',
+        example: 340,
+    })
+    following: number;
+
+    @ApiProperty({
+        description: 'Whether the current user is following this user',
+        example: false,
+        required: false,
+    })
+    is_following?: boolean;
 }

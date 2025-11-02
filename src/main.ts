@@ -12,6 +12,7 @@ async function bootstrap() {
             transform: true,
             transformOptions: {
                 exposeDefaultValues: true,
+                enableImplicitConversion: true,
             },
         })
     );
@@ -41,10 +42,15 @@ async function bootstrap() {
                 in: 'header',
             },
             'JWT-auth' // This name here is important for matching up with @ApiBearerAuth() in the controller!
-        )
-        .build();
+        );
 
-    const document = SwaggerModule.createDocument(app, config);
+    const swagger_server_url = process.env.BACKEND_URL;
+    if (swagger_server_url) {
+        config.addServer(swagger_server_url);
+    }
+    const config_document = config.build();
+
+    const document = SwaggerModule.createDocument(app, config_document);
     SwaggerModule.setup('api-docs', app, document);
 
     await app.listen(process.env.PORT ?? 3000);

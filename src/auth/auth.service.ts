@@ -145,12 +145,12 @@ export class AuthService {
     async signupStep1(dto: SignupStep1Dto) {
         const { name, birth_date, email, captcha_token } = dto;
 
-        // Verify CAPTCHA first (uncomment in production)
-        // try {
-        //     await this.captcha_service.validateCaptcha(captcha_token);
-        // } catch (error) {
-        //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
-        // }
+        // Verify CAPTCHA first
+        try {
+            await this.captcha_service.validateCaptcha(captcha_token);
+        } catch (error) {
+            throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
+        }
 
         const existing_user = await this.user_repository.findByEmail(email);
         if (existing_user) {
@@ -259,7 +259,7 @@ export class AuthService {
         await this.redis_service.del(otp_key);
 
         return {
-            user_id: created_user.id,
+            user: created_user,
             access_token,
             refresh_token,
         };
@@ -272,7 +272,7 @@ export class AuthService {
         if (identifier.includes('@')) {
             identifier_type = 'email';
             user = await this.user_repository.findByEmail(identifier);
-        } else if (/^[+]?[0-9\-()s]+$/.test(identifier)) {
+        } else if (/^[+]?[0-9\-()\s]+$/.test(identifier)) {
             identifier_type = 'phone_number';
             user = await this.user_repository.findByPhoneNumber(identifier);
         } else {
@@ -303,16 +303,18 @@ export class AuthService {
             login_dto.type
         );
 
-        const user_instance = await this.user_repository.findById(id);
-        if (!user_instance) {
+        const user = await this.user_repository.findById(id);
+        if (!user) {
             throw new InternalServerErrorException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const user = instanceToPlain(user_instance);
-
         const { access_token, refresh_token } = await this.generateTokens(id);
 
-        return { user, access_token, refresh_token };
+        return {
+            user: user,
+            access_token: access_token,
+            refresh_token: refresh_token,
+        };
     }
 
     async generateEmailVerification(email: string) {

@@ -5,6 +5,10 @@ import AppDataSource from 'src/databases/data-source';
 import { TweetSeeder } from './tweet.seed';
 import { ReplySeeder } from './reply.seed';
 import { ISeederContext } from './seeder.interface';
+import { UserFollowsSeeder } from './user-follows.seed';
+import { TweetLikesSeeder } from './tweet-likes.seed';
+import { TweetRepostsSeeder } from './tweet-reposts.seed';
+import { CategorySeeder } from './category.seed';
 
 async function main() {
     // Parse topics from command line
@@ -80,24 +84,44 @@ async function processTopic(
         results: {},
     };
 
+    // 0. Seed Categories
+    await runSeeder('CategorySeeder', async () => {
+        const seeder = new CategorySeeder();
+        await seeder.seed(context);
+    });
+
     // 1. Seed Users
     await runSeeder('UserSeeder', async () => {
         const seeder = new UserSeeder();
         await seeder.seed(context);
     });
-
+    // 2. Seed User Follows
+    await runSeeder('UserFollowsSeeder', async () => {
+        const seeder = new UserFollowsSeeder();
+        await seeder.seed(context);
+    });
     // 3. Seed Tweets
     await runSeeder('TweetSeeder', async () => {
         const seeder = new TweetSeeder();
         await seeder.seed(context);
     });
+    // 5. Seed Tweet Likes
+    await runSeeder('TweetLikesSeeder', async () => {
+        const seeder = new TweetLikesSeeder();
+        await seeder.seed(context);
+    });
+
+    // 6. Seed Tweet Reposts
+    // await runSeeder('TweetRepostsSeeder', async () => {
+    //     const seeder = new TweetRepostsSeeder();
+    //     await seeder.seed(context);
+    // });
 
     // 4. Seed Replies (Future)
     await runSeeder('ReplySeeder', async () => {
         const seeder = new ReplySeeder();
         await seeder.seed(context);
     });
-
     console.log(`\n✅ Completed topic: ${topic_name}\n`);
 }
 async function runSeeder(name: string, seed_fn: () => Promise<void>): Promise<void> {

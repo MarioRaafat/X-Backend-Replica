@@ -1,4 +1,4 @@
-import {IsNotEmpty, IsString, Matches, MinLength, IsIn } from 'class-validator';
+import { IsIn, IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 
 export class LoginDTO {
@@ -8,7 +8,7 @@ export class LoginDTO {
         format: 'email',
     })
     @IsString()
-    @IsNotEmpty() 
+    @IsNotEmpty()
     identifier: string;
 
     @ApiProperty({
@@ -18,7 +18,7 @@ export class LoginDTO {
     @IsString()
     @IsNotEmpty()
     @IsIn(['email', 'phone_number', 'username'], {
-        message: 'Type must be one of: email, phone_number, or username'
+        message: 'Type must be one of: email, phone_number, or username',
     })
     type: string;
 
