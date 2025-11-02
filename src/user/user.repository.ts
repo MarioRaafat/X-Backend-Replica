@@ -74,9 +74,9 @@ export class UserRepository extends Repository<User> {
 
         let profile;
         if (!current_user_id) {
-            profile = base_profile_query.getRawOne<UserProfileDto>();
+            profile = await base_profile_query.getRawOne<UserProfileDto>();
         } else {
-            profile = this.addViewerContextToProfileQuery(
+            profile = await this.addViewerContextToProfileQuery(
                 base_profile_query,
                 current_user_id
             ).getRawOne<DetailedUserProfileDto>();
@@ -93,9 +93,9 @@ export class UserRepository extends Repository<User> {
 
         let profile;
         if (!current_user_id) {
-            profile = base_profile_query.getRawOne<UserProfileDto>();
+            profile = await base_profile_query.getRawOne<UserProfileDto>();
         } else {
-            profile = this.addViewerContextToProfileQuery(
+            profile = await this.addViewerContextToProfileQuery(
                 base_profile_query,
                 current_user_id
             ).getRawOne<DetailedUserProfileDto>();
