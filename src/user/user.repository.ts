@@ -417,20 +417,33 @@ export class UserRepository extends Repository<User> {
     }
 
     async insertBlockRelationship(blocker_id: string, blocked_id: string) {
-        const user_blocks = new UserBlocks({ blocker_id, blocked_id });
         await this.data_source.transaction(async (manager) => {
-            const user_blocks_repository = manager.getRepository(UserBlocks);
-            const user_follows_repository = manager.getRepository(UserFollows);
+            const [remove_followed, remove_follower] = await Promise.all([
+                manager.delete(UserFollows, { follower_id: blocker_id, followed_id: blocked_id }),
+                manager.delete(UserFollows, { follower_id: blocked_id, followed_id: blocker_id }),
+                manager.insert(UserBlocks, { blocker_id, blocked_id }),
+            ]);
 
-            await user_blocks_repository.insert(user_blocks);
+            const decrement_following_conditions: { id: string }[] = [];
+            const decrement_followers_conditions: { id: string }[] = [];
 
-            await user_follows_repository
-                .createQueryBuilder()
-                .delete()
-                .where('follower_id = :blocker_id AND followed_id = :blocked_id')
-                .orWhere('follower_id = :blocked_id AND followed_id = :blocker_id')
-                .setParameters({ blocker_id, blocked_id })
-                .execute();
+            if (remove_followed.affected && remove_followed.affected > 0) {
+                decrement_followers_conditions.push({ id: blocked_id });
+                decrement_following_conditions.push({ id: blocker_id });
+            }
+
+            if (remove_follower.affected && remove_follower.affected > 0) {
+                decrement_followers_conditions.push({ id: blocker_id });
+                decrement_following_conditions.push({ id: blocked_id });
+            }
+
+            if (decrement_followers_conditions.length > 0) {
+                await manager.decrement(User, decrement_followers_conditions, 'followers', 1);
+            }
+
+            if (decrement_following_conditions.length > 0) {
+                await manager.decrement(User, decrement_following_conditions, 'following', 1);
+            }
         });
     }
 

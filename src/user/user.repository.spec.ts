@@ -1303,32 +1303,18 @@ describe('UserRepository', () => {
     });
 
     describe('insertBlockRelationship', () => {
-        it('should insert block relationship and delete follow relationships', async () => {
+        it('should insert block relationship and delete follow relationships when both follow each other', async () => {
             const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const mock_query_builder = {
-                delete: jest.fn().mockReturnThis(),
-                where: jest.fn().mockReturnThis(),
-                orWhere: jest.fn().mockReturnThis(),
-                setParameters: jest.fn().mockReturnThis(),
-                execute: jest.fn().mockResolvedValueOnce({ affected: 2 }),
-            };
-
-            const mock_user_blocks_repository = {
-                insert: jest.fn().mockResolvedValueOnce({}),
-            };
-
-            const mock_user_follows_repository = {
-                createQueryBuilder: jest.fn().mockReturnValue(mock_query_builder),
-            };
-
             const mock_manager = {
-                getRepository: jest.fn((entity: any) => {
-                    if (entity === UserBlocks) return mock_user_blocks_repository;
-                    if (entity === UserFollows) return mock_user_follows_repository;
-                }),
-            };
+                delete: jest
+                    .fn()
+                    .mockResolvedValueOnce({ affected: 1 })
+                    .mockResolvedValueOnce({ affected: 1 }),
+                insert: jest.fn().mockResolvedValueOnce({}),
+                decrement: jest.fn().mockResolvedValue({}),
+            } as any;
 
             const transaction_spy = jest
                 .spyOn(data_source, 'transaction')
@@ -1339,24 +1325,186 @@ describe('UserRepository', () => {
             await repository.insertBlockRelationship(blocker_id, blocked_id);
 
             expect(transaction_spy).toHaveBeenCalledTimes(1);
-            expect(mock_manager.getRepository).toHaveBeenCalledWith(UserBlocks);
-            expect(mock_manager.getRepository).toHaveBeenCalledWith(UserFollows);
-            expect(mock_user_blocks_repository.insert).toHaveBeenCalledWith(
-                expect.objectContaining({ blocker_id, blocked_id })
-            );
-            expect(mock_user_follows_repository.createQueryBuilder).toHaveBeenCalledTimes(1);
-            expect(mock_query_builder.delete).toHaveBeenCalledTimes(1);
-            expect(mock_query_builder.where).toHaveBeenCalledWith(
-                'follower_id = :blocker_id AND followed_id = :blocked_id'
-            );
-            expect(mock_query_builder.orWhere).toHaveBeenCalledWith(
-                'follower_id = :blocked_id AND followed_id = :blocker_id'
-            );
-            expect(mock_query_builder.setParameters).toHaveBeenCalledWith({
+
+            expect(mock_manager.delete).toHaveBeenCalledTimes(2);
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id: blocker_id,
+                followed_id: blocked_id,
+            });
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id: blocked_id,
+                followed_id: blocker_id,
+            });
+
+            expect(mock_manager.insert).toHaveBeenCalledTimes(1);
+            expect(mock_manager.insert).toHaveBeenCalledWith(UserBlocks, {
                 blocker_id,
                 blocked_id,
             });
-            expect(mock_query_builder.execute).toHaveBeenCalledTimes(1);
+
+            expect(mock_manager.decrement).toHaveBeenCalledTimes(2);
+            expect(mock_manager.decrement).toHaveBeenCalledWith(
+                User,
+                [{ id: blocked_id }, { id: blocker_id }],
+                'followers',
+                1
+            );
+            expect(mock_manager.decrement).toHaveBeenCalledWith(
+                User,
+                [{ id: blocker_id }, { id: blocked_id }],
+                'following',
+                1
+            );
+        });
+
+        it('should insert block relationship and delete follow relationships when only blocker follows blocked', async () => {
+            const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_manager = {
+                delete: jest
+                    .fn()
+                    .mockResolvedValueOnce({ affected: 1 })
+                    .mockResolvedValueOnce({ affected: 0 }),
+                insert: jest.fn().mockResolvedValueOnce({}),
+                decrement: jest.fn().mockResolvedValue({}),
+            } as any;
+
+            const transaction_spy = jest
+                .spyOn(data_source, 'transaction')
+                .mockImplementation(async (callback: any) => {
+                    return await callback(mock_manager);
+                });
+
+            await repository.insertBlockRelationship(blocker_id, blocked_id);
+
+            expect(transaction_spy).toHaveBeenCalledTimes(1);
+
+            expect(mock_manager.delete).toHaveBeenCalledTimes(2);
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id: blocker_id,
+                followed_id: blocked_id,
+            });
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id: blocked_id,
+                followed_id: blocker_id,
+            });
+
+            expect(mock_manager.insert).toHaveBeenCalledTimes(1);
+            expect(mock_manager.insert).toHaveBeenCalledWith(UserBlocks, {
+                blocker_id,
+                blocked_id,
+            });
+
+            expect(mock_manager.decrement).toHaveBeenCalledTimes(2);
+            expect(mock_manager.decrement).toHaveBeenCalledWith(
+                User,
+                [{ id: blocked_id }],
+                'followers',
+                1
+            );
+            expect(mock_manager.decrement).toHaveBeenCalledWith(
+                User,
+                [{ id: blocker_id }],
+                'following',
+                1
+            );
+        });
+
+        it('should insert block relationship and delete follow relationships when only blocked follows blocker', async () => {
+            const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_manager = {
+                delete: jest
+                    .fn()
+                    .mockResolvedValueOnce({ affected: 0 })
+                    .mockResolvedValueOnce({ affected: 1 }),
+                insert: jest.fn().mockResolvedValueOnce({}),
+                decrement: jest.fn().mockResolvedValue({}),
+            } as any;
+
+            const transaction_spy = jest
+                .spyOn(data_source, 'transaction')
+                .mockImplementation(async (callback: any) => {
+                    return await callback(mock_manager);
+                });
+
+            await repository.insertBlockRelationship(blocker_id, blocked_id);
+
+            expect(transaction_spy).toHaveBeenCalledTimes(1);
+
+            expect(mock_manager.delete).toHaveBeenCalledTimes(2);
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id: blocker_id,
+                followed_id: blocked_id,
+            });
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id: blocked_id,
+                followed_id: blocker_id,
+            });
+
+            expect(mock_manager.insert).toHaveBeenCalledTimes(1);
+            expect(mock_manager.insert).toHaveBeenCalledWith(UserBlocks, {
+                blocker_id,
+                blocked_id,
+            });
+
+            expect(mock_manager.decrement).toHaveBeenCalledTimes(2);
+            expect(mock_manager.decrement).toHaveBeenCalledWith(
+                User,
+                [{ id: blocker_id }],
+                'followers',
+                1
+            );
+            expect(mock_manager.decrement).toHaveBeenCalledWith(
+                User,
+                [{ id: blocked_id }],
+                'following',
+                1
+            );
+        });
+
+        it('should insert block relationship and delete follow relationships with no follow at all', async () => {
+            const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_manager = {
+                delete: jest
+                    .fn()
+                    .mockResolvedValueOnce({ affected: 0 })
+                    .mockResolvedValueOnce({ affected: 0 }),
+                insert: jest.fn().mockResolvedValueOnce({}),
+                decrement: jest.fn().mockResolvedValue({}),
+            } as any;
+
+            const transaction_spy = jest
+                .spyOn(data_source, 'transaction')
+                .mockImplementation(async (callback: any) => {
+                    return await callback(mock_manager);
+                });
+
+            await repository.insertBlockRelationship(blocker_id, blocked_id);
+
+            expect(transaction_spy).toHaveBeenCalledTimes(1);
+
+            expect(mock_manager.delete).toHaveBeenCalledTimes(2);
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id: blocker_id,
+                followed_id: blocked_id,
+            });
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id: blocked_id,
+                followed_id: blocker_id,
+            });
+
+            expect(mock_manager.insert).toHaveBeenCalledTimes(1);
+            expect(mock_manager.insert).toHaveBeenCalledWith(UserBlocks, {
+                blocker_id,
+                blocked_id,
+            });
+
+            expect(mock_manager.decrement).not.toHaveBeenCalled();
         });
     });
 
