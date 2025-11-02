@@ -23,6 +23,9 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { BlobServiceClient } from '@azure/storage-blob';
 import { GoogleGenAI } from '@google/genai';
 import { TweetMapper } from './mappers/tweet.mapper';
+import { User } from 'src/user/entities';
+import { plainToInstance } from 'class-transformer';
+import { use } from 'passport';
 
 interface ITweetWithTypeInfo extends Tweet {
     reply_info_original_tweet_id?: string;
@@ -214,6 +217,7 @@ export class TweetsService {
         }
     }
 
+    // remove user from response DTO for documentation
     async createTweet(tweet: CreateTweetDTO, user_id: string): Promise<TweetResponseDTO> {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
@@ -222,6 +226,7 @@ export class TweetsService {
         try {
             await this.extractDataFromTweets(tweet, user_id, query_runner);
             const extracted_topics = this.extractTopics(tweet.content);
+            // watch the error which could exist if user id not found here
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 ...tweet,
@@ -230,22 +235,24 @@ export class TweetsService {
             await query_runner.commitTransaction();
 
             // Fetch the complete tweet with only required user fields
-            const query = this.tweet_repository
-                .createQueryBuilder('tweet')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .where('tweet.tweet_id = :tweet_id', { tweet_id: saved_tweet.tweet_id });
+            // const query = this.tweet_repository
+            //     .createQueryBuilder('tweet')
+            //     .leftJoinAndSelect('tweet.user', 'user')
+            //     .where('tweet.tweet_id = :tweet_id', { tweet_id: saved_tweet.tweet_id });
 
-            const result_data = await this.selectTweetFields(query).getRawAndEntities();
+            // const result_data = await this.selectTweetFields(query).getRawAndEntities();
 
-            if (!result_data.entities[0]) throw new NotFoundException('Tweet not found');
+            // if (!result_data.entities[0]) throw new NotFoundException('Tweet not found');
 
             // Attach type info from raw data
-            const tweet_with_type_info = this.attachTypeInfo(
-                result_data.entities[0],
-                result_data.raw[0] as Record<string, unknown>
-            );
+            // const tweet_with_type_info = this.attachTypeInfo(
+            //     result_data.entities[0],
+            //     result_data.raw[0] as Record<string, unknown>
+            // );
 
-            return TweetMapper.toDTO(tweet_with_type_info);
+            return plainToInstance(TweetResponseDTO, saved_tweet, {
+                excludeExtraneousValues: true,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -254,6 +261,7 @@ export class TweetsService {
         }
     }
 
+    // remove user from response DTO for documentation
     async updateTweet(
         tweet: UpdateTweetDTO,
         tweet_id: string,
@@ -277,27 +285,29 @@ export class TweetsService {
             if (tweet_to_update.user_id !== user_id)
                 throw new BadRequestException('User is not allowed to update this tweet');
 
-            await query_runner.manager.save(Tweet, tweet_to_update);
-
+            const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
             await query_runner.commitTransaction();
 
             // Fetch the updated tweet with only required fields
-            const query = this.tweet_repository
-                .createQueryBuilder('tweet')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .where('tweet.tweet_id = :tweet_id', { tweet_id });
+            // const query = this.tweet_repository
+            //     .createQueryBuilder('tweet')
+            //     .leftJoinAndSelect('tweet.user', 'user')
+            //     .where('tweet.tweet_id = :tweet_id', { tweet_id });
 
-            const result_data = await this.selectTweetFields(query).getRawAndEntities();
+            // const result_data = await this.selectTweetFields(query).getRawAndEntities();
 
-            if (!result_data.entities[0]) throw new NotFoundException('Tweet not found');
+            // if (!result_data.entities[0]) throw new NotFoundException('Tweet not found');
 
             // Attach type info from raw data
-            const tweet_with_type_info = this.attachTypeInfo(
-                result_data.entities[0],
-                result_data.raw[0] as Record<string, unknown>
-            );
+            // const tweet_with_type_info = this.attachTypeInfo(
+            //     result_data.entities[0],
+            //     result_data.raw[0] as Record<string, unknown>
+            // );
 
-            return TweetMapper.toDTO(tweet_with_type_info);
+            // return TweetMapper.toDTO(tweet_with_type_info);
+            return plainToInstance(TweetResponseDTO, updated_tweet, {
+                excludeExtraneousValues: true,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -325,6 +335,16 @@ export class TweetsService {
     }
 
     async getTweetById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
+        try {
+            const tweet = await this.tweet_repository.findOne({
+                where: { tweet_id },
+                relations: ['user'],
+                select: {},
+            });
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
         const query = this.tweet_repository
             .createQueryBuilder('tweet')
             .leftJoinAndSelect('tweet.user', 'user')
