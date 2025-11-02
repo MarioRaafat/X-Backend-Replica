@@ -59,6 +59,7 @@ describe('UserService', () => {
             findOne: jest.fn(),
             save: jest.fn(),
             delete: jest.fn(),
+            exists: jest.fn(),
         };
 
         const mock_azure_storage_service = {
@@ -751,12 +752,15 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(true);
+
             const get_followers_spy = jest
                 .spyOn(user_repository, 'getFollowersList')
                 .mockResolvedValueOnce(mock_followers);
 
             const result = await service.getFollowers(current_user_id, target_user_id, query_dto);
 
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
             expect(get_followers_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
@@ -791,12 +795,15 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(true);
+
             const get_followers_spy = jest
                 .spyOn(user_repository, 'getFollowersList')
                 .mockResolvedValueOnce(mock_followers);
 
             const result = await service.getFollowers(current_user_id, target_user_id, query_dto);
 
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
             expect(get_followers_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
@@ -816,24 +823,13 @@ describe('UserService', () => {
                 page_size: 10,
             };
 
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const get_followers_spy = jest
-                .spyOn(user_repository, 'getFollowersList')
-                .mockRejectedValueOnce(error);
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(false);
 
             await expect(
                 service.getFollowers(current_user_id, target_user_id, query_dto)
             ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
 
-            expect(get_followers_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                0,
-                10,
-                undefined
-            );
-            expect(get_followers_spy).toHaveBeenCalledTimes(1);
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
         });
     });
 
@@ -872,12 +868,15 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(true);
+
             const get_following_spy = jest
                 .spyOn(user_repository, 'getFollowingList')
                 .mockResolvedValueOnce(mock_following);
 
             const result = await service.getFollowing(current_user_id, target_user_id, query_dto);
 
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
             expect(get_following_spy).toHaveBeenCalledWith(current_user_id, target_user_id, 0, 10);
             expect(result).toEqual(mock_following);
         });
@@ -891,18 +890,13 @@ describe('UserService', () => {
                 page_size: 10,
             };
 
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const get_following_spy = jest
-                .spyOn(user_repository, 'getFollowingList')
-                .mockRejectedValueOnce(error);
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(false);
 
             await expect(
                 service.getFollowing(current_user_id, target_user_id, query_dto)
             ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
 
-            expect(get_following_spy).toHaveBeenCalledWith(current_user_id, target_user_id, 0, 10);
-            expect(get_following_spy).toHaveBeenCalledTimes(1);
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
         });
     });
 

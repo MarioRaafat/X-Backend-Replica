@@ -150,6 +150,12 @@ export class UserService {
         target_user_id: string,
         query_dto: GetFollowersDto
     ): Promise<UserListItemDto[]> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const { page_offset, page_size, following } = query_dto;
 
         const results = await this.user_repository.getFollowersList(
@@ -174,6 +180,12 @@ export class UserService {
         target_user_id: string,
         query_dto: PaginationParamsDto
     ): Promise<UserListItemDto[]> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const { page_offset, page_size } = query_dto;
 
         const results = await this.user_repository.getFollowingList(
