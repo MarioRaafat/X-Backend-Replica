@@ -241,8 +241,7 @@ export class UserService {
             this.user_repository.validateRelationshipRequest(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             ),
             this.user_repository.verifyFollowPermissions(current_user_id, target_user_id),
         ]);
@@ -271,18 +270,14 @@ export class UserService {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNFOLLOW_YOURSELF);
         }
 
-        const validation_result = await this.user_repository.validateRelationshipRequest(
+        const result = await this.user_repository.deleteFollowRelationship(
             current_user_id,
-            target_user_id,
-            RelationshipType.FOLLOW,
-            'remove'
+            target_user_id
         );
 
-        if (!validation_result.relationship_exists) {
+        if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_FOLLOWED);
         }
-
-        await this.user_repository.deleteFollowRelationship(current_user_id, target_user_id);
     }
 
     async removeFollower(current_user_id: string, target_user_id: string): Promise<void> {
@@ -290,19 +285,14 @@ export class UserService {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_REMOVE_SELF);
         }
 
-        const validation_result = await this.user_repository.validateRelationshipRequest(
+        const result = await this.user_repository.deleteFollowRelationship(
             target_user_id,
-            current_user_id,
-            RelationshipType.FOLLOW,
-            'remove'
+            current_user_id
         );
 
-        console.log(validation_result.relationship_exists);
-        if (!validation_result.relationship_exists) {
+        if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_A_FOLLOWER);
         }
-
-        await this.user_repository.deleteFollowRelationship(target_user_id, current_user_id);
     }
 
     async muteUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -313,8 +303,7 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.MUTE,
-            'insert'
+            RelationshipType.MUTE
         );
 
         if (!validation_result || !validation_result.user_exists) {
@@ -333,18 +322,14 @@ export class UserService {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNMUTE_YOURSELF);
         }
 
-        const validation_result = await this.user_repository.validateRelationshipRequest(
+        const result = await this.user_repository.deleteMuteRelationship(
             current_user_id,
-            target_user_id,
-            RelationshipType.MUTE,
-            'remove'
+            target_user_id
         );
 
-        if (!validation_result.relationship_exists) {
+        if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_MUTED);
         }
-
-        await this.user_repository.deleteMuteRelationship(current_user_id, target_user_id);
     }
 
     async blockUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -355,8 +340,7 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.BLOCK,
-            'insert'
+            RelationshipType.BLOCK
         );
 
         if (!validation_result || !validation_result.user_exists) {
@@ -375,18 +359,14 @@ export class UserService {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNBLOCK_YOURSELF);
         }
 
-        const validation_result = await this.user_repository.validateRelationshipRequest(
+        const result = await this.user_repository.deleteBlockRelationship(
             current_user_id,
-            target_user_id,
-            RelationshipType.BLOCK,
-            'remove'
+            target_user_id
         );
 
-        if (!validation_result.relationship_exists) {
+        if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_BLOCKED);
         }
-
-        await this.user_repository.deleteBlockRelationship(current_user_id, target_user_id);
     }
 
     async getLikedPosts(current_user_id: string, query_dto: PaginationParamsDto) {}

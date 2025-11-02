@@ -25,7 +25,7 @@ import { User } from './entities';
 import { UploadFileResponseDto } from './dto/upload-file-response.dto';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
-import { In, Repository } from 'typeorm';
+import { DeleteResult, In, Repository } from 'typeorm';
 import { ChangeLanguageDto } from './dto/change-language.dto';
 import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
 
@@ -1024,8 +1024,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -1074,8 +1073,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -1111,8 +1109,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -1148,8 +1145,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -1185,8 +1181,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -1199,25 +1194,16 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    relationship_exists: true,
-                });
+            const mock_result: DeleteResult = { affected: 1, raw: [] };
 
             const delete_follow_spy = jest
                 .spyOn(user_repository, 'deleteFollowRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await service.unfollowUser(current_user_id, target_user_id);
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.FOLLOW,
-                'remove'
-            );
             expect(delete_follow_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_follow_spy).toHaveBeenCalledTimes(1);
         });
 
         it('should throw BadRequestException when trying to unfollow yourself', async () => {
@@ -1238,29 +1224,18 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    relationship_exists: false,
-                });
+            const mock_result: DeleteResult = { affected: 0, raw: [] };
 
             const delete_follow_spy = jest
                 .spyOn(user_repository, 'deleteFollowRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await expect(service.unfollowUser(current_user_id, target_user_id)).rejects.toThrow(
                 new ConflictException(ERROR_MESSAGES.NOT_FOLLOWED)
             );
 
-            expect(delete_follow_spy).not.toHaveBeenCalled();
-
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.FOLLOW,
-                'remove'
-            );
-            expect(validate_spy).toHaveBeenCalledTimes(1);
+            expect(delete_follow_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_follow_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -1269,25 +1244,16 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    relationship_exists: true,
-                });
+            const mock_result: DeleteResult = { affected: 1, raw: [] };
 
             const delete_follow_spy = jest
                 .spyOn(user_repository, 'deleteFollowRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await service.removeFollower(current_user_id, target_user_id);
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                target_user_id,
-                current_user_id,
-                RelationshipType.FOLLOW,
-                'remove'
-            );
             expect(delete_follow_spy).toHaveBeenCalledWith(target_user_id, current_user_id);
+            expect(delete_follow_spy).toHaveBeenCalledTimes(1);
         });
 
         it('should throw BadRequestException when trying to unfollow yourself', async () => {
@@ -1308,29 +1274,18 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    relationship_exists: false,
-                });
+            const mock_result: DeleteResult = { affected: 0, raw: [] };
 
             const delete_follow_spy = jest
                 .spyOn(user_repository, 'deleteFollowRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await expect(service.removeFollower(current_user_id, target_user_id)).rejects.toThrow(
                 new ConflictException(ERROR_MESSAGES.NOT_A_FOLLOWER)
             );
 
-            expect(delete_follow_spy).not.toHaveBeenCalled();
-
-            expect(validate_spy).toHaveBeenCalledWith(
-                target_user_id,
-                current_user_id,
-                RelationshipType.FOLLOW,
-                'remove'
-            );
-            expect(validate_spy).toHaveBeenCalledTimes(1);
+            expect(delete_follow_spy).toHaveBeenCalledWith(target_user_id, current_user_id);
+            expect(delete_follow_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -1355,8 +1310,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.MUTE,
-                'insert'
+                RelationshipType.MUTE
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(insert_mute_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -1397,8 +1351,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.MUTE,
-                'insert'
+                RelationshipType.MUTE
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
         });
@@ -1425,8 +1378,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.MUTE,
-                'insert'
+                RelationshipType.MUTE
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
         });
@@ -1437,25 +1389,16 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    relationship_exists: true,
-                });
+            const mock_result: DeleteResult = { affected: 1, raw: [] };
 
             const delete_mute_spy = jest
                 .spyOn(user_repository, 'deleteMuteRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await service.unmuteUser(current_user_id, target_user_id);
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.MUTE,
-                'remove'
-            );
             expect(delete_mute_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_mute_spy).toHaveBeenCalledTimes(1);
         });
 
         it('should throw BadRequestException when trying to unmute yourself', async () => {
@@ -1476,29 +1419,18 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    relationship_exists: false,
-                });
+            const mock_result: DeleteResult = { affected: 0, raw: [] };
 
             const delete_mute_spy = jest
                 .spyOn(user_repository, 'deleteMuteRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await expect(service.unmuteUser(current_user_id, target_user_id)).rejects.toThrow(
                 new ConflictException(ERROR_MESSAGES.NOT_MUTED)
             );
 
-            expect(delete_mute_spy).not.toHaveBeenCalled();
-
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.MUTE,
-                'remove'
-            );
-            expect(validate_spy).toHaveBeenCalledTimes(1);
+            expect(delete_mute_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_mute_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -1523,8 +1455,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.BLOCK,
-                'insert'
+                RelationshipType.BLOCK
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(insert_block_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -1565,8 +1496,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.BLOCK,
-                'insert'
+                RelationshipType.BLOCK
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
         });
@@ -1593,8 +1523,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.BLOCK,
-                'insert'
+                RelationshipType.BLOCK
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
         });
@@ -1605,25 +1534,16 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    relationship_exists: true,
-                });
+            const mock_result: DeleteResult = { affected: 1, raw: [] };
 
             const delete_block_spy = jest
                 .spyOn(user_repository, 'deleteBlockRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await service.unblockUser(current_user_id, target_user_id);
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.BLOCK,
-                'remove'
-            );
             expect(delete_block_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_block_spy).toHaveBeenCalledTimes(1);
         });
 
         it('should throw BadRequestException when trying to unblock yourself', async () => {
@@ -1644,29 +1564,17 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    relationship_exists: false,
-                });
+            const mock_result: DeleteResult = { affected: 0, raw: [] };
 
             const delete_block_spy = jest
                 .spyOn(user_repository, 'deleteBlockRelationship')
-                .mockResolvedValueOnce({} as any);
-
+                .mockResolvedValue(mock_result);
             await expect(service.unblockUser(current_user_id, target_user_id)).rejects.toThrow(
                 new ConflictException(ERROR_MESSAGES.NOT_BLOCKED)
             );
 
-            expect(delete_block_spy).not.toHaveBeenCalled();
-
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.BLOCK,
-                'remove'
-            );
-            expect(validate_spy).toHaveBeenCalledTimes(1);
+            expect(delete_block_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_block_spy).toHaveBeenCalledTimes(1);
         });
     });
 

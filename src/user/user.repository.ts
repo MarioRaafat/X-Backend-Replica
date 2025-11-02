@@ -441,13 +441,13 @@ export class UserRepository extends Repository<User> {
     async validateRelationshipRequest(
         current_user_id: string,
         target_user_id: string,
-        relationship_type: RelationshipType,
-        operation: 'insert' | 'remove'
+        relationship_type: RelationshipType
     ): Promise<any> {
         const { table_name, source_column, target_column } =
             this.getRelationshipConfig(relationship_type);
 
-        const query = this.createQueryBuilder('user')
+        return this.createQueryBuilder('user')
+            .select('user.id', 'user_exists')
             .addSelect(
                 `EXISTS(
                     SELECT 1 FROM ${table_name} ur
@@ -456,13 +456,7 @@ export class UserRepository extends Repository<User> {
                 )`,
                 'relationship_exists'
             )
-            .where('user.id = :target_user_id');
-
-        if (operation === 'insert') {
-            query.addSelect('user.id', 'user_exists');
-        }
-
-        return await query
+            .where('user.id = :target_user_id')
             .setParameter('current_user_id', current_user_id)
             .setParameter('target_user_id', target_user_id)
             .getRawOne();
