@@ -3,9 +3,9 @@ import { IsBoolean, IsInt, IsOptional, Max, Min, MIN } from 'class-validator';
 
 export class TimelinePaginationDto {
     @ApiProperty({
-        default: 50,
+        default: 20,
 
-        example: 50,
+        example: 20,
         required: false,
 
         description: 'Return Specific Number of tweets',
@@ -14,7 +14,7 @@ export class TimelinePaginationDto {
     @IsInt()
     @Min(1)
     @Max(100)
-    limit?: number;
+    limit?: number = 20;
 
     @ApiProperty({
         required: false,
