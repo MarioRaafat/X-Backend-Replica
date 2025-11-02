@@ -42,7 +42,7 @@ export const ERROR_MESSAGES = {
     ALREADY_MUTED: 'Already muted this user',
     CANNOT_BLOCK_YOURSELF: 'You cannot block yourself',
     ALREADY_BLOCKED: 'Already blocked this user',
-    CANNOT_UNFOLLOW_YOURSELF: 'You cannot unblock yourself',
+    CANNOT_UNFOLLOW_YOURSELF: 'You cannot unfollow yourself',
     CANNOT_REMOVE_SELF: 'You are not a follower to yourself',
     NOT_FOLLOWED: 'User is not followed',
     NOT_A_FOLLOWER: 'User is not a follower',

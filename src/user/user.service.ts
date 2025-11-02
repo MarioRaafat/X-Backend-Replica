@@ -443,11 +443,10 @@ export class UserService {
         current_user_id: string,
         file: Express.Multer.File
     ): Promise<UploadFileResponseDto> {
+        if (!file || !file.buffer) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+        }
         try {
-            if (!file || !file.buffer) {
-                throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
-            }
-
             const image_name = this.azure_storage_service.generateFileName(
                 current_user_id,
                 file.originalname
@@ -493,11 +492,10 @@ export class UserService {
         current_user_id: string,
         file: Express.Multer.File
     ): Promise<UploadFileResponseDto> {
+        if (!file || !file.buffer) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+        }
         try {
-            if (!file || !file.buffer) {
-                throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
-            }
-
             const image_name = this.azure_storage_service.generateFileName(
                 current_user_id,
                 file.originalname

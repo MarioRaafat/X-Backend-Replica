@@ -27,10 +27,16 @@ export class UserProfileDto {
     created_at: Date;
 
     @Expose()
-    @Transform(({ value }) => Number(value) || 0)
+    @Transform(({ value, obj }) => {
+        const source = value ?? obj.followers ?? 0;
+        return Number(source) || 0;
+    })
     followers_count: number;
 
     @Expose()
-    @Transform(({ value }) => Number(value) || 0)
+    @Transform(({ value, obj }) => {
+        const source = value ?? obj.following ?? 0;
+        return Number(source) || 0;
+    })
     following_count: number;
 }

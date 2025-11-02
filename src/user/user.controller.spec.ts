@@ -40,6 +40,7 @@ describe('UserController', () => {
             getFollowing: jest.fn(),
             followUser: jest.fn(),
             unfollowUser: jest.fn(),
+            removeFollower: jest.fn(),
             muteUser: jest.fn(),
             unmuteUser: jest.fn(),
             blockUser: jest.fn(),
@@ -830,6 +831,59 @@ describe('UserController', () => {
 
             expect(unfollow_user).toHaveBeenCalledWith(current_user_id, target_user_id);
             expect(unfollow_user).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('removeFollower', () => {
+        it('should call user_service.removeFollower with the current user id and target_user_id', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const remove_follower = jest
+                .spyOn(user_service, 'removeFollower')
+                .mockResolvedValueOnce(undefined);
+
+            const result = await controller.removeFollower(current_user_id, target_user_id);
+
+            expect(remove_follower).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(remove_follower).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(undefined);
+        });
+
+        it('should throw if service throws cannot remove yourself', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const error = new BadRequestException(ERROR_MESSAGES.CANNOT_REMOVE_SELF);
+
+            const remove_follower = jest
+                .spyOn(user_service, 'removeFollower')
+                .mockRejectedValueOnce(error);
+
+            await expect(
+                controller.removeFollower(current_user_id, target_user_id)
+            ).rejects.toThrow(ERROR_MESSAGES.CANNOT_REMOVE_SELF);
+
+            expect(remove_follower).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(remove_follower).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw if service throws not a follower', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const error = new ConflictException(ERROR_MESSAGES.NOT_A_FOLLOWER);
+
+            const remove_follower = jest
+                .spyOn(user_service, 'removeFollower')
+                .mockRejectedValueOnce(error);
+
+            await expect(
+                controller.removeFollower(current_user_id, target_user_id)
+            ).rejects.toThrow(ERROR_MESSAGES.NOT_A_FOLLOWER);
+
+            expect(remove_follower).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(remove_follower).toHaveBeenCalledTimes(1);
         });
     });
 

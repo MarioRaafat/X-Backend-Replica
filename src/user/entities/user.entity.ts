@@ -1,7 +1,7 @@
 import { Exclude } from 'class-transformer';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { Hashtag } from '../../tweets/entities/hashtags.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn , UpdateDateColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 
 @Entity()
 export class User {
@@ -56,17 +56,17 @@ export class User {
     // language code like 'en', 'es', 'fr', 'ar' etc.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
     @Exclude()
-    language: string;
+    language: string = 'en';
 
     @Column({ type: 'boolean', default: false })
-    verified: boolean;
+    verified: boolean = false;
 
     @Column({ type: 'varchar', nullable: true })
-    country?: string;
+    country?: string | null;
 
     @Column({ type: 'boolean', default: false })
     @Exclude()
-    online: boolean;
+    online: boolean = false;
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     @Exclude()
@@ -83,11 +83,11 @@ export class User {
 
     @Column({ type: 'int', default: 0 })
     @Exclude()
-    followers: number;
+    followers: number = 0;
 
     @Column({ type: 'int', default: 0 })
     @Exclude()
-    following: number;
+    following: number = 0;
 
     @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
     @Exclude()
