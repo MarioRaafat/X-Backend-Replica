@@ -11,8 +11,8 @@ import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
-    constructor(private dataSource: DataSource) {
-        super(User, dataSource.createEntityManager());
+    constructor(private data_source: DataSource) {
+        super(User, data_source.createEntityManager());
     }
 
     async findById(id: string): Promise<User | null> {
@@ -377,7 +377,7 @@ export class UserRepository extends Repository<User> {
         follower_id: string,
         followed_id: string
     ): Promise<InsertResult> {
-        return await this.dataSource.transaction(async (manager) => {
+        return await this.data_source.transaction(async (manager) => {
             const user_follows = new UserFollows({ follower_id, followed_id });
             const insert_result = await manager.insert(UserFollows, user_follows);
 
@@ -392,7 +392,7 @@ export class UserRepository extends Repository<User> {
         follower_id: string,
         followed_id: string
     ): Promise<DeleteResult> {
-        return await this.dataSource.transaction(async (manager) => {
+        return await this.data_source.transaction(async (manager) => {
             const delete_result = await manager.delete(UserFollows, {
                 follower_id,
                 followed_id,
@@ -409,16 +409,16 @@ export class UserRepository extends Repository<User> {
 
     async insertMuteRelationship(muter_id: string, muted_id: string): Promise<InsertResult> {
         const user_mutes = new UserMutes({ muter_id, muted_id });
-        return await this.dataSource.getRepository(UserMutes).insert(user_mutes);
+        return await this.data_source.getRepository(UserMutes).insert(user_mutes);
     }
 
     async deleteMuteRelationship(muter_id: string, muted_id: string): Promise<DeleteResult> {
-        return await this.dataSource.getRepository(UserMutes).delete({ muter_id, muted_id });
+        return await this.data_source.getRepository(UserMutes).delete({ muter_id, muted_id });
     }
 
     async insertBlockRelationship(blocker_id: string, blocked_id: string) {
         const user_blocks = new UserBlocks({ blocker_id, blocked_id });
-        await this.dataSource.transaction(async (manager) => {
+        await this.data_source.transaction(async (manager) => {
             const user_blocks_repository = manager.getRepository(UserBlocks);
             const user_follows_repository = manager.getRepository(UserFollows);
 
@@ -435,7 +435,7 @@ export class UserRepository extends Repository<User> {
     }
 
     async deleteBlockRelationship(blocker_id: string, blocked_id: string): Promise<DeleteResult> {
-        return await this.dataSource.getRepository(UserBlocks).delete({ blocker_id, blocked_id });
+        return await this.data_source.getRepository(UserBlocks).delete({ blocker_id, blocked_id });
     }
 
     async validateRelationshipRequest(
@@ -469,7 +469,7 @@ export class UserRepository extends Repository<User> {
     }
 
     async verifyFollowPermissions(current_user_id: string, target_user_id: string): Promise<any> {
-        const blocks = await this.dataSource
+        const blocks = await this.data_source
             .getRepository(UserBlocks)
             .createQueryBuilder('ub')
             .select(['ub.blocker_id', 'ub.blocked_id'])
@@ -520,7 +520,7 @@ export class UserRepository extends Repository<User> {
     }
 
     async insertUserInterests(user_interests) {
-        return await this.dataSource.getRepository(UserInterests).upsert(user_interests, {
+        return await this.data_source.getRepository(UserInterests).upsert(user_interests, {
             conflictPaths: ['user_id', 'category_id'],
             skipUpdateIfNoValuesChanged: true,
         });

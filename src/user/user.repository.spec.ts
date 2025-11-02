@@ -1,6 +1,6 @@
 import { DataSource } from 'typeorm';
 import { UserRepository } from './user.repository';
-import { User } from './entities';
+import { User, UserBlocks, UserFollows, UserMutes } from './entities';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
@@ -20,6 +20,8 @@ describe('UserRepository', () => {
 
         data_source = {
             createEntityManager: jest.fn().mockReturnValue(entity_manager),
+            transaction: jest.fn(),
+            getRepository: jest.fn(),
         } as any;
 
         const module: TestingModule = await Test.createTestingModule({
@@ -632,6 +634,756 @@ describe('UserRepository', () => {
             expect(mock_query_builder.addSelect).toHaveBeenCalledTimes(6);
             expect(mock_query_builder.setParameter).toHaveBeenCalledWith('viewer_id', viewer_id);
             expect(result).toBe(mock_query_builder);
+        });
+    });
+
+    describe('buildUserListQuery', () => {
+        it('should build user list query with relationship context', () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+            };
+
+            const create_query_builder_spy = jest
+                .spyOn(repository, 'createQueryBuilder')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = repository.buildUserListQuery(current_user_id);
+
+            expect(create_query_builder_spy).toHaveBeenCalledWith('user');
+            expect(mock_query_builder.addSelect).toHaveBeenCalledTimes(4);
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'current_user_id',
+                current_user_id
+            );
+            expect(result).toBe(mock_query_builder);
+        });
+    });
+
+    describe('getUsersByIds', () => {
+        it('should get users by ids with relationship context when current_user_id is provided', async () => {
+            const user_ids = [
+                '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                'b2d59899-f706-4c8f-97d7-ba2e9fc22d90',
+            ];
+            const current_user_id = '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6';
+
+            const mock_users = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: false,
+                    is_follower: true,
+                    is_muted: false,
+                    is_blocked: false,
+                },
+                {
+                    user_id: 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90',
+                    name: 'Mario Raafat',
+                    username: 'MarioR123',
+                    bio: 'hello!',
+                    avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                    is_following: true,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: false,
+                },
+            ];
+
+            const mock_query_builder = {
+                where: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_users),
+            };
+
+            const build_user_list_query_spy = jest
+                .spyOn(repository, 'buildUserListQuery')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getUsersByIds(user_ids, current_user_id);
+
+            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(build_user_list_query_spy).toHaveBeenCalledTimes(1);
+            expect(mock_query_builder.where).toHaveBeenCalledWith('"user"."id" IN (:...user_ids)', {
+                user_ids,
+            });
+            expect(mock_query_builder.getRawMany).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_users);
+        });
+
+        it('should get users by ids without relationship context when current_user_id is null', async () => {
+            const user_ids = ['0c059899-f706-4c8f-97d7-ba2e9fc22d6d'];
+            const current_user_id = null;
+
+            const mock_users = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_users),
+            };
+
+            const create_query_builder_spy = jest
+                .spyOn(repository, 'createQueryBuilder')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getUsersByIds(user_ids, current_user_id);
+
+            expect(create_query_builder_spy).toHaveBeenCalledWith('user');
+            expect(mock_query_builder.where).toHaveBeenCalledWith('"user"."id" IN (:...user_ids)', {
+                user_ids,
+            });
+            expect(result).toEqual(mock_users);
+        });
+
+        it('should return empty array when no users found', async () => {
+            const user_ids = ['nonexistent-id'];
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const mock_query_builder = {
+                where: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce([]),
+            };
+
+            jest.spyOn(repository, 'buildUserListQuery').mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getUsersByIds(user_ids, current_user_id);
+
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('getUsersByUsernames', () => {
+        it('should get users by usernames with relationship context when current_user_id is provided', async () => {
+            const usernames = ['Alyaali242', 'MarioR123'];
+            const current_user_id = '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6';
+
+            const mock_users = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: false,
+                    is_follower: true,
+                    is_muted: false,
+                    is_blocked: false,
+                },
+                {
+                    user_id: 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90',
+                    name: 'Mario Raafat',
+                    username: 'MarioR123',
+                    bio: 'hello!',
+                    avatar_url: 'https://cdn.app.com/profiles/u123.jpg',
+                    is_following: true,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: false,
+                },
+            ];
+
+            const mock_query_builder = {
+                where: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_users),
+            };
+
+            const build_user_list_query_spy = jest
+                .spyOn(repository, 'buildUserListQuery')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getUsersByUsernames(usernames, current_user_id);
+
+            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(build_user_list_query_spy).toHaveBeenCalledTimes(1);
+            expect(mock_query_builder.where).toHaveBeenCalledWith(
+                '"user"."username" IN (:...usernames)',
+                { usernames }
+            );
+            expect(mock_query_builder.getRawMany).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_users);
+        });
+
+        it('should get users by usernames without relationship context when current_user_id is null', async () => {
+            const usernames = ['Alyaali242'];
+            const current_user_id = null;
+
+            const mock_users = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_users),
+            };
+
+            const create_query_builder_spy = jest
+                .spyOn(repository, 'createQueryBuilder')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getUsersByUsernames(usernames, current_user_id);
+
+            expect(create_query_builder_spy).toHaveBeenCalledWith('user');
+            expect(mock_query_builder.where).toHaveBeenCalledWith(
+                '"user"."username" IN (:...usernames)',
+                { usernames }
+            );
+            expect(result).toEqual(mock_users);
+        });
+    });
+
+    describe('getFollowersList', () => {
+        it('should get followers list without following filter', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const page_offset = 0;
+            const page_size = 10;
+
+            const mock_followers = [
+                {
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                    name: 'Follower One',
+                    username: 'follower1',
+                    bio: 'bio',
+                    avatar_url: 'https://cdn.app.com/profiles/f1.jpg',
+                    is_following: false,
+                    is_follower: true,
+                    is_muted: false,
+                    is_blocked: false,
+                },
+            ];
+
+            const mock_query_builder = {
+                innerJoin: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                offset: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_followers),
+            };
+
+            const build_user_list_query_spy = jest
+                .spyOn(repository, 'buildUserListQuery')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getFollowersList(
+                current_user_id,
+                target_user_id,
+                page_offset,
+                page_size
+            );
+
+            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
+                'user_follows',
+                'target_followers',
+                'target_followers.follower_id = "user"."id" AND target_followers.followed_id = :target_user_id'
+            );
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'target_user_id',
+                target_user_id
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(page_size);
+            expect(mock_query_builder.offset).toHaveBeenCalledWith(page_offset);
+            expect(result).toEqual(mock_followers);
+        });
+
+        it('should get followers list filtered by following when following is true', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const page_offset = 0;
+            const page_size = 10;
+            const following = true;
+
+            const mock_followers = [
+                {
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                    name: 'Mutual Follower',
+                    username: 'mutualfollower',
+                    bio: 'bio',
+                    avatar_url: 'https://cdn.app.com/profiles/mf.jpg',
+                    is_following: true,
+                    is_follower: true,
+                    is_muted: false,
+                    is_blocked: false,
+                },
+            ];
+
+            const mock_query_builder = {
+                innerJoin: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                offset: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_followers),
+            };
+
+            const build_user_list_query_spy = jest
+                .spyOn(repository, 'buildUserListQuery')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getFollowersList(
+                current_user_id,
+                target_user_id,
+                page_offset,
+                page_size,
+                following
+            );
+
+            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.innerJoin).toHaveBeenCalledTimes(2);
+            expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
+                'user_follows',
+                'current_user_following',
+                'current_user_following.follower_id = :current_user_id AND current_user_following.followed_id = "user"."id"'
+            );
+            expect(result).toEqual(mock_followers);
+        });
+    });
+
+    describe('getFollowingList', () => {
+        it('should get following list', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const page_offset = 0;
+            const page_size = 10;
+
+            const mock_following = [
+                {
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                    name: 'Following User',
+                    username: 'followinguser',
+                    bio: 'bio',
+                    avatar_url: 'https://cdn.app.com/profiles/fu.jpg',
+                    is_following: true,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: false,
+                },
+            ];
+
+            const mock_query_builder = {
+                innerJoin: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                offset: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_following),
+            };
+
+            const build_user_list_query_spy = jest
+                .spyOn(repository, 'buildUserListQuery')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getFollowingList(
+                current_user_id,
+                target_user_id,
+                page_offset,
+                page_size
+            );
+
+            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
+                'user_follows',
+                'target_following',
+                'target_following.follower_id = :target_user_id AND target_following.followed_id = "user"."id"'
+            );
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'target_user_id',
+                target_user_id
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(page_size);
+            expect(mock_query_builder.offset).toHaveBeenCalledWith(page_offset);
+            expect(result).toEqual(mock_following);
+        });
+    });
+
+    describe('getMutedUsersList', () => {
+        it('should get muted users list', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const page_offset = 0;
+            const page_size = 10;
+
+            const mock_muted_users = [
+                {
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                    name: 'Muted User',
+                    username: 'muteduser',
+                    bio: 'bio',
+                    avatar_url: 'https://cdn.app.com/profiles/mu.jpg',
+                    is_following: false,
+                    is_follower: false,
+                    is_muted: true,
+                    is_blocked: false,
+                },
+            ];
+
+            const mock_query_builder = {
+                innerJoin: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                offset: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_muted_users),
+            };
+
+            const build_user_list_query_spy = jest
+                .spyOn(repository, 'buildUserListQuery')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getMutedUsersList(
+                current_user_id,
+                page_offset,
+                page_size
+            );
+
+            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
+                'user_mutes',
+                'target_muted',
+                'target_muted.muter_id = :current_user_id AND target_muted.muted_id = "user"."id"'
+            );
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'current_user_id',
+                current_user_id
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(page_size);
+            expect(mock_query_builder.offset).toHaveBeenCalledWith(page_offset);
+            expect(result).toEqual(mock_muted_users);
+        });
+    });
+
+    describe('getBlockedUsersList', () => {
+        it('should get blocked users list', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const page_offset = 0;
+            const page_size = 10;
+
+            const mock_blocked_users = [
+                {
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                    name: 'Blocked User',
+                    username: 'blockeduser',
+                    bio: 'bio',
+                    avatar_url: 'https://cdn.app.com/profiles/bu.jpg',
+                    is_following: false,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: true,
+                },
+            ];
+
+            const mock_query_builder = {
+                innerJoin: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                offset: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValueOnce(mock_blocked_users),
+            };
+
+            const build_user_list_query_spy = jest
+                .spyOn(repository, 'buildUserListQuery')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getBlockedUsersList(
+                current_user_id,
+                page_offset,
+                page_size
+            );
+
+            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
+                'user_blocks',
+                'target_blocked',
+                'target_blocked.blocker_id = :current_user_id AND target_blocked.blocked_id = "user"."id"'
+            );
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'current_user_id',
+                current_user_id
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(page_size);
+            expect(mock_query_builder.offset).toHaveBeenCalledWith(page_offset);
+            expect(result).toEqual(mock_blocked_users);
+        });
+    });
+
+    describe('insertFollowRelationship', () => {
+        it('should insert follow relationship and increment counters', async () => {
+            const follower_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const followed_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_insert_result = {
+                identifiers: [],
+                generatedMaps: [],
+                raw: [],
+            };
+
+            const mock_manager = {
+                insert: jest.fn().mockResolvedValueOnce(mock_insert_result),
+                increment: jest.fn().mockResolvedValue(undefined),
+            };
+
+            const transaction_spy = jest
+                .spyOn(data_source, 'transaction')
+                .mockImplementation(async (callback: any) => {
+                    return await callback(mock_manager);
+                });
+
+            const result = await repository.insertFollowRelationship(follower_id, followed_id);
+
+            expect(transaction_spy).toHaveBeenCalledTimes(1);
+            expect(mock_manager.insert).toHaveBeenCalledWith(
+                UserFollows,
+                expect.objectContaining({ follower_id, followed_id })
+            );
+            expect(mock_manager.increment).toHaveBeenCalledWith(
+                User,
+                { id: follower_id },
+                'following',
+                1
+            );
+            expect(mock_manager.increment).toHaveBeenCalledWith(
+                User,
+                { id: followed_id },
+                'followers',
+                1
+            );
+            expect(mock_manager.increment).toHaveBeenCalledTimes(2);
+            expect(result).toEqual(mock_insert_result);
+        });
+    });
+
+    describe('deleteFollowRelationship', () => {
+        it('should delete follow relationship and decrement counters when relationship exists', async () => {
+            const follower_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const followed_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_delete_result = {
+                affected: 1,
+                raw: [],
+            };
+
+            const mock_manager = {
+                delete: jest.fn().mockResolvedValueOnce(mock_delete_result),
+                decrement: jest.fn().mockResolvedValue(undefined),
+            };
+
+            const transaction_spy = jest
+                .spyOn(data_source, 'transaction')
+                .mockImplementation(async (callback: any) => {
+                    return await callback(mock_manager);
+                });
+
+            const result = await repository.deleteFollowRelationship(follower_id, followed_id);
+
+            expect(transaction_spy).toHaveBeenCalledTimes(1);
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id,
+                followed_id,
+            });
+            expect(mock_manager.decrement).toHaveBeenCalledWith(
+                User,
+                { id: follower_id },
+                'following',
+                1
+            );
+            expect(mock_manager.decrement).toHaveBeenCalledWith(
+                User,
+                { id: followed_id },
+                'followers',
+                1
+            );
+            expect(mock_manager.decrement).toHaveBeenCalledTimes(2);
+            expect(result).toEqual(mock_delete_result);
+        });
+
+        it('should not decrement counters when relationship does not exist', async () => {
+            const follower_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const followed_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_delete_result = {
+                affected: 0,
+                raw: [],
+            };
+
+            const mock_manager = {
+                delete: jest.fn().mockResolvedValueOnce(mock_delete_result),
+                decrement: jest.fn().mockResolvedValue(undefined),
+            };
+
+            const transaction_spy = jest
+                .spyOn(data_source, 'transaction')
+                .mockImplementation(async (callback: any) => {
+                    return await callback(mock_manager);
+                });
+
+            const result = await repository.deleteFollowRelationship(follower_id, followed_id);
+
+            expect(transaction_spy).toHaveBeenCalledTimes(1);
+            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+                follower_id,
+                followed_id,
+            });
+            expect(mock_manager.decrement).not.toHaveBeenCalled();
+            expect(result).toEqual(mock_delete_result);
+        });
+    });
+
+    describe('insertMuteRelationship', () => {
+        it('should insert mute relationship', async () => {
+            const muter_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const muted_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_insert_result = {
+                identifiers: [],
+                generatedMaps: [],
+                raw: [],
+            };
+
+            const mock_repository = {
+                insert: jest.fn().mockResolvedValueOnce(mock_insert_result),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.insertMuteRelationship(muter_id, muted_id);
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserMutes);
+            expect(mock_repository.insert).toHaveBeenCalledWith(
+                expect.objectContaining({ muter_id, muted_id })
+            );
+            expect(mock_repository.insert).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_insert_result);
+        });
+    });
+
+    describe('deleteMuteRelationship', () => {
+        it('should delete mute relationship', async () => {
+            const muter_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const muted_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_delete_result = {
+                affected: 1,
+                raw: [],
+            };
+
+            const mock_repository = {
+                delete: jest.fn().mockResolvedValueOnce(mock_delete_result),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.deleteMuteRelationship(muter_id, muted_id);
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserMutes);
+            expect(mock_repository.delete).toHaveBeenCalledWith({ muter_id, muted_id });
+            expect(mock_repository.delete).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_delete_result);
+        });
+    });
+
+    describe('insertBlockRelationship', () => {
+        it('should insert block relationship and delete follow relationships', async () => {
+            const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_query_builder = {
+                delete: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orWhere: jest.fn().mockReturnThis(),
+                setParameters: jest.fn().mockReturnThis(),
+                execute: jest.fn().mockResolvedValueOnce({ affected: 2 }),
+            };
+
+            const mock_user_blocks_repository = {
+                insert: jest.fn().mockResolvedValueOnce({}),
+            };
+
+            const mock_user_follows_repository = {
+                createQueryBuilder: jest.fn().mockReturnValue(mock_query_builder),
+            };
+
+            const mock_manager = {
+                getRepository: jest.fn((entity: any) => {
+                    if (entity === UserBlocks) return mock_user_blocks_repository;
+                    if (entity === UserFollows) return mock_user_follows_repository;
+                }),
+            };
+
+            const transaction_spy = jest
+                .spyOn(data_source, 'transaction')
+                .mockImplementation(async (callback: any) => {
+                    return await callback(mock_manager);
+                });
+
+            await repository.insertBlockRelationship(blocker_id, blocked_id);
+
+            expect(transaction_spy).toHaveBeenCalledTimes(1);
+            expect(mock_manager.getRepository).toHaveBeenCalledWith(UserBlocks);
+            expect(mock_manager.getRepository).toHaveBeenCalledWith(UserFollows);
+            expect(mock_user_blocks_repository.insert).toHaveBeenCalledWith(
+                expect.objectContaining({ blocker_id, blocked_id })
+            );
+            expect(mock_user_follows_repository.createQueryBuilder).toHaveBeenCalledTimes(1);
+            expect(mock_query_builder.delete).toHaveBeenCalledTimes(1);
+            expect(mock_query_builder.where).toHaveBeenCalledWith(
+                'follower_id = :blocker_id AND followed_id = :blocked_id'
+            );
+            expect(mock_query_builder.orWhere).toHaveBeenCalledWith(
+                'follower_id = :blocked_id AND followed_id = :blocker_id'
+            );
+            expect(mock_query_builder.setParameters).toHaveBeenCalledWith({
+                blocker_id,
+                blocked_id,
+            });
+            expect(mock_query_builder.execute).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('deleteBlockRelationship', () => {
+        it('should delete block relationship', async () => {
+            const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_delete_result = {
+                affected: 1,
+                raw: [],
+            };
+
+            const mock_repository = {
+                delete: jest.fn().mockResolvedValueOnce(mock_delete_result),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.deleteBlockRelationship(blocker_id, blocked_id);
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserBlocks);
+            expect(mock_repository.delete).toHaveBeenCalledWith({ blocker_id, blocked_id });
+            expect(mock_repository.delete).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_delete_result);
         });
     });
 });
