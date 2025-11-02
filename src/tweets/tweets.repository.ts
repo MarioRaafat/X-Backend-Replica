@@ -27,7 +27,11 @@ export class TweetsRepository {
             .leftJoinAndSelect('tweet.user', 'user')
             .leftJoin('tweet_replies', 'reply', 'reply.reply_tweet_id = tweet.tweet_id')
             .leftJoin('tweet_quotes', 'quote', 'quote.quote_tweet_id = tweet.tweet_id')
-            .leftJoinAndSelect('tweet_reposts', 'repost', 'repost.tweet_id = tweet.tweet_id')
+            .leftJoinAndSelect(
+                'tweet_reposts',
+                'repost',
+                'repost.tweet_id = tweet.tweet_id  AND ( repost.user_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id) or repost.user_id = :user_id )'
+            )
             .leftJoinAndSelect('user', 'repost_user', 'repost_user.id = repost.user_id')
             .leftJoinAndSelect(
                 'tweets',
@@ -94,6 +98,13 @@ export class TweetsRepository {
                 AND tweet_reposts.user_id = :user_id
             )`,
                 'is_reposted'
+            )
+            .addSelect(
+                `EXISTS(
+                SELECT 1 FROM user_follows             
+                WHERE follower_id = :user_id
+                AND followed_id = tweet.user_id)`,
+                'is_following'
             )
             .where(
                 `(tweet.user_id = :user_id
@@ -179,6 +190,13 @@ export class TweetsRepository {
             )`,
                 'is_reposted'
             )
+            .addSelect(
+                `EXISTS(
+                SELECT 1 FROM user_follows             
+                WHERE follower_id = :user_id
+                AND followed_id = tweet.user_id)`,
+                'is_following'
+            )
             .orderBy('RANDOM()')
             .limit(pagination.limit)
             .setParameters({ user_id });
@@ -225,6 +243,7 @@ export class TweetsRepository {
                     cover_url: row.user_cover_url,
                     followers: row.user_followers,
                     following: row.user_following,
+                    is_following: row.is_following === true,
                 },
                 likes_count: row.tweet_num_likes,
                 reposts_count: row.tweet_num_reposts,
