@@ -27,12 +27,8 @@ export class TweetsRepository {
             .leftJoinAndSelect('tweet.user', 'user')
             .leftJoin('tweet_replies', 'reply', 'reply.reply_tweet_id = tweet.tweet_id')
             .leftJoin('tweet_quotes', 'quote', 'quote.quote_tweet_id = tweet.tweet_id')
-            .leftJoin(
-                'tweet_reposts',
-                'repost',
-                'repost.tweet_id = tweet.tweet_id AND repost.user_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id)'
-            )
-            .leftJoin('user', 'repost_user', 'repost_user.id = repost.user_id')
+            .leftJoinAndSelect('tweet_reposts', 'repost', 'repost.tweet_id = tweet.tweet_id')
+            .leftJoinAndSelect('user', 'repost_user', 'repost_user.id = repost.user_id')
             .leftJoinAndSelect(
                 'tweets',
                 'parent_tweet',
@@ -52,6 +48,8 @@ export class TweetsRepository {
                 'COALESCE(reply.original_tweet_id, quote.original_tweet_id)',
                 'parent_tweet_id'
             )
+
+            //TODO: This will be removed as we store converstion id but till i fill the database again
             .addSelect(
                 `(
                 WITH RECURSIVE conversation_tree AS (
@@ -97,9 +95,6 @@ export class TweetsRepository {
             )`,
                 'is_reposted'
             )
-            .addSelect('repost_user.id', 'repost_user_id')
-            .addSelect('repost_user.name', 'repost_user_name')
-            .addSelect('repost.created_at', 'repost_created_at')
             .where(
                 `(tweet.user_id = :user_id
      OR tweet.user_id IN (
@@ -147,14 +142,12 @@ export class TweetsRepository {
         user_id: string,
         pagination: TimelinePaginationDto
     ): Promise<{ tweets: TweetResponseDTO[]; next_cursor: string | null }> {
-        const limit = pagination.limit ?? 50;
-
         const query_builder = this.tweet_repository
             .createQueryBuilder('tweet')
             .leftJoinAndSelect('tweet.user', 'user')
             .leftJoin('tweet_quotes', 'quote', 'quote.quote_tweet_id = tweet.tweet_id')
-            .leftJoin('tweet_reposts', 'repost', 'repost.tweet_id = tweet.tweet_id')
-            .leftJoin('user', 'repost_user', 'repost_user.id = repost.user_id')
+            .leftJoinAndSelect('tweet_reposts', 'repost', 'repost.tweet_id = tweet.tweet_id')
+            .leftJoinAndSelect('user', 'repost_user', 'repost_user.id = repost.user_id')
             .leftJoinAndSelect(
                 'tweets',
                 'parent_tweet',
@@ -186,11 +179,8 @@ export class TweetsRepository {
             )`,
                 'is_reposted'
             )
-            .addSelect('repost_user.id', 'repost_user_id')
-            .addSelect('repost_user.name', 'repost_user_name')
-            .addSelect('repost.created_at', 'repost_created_at')
             .orderBy('RANDOM()')
-            .limit(limit)
+            .limit(pagination.limit)
             .setParameters({ user_id });
 
         // This will be delegated to a pagination service
