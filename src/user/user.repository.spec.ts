@@ -4,6 +4,8 @@ import { User, UserBlocks, UserFollows, UserMutes } from './entities';
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
+import { RelationshipType } from './enums/relationship-type.enum';
+import { UserInterests } from './entities/user-interests.entity';
 
 describe('UserRepository', () => {
     let repository: UserRepository;
@@ -1465,7 +1467,7 @@ describe('UserRepository', () => {
             );
         });
 
-        it('should insert block relationship and delete follow relationships with no follow at all', async () => {
+        it('should insert block relationship with no follow relationships at all', async () => {
             const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
@@ -1532,6 +1534,383 @@ describe('UserRepository', () => {
             expect(mock_repository.delete).toHaveBeenCalledWith({ blocker_id, blocked_id });
             expect(mock_repository.delete).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_delete_result);
+        });
+    });
+
+    describe('validateRelationshipRequest', () => {
+        it('should return user exists and relationship exists when both are true for follow relationship', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const relationship_type = RelationshipType.FOLLOW;
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                getRawOne: jest.fn().mockResolvedValueOnce({
+                    user_exists: target_user_id,
+                    relationship_exists: true,
+                }),
+            };
+
+            const create_query_builder_spy = jest
+                .spyOn(repository, 'createQueryBuilder')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.validateRelationshipRequest(
+                current_user_id,
+                target_user_id,
+                relationship_type
+            );
+
+            expect(create_query_builder_spy).toHaveBeenCalledWith('user');
+            expect(mock_query_builder.select).toHaveBeenCalledWith('user.id', 'user_exists');
+            expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
+                expect.stringContaining('user_follows'),
+                'relationship_exists'
+            );
+            expect(mock_query_builder.where).toHaveBeenCalledWith('user.id = :target_user_id');
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'current_user_id',
+                current_user_id
+            );
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'target_user_id',
+                target_user_id
+            );
+            expect(result).toEqual({
+                user_exists: target_user_id,
+                relationship_exists: true,
+            });
+        });
+
+        it('should return user exists and relationship does not exist for mute relationship', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const relationship_type = RelationshipType.MUTE;
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                getRawOne: jest.fn().mockResolvedValueOnce({
+                    user_exists: target_user_id,
+                    relationship_exists: false,
+                }),
+            };
+
+            const create_query_builder_spy = jest
+                .spyOn(repository, 'createQueryBuilder')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.validateRelationshipRequest(
+                current_user_id,
+                target_user_id,
+                relationship_type
+            );
+
+            expect(create_query_builder_spy).toHaveBeenCalledWith('user');
+            expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
+                expect.stringContaining('user_mutes'),
+                'relationship_exists'
+            );
+            expect(result).toEqual({
+                user_exists: target_user_id,
+                relationship_exists: false,
+            });
+        });
+
+        it('should return user does not exist and relationship does not exist for block relationship', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const relationship_type = RelationshipType.BLOCK;
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                getRawOne: jest.fn().mockResolvedValueOnce(null),
+            };
+
+            const create_query_builder_spy = jest
+                .spyOn(repository, 'createQueryBuilder')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.validateRelationshipRequest(
+                current_user_id,
+                target_user_id,
+                relationship_type
+            );
+
+            expect(create_query_builder_spy).toHaveBeenCalledWith('user');
+            expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
+                expect.stringContaining('user_blocks'),
+                'relationship_exists'
+            );
+            expect(result).toBeNull();
+        });
+    });
+
+    describe('verifyFollowPermissions', () => {
+        it('should return blocked_me true and is_blocked false when target user has blocked current user', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_blocks = [
+                {
+                    blocker_id: target_user_id,
+                    blocked_id: current_user_id,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                setParameters: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValueOnce(mock_blocks),
+            };
+
+            const mock_repository = {
+                createQueryBuilder: jest.fn().mockReturnValue(mock_query_builder),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.verifyFollowPermissions(
+                current_user_id,
+                target_user_id
+            );
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserBlocks);
+            expect(mock_repository.createQueryBuilder).toHaveBeenCalledWith('ub');
+            expect(mock_query_builder.select).toHaveBeenCalledWith([
+                'ub.blocker_id',
+                'ub.blocked_id',
+            ]);
+            expect(mock_query_builder.setParameters).toHaveBeenCalledWith({
+                current_user_id,
+                target_user_id,
+            });
+            expect(result).toEqual({
+                blocked_me: true,
+                is_blocked: false,
+            });
+        });
+
+        it('should return blocked_me false and is_blocked true when current user has blocked target user', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_blocks = [
+                {
+                    blocker_id: current_user_id,
+                    blocked_id: target_user_id,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                setParameters: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValueOnce(mock_blocks),
+            };
+
+            const mock_repository = {
+                createQueryBuilder: jest.fn().mockReturnValue(mock_query_builder),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.verifyFollowPermissions(
+                current_user_id,
+                target_user_id
+            );
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserBlocks);
+            expect(result).toEqual({
+                blocked_me: false,
+                is_blocked: true,
+            });
+        });
+
+        it('should return both blocked_me and is_blocked true when both users have blocked each other', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_blocks = [
+                {
+                    blocker_id: current_user_id,
+                    blocked_id: target_user_id,
+                },
+                {
+                    blocker_id: target_user_id,
+                    blocked_id: current_user_id,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                setParameters: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValueOnce(mock_blocks),
+            };
+
+            const mock_repository = {
+                createQueryBuilder: jest.fn().mockReturnValue(mock_query_builder),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.verifyFollowPermissions(
+                current_user_id,
+                target_user_id
+            );
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserBlocks);
+            expect(result).toEqual({
+                blocked_me: true,
+                is_blocked: true,
+            });
+        });
+
+        it('should return both blocked_me and is_blocked false when no blocks exist', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                setParameters: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValueOnce([]),
+            };
+
+            const mock_repository = {
+                createQueryBuilder: jest.fn().mockReturnValue(mock_query_builder),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.verifyFollowPermissions(
+                current_user_id,
+                target_user_id
+            );
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserBlocks);
+            expect(result).toEqual({
+                blocked_me: false,
+                is_blocked: false,
+            });
+        });
+    });
+
+    describe('getRelationshipConfig', () => {
+        it('should return correct config for FOLLOW relationship type', () => {
+            const result = repository['getRelationshipConfig'](RelationshipType.FOLLOW);
+
+            expect(result).toEqual({
+                table_name: 'user_follows',
+                source_column: 'follower_id',
+                target_column: 'followed_id',
+            });
+        });
+
+        it('should return correct config for MUTE relationship type', () => {
+            const result = repository['getRelationshipConfig'](RelationshipType.MUTE);
+
+            expect(result).toEqual({
+                table_name: 'user_mutes',
+                source_column: 'muter_id',
+                target_column: 'muted_id',
+            });
+        });
+
+        it('should return correct config for BLOCK relationship type', () => {
+            const result = repository['getRelationshipConfig'](RelationshipType.BLOCK);
+
+            expect(result).toEqual({
+                table_name: 'user_blocks',
+                source_column: 'blocker_id',
+                target_column: 'blocked_id',
+            });
+        });
+
+        it('should throw error for unknown relationship type', () => {
+            const unknown_type = 'UNKNOWN' as RelationshipType;
+
+            expect(() => {
+                repository['getRelationshipConfig'](unknown_type);
+            }).toThrow('Unknown relationship type');
+        });
+    });
+
+    describe('insertUserInterests', () => {
+        it('should insert user interests successfully', async () => {
+            const user_interests = [
+                { user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d', category_id: 1 },
+                { user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d', category_id: 2 },
+            ];
+
+            const mock_upsert_result = {
+                identifiers: [],
+                generatedMaps: [],
+                raw: [],
+            };
+
+            const mock_repository = {
+                upsert: jest.fn().mockResolvedValueOnce(mock_upsert_result),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.insertUserInterests(user_interests);
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserInterests);
+            expect(mock_repository.upsert).toHaveBeenCalledWith(user_interests, {
+                conflictPaths: ['user_id', 'category_id'],
+                skipUpdateIfNoValuesChanged: true,
+            });
+            expect(mock_repository.upsert).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_upsert_result);
+        });
+
+        it('should handle empty user interests array', async () => {
+            const user_interests = [];
+
+            const mock_upsert_result = {
+                identifiers: [],
+                generatedMaps: [],
+                raw: [],
+            };
+
+            const mock_repository = {
+                upsert: jest.fn().mockResolvedValueOnce(mock_upsert_result),
+            };
+
+            const get_repository_spy = jest
+                .spyOn(data_source, 'getRepository')
+                .mockReturnValue(mock_repository as any);
+
+            const result = await repository.insertUserInterests(user_interests);
+
+            expect(get_repository_spy).toHaveBeenCalledWith(UserInterests);
+            expect(mock_repository.upsert).toHaveBeenCalledWith([], {
+                conflictPaths: ['user_id', 'category_id'],
+                skipUpdateIfNoValuesChanged: true,
+            });
+            expect(result).toEqual(mock_upsert_result);
         });
     });
 });
