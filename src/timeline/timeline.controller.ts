@@ -21,7 +21,7 @@ import {
 } from 'src/decorators/swagger-error-responses.decorator';
 import { timeline_swagger } from './timeline.swagger';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
-import { ApiStatus } from 'src/decorators/api-status.decorator';
+import { ApiImplementationStatus, ImplementationStatus } from 'src/decorators/api-status.decorator';
 
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard)
@@ -30,7 +30,10 @@ import { ApiStatus } from 'src/decorators/api-status.decorator';
 export class TimelineController {
     constructor(private readonly timelineService: TimelineService) {}
 
-    @ApiStatus('implemented')
+    @ApiImplementationStatus({
+        status: ImplementationStatus.IN_PROGRESS,
+        summary: timeline_swagger.for_you.operation.summary,
+    })
     @ApiOperation(timeline_swagger.for_you.operation)
     @ApiQuery(timeline_swagger.api_query.limit)
     @ApiQuery(timeline_swagger.api_query.cursor)
@@ -46,7 +49,10 @@ export class TimelineController {
     ) {
         return await this.timelineService.getForyouTimeline(user_id, pagination);
     }
-    @ApiStatus('implemented')
+    @ApiImplementationStatus({
+        status: ImplementationStatus.IMPLEMENTED,
+        summary: timeline_swagger.following.operation.summary,
+    })
     @ApiOperation(timeline_swagger.following.operation)
     @ApiQuery(timeline_swagger.api_query.limit)
     @ApiQuery(timeline_swagger.api_query.cursor)
