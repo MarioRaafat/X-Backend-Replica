@@ -5,14 +5,17 @@ import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GetTweetRepostsQueryDto {
     @ApiProperty({
-        description: 'Cursor for pagination (user_id of the last repost from previous page)',
+        description: 'Page number for pagination',
         required: false,
-        example: '550e8400-e29b-41d4-a716-446655440000',
+        default: 1,
+        minimum: 1,
+        example: 1,
     })
     @IsOptional()
-    @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
-    cursor?: string;
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page?: number = 1;
 
     @ApiProperty({
         description: 'Number of users to return per page',

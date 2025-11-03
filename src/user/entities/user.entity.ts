@@ -1,7 +1,8 @@
 import { Exclude } from 'class-transformer';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { Hashtag } from '../../tweets/entities/hashtags.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, OneToMany, PrimaryGeneratedColumn , RelationId, UpdateDateColumn } from 'typeorm';
+import { UserFollows } from './user-follows.entity';
 
 @Entity()
 export class User {
@@ -82,6 +83,9 @@ export class User {
 
     @OneToMany(() => Tweet, (tweet) => tweet.user, {})
     tweets: Tweet[];
+
+    current_user_follows?: UserFollows | null;
+    is_following?: boolean;
 
     constructor(user: Partial<User>) {
         Object.assign(this, user);

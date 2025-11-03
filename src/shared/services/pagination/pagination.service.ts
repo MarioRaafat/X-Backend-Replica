@@ -88,4 +88,62 @@ export class PaginationService {
             },
         };
     }
+
+    /**
+     * Applies cursor-based pagination to a query builder
+     * @param query_builder - TypeORM query builder
+     * @param cursor - Cursor string in format "timestamp_id"
+     * @param alias - Entity alias used in the query
+     * @param timestamp_field - Field name for timestamp (e.g., 'created_at')
+     * @param id_field - Field name for ID (e.g., 'tweet_id', 'id')
+     */
+    public applyCursorPagination<T extends ObjectLiteral>(
+        query_builder: SelectQueryBuilder<T>,
+        cursor: string | undefined,
+        alias: string,
+        timestamp_field: string = 'created_at',
+        id_field: string = 'id'
+    ): SelectQueryBuilder<T> {
+        if (cursor) {
+            const [cursor_timestamp, cursor_id] = cursor.split('_');
+            if (cursor_timestamp && cursor_id) {
+                const cursor_date = new Date(cursor_timestamp);
+                query_builder.andWhere(
+                    `(${alias}.${timestamp_field} < :cursor_date OR (${alias}.${timestamp_field} = :cursor_date AND ${alias}.${id_field} < :cursor_id))`,
+                    {
+                        cursor_date,
+                        cursor_id,
+                    }
+                );
+            }
+        }
+        return query_builder;
+    }
+
+    /**
+     * Generates cursor for next page
+     * @param items - Array of items from the current page
+     * @param timestamp_field - Field name for timestamp
+     * @param id_field - Field name for ID
+     * @returns Cursor string or null if no items
+     */
+    public generateNextCursor<T>(
+        items: T[],
+        timestamp_field: string = 'created_at',
+        id_field: string = 'id'
+    ): string | null {
+        if (items.length === 0) return null;
+        
+        const last_item = items[items.length - 1];
+        const timestamp = last_item[timestamp_field];
+        const id = last_item[id_field];
+        
+        if (!timestamp || !id) return null;
+        
+        const timestamp_iso = timestamp instanceof Date 
+            ? timestamp.toISOString() 
+            : new Date(timestamp).toISOString();
+            
+        return `${timestamp_iso}_${id}`;
+    }
 }

@@ -7,7 +7,15 @@ import { TweetLike } from './entities/tweet-like.entity';
 import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
+import { UserFollows } from '../user/entities/user-follows.entity';
+import { UserPostsView } from './entities/user-posts-view.entity';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
+import { PaginationService } from '../shared/services/pagination/pagination.service';
+import { TweetsRepository } from './tweets.repository';
+import { AzureStorageService } from '../azure-storage/azure-storage.service';
+import { BlobServiceClient } from '@azure/storage-blob';
+
+jest.mock('@azure/storage-blob');
 
 describe('TweetsService', () => {
     let tweets_service: TweetsService;
@@ -16,6 +24,7 @@ describe('TweetsService', () => {
     let tweet_repost_repo: Repository<TweetRepost>;
     let tweet_quote_repo: Repository<TweetQuote>;
     let tweet_reply_repo: Repository<TweetReply>;
+    let tweets_repo: TweetsRepository;
     let data_source: DataSource;
     let mock_query_runner: any;
 
@@ -31,6 +40,7 @@ describe('TweetsService', () => {
             insert: jest.fn(),
             increment: jest.fn(),
             decrement: jest.fn(),
+            createQueryBuilder: jest.fn(),
         });
 
         const mock_tweet_repo = mock_repo();
@@ -38,6 +48,26 @@ describe('TweetsService', () => {
         const mock_tweet_repost_repo = mock_repo();
         const mock_tweet_quote_repo = mock_repo();
         const mock_tweet_reply_repo = mock_repo();
+        const mock_user_follows_repo = mock_repo();
+        const mock_user_posts_view_repo = mock_repo();
+
+        const mock_pagination_service = {
+            paginate: jest.fn(),
+            applyCursorPagination: jest.fn(),
+            generateNextCursor: jest.fn(),
+        };
+
+        const mock_tweets_repository = {
+            attachUserTweetInteractionFlags: jest.fn(),
+            getReplyWithParentChain: jest.fn(),
+            getReplies: jest.fn(),
+        };
+
+        const mock_azure_storage_service = {
+            uploadFile: jest.fn(),
+            deleteFile: jest.fn(),
+            getFileUrl: jest.fn(),
+        };
 
         mock_query_runner = {
             connect: jest.fn(),
@@ -52,6 +82,10 @@ describe('TweetsService', () => {
                 delete: jest.fn(),
                 increment: jest.fn(),
                 decrement: jest.fn(),
+                exists: jest.fn(),
+                findOne: jest.fn(),
+                merge: jest.fn(),
+                upsert: jest.fn(),
             },
         };
 
@@ -67,7 +101,12 @@ describe('TweetsService', () => {
                 { provide: getRepositoryToken(TweetRepost), useValue: mock_tweet_repost_repo },
                 { provide: getRepositoryToken(TweetQuote), useValue: mock_tweet_quote_repo },
                 { provide: getRepositoryToken(TweetReply), useValue: mock_tweet_reply_repo },
+                { provide: getRepositoryToken(UserFollows), useValue: mock_user_follows_repo },
+                { provide: getRepositoryToken(UserPostsView), useValue: mock_user_posts_view_repo },
                 { provide: DataSource, useValue: mock_data_source },
+                { provide: PaginationService, useValue: mock_pagination_service },
+                { provide: TweetsRepository, useValue: mock_tweets_repository },
+                { provide: AzureStorageService, useValue: mock_azure_storage_service },
             ],
         }).compile();
 
@@ -77,6 +116,7 @@ describe('TweetsService', () => {
         tweet_repost_repo = mock_tweet_repost_repo as unknown as Repository<TweetRepost>;
         tweet_quote_repo = mock_tweet_quote_repo as unknown as Repository<TweetQuote>;
         tweet_reply_repo = mock_tweet_reply_repo as unknown as Repository<TweetReply>;
+        tweets_repo = mock_tweets_repository as unknown as TweetsRepository;
         data_source = mock_data_source as unknown as DataSource;
     });
 
@@ -91,268 +131,434 @@ describe('TweetsService', () => {
     });
 
     describe('createTweet', () => {
-        it('should create, save, and return the tweet with user relation', async () => {
+        it('should create, save, and return the tweet using query runner', async () => {
             const mock_user_id = 'user-123';
             const mock_tweet_dto: CreateTweetDTO = { content: 'Hello world!' } as CreateTweetDTO;
             const mock_new_tweet = {
                 tweet_id: 'tweet-1',
                 user_id: mock_user_id,
+                type: 'tweet',
                 ...mock_tweet_dto,
-            };
-            const mock_tweet_with_user = {
-                ...mock_new_tweet,
-                user: { id: mock_user_id, username: 'John' },
             };
 
             const create_spy = jest
-                .spyOn(tweet_repo, 'create')
+                .spyOn(mock_query_runner.manager, 'create')
                 .mockReturnValue(mock_new_tweet as any);
             const save_spy = jest
-                .spyOn(tweet_repo, 'save')
+                .spyOn(mock_query_runner.manager, 'save')
                 .mockResolvedValue(mock_new_tweet as any);
-            const find_one_spy = jest
-                .spyOn(tweet_repo, 'findOne')
-                .mockResolvedValue(mock_tweet_with_user as any);
+            const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
 
             const result = await tweets_service.createTweet(mock_tweet_dto, mock_user_id);
 
-            expect(create_spy).toHaveBeenCalledWith({
-                user_id: mock_user_id,
-                ...mock_tweet_dto,
-            });
-            expect(save_spy).toHaveBeenCalledWith(mock_new_tweet);
-            expect(find_one_spy).toHaveBeenCalledWith({
-                where: { tweet_id: mock_new_tweet.tweet_id },
-                relations: ['user'],
-            });
-            expect(result).toEqual(mock_tweet_with_user);
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.startTransaction).toHaveBeenCalled();
+            expect(create_spy).toHaveBeenCalled();
+            expect(save_spy).toHaveBeenCalled();
+            expect(commit_spy).toHaveBeenCalled();
+            expect(result).toBeInstanceOf(Object);
+            expect(result.tweet_id).toEqual(mock_new_tweet.tweet_id);
         });
 
-        it('should throw NotFoundException if tweet not found after creation', async () => {
-            const mock_user_id = 'user-404';
-            const mock_tweet_dto: CreateTweetDTO = { content: 'Missing tweet' } as CreateTweetDTO;
-            const mock_new_tweet = {
-                tweet_id: 'tweet-404',
-                user_id: mock_user_id,
-                ...mock_tweet_dto,
-            };
-
-            const create_spy2 = jest
-                .spyOn(tweet_repo, 'create')
-                .mockReturnValue(mock_new_tweet as any);
-            const save_spy2 = jest
-                .spyOn(tweet_repo, 'save')
-                .mockResolvedValue(mock_new_tweet as any);
-            const find_one_spy2 = jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null as any);
-
-            await expect(tweets_service.createTweet(mock_tweet_dto, mock_user_id)).rejects.toThrow(
-                'Tweet not found after creation'
-            );
-
-            expect(create_spy2).toHaveBeenCalled();
-            expect(save_spy2).toHaveBeenCalled();
-            expect(find_one_spy2).toHaveBeenCalled();
-        });
-
-        it('should rethrow errors from repository methods', async () => {
+        it('should rollback and rethrow errors from repository methods', async () => {
             const mock_user_id = 'user-err';
             const mock_tweet_dto: CreateTweetDTO = { content: 'oops' } as CreateTweetDTO;
             const db_error = new Error('Database failure');
 
-            const create_spy3 = jest
-                .spyOn(tweet_repo, 'create')
-                .mockReturnValue({ tweet_id: 't1', ...mock_tweet_dto } as any);
-            const save_spy3 = jest.spyOn(tweet_repo, 'save').mockRejectedValue(db_error);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'save').mockRejectedValue(db_error);
 
             await expect(tweets_service.createTweet(mock_tweet_dto, mock_user_id)).rejects.toThrow(
                 'Database failure'
             );
 
-            expect(save_spy3).toHaveBeenCalled();
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback when hashtag storage fails', async () => {
+            const mock_user_id = 'user-hashtag-err';
+            const mock_tweet_dto: CreateTweetDTO = {
+                content: 'Tweet with #hashtag',
+            } as CreateTweetDTO;
+            const mock_new_tweet = {
+                tweet_id: 'tweet-hash-1',
+                user_id: mock_user_id,
+                type: 'tweet',
+                ...mock_tweet_dto,
+            };
+
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue(mock_new_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue(mock_new_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'upsert').mockRejectedValue(
+                new Error('Hashtag insert failed')
+            );
+
+            await expect(tweets_service.createTweet(mock_tweet_dto, mock_user_id)).rejects.toThrow(
+                'Hashtag insert failed'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
     });
 
     describe('updateTweet', () => {
-        it('should preload, save, and return the updated tweet with user relation', async () => {
+        it('should update tweet using query runner and return updated tweet', async () => {
             const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
             const mock_update_dto = { content: 'Updated tweet text' };
-            const mock_updated_tweet = { tweet_id: mock_tweet_id, ...mock_update_dto };
-            const mock_tweet_with_user = {
-                ...mock_updated_tweet,
-                user: { id: 'user-1', username: 'John' },
-            };
+            const mock_existing_tweet = { tweet_id: mock_tweet_id, user_id: mock_user_id };
+            const mock_updated_tweet = { ...mock_existing_tweet, ...mock_update_dto };
 
-            const preload_spy = jest
-                .spyOn(tweet_repo, 'preload')
-                .mockResolvedValue(mock_updated_tweet as any);
-            const save_spy = jest
-                .spyOn(tweet_repo, 'save')
-                .mockResolvedValue(mock_updated_tweet as any);
             const find_one_spy = jest
-                .spyOn(tweet_repo, 'findOne')
-                .mockResolvedValue(mock_tweet_with_user as any);
+                .spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValue(mock_existing_tweet as any);
+            const merge_spy = jest.spyOn(mock_query_runner.manager, 'merge');
+            const save_spy = jest
+                .spyOn(mock_query_runner.manager, 'save')
+                .mockResolvedValue(mock_updated_tweet as any);
+            const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
 
-            const result = await tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id);
+            const result = await tweets_service.updateTweet(
+                mock_update_dto as any,
+                mock_tweet_id,
+                mock_user_id
+            );
 
-            expect(preload_spy).toHaveBeenCalledWith({
-                tweet_id: mock_tweet_id,
-                ...mock_update_dto,
-            });
-            expect(save_spy).toHaveBeenCalledWith(mock_updated_tweet);
-            expect(find_one_spy).toHaveBeenCalledWith({
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.startTransaction).toHaveBeenCalled();
+            expect(find_one_spy).toHaveBeenCalledWith(expect.any(Function), {
                 where: { tweet_id: mock_tweet_id },
-                relations: ['user'],
             });
-            expect(result).toEqual(mock_tweet_with_user);
+            expect(merge_spy).toHaveBeenCalled();
+            expect(save_spy).toHaveBeenCalled();
+            expect(commit_spy).toHaveBeenCalled();
+            expect(result).toBeInstanceOf(Object);
+            expect(result.tweet_id).toEqual(mock_tweet_id);
         });
 
-        it('should throw NotFoundException if tweet not found during preload', async () => {
+        it('should rollback and throw NotFoundException if tweet not found', async () => {
             const mock_tweet_id = 'missing-tweet';
+            const mock_user_id = 'user-1';
             const mock_update_dto = { content: 'Nothing here' };
 
-            const preload_spy2 = jest.spyOn(tweet_repo, 'preload').mockResolvedValue(null as any);
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(null);
 
             await expect(
-                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id, mock_user_id)
             ).rejects.toThrow('Tweet not found');
 
-            expect(preload_spy2).toHaveBeenCalledWith({
-                tweet_id: mock_tweet_id,
-                ...mock_update_dto,
-            });
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
 
-        it('should throw NotFoundException if tweet not found after update', async () => {
+        it('should rollback and throw BadRequestException if user not authorized', async () => {
             const mock_tweet_id = 'tweet-456';
-            const mock_update_dto = { content: 'Still missing' };
-            const mock_preloaded_tweet = { tweet_id: mock_tweet_id, ...mock_update_dto };
+            const mock_user_id = 'user-1';
+            const mock_update_dto = { content: 'Unauthorized' };
+            const mock_existing_tweet = { tweet_id: mock_tweet_id, user_id: 'different-user' };
 
-            const preload_spy3 = jest
-                .spyOn(tweet_repo, 'preload')
-                .mockResolvedValue(mock_preloaded_tweet as any);
-            const save_spy3 = jest
-                .spyOn(tweet_repo, 'save')
-                .mockResolvedValue(mock_preloaded_tweet as any);
-            const find_one_spy3 = jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null as any);
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(
+                mock_existing_tweet as any
+            );
+            jest.spyOn(mock_query_runner.manager, 'merge');
 
             await expect(
-                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
-            ).rejects.toThrow('Tweet not found after update');
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id, mock_user_id)
+            ).rejects.toThrow('User is not allowed to update this tweet');
 
-            expect(preload_spy3).toHaveBeenCalled();
-            expect(save_spy3).toHaveBeenCalled();
-            expect(find_one_spy3).toHaveBeenCalled();
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
 
-        it('should rethrow any unexpected repository errors', async () => {
+        it('should rollback and rethrow unexpected errors', async () => {
             const mock_tweet_id = 'tweet-err';
+            const mock_user_id = 'user-1';
             const mock_update_dto = { content: 'Boom!' };
             const db_error = new Error('Database failure');
 
-            const preload_spy4 = jest.spyOn(tweet_repo, 'preload').mockRejectedValue(db_error);
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockRejectedValue(db_error);
 
             await expect(
-                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id, mock_user_id)
             ).rejects.toThrow('Database failure');
 
-            expect(preload_spy4).toHaveBeenCalled();
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
     });
 
     describe('deleteTweet', () => {
-        it('should delete the tweet successfully when it exists', async () => {
+        it('should delete the tweet successfully when user is authorized', async () => {
             const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_tweet = { tweet_id: mock_tweet_id, user_id: mock_user_id };
             const mock_delete_result = { affected: 1 };
 
+            const find_one_spy = jest
+                .spyOn(tweet_repo, 'findOne')
+                .mockResolvedValue(mock_tweet as any);
             const delete_spy = jest
                 .spyOn(tweet_repo, 'delete')
                 .mockResolvedValue(mock_delete_result as any);
 
-            await expect(tweets_service.deleteTweet(mock_tweet_id)).resolves.toBeUndefined();
+            await expect(
+                tweets_service.deleteTweet(mock_tweet_id, mock_user_id)
+            ).resolves.toBeUndefined();
 
+            expect(find_one_spy).toHaveBeenCalledWith({
+                where: { tweet_id: mock_tweet_id },
+                select: ['tweet_id', 'user_id'],
+            });
             expect(delete_spy).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
         });
 
-        it('should throw NotFoundException if no tweet was deleted', async () => {
+        it('should throw NotFoundException if tweet not found', async () => {
             const mock_tweet_id = 'missing-tweet';
-            const mock_delete_result = { affected: 0 };
+            const mock_user_id = 'user-1';
 
-            const delete_spy2 = jest
-                .spyOn(tweet_repo, 'delete')
-                .mockResolvedValue(mock_delete_result as any);
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null);
 
-            await expect(tweets_service.deleteTweet(mock_tweet_id)).rejects.toThrow(
+            await expect(tweets_service.deleteTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'Tweet not found'
             );
+        });
 
-            expect(delete_spy2).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+        it('should throw BadRequestException if user not authorized', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_tweet = { tweet_id: mock_tweet_id, user_id: 'different-user' };
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+
+            await expect(tweets_service.deleteTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'User is not allowed to delete this tweet'
+            );
         });
 
         it('should rethrow any unexpected errors from repository', async () => {
             const mock_tweet_id = 'tweet-err';
+            const mock_user_id = 'user-1';
             const db_error = new Error('Database failure');
 
-            const delete_spy3 = jest.spyOn(tweet_repo, 'delete').mockRejectedValue(db_error);
+            jest.spyOn(tweet_repo, 'findOne').mockRejectedValue(db_error);
 
-            await expect(tweets_service.deleteTweet(mock_tweet_id)).rejects.toThrow(
+            await expect(tweets_service.deleteTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'Database failure'
             );
-
-            expect(delete_spy3).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
         });
     });
 
     describe('getTweetById', () => {
         it('should return the tweet with user relation when found', async () => {
             const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
             const mock_tweet = {
                 tweet_id: mock_tweet_id,
-                content: 'Hello world!',
-                user: { id: 'user-1', username: 'John' },
+                text: 'Test tweet',
+                user: { id: mock_user_id },
+                type: 'TWEET',
             };
 
-            const find_one_spy = jest
-                .spyOn(tweet_repo, 'findOne')
-                .mockResolvedValue(mock_tweet as any);
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_tweet),
+            };
 
-            const result = await tweets_service.getTweetById(mock_tweet_id);
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
 
-            expect(find_one_spy).toHaveBeenCalledWith({
-                where: { tweet_id: mock_tweet_id },
-                relations: ['user'],
+            const result = await tweets_service.getTweetById(mock_tweet_id, mock_user_id);
+
+            expect(result).toBeDefined();
+            expect(tweet_repo.createQueryBuilder).toHaveBeenCalledWith('tweet');
+            expect(mock_query_builder.leftJoinAndSelect).toHaveBeenCalledWith('tweet.user', 'user');
+            expect(mock_query_builder.where).toHaveBeenCalledWith('tweet.tweet_id = :tweet_id', {
+                tweet_id: mock_tweet_id,
             });
-            expect(result).toEqual(mock_tweet);
         });
 
         it('should throw NotFoundException if tweet not found', async () => {
             const mock_tweet_id = 'missing-tweet';
+            const mock_user_id = 'user-1';
 
-            const find_one_spy2 = jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null as any);
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(null),
+            };
 
-            await expect(tweets_service.getTweetById(mock_tweet_id)).rejects.toThrow(
-                'Tweet Not Found'
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
             );
 
-            expect(find_one_spy2).toHaveBeenCalledWith({
-                where: { tweet_id: mock_tweet_id },
-                relations: ['user'],
-            });
+            await expect(tweets_service.getTweetById(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Tweet not found'
+            );
         });
 
         it('should rethrow any unexpected errors from repository', async () => {
             const mock_tweet_id = 'tweet-err';
+            const mock_user_id = 'user-1';
             const db_error = new Error('Database failure');
 
-            const find_one_spy3 = jest.spyOn(tweet_repo, 'findOne').mockRejectedValue(db_error);
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockRejectedValue(db_error),
+            };
 
-            await expect(tweets_service.getTweetById(mock_tweet_id)).rejects.toThrow(
-                'Database failure'
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
             );
 
-            expect(find_one_spy3).toHaveBeenCalledWith({
-                where: { tweet_id: mock_tweet_id },
-                relations: ['user'],
-            });
+            await expect(tweets_service.getTweetById(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Database failure'
+            );
+        });
+
+        it('should handle reply tweets with parent chain', async () => {
+            const mock_tweet_id = 'reply-tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_reply_tweet = {
+                tweet_id: mock_tweet_id,
+                text: 'This is a reply',
+                type: 'reply',
+                user: { id: mock_user_id },
+            };
+            const mock_reply_chain = [
+                {
+                    tweet_id: 'parent-tweet',
+                    text: 'Parent tweet',
+                    user: { id: 'parent-user' },
+                    is_liked: false,
+                    is_reposted: false,
+                    is_following: false,
+                    parent_tweet_id: null,
+                },
+                {
+                    tweet_id: mock_tweet_id,
+                    text: 'This is a reply',
+                    user: { id: mock_user_id },
+                    is_liked: false,
+                    is_reposted: false,
+                    is_following: false,
+                    parent_tweet_id: 'parent-tweet',
+                },
+            ];
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_reply_tweet),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(tweets_repo, 'getReplyWithParentChain').mockResolvedValue(
+                mock_reply_chain as any
+            );
+
+            const result = await tweets_service.getTweetById(mock_tweet_id, mock_user_id);
+
+            expect(result).toBeDefined();
+            expect(tweets_repo.getReplyWithParentChain).toHaveBeenCalledWith(
+                mock_tweet_id,
+                mock_user_id
+            );
+        });
+
+        it('should throw NotFoundException when reply chain is empty', async () => {
+            const mock_tweet_id = 'reply-with-no-chain';
+            const mock_user_id = 'user-1';
+            const mock_reply_tweet = {
+                tweet_id: mock_tweet_id,
+                text: 'This is a reply',
+                type: 'reply',
+                user: { id: mock_user_id },
+            };
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_reply_tweet),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(tweets_repo, 'getReplyWithParentChain').mockResolvedValue([]);
+
+            await expect(tweets_service.getTweetById(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+
+        it('should throw NotFoundException when reply chain is null', async () => {
+            const mock_tweet_id = 'reply-with-null-chain';
+            const mock_user_id = 'user-1';
+            const mock_reply_tweet = {
+                tweet_id: mock_tweet_id,
+                text: 'This is a reply',
+                type: 'reply',
+                user: { id: mock_user_id },
+            };
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_reply_tweet),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(tweets_repo, 'getReplyWithParentChain').mockResolvedValue(null as any);
+
+            await expect(tweets_service.getTweetById(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+
+        it('should handle errors in reply chain processing', async () => {
+            const mock_tweet_id = 'reply-with-error';
+            const mock_user_id = 'user-1';
+            const mock_reply_tweet = {
+                tweet_id: mock_tweet_id,
+                text: 'This is a reply',
+                type: 'reply',
+                user: { id: mock_user_id },
+            };
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_reply_tweet),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(tweets_repo, 'getReplyWithParentChain').mockRejectedValue(
+                new Error('Database error in reply chain')
+            );
+
+            await expect(tweets_service.getTweetById(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Database error in reply chain'
+            );
         });
     });
 
@@ -365,6 +571,7 @@ describe('TweetsService', () => {
                 user: { id: mock_user_id },
             };
 
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
             const create_spy = jest
                 .spyOn(mock_query_runner.manager, 'create')
                 .mockReturnValue(mock_new_like);
@@ -391,13 +598,11 @@ describe('TweetsService', () => {
             expect(commit_spy).toHaveBeenCalled();
         });
 
-        it('should rollback and throw NotFoundException if tweet does not exist (foreign key error)', async () => {
+        it('should rollback and throw NotFoundException if tweet does not exist', async () => {
             const mock_tweet_id = 'missing-tweet';
             const mock_user_id = 'user-123';
-            const mock_error = { code: '23503' }; // PostgresErrorCodes.FOREIGN_KEY_VIOLATION
 
-            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
-            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(mock_error);
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(false);
 
             await expect(tweets_service.likeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'Tweet not found'
@@ -409,8 +614,9 @@ describe('TweetsService', () => {
         it('should rollback and throw BadRequestException if user already liked the tweet (unique constraint)', async () => {
             const mock_tweet_id = 'tweet-321';
             const mock_user_id = 'user-999';
-            const mock_error = { code: '23505' }; // PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION
+            const mock_error = { code: '23505' };
 
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
             jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
             jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(mock_error);
 
@@ -426,6 +632,7 @@ describe('TweetsService', () => {
             const mock_user_id = 'user-err';
             const db_error = new Error('Database crashed');
 
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
             jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
             jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(db_error);
 
@@ -437,11 +644,12 @@ describe('TweetsService', () => {
         });
     });
 
-    describe('unLikeTweet', () => {
+    describe('unlikeTweet', () => {
         it('should delete like, decrement num_likes, and commit transaction', async () => {
             const mock_tweet_id = 'tweet-789';
             const mock_user_id = 'user-123';
 
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
             const delete_result = { affected: 1 };
             const delete_spy = jest
                 .spyOn(mock_query_runner.manager, 'delete')
@@ -451,13 +659,13 @@ describe('TweetsService', () => {
                 .mockResolvedValue({} as any);
             const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
 
-            await tweets_service.unLikeTweet(mock_tweet_id, mock_user_id);
+            await tweets_service.unlikeTweet(mock_tweet_id, mock_user_id);
 
             expect(mock_query_runner.connect).toHaveBeenCalled();
             expect(mock_query_runner.startTransaction).toHaveBeenCalled();
             expect(delete_spy).toHaveBeenCalledWith(expect.any(Function), {
-                tweet_id: mock_tweet_id,
-                user_id: mock_user_id,
+                tweet: { tweet_id: mock_tweet_id },
+                user: { id: mock_user_id },
             });
             expect(decrement_spy).toHaveBeenCalledWith(
                 expect.any(Function),
@@ -468,16 +676,17 @@ describe('TweetsService', () => {
             expect(commit_spy).toHaveBeenCalled();
         });
 
-        it('should rollback and throw NotFoundException if user did not like tweet or tweet missing', async () => {
+        it('should rollback and throw BadRequestException if user did not like tweet', async () => {
             const mock_tweet_id = 'tweet-missing';
             const mock_user_id = 'user-missing';
 
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
             const delete_result = { affected: 0 };
             jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue(delete_result as any);
             jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue({} as any);
 
-            await expect(tweets_service.unLikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
-                'User seemed to not like this tweet or tweet does not exist'
+            await expect(tweets_service.unlikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'User has not liked this tweet'
             );
 
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
@@ -488,13 +697,1104 @@ describe('TweetsService', () => {
             const mock_user_id = 'user-error';
             const db_error = new Error('Database crash');
 
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
             jest.spyOn(mock_query_runner.manager, 'delete').mockRejectedValue(db_error);
 
-            await expect(tweets_service.unLikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+            await expect(tweets_service.unlikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'Database crash'
             );
 
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
     });
+
+    describe('repostTweet', () => {
+        it('should create repost, increment num_reposts, and commit transaction', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-456';
+            const mock_new_repost = { tweet_id: mock_tweet_id, user_id: mock_user_id };
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            const create_spy = jest
+                .spyOn(mock_query_runner.manager, 'create')
+                .mockReturnValue(mock_new_repost as any);
+            const insert_spy = jest
+                .spyOn(mock_query_runner.manager, 'insert')
+                .mockResolvedValue({} as any);
+            const increment_spy = jest
+                .spyOn(mock_query_runner.manager, 'increment')
+                .mockResolvedValue({} as any);
+            const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
+
+            await tweets_service.repostTweet(mock_tweet_id, mock_user_id);
+
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.startTransaction).toHaveBeenCalled();
+            expect(create_spy).toHaveBeenCalledWith(expect.any(Function), mock_new_repost);
+            expect(insert_spy).toHaveBeenCalledWith(expect.any(Function), mock_new_repost);
+            expect(increment_spy).toHaveBeenCalledWith(
+                expect.any(Function),
+                { tweet_id: mock_tweet_id },
+                'num_reposts',
+                1
+            );
+            expect(commit_spy).toHaveBeenCalled();
+        });
+
+        it('should rollback and throw NotFoundException if tweet does not exist', async () => {
+            const mock_tweet_id = 'missing-tweet';
+            const mock_user_id = 'user-123';
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(false);
+
+            await expect(tweets_service.repostTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback and throw BadRequestException if user already reposted the tweet', async () => {
+            const mock_tweet_id = 'tweet-321';
+            const mock_user_id = 'user-999';
+            const mock_error = { code: '23505' };
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(mock_error);
+
+            await expect(tweets_service.repostTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'User already reposted this tweet'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback and rethrow unexpected errors', async () => {
+            const mock_tweet_id = 'tweet-err';
+            const mock_user_id = 'user-err';
+            const db_error = new Error('Database crashed');
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(db_error);
+
+            await expect(tweets_service.repostTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Database crashed'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+    });
+
+    describe('deleteRepost', () => {
+        it('should find repost, delete it, decrement num_reposts, and commit transaction', async () => {
+            const mock_tweet_id = 'tweet-789';
+            const mock_user_id = 'user-123';
+            const mock_repost = { tweet_id: mock_tweet_id, user_id: mock_user_id };
+
+            const find_one_spy = jest
+                .spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValue(mock_repost as any);
+            const delete_spy = jest
+                .spyOn(mock_query_runner.manager, 'delete')
+                .mockResolvedValue({ affected: 1 } as any);
+            const decrement_spy = jest
+                .spyOn(mock_query_runner.manager, 'decrement')
+                .mockResolvedValue({} as any);
+            const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
+
+            await tweets_service.deleteRepost(mock_tweet_id, mock_user_id);
+
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.startTransaction).toHaveBeenCalled();
+            expect(find_one_spy).toHaveBeenCalledWith(expect.any(Function), {
+                where: { tweet_id: mock_tweet_id, user_id: mock_user_id },
+                select: ['user_id', 'tweet_id'],
+            });
+            expect(delete_spy).toHaveBeenCalledWith(expect.any(Function), {
+                tweet_id: mock_tweet_id,
+                user_id: mock_user_id,
+            });
+            expect(decrement_spy).toHaveBeenCalledWith(
+                expect.any(Function),
+                { tweet_id: mock_tweet_id },
+                'num_reposts',
+                1
+            );
+            expect(commit_spy).toHaveBeenCalled();
+        });
+
+        it('should rollback and throw NotFoundException if repost not found', async () => {
+            const mock_tweet_id = 'tweet-missing';
+            const mock_user_id = 'user-missing';
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(null);
+
+            await expect(
+                tweets_service.deleteRepost(mock_tweet_id, mock_user_id)
+            ).rejects.toThrow('Repost not found');
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback and throw ForbiddenException if user does not own the repost', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-123';
+            const mock_repost = { tweet_id: mock_tweet_id, user_id: 'different-user' };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(mock_repost as any);
+
+            await expect(
+                tweets_service.deleteRepost(mock_tweet_id, mock_user_id)
+            ).rejects.toThrow('You can only delete your own reposts');
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback and rethrow unexpected errors', async () => {
+            const mock_tweet_id = 'tweet-error';
+            const mock_user_id = 'user-error';
+            const db_error = new Error('Database crash');
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockRejectedValue(db_error);
+
+            await expect(tweets_service.deleteRepost(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Database crash'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+    });
+
+    describe('incrementTweetViews', () => {
+        it('should find tweet, increment num_views, and return success', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_tweet = { tweet_id: mock_tweet_id, num_views: 10 };
+
+            const find_one_spy = jest
+                .spyOn(tweet_repo, 'findOne')
+                .mockResolvedValue(mock_tweet as any);
+            const increment_spy = jest.spyOn(tweet_repo, 'increment').mockResolvedValue({} as any);
+
+            const result = await tweets_service.incrementTweetViews(mock_tweet_id);
+
+            expect(find_one_spy).toHaveBeenCalledWith({ where: { tweet_id: mock_tweet_id } });
+            expect(increment_spy).toHaveBeenCalledWith({ tweet_id: mock_tweet_id }, 'num_views', 1);
+            expect(result).toEqual({ success: true });
+        });
+
+        it('should throw NotFoundException if tweet not found', async () => {
+            const mock_tweet_id = 'missing-tweet';
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null);
+
+            await expect(tweets_service.incrementTweetViews(mock_tweet_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+
+        it('should rethrow unexpected errors', async () => {
+            const mock_tweet_id = 'tweet-err';
+            const db_error = new Error('Database failure');
+
+            jest.spyOn(tweet_repo, 'findOne').mockRejectedValue(db_error);
+
+            await expect(tweets_service.incrementTweetViews(mock_tweet_id)).rejects.toThrow(
+                'Database failure'
+            );
+        });
+    });
+
+    describe('getTweetLikes', () => {
+        it('should return paginated likes with user data when user is tweet owner', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-owner';
+            const mock_tweet = { tweet_id: mock_tweet_id, user_id: mock_user_id, num_likes: 2 };
+            const mock_likes = [
+                {
+                    user: {
+                        id: 'user-1',
+                        username: 'user1',
+                        name: 'User One',
+                        avatar_url: 'avatar1.jpg',
+                        verified: true,
+                    },
+                    follower_relation: { follower_id: 'user-1' },
+                    following_relation: null,
+                },
+            ];
+            const mock_paginated_result = {
+                data: mock_likes,
+                pagination: {
+                    total_items: 1,
+                    total_pages: 1,
+                    current_page: 1,
+                    items_per_page: 20,
+                    has_next_page: false,
+                    has_previous_page: false,
+                },
+            };
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                leftJoinAndMapOne: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+            };
+            jest.spyOn(tweet_like_repo, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(
+                tweets_service['paginate_service'],
+                'paginate'
+            ).mockResolvedValue(mock_paginated_result as any);
+
+            const result = await tweets_service.getTweetLikes(mock_tweet_id, mock_user_id);
+
+            expect(result.data).toBeDefined();
+            expect(result.pagination).toBeDefined();
+        });
+
+        it('should throw NotFoundException if tweet not found', async () => {
+            const mock_tweet_id = 'missing-tweet';
+            const mock_user_id = 'user-1';
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null);
+
+            await expect(tweets_service.getTweetLikes(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+
+        it('should throw BadRequestException if user is not tweet owner', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_tweet = { tweet_id: mock_tweet_id, user_id: 'different-user' };
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+
+            await expect(tweets_service.getTweetLikes(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Only the tweet owner can see who liked their tweet'
+            );
+        });
+    });
+
+    describe('repostTweetWithQuote', () => {
+        it('should create quote tweet and return it with original tweet', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_quote_dto: CreateTweetDTO = { content: 'My quote' } as CreateTweetDTO;
+            const mock_parent_tweet = { tweet_id: mock_tweet_id, content: 'Original' };
+            const mock_quote_tweet = { tweet_id: 'quote-1', content: 'My quote', user_id: mock_user_id };
+
+            jest.spyOn(tweets_service as any, 'getTweetWithUserById').mockResolvedValue(mock_parent_tweet);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue(mock_quote_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue(mock_quote_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue({} as any);
+
+            const result = await tweets_service.repostTweetWithQuote(
+                mock_tweet_id,
+                mock_user_id,
+                mock_quote_dto
+            );
+
+            expect(result).toBeDefined();
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback on error', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_quote_dto: CreateTweetDTO = { content: 'My quote' } as CreateTweetDTO;
+            const db_error = new Error('Database failure');
+
+            jest.spyOn(tweets_service as any, 'getTweetWithUserById').mockRejectedValue(db_error);
+
+            await expect(
+                tweets_service.repostTweetWithQuote(mock_tweet_id, mock_user_id, mock_quote_dto)
+            ).rejects.toThrow('Database failure');
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+    });
+
+    describe('replyToTweet', () => {
+        it('should create reply tweet and increment reply count', async () => {
+            const mock_original_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_reply_dto: CreateTweetDTO = { content: 'My reply' } as CreateTweetDTO;
+            const mock_original_tweet = { tweet_id: mock_original_tweet_id };
+            const mock_reply_tweet = { tweet_id: 'reply-1', content: 'My reply' };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValueOnce(mock_original_tweet as any)
+                .mockResolvedValueOnce(null);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue(mock_reply_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue(mock_reply_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue({} as any);
+
+            const result = await tweets_service.replyToTweet(
+                mock_original_tweet_id,
+                mock_user_id,
+                mock_reply_dto
+            );
+
+            expect(result).toBeDefined();
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
+
+        it('should throw NotFoundException if original tweet not found', async () => {
+            const mock_original_tweet_id = 'missing-tweet';
+            const mock_user_id = 'user-1';
+            const mock_reply_dto: CreateTweetDTO = { content: 'My reply' } as CreateTweetDTO;
+
+            jest.spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(null);
+
+            await expect(
+                tweets_service.replyToTweet(mock_original_tweet_id, mock_user_id, mock_reply_dto)
+            ).rejects.toThrow('Original tweet not found');
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should rollback on error', async () => {
+            const mock_original_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_reply_dto: CreateTweetDTO = { content: 'My reply' } as CreateTweetDTO;
+            const db_error = new Error('Database failure');
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockRejectedValue(db_error);
+
+            await expect(
+                tweets_service.replyToTweet(mock_original_tweet_id, mock_user_id, mock_reply_dto)
+            ).rejects.toThrow('Database failure');
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+    });
+
+    describe('getTweetReposts', () => {
+        it('should return paginated reposts with user data', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_tweet = { tweet_id: mock_tweet_id, user_id: mock_user_id, num_reposts: 1 };
+            const mock_paginated_result = {
+                data: [],
+                pagination: {
+                    total_items: 0,
+                    total_pages: 0,
+                    current_page: 1,
+                    items_per_page: 20,
+                    has_next_page: false,
+                    has_previous_page: false,
+                },
+            };
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                leftJoinAndMapOne: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+            };
+            jest.spyOn(tweet_repost_repo, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(
+                tweets_service['paginate_service'],
+                'paginate'
+            ).mockResolvedValue(mock_paginated_result as any);
+
+            const result = await tweets_service.getTweetReposts(mock_tweet_id, mock_user_id);
+
+            expect(result.data).toBeDefined();
+            expect(result.pagination).toBeDefined();
+        });
+
+        it('should throw error when user is not tweet owner', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_tweet = { tweet_id: mock_tweet_id, user_id: 'different-user' };
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+
+            await expect(
+                tweets_service.getTweetReposts(mock_tweet_id, mock_user_id)
+            ).rejects.toThrow('Only the tweet owner can see who reposted their tweet');
+        });
+    });
+
+    describe('getTweetQuotes', () => {
+        it('should return paginated quotes', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_tweet = { tweet_id: mock_tweet_id, num_quotes: 1 };
+            const mock_quotes = [
+                {
+                    quote_tweet: {
+                        tweet_id: 'quote-1',
+                        user: { id: 'user-2' },
+                        created_at: new Date(),
+                    },
+                },
+            ];
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+            const mock_query_builder = {
+                leftJoin: jest.fn().mockReturnThis(),
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                leftJoinAndMapOne: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_quotes),
+            };
+            jest.spyOn(tweet_quote_repo, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(tweets_service['tweets_repository'], 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+
+            const result = await tweets_service.getTweetQuotes(mock_tweet_id, mock_user_id);
+
+            expect(result.data).toBeDefined();
+            expect(result.count).toBe(1);
+            expect(result.has_more).toBeDefined();
+        });
+    });
+
+    describe('getTweetReplies', () => {
+        it('should return paginated replies', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_tweet = { tweet_id: mock_tweet_id };
+            const mock_query_dto = { limit: 20, cursor: undefined };
+            const mock_result = {
+                tweets: [],
+                next_cursor: null,
+            };
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+            jest.spyOn(tweets_service['tweets_repository'], 'getReplies').mockResolvedValue(
+                mock_result as any
+            );
+
+            const result = await tweets_service.getTweetReplies(
+                mock_tweet_id,
+                mock_user_id,
+                mock_query_dto
+            );
+
+            expect(result.data).toBeDefined();
+            expect(result.next_cursor).toBeDefined();
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const mock_tweet_id = 'nonexistent-tweet';
+            const mock_user_id = 'user-1';
+            const mock_query_dto = { limit: 20, cursor: undefined };
+
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null);
+
+            await expect(
+                tweets_service.getTweetReplies(mock_tweet_id, mock_user_id, mock_query_dto)
+            ).rejects.toThrow('Tweet not found');
+        });
+    });
+
+    describe('uploadImage', () => {
+        it('should upload image successfully', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test'),
+                originalname: 'test.jpg',
+                size: 1024,
+                mimetype: 'image/jpeg',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+            const mock_url = 'https://example.com/image.jpg';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING = 'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
+
+            jest.spyOn(tweets_service as any, 'uploadImageToAzure').mockResolvedValue(mock_url);
+
+            const result = await tweets_service.uploadImage(mock_file, mock_user_id);
+
+            expect(result.url).toBe(mock_url);
+            expect(result.filename).toBe('test.jpg');
+            expect(result.size).toBe(1024);
+            expect(result.mime_type).toBe('image/jpeg');
+        });
+
+        it('should throw error when Azure connection string is missing', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test'),
+                originalname: 'test.jpg',
+                size: 1024,
+                mimetype: 'image/jpeg',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+
+            delete process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+            await expect(tweets_service.uploadImage(mock_file, mock_user_id)).rejects.toThrow();
+        });
+
+        it('should throw error when Azure key is placeholder', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test'),
+                originalname: 'test.jpg',
+                size: 1024,
+                mimetype: 'image/jpeg',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
+
+            await expect(tweets_service.uploadImage(mock_file, mock_user_id)).rejects.toThrow();
+        });
+
+        it('should call uploadImageToAzure with correct parameters', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test image data'),
+                originalname: 'photo.png',
+                size: 2048,
+                mimetype: 'image/png',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-456';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING =
+                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=realkey456;EndpointSuffix=core.windows.net';
+
+            const upload_spy = jest
+                .spyOn(tweets_service as any, 'uploadImageToAzure')
+                .mockResolvedValue('https://azure.blob/photo.png');
+
+            await tweets_service.uploadImage(mock_file, mock_user_id);
+
+            expect(upload_spy).toHaveBeenCalledWith(
+                mock_file.buffer,
+                expect.stringContaining('photo.png'),
+                expect.any(String)
+            );
+        });
+
+        it('should upload image to Azure blob storage successfully', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('image binary data'),
+                originalname: 'azure-test.jpg',
+                size: 3072,
+                mimetype: 'image/jpeg',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-azure-123';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING =
+                'DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=validkey123;EndpointSuffix=core.windows.net';
+
+            const mock_blob_url =
+                'https://testaccount.blob.core.windows.net/images/123-azure-test.jpg';
+            const mock_upload = jest.fn().mockResolvedValue({});
+            const mock_block_blob_client = {
+                upload: mock_upload,
+                url: mock_blob_url,
+            };
+            const mock_create_if_not_exists = jest.fn().mockResolvedValue({});
+            const mock_container_client = {
+                createIfNotExists: mock_create_if_not_exists,
+                getBlockBlobClient: jest.fn().mockReturnValue(mock_block_blob_client),
+            };
+            const mock_blob_service_client = {
+                getContainerClient: jest.fn().mockReturnValue(mock_container_client),
+            };
+
+            (BlobServiceClient.fromConnectionString as jest.Mock).mockReturnValue(
+                mock_blob_service_client
+            );
+
+            const result = await tweets_service.uploadImage(mock_file, mock_user_id);
+
+            expect(result.url).toBe(mock_blob_url);
+            expect(result.filename).toBe('azure-test.jpg');
+            expect(mock_create_if_not_exists).toHaveBeenCalledWith({ access: 'blob' });
+            expect(mock_upload).toHaveBeenCalledWith(mock_file.buffer, mock_file.buffer.length);
+        });
+    });
+
+    describe('uploadVideo', () => {
+        it('should upload video successfully', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+            const mock_url = 'https://example.com/video.mp4';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING = 'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
+
+            jest.spyOn(tweets_service as any, 'uploadVideoToAzure').mockResolvedValue(mock_url);
+
+            const result = await tweets_service.uploadVideo(mock_file, mock_user_id);
+
+            expect(result.url).toBe(mock_url);
+            expect(result.filename).toBe('test.mp4');
+            expect(result.size).toBe(2048);
+            expect(result.mime_type).toBe('video/mp4');
+        });
+
+        it('should handle upload errors', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+
+            jest.spyOn(tweets_service as any, 'uploadVideoToAzure').mockRejectedValue(
+                new Error('Upload failed')
+            );
+
+            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow(
+                'Upload failed'
+            );
+        });
+
+        it('should throw error when Azure connection string is missing for video', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+
+            delete process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
+        });
+
+        it('should throw error when Azure key is placeholder for video', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
+
+            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
+        });
+
+        it('should call uploadVideoToAzure with correct parameters', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video data'),
+                originalname: 'movie.mp4',
+                size: 4096,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-789';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING =
+                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=realkey789;EndpointSuffix=core.windows.net';
+
+            const upload_spy = jest
+                .spyOn(tweets_service as any, 'uploadVideoToAzure')
+                .mockResolvedValue('https://azure.blob/movie.mp4');
+
+            await tweets_service.uploadVideo(mock_file, mock_user_id);
+
+            expect(upload_spy).toHaveBeenCalledWith(
+                mock_file.buffer,
+                expect.stringContaining('movie.mp4')
+            );
+        });
+
+        it('should upload video to Azure blob storage successfully', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('video binary data'),
+                originalname: 'azure-video.mp4',
+                size: 5120,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-azure-456';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING =
+                'DefaultEndpointsProtocol=https;AccountName=testvideo;AccountKey=validkey456;EndpointSuffix=core.windows.net';
+
+            const mock_blob_url =
+                'https://testvideo.blob.core.windows.net/videos/456-azure-video.mp4';
+            const mock_upload = jest.fn().mockResolvedValue({});
+            const mock_block_blob_client = {
+                upload: mock_upload,
+                url: mock_blob_url,
+            };
+            const mock_create_if_not_exists = jest.fn().mockResolvedValue({});
+            const mock_container_client = {
+                createIfNotExists: mock_create_if_not_exists,
+                getBlockBlobClient: jest.fn().mockReturnValue(mock_block_blob_client),
+            };
+            const mock_blob_service_client = {
+                getContainerClient: jest.fn().mockReturnValue(mock_container_client),
+            };
+
+            (BlobServiceClient.fromConnectionString as jest.Mock).mockReturnValue(
+                mock_blob_service_client
+            );
+
+            const result = await tweets_service.uploadVideo(mock_file, mock_user_id);
+
+            expect(result.url).toBe(mock_blob_url);
+            expect(result.filename).toBe('azure-video.mp4');
+            expect(mock_create_if_not_exists).toHaveBeenCalledWith({ access: 'blob' });
+            expect(mock_upload).toHaveBeenCalledWith(mock_file.buffer, mock_file.buffer.length, {
+                blobHTTPHeaders: {
+                    blobContentType: 'video/mp4',
+                },
+            });
+        });
+    });
+
+    describe('extractDataFromTweets', () => {
+        it('should extract mentions, hashtags and topics', async () => {
+            const mock_tweet: CreateTweetDTO = {
+                content: 'Hello @user1 #trending #news',
+            };
+            const mock_user_id = 'user-123';
+
+            jest.spyOn(tweets_service as any, 'mentionNotification').mockResolvedValue(undefined);
+            jest.spyOn(tweets_service as any, 'updateHashtags').mockResolvedValue(undefined);
+            jest.spyOn(tweets_service as any, 'extractTopics').mockResolvedValue({
+                Sports: 0,
+                Entertainment: 0,
+                News: 100,
+            });
+
+            await (tweets_service as any).extractDataFromTweets(
+                mock_tweet,
+                mock_user_id,
+                mock_query_runner
+            );
+
+            expect(tweets_service['mentionNotification']).toHaveBeenCalled();
+            expect(tweets_service['updateHashtags']).toHaveBeenCalled();
+            expect(tweets_service['extractTopics']).toHaveBeenCalled();
+        });
+
+        it('should return early when content is empty', async () => {
+            const mock_tweet: CreateTweetDTO = {
+                content: '',
+            };
+            const mock_user_id = 'user-123';
+
+            const spy = jest.spyOn(tweets_service as any, 'mentionNotification');
+
+            await (tweets_service as any).extractDataFromTweets(
+                mock_tweet,
+                mock_user_id,
+                mock_query_runner
+            );
+
+            expect(spy).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('extractTopics', () => {
+        it('should return empty topics when Gemini is disabled', async () => {
+            delete process.env.ENABLE_GOOGLE_GEMINI;
+
+            const result = await (tweets_service as any).extractTopics('Test content');
+
+            expect(result).toBeDefined();
+            expect(result.Sports).toBe(0);
+            expect(result.Entertainment).toBe(0);
+            expect(result.News).toBe(0);
+        });
+
+        it('should handle Gemini response with valid JSON', async () => {
+            process.env.ENABLE_GOOGLE_GEMINI = 'true';
+
+            const mock_genai = {
+                models: {
+                    generateContent: jest.fn().mockResolvedValue({
+                        text: '{ "Sports": 50, "Entertainment": 30, "News": 20 }',
+                    }),
+                },
+            };
+
+            (tweets_service as any).genAI = mock_genai;
+
+            const result = await (tweets_service as any).extractTopics('Sports news today');
+
+            expect(result).toBeDefined();
+            expect(result.Sports).toBe(50);
+            expect(result.Entertainment).toBe(30);
+            expect(result.News).toBe(20);
+        });
+
+        it('should handle Gemini response with empty text', async () => {
+            process.env.ENABLE_GOOGLE_GEMINI = 'true';
+
+            const mock_genai = {
+                models: {
+                    generateContent: jest.fn().mockResolvedValue({
+                        text: '',
+                    }),
+                },
+            };
+
+            (tweets_service as any).genAI = mock_genai;
+
+            const result = await (tweets_service as any).extractTopics('Test content');
+
+            expect(result).toBeDefined();
+            expect(result.Sports).toBe(0);
+            expect(result.Entertainment).toBe(0);
+            expect(result.News).toBe(0);
+        });
+
+        it('should extract JSON from text with extra content', async () => {
+            process.env.ENABLE_GOOGLE_GEMINI = 'true';
+
+            const mock_genai = {
+                models: {
+                    generateContent: jest.fn().mockResolvedValue({
+                        text: 'Here is the result: { "Sports": 60, "Entertainment": 40 }',
+                    }),
+                },
+            };
+
+            (tweets_service as any).genAI = mock_genai;
+
+            const result = await (tweets_service as any).extractTopics('Test content');
+
+            expect(result).toBeDefined();
+            expect(result.Sports).toBe(60);
+            expect(result.Entertainment).toBe(40);
+        });
+
+        it('should normalize topics when they do not sum to 100', async () => {
+            process.env.ENABLE_GOOGLE_GEMINI = 'true';
+
+            const mock_genai = {
+                models: {
+                    generateContent: jest.fn().mockResolvedValue({
+                        text: '{ "Sports": 60, "Entertainment": 30, "News": 20 }',
+                    }),
+                },
+            };
+
+            (tweets_service as any).genAI = mock_genai;
+
+            const result = await (tweets_service as any).extractTopics('Test content');
+
+            expect(result).toBeDefined();
+            const total = Object.values(result).reduce((sum: number, val) => sum + val, 0);
+            expect(Math.abs(total - 100)).toBeLessThanOrEqual(1);
+        });
+
+        it('should handle errors in Gemini API', async () => {
+            process.env.ENABLE_GOOGLE_GEMINI = 'true';
+
+            const mock_genai = {
+                models: {
+                    generateContent: jest.fn().mockRejectedValue(new Error('API Error')),
+                },
+            };
+
+            (tweets_service as any).genAI = mock_genai;
+
+            await expect((tweets_service as any).extractTopics('Test content')).rejects.toThrow(
+                'API Error'
+            );
+        });
+    });
+
+    describe('attachTypeInfo', () => {
+        it('should handle reply info from raw query', () => {
+            const mock_tweet = { tweet_id: 'tweet1' } as Tweet;
+            const mock_raw = {
+                reply_info_original_tweet_id: 'parent-123',
+            };
+
+            const result = (tweets_service as any).attachTypeInfo(mock_tweet, mock_raw);
+
+            expect(result.reply_info_original_tweet_id).toBe('parent-123');
+        });
+
+        it('should handle quote info from raw query', () => {
+            const mock_tweet = { tweet_id: 'tweet1' } as Tweet;
+            const mock_raw = {
+                quote_info_original_tweet_id: 'quoted-123',
+            };
+
+            const result = (tweets_service as any).attachTypeInfo(mock_tweet, mock_raw);
+
+            expect(result.quote_info_original_tweet_id).toBe('quoted-123');
+        });
+
+        it('should handle repost info from raw query', () => {
+            const mock_tweet = { tweet_id: 'tweet1' } as Tweet;
+            const mock_raw = {
+                repost_info_tweet_id: 'repost-123',
+            };
+
+            const result = (tweets_service as any).attachTypeInfo(mock_tweet, mock_raw);
+
+            expect(result.repost_info_original_tweet_id).toBe('repost-123');
+        });
+
+        it('should handle dotted path format', () => {
+            const mock_tweet = { tweet_id: 'tweet1' } as Tweet;
+            const mock_raw = {
+                'reply_info.original_tweet_id': 'parent-123',
+                'quote_info.original_tweet_id': 'quoted-123',
+                'repost_info.tweet_id': 'repost-123',
+            };
+
+            const result = (tweets_service as any).attachTypeInfo(mock_tweet, mock_raw);
+
+            expect(result.reply_info_original_tweet_id).toBe('parent-123');
+            expect(result.quote_info_original_tweet_id).toBe('quoted-123');
+            expect(result.repost_info_original_tweet_id).toBe('repost-123');
+        });
+
+        it('should return undefined when no info is present', () => {
+            const mock_tweet = { tweet_id: 'tweet1' } as Tweet;
+            const mock_raw = {};
+
+            const result = (tweets_service as any).attachTypeInfo(mock_tweet, mock_raw);
+
+            expect(result.reply_info_original_tweet_id).toBeUndefined();
+            expect(result.quote_info_original_tweet_id).toBeUndefined();
+            expect(result.repost_info_original_tweet_id).toBeUndefined();
+        });
+    });
+
+    describe('uploadVideo', () => {
+        it('should upload video successfully', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+            const mock_url = 'https://example.com/video.mp4';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING =
+                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
+
+            jest.spyOn(tweets_service as any, 'uploadVideoToAzure').mockResolvedValue(mock_url);
+
+            const result = await tweets_service.uploadVideo(mock_file, mock_user_id);
+
+            expect(result.url).toBe(mock_url);
+            expect(result.filename).toBe('test.mp4');
+            expect(result.size).toBe(2048);
+            expect(result.mime_type).toBe('video/mp4');
+        });
+
+        it('should handle upload errors', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+
+            jest.spyOn(tweets_service as any, 'uploadVideoToAzure').mockRejectedValue(
+                new Error('Upload failed')
+            );
+
+            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow(
+                'Upload failed'
+            );
+        });
+
+        it('should throw error when Azure connection string is missing for video', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+
+            delete process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
+        });
+
+        it('should throw error when Azure key is placeholder for video', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
+
+            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
+        });
+
+        it('should upload video to Azure blob storage successfully', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('video binary data'),
+                originalname: 'azure-video.mp4',
+                size: 5120,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-azure-456';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING =
+                'DefaultEndpointsProtocol=https;AccountName=testvideo;AccountKey=validkey456;EndpointSuffix=core.windows.net';
+
+            const mock_blob_url =
+                'https://testvideo.blob.core.windows.net/videos/456-azure-video.mp4';
+            const mock_upload = jest.fn().mockResolvedValue({});
+            const mock_block_blob_client = {
+                upload: mock_upload,
+                url: mock_blob_url,
+            };
+            const mock_create_if_not_exists = jest.fn().mockResolvedValue({});
+            const mock_container_client = {
+                createIfNotExists: mock_create_if_not_exists,
+                getBlockBlobClient: jest.fn().mockReturnValue(mock_block_blob_client),
+            };
+            const mock_blob_service_client = {
+                getContainerClient: jest.fn().mockReturnValue(mock_container_client),
+            };
+
+            (BlobServiceClient.fromConnectionString as jest.Mock).mockReturnValue(
+                mock_blob_service_client
+            );
+
+            const result = await tweets_service.uploadVideo(mock_file, mock_user_id);
+
+            expect(result.url).toBe(mock_blob_url);
+            expect(result.filename).toBe('azure-video.mp4');
+            expect(mock_create_if_not_exists).toHaveBeenCalledWith({ access: 'blob' });
+            expect(mock_upload).toHaveBeenCalledWith(mock_file.buffer, mock_file.buffer.length, {
+                blobHTTPHeaders: {
+                    blobContentType: 'video/mp4',
+                },
+            });
+        });
+    });
 });
+

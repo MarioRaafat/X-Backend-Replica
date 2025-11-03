@@ -14,7 +14,10 @@ import { TweetLike } from './tweet-like.entity';
 import { TweetQuote } from './tweet-quote.entity';
 import { TweetRepost } from './tweet-repost.entity';
 import { TweetReply } from './tweet-reply.entity';
+import { UserFollows } from '../../user/entities/user-follows.entity';
+import { TweetType } from '../../shared/enums/tweet-types.enum';
 
+// removed conversation_id
 @Entity('tweets')
 export class Tweet {
     @PrimaryGeneratedColumn('uuid')
@@ -23,8 +26,9 @@ export class Tweet {
     @Column({ type: 'uuid' })
     user_id: string;
 
-    @Column({ type: 'uuid', nullable: true })
-    conversation_id: string | null;
+    // nullable should be true
+    @Column({ type: 'enum', enum: TweetType, nullable: true })
+    type: TweetType;
 
     @Column({ type: 'text', nullable: true })
     content: string;
@@ -64,13 +68,11 @@ export class Tweet {
     user: User;
 
     @OneToMany(() => TweetLike, (tweet_like) => tweet_like.tweet, {
-        eager: true,
         onDelete: 'CASCADE',
     })
     likes: TweetLike[];
 
     @OneToMany(() => TweetReply, (tweet_reply) => tweet_reply.original_tweet, {
-        eager: true,
         onDelete: 'CASCADE',
     })
     replies: TweetReply[];
@@ -83,8 +85,8 @@ export class Tweet {
     @OneToMany(() => TweetRepost, (tweet_repost) => tweet_repost.tweet, { onDelete: 'CASCADE' })
     reposts: TweetRepost[];
 
-    // Virtual fields to identify tweet type (loaded via leftJoin in queries)
-    reply_info?: TweetReply[];
-    quote_info?: TweetQuote[];
-    repost_info?: TweetRepost[];
+    // Virtual fields for current user interactions (loaded via leftJoinAndMapOne in queries)
+    current_user_like?: TweetLike | null;
+    current_user_repost?: TweetRepost | null;
+    user_follows_author?: UserFollows | null;
 }
