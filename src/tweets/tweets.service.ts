@@ -42,12 +42,6 @@ import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 
-interface ITweetWithTypeInfo extends Tweet {
-    reply_info_original_tweet_id?: string;
-    quote_info_original_tweet_id?: string;
-    repost_info_original_tweet_id?: string;
-}
-
 @Injectable()
 export class TweetsService {
     constructor(
@@ -662,11 +656,6 @@ export class TweetsService {
         });
 
         if (!tweet) throw new NotFoundException('Tweet not found');
-
-        // Only the tweet owner can see who reposted their tweet
-        if (tweet.user_id !== current_user_id) {
-            throw new BadRequestException('Only the tweet owner can see who reposted their tweet');
-        }
 
         // Build single query with all joins including follow relationships
         const query_builder = this.tweet_repost_repository
