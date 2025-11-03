@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsDateString, IsOptional, IsString } from 'class-validator';
+import { IsDateString, IsOptional, IsString, MaxLength, Validate } from 'class-validator';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { AgeRangeValidator } from 'src/validations/birth-date';
 
 export class UpdateUserDto {
     @ApiProperty({
@@ -9,6 +11,7 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     name?: string;
 
     @ApiProperty({
@@ -18,6 +21,7 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(500)
     bio?: string;
 
     @ApiProperty({
@@ -27,6 +31,7 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(500)
     avatar_url?: string;
 
     @ApiProperty({
@@ -36,6 +41,7 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(500)
     cover_url?: string;
 
     @ApiProperty({
@@ -45,6 +51,7 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     location?: string;
 
     @ApiProperty({
@@ -54,5 +61,6 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsDateString()
+    @Validate(AgeRangeValidator, [6, 100])
     birth_date?: string;
 }

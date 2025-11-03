@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty } from 'class-validator';
+import { IsEmail, IsNotEmpty, MaxLength } from 'class-validator';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class UpdateEmailDto {
     @ApiProperty({
@@ -9,5 +10,6 @@ export class UpdateEmailDto {
     })
     @IsEmail()
     @IsNotEmpty()
+    @MaxLength(STRING_MAX_LENGTH)
     new_email: string;
 }
