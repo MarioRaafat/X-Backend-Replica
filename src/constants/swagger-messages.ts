@@ -102,6 +102,7 @@ export const ERROR_MESSAGES = {
     TWEET_ALREADY_LIKED: 'Tweet already liked',
     TWEET_NOT_LIKED: 'Tweet not liked yet',
     UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
+    TWEET_REPLIES_RETRIEVED_SUCCESSFULLY: 'Tweet replies retrieved successfully',
 
     // category
     CATEGORY_NOT_FOUND: 'Category not found',

@@ -8,6 +8,7 @@ import {
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { Transform } from 'class-transformer';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GetUsersByUsernameDto {
     @ApiProperty({
@@ -21,7 +22,7 @@ export class GetUsersByUsernameDto {
             return value
                 .split(',')
                 .map((username) => username.trim())
-                .filter((username) => username.length > 0);
+                .filter((username) => username.length > 0 && username.length <= STRING_MAX_LENGTH);
         }
         return value;
     })

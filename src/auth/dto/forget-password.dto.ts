@@ -1,5 +1,6 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class ForgetPasswordDto {
     // email - username - phone_number
@@ -9,5 +10,6 @@ export class ForgetPasswordDto {
     })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(STRING_MAX_LENGTH)
     identifier: string;
 }

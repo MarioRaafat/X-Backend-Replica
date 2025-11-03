@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class ResetPasswordDto {
     @ApiProperty({
@@ -10,6 +11,7 @@ export class ResetPasswordDto {
     })
     @IsString({ message: 'Reset token must be a string' })
     @IsNotEmpty({ message: 'Reset token is required' })
+    @MaxLength(500)
     reset_token: string;
 
     @ApiProperty({
@@ -20,6 +22,7 @@ export class ResetPasswordDto {
     })
     @IsNotEmpty()
     @MinLength(8)
+    @MaxLength(STRING_MAX_LENGTH)
     @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
         message:
             'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',
@@ -33,5 +36,6 @@ export class ResetPasswordDto {
     })
     @IsString({ message: 'Identifier must be a string' })
     @IsNotEmpty({ message: 'Identifier is required' })
+    @MaxLength(STRING_MAX_LENGTH)
     identifier: string;
 }

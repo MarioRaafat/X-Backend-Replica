@@ -5,9 +5,11 @@ import {
     IsOptional,
     IsString,
     Matches,
+    MaxLength,
     MinLength,
 } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class SignupStep3Dto {
     @ApiProperty({
@@ -17,6 +19,7 @@ export class SignupStep3Dto {
     })
     @IsEmail({}, { message: 'Please provide a valid email address' })
     @IsNotEmpty({ message: 'Email is required' })
+    @MaxLength(STRING_MAX_LENGTH)
     email: string;
 
     @ApiProperty({
@@ -31,6 +34,7 @@ export class SignupStep3Dto {
         message:
             'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',
     })
+    @MaxLength(STRING_MAX_LENGTH)
     password: string;
 
     @ApiProperty({
@@ -39,6 +43,7 @@ export class SignupStep3Dto {
     })
     @IsNotEmpty()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     username: string;
 
     @ApiProperty({
@@ -49,6 +54,7 @@ export class SignupStep3Dto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(2)
     @IsIn(['en', 'ar'], { message: 'Language must be either en or ar' })
     language?: string;
 }

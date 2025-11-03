@@ -9,7 +9,6 @@ export class User {
     id: string;
 
     @Column({ type: 'varchar', unique: true })
-    @Exclude()
     email: string;
 
     @Column({ type: 'varchar', nullable: true })
@@ -23,11 +22,9 @@ export class User {
     username: string;
 
     @Column({ type: 'text', nullable: true })
-    @Exclude()
     bio?: string;
 
     @Column({ type: 'varchar', nullable: true, unique: true })
-    @Exclude()
     phone_number?: string | null;
 
     @Column({ type: 'varchar', nullable: true })
@@ -46,13 +43,12 @@ export class User {
     avatar_url?: string;
 
     @Column({ type: 'text', nullable: true })
-    @Exclude()
     cover_url?: string;
 
     @Column({ type: 'date' })
-    @Exclude()
     birth_date: Date;
 
+    // 'en', 'ar'.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
     @Exclude()
     language: 'en' | 'ar';
@@ -68,7 +64,6 @@ export class User {
     online: boolean = false;
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
-    @Exclude()
     created_at: Date;
 
     @Column({
@@ -76,24 +71,20 @@ export class User {
         default: () => 'CURRENT_TIMESTAMP',
         onUpdate: 'CURRENT_TIMESTAMP',
     })
-    @Exclude()
     @UpdateDateColumn()
+    @Exclude()
     updated_at: Date;
 
     @Column({ type: 'int', default: 0 })
-    @Exclude()
     followers: number = 0;
 
     @Column({ type: 'int', default: 0 })
-    @Exclude()
     following: number = 0;
 
     @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
-    @Exclude()
     hashtags: Hashtag[];
 
     @OneToMany(() => Tweet, (tweet) => tweet.user, {})
-    @Exclude()
     tweets: Tweet[];
 
     constructor(user: Partial<User>) {
