@@ -1,3 +1,3 @@
 export class ChangeLanguageResponseDto {
-    language: string;
+    language: 'ar' | 'en';
 }

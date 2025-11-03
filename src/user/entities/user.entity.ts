@@ -53,10 +53,9 @@ export class User {
     @Exclude()
     birth_date: Date;
 
-    // language code like 'en', 'es', 'fr', 'ar' etc.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
     @Exclude()
-    language: string = 'en';
+    language: 'en' | 'ar';
 
     @Column({ type: 'boolean', default: false })
     verified: boolean = false;
