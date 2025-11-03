@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 import { Type } from 'class-transformer';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GetTweetRepliesQueryDto {
     @ApiProperty({
@@ -11,6 +12,7 @@ export class GetTweetRepliesQueryDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     cursor?: string;
 
     @ApiProperty({

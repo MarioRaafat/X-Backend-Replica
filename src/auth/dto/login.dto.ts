@@ -1,5 +1,6 @@
-import { IsIn, IsNotEmpty, IsString, Matches, MinLength } from 'class-validator';
+import { IsIn, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class LoginDTO {
     @ApiProperty({
@@ -9,6 +10,7 @@ export class LoginDTO {
     })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(STRING_MAX_LENGTH)
     identifier: string;
 
     @ApiProperty({
@@ -17,6 +19,7 @@ export class LoginDTO {
     })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(STRING_MAX_LENGTH)
     @IsIn(['email', 'phone_number', 'username'], {
         message: 'Type must be one of: email, phone_number, or username',
     })
@@ -29,5 +32,6 @@ export class LoginDTO {
         minLength: 8,
     })
     @IsNotEmpty()
+    @MaxLength(STRING_MAX_LENGTH)
     password: string;
 }

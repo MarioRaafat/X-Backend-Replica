@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsEmail, IsNotEmpty, IsString, Length } from 'class-validator';
 
 export class VerifyResetOtpDto {
     @ApiProperty({
@@ -9,5 +9,6 @@ export class VerifyResetOtpDto {
     })
     @IsString({ message: 'Token must be a string' })
     @IsNotEmpty({ message: 'Token is required' })
+    @Length(6, 6, { message: 'Token must be exactly 6 characters' })
     token: string;
 }

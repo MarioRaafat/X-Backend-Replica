@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class TrendsDto {
     @ApiProperty({
@@ -23,5 +24,6 @@ export class TrendsDto {
     })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(STRING_MAX_LENGTH)
     category: string;
 }

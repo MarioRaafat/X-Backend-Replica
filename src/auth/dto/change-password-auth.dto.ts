@@ -1,5 +1,6 @@
-import { IsNotEmpty, Matches, MinLength } from 'class-validator';
+import { IsNotEmpty, Matches, MaxLength, MinLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class ChangePasswordAuthDTO {
     @ApiProperty({
@@ -10,6 +11,7 @@ export class ChangePasswordAuthDTO {
     })
     @IsNotEmpty()
     @MinLength(8)
+    @MaxLength(STRING_MAX_LENGTH)
     @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
         message:
             'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',
@@ -24,6 +26,7 @@ export class ChangePasswordAuthDTO {
     })
     @IsNotEmpty()
     @MinLength(8)
+    @MaxLength(STRING_MAX_LENGTH)
     @Matches(/((?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
         message:
             'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character',

@@ -1,7 +1,8 @@
 import { PartialType } from '@nestjs/swagger';
 import { CreateTweetDTO } from './create-tweet.dto';
 import { ApiProperty } from '@nestjs/swagger';
-import { IsOptional, IsString } from 'class-validator';
+import { IsOptional, IsString, MaxLength } from 'class-validator';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class UpdateTweetWithQuoteDTO extends PartialType(CreateTweetDTO) {
     @ApiProperty({
@@ -11,5 +12,6 @@ export class UpdateTweetWithQuoteDTO extends PartialType(CreateTweetDTO) {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     quoted_tweet_id?: string;
 }

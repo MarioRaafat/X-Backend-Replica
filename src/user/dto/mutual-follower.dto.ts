@@ -1,4 +1,4 @@
 export class MutualFollowerDto {
-  name: string;
-  avatar_url: string;
+    name: string;
+    avatar_url: string;
 }

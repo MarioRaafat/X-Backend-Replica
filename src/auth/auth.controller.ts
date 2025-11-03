@@ -509,18 +509,22 @@ export class AuthController {
         @Body() dto: MobileGitHubAuthDto,
         @Res({ passthrough: true }) response: Response
     ) {
-        const result = await this.auth_service.verifyGitHubMobileToken(dto.code, dto.redirect_uri, dto.code_verifier);
+        const result = await this.auth_service.verifyGitHubMobileToken(
+            dto.code,
+            dto.redirect_uri,
+            dto.code_verifier
+        );
 
         if ('needs_completion' in result && result.needs_completion) {
-            const sessionToken = await this.auth_service.createOAuthSession(result.user);
+            const session_token = await this.auth_service.createOAuthSession(result.user);
             return {
                 needs_completion: true,
-                session_token: sessionToken,
+                session_token: session_token,
                 provider: 'github',
             };
         }
 
-        if (!("user" in result) || !("id" in result.user)) {
+        if (!('user' in result) || !('id' in result.user)) {
             throw new BadRequestException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
         }
 

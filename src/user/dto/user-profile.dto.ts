@@ -12,25 +12,31 @@ export class UserProfileDto {
     username: string;
 
     @Expose()
-    bio?: string;
+    bio?: string | null;
 
     @Expose()
-    avatar_url?: string;
+    avatar_url?: string | null;
 
     @Expose()
-    cover_url?: string;
+    cover_url?: string | null;
 
     @Expose()
-    country?: string;
+    country?: string | null;
 
     @Expose()
     created_at: Date;
 
     @Expose()
-    @Transform(({ value }) => Number(value) || 0)
+    @Transform(({ value, obj }) => {
+        const source = value ?? obj.followers ?? 0;
+        return Number(source) || 0;
+    })
     followers_count: number;
 
     @Expose()
-    @Transform(({ value }) => Number(value) || 0)
+    @Transform(({ value, obj }) => {
+        const source = value ?? obj.following ?? 0;
+        return Number(source) || 0;
+    })
     following_count: number;
 }
