@@ -7,7 +7,6 @@ import {
     ManyToOne,
     OneToMany,
     PrimaryGeneratedColumn,
-    RelationId,
     UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
@@ -16,7 +15,7 @@ import { TweetQuote } from './tweet-quote.entity';
 import { TweetRepost } from './tweet-repost.entity';
 import { TweetReply } from './tweet-reply.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
-import { TweetType } from 'src/shared/enums/tweet-types.enum';
+import { TweetType } from '../../shared/enums/tweet-types.enum';
 
 // removed conversation_id
 @Entity('tweets')
