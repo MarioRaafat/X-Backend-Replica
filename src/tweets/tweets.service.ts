@@ -6,7 +6,14 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { DataSource, In, QueryRunner, Repository, SelectQueryBuilder, ObjectLiteral } from 'typeorm';
+import {
+    DataSource,
+    In,
+    QueryRunner,
+    Repository,
+    SelectQueryBuilder,
+    ObjectLiteral,
+} from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import { CreateTweetDTO, UpdateTweetDTO } from './dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
@@ -33,6 +40,7 @@ import { TweetReplyResponseDTO } from './dto/tweet-reply-response';
 import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
+import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 
 interface ITweetWithTypeInfo extends Tweet {
     reply_info_original_tweet_id?: string;
@@ -296,38 +304,41 @@ export class TweetsService {
         }
     }
 
-    // In case of soft delete, the tweet linked features such as likes, reposts, replies won't be deleted automatically,
-    // which delete would we use?
+    // hard delete tweet
     async deleteTweet(tweet_id: string, user_id: string): Promise<void> {
-        // First check if tweet exists and user owns it
-        const tweet = await this.tweet_repository.findOne({
-            where: { tweet_id },
-            select: ['tweet_id', 'user_id'],
-        });
-
-        if (!tweet) throw new NotFoundException('Tweet not found');
-
-        if (tweet.user_id !== user_id) {
-            throw new BadRequestException('User is not allowed to delete this tweet');
-        }
-
-        await this.tweet_repository.delete({ tweet_id });
-    }
-
-    async getTweetById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
         try {
-            return await this.getTweetWithUserById(tweet_id, current_user_id);
-        } catch(error) {
+            const tweet = await this.tweet_repository.findOne({
+                where: { tweet_id },
+                select: ['tweet_id', 'user_id'],
+            });
+
+            if (!tweet) throw new NotFoundException('Tweet not found');
+
+            if (tweet.user_id !== user_id) {
+                throw new BadRequestException('User is not allowed to delete this tweet');
+            }
+
+            await this.tweet_repository.delete({ tweet_id });
+        } catch (error) {
             console.error(error);
             throw error;
         }
     }
 
-    async likeTweet(tweet_id: string, user_id: string): Promise<void> {        
+    async getTweetById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
+        try {
+            return await this.getTweetWithUserById(tweet_id, current_user_id);
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
+
+    async likeTweet(tweet_id: string, user_id: string): Promise<void> {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
         await query_runner.startTransaction();
-        
+
         try {
             const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
             if (!tweet_exists) throw new NotFoundException('Tweet not found');
@@ -350,11 +361,11 @@ export class TweetsService {
         }
     }
 
-    async unlikeTweet(tweet_id: string, user_id: string): Promise<void> {        
+    async unlikeTweet(tweet_id: string, user_id: string): Promise<void> {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
         await query_runner.startTransaction();
-        
+
         try {
             const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
             if (!tweet_exists) throw new NotFoundException('Tweet not found');
@@ -378,11 +389,7 @@ export class TweetsService {
         }
     }
 
-    async repostTweetWithQuote(
-        tweet_id: string,
-        user_id: string,
-        quote: CreateTweetDTO
-    ) {
+    async repostTweetWithQuote(tweet_id: string, user_id: string, quote: CreateTweetDTO) {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
         await query_runner.startTransaction();
@@ -411,7 +418,7 @@ export class TweetsService {
 
             return plainToInstance(TweetQuoteResponseDTO, {
                 ...saved_quote_tweet,
-                quoted_tweet: plainToInstance(TweetResponseDTO, parentTweet, { 
+                quoted_tweet: plainToInstance(TweetResponseDTO, parentTweet, {
                     excludeExtraneousValues: true,
                 }),
             });
@@ -427,7 +434,7 @@ export class TweetsService {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
         await query_runner.startTransaction();
-        
+
         try {
             const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
             if (!tweet_exists) throw new NotFoundException('Tweet not found');
@@ -452,16 +459,15 @@ export class TweetsService {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
         await query_runner.startTransaction();
-        
+
         try {
             const repost = await query_runner.manager.findOne(TweetRepost, {
                 where: { tweet_id, user_id },
-                select: ["user_id", "tweet_id"]
+                select: ['user_id', 'tweet_id'],
             });
-    
-            if (!repost)
-                throw new NotFoundException('Repost not found');
-    
+
+            if (!repost) throw new NotFoundException('Repost not found');
+
             if (repost.user_id !== user_id)
                 throw new ForbiddenException('You can only delete your own reposts');
 
@@ -469,7 +475,12 @@ export class TweetsService {
             await query_runner.manager.delete(TweetRepost, { tweet_id, user_id });
 
             // Decrement the repost count
-            await query_runner.manager.decrement(Tweet, { tweet_id: repost.tweet_id }, 'num_reposts', 1);
+            await query_runner.manager.decrement(
+                Tweet,
+                { tweet_id: repost.tweet_id },
+                'num_reposts',
+                1
+            );
 
             await query_runner.commitTransaction();
         } catch (error) {
@@ -486,21 +497,19 @@ export class TweetsService {
         user_id: string,
         reply_dto: CreateTweetDTO
     ): Promise<TweetResponseDTO> {
-
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
         await query_runner.startTransaction();
-        
-        try {
 
+        try {
             const [original_tweet, original_reply] = await Promise.all([
                 query_runner.manager.findOne(Tweet, {
                     where: { tweet_id: original_tweet_id },
                     select: ['tweet_id'],
                 }),
-                query_runner.manager.findOne(TweetReply, { where: { original_tweet_id } })
+                query_runner.manager.findOne(TweetReply, { where: { original_tweet_id } }),
             ]);
-            
+
             if (!original_tweet) throw new NotFoundException('Original tweet not found');
 
             await this.extractDataFromTweets(reply_dto, user_id, query_runner);
@@ -523,14 +532,23 @@ export class TweetsService {
             await query_runner.manager.save(TweetReply, tweet_reply);
 
             // Increment reply count on original tweet
-            await query_runner.manager.increment(Tweet, { tweet_id: original_tweet_id }, 'num_replies', 1);
+            await query_runner.manager.increment(
+                Tweet,
+                { tweet_id: original_tweet_id },
+                'num_replies',
+                1
+            );
 
             await query_runner.commitTransaction();
 
-            const returned_reply = plainToInstance(TweetReplyResponseDTO, {
-                ...tweet_reply,
-                ...saved_reply_tweet,
-            }, { excludeExtraneousValues: false });
+            const returned_reply = plainToInstance(
+                TweetReplyResponseDTO,
+                {
+                    ...tweet_reply,
+                    ...saved_reply_tweet,
+                },
+                { excludeExtraneousValues: false }
+            );
 
             returned_reply.parent_tweet_id = original_tweet_id;
             return returned_reply;
@@ -542,149 +560,18 @@ export class TweetsService {
         }
     }
 
-    async getPostsByUserId(
-        user_id: string,
-        current_user_id?: string,
-        cursor?: string,
-        limit: number = 10
-    ): Promise<{
-        data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
-    }> {
-        const query_runner = this.data_source.createQueryRunner();
-        await query_runner.connect();
-        
-        try {
-            // Parse cursor if provided
-            let cursor_condition = '';
-            let cursor_params: any[] = [];
-            
-            if (cursor) {
-                const [cursor_date_str, cursor_id] = cursor.split('_');
-                const cursor_date = new Date(cursor_date_str);
-                
-                cursor_condition = `AND (post.post_date < $${current_user_id ? '3' : '2'} OR (post.post_date = $${current_user_id ? '3' : '2'} AND post.id < $${current_user_id ? '4' : '3'}))`;
-                cursor_params = [cursor_date, cursor_id];
-            }
-            
-            // Build base query
-            let query_string = `
-                SELECT 
-                    post.*,
-                    json_build_object(
-                        'id', u.id,
-                        'username', u.username,
-                        'name', u.name,
-                        'avatar_url', u.avatar_url,
-                        'verified', u.verified,
-                        'bio', u.bio,
-                        'cover_url', u.cover_url,
-                        'followers', u.followers,
-                        'following', u.following
-                    ) as user,
-                    CASE 
-                        WHEN post.post_type = 'repost' THEN json_build_object(
-                            'id', reposted_by.id,
-                            'name', reposted_by.name
-                        )
-                        ELSE NULL
-                    END as reposted_by_user,
-                    COALESCE(post.type, 'tweet') as tweet_type
-                    ${current_user_id ? `,
-                        CASE WHEN likes.user_id IS NOT NULL THEN TRUE ELSE FALSE END as is_liked,
-                        CASE WHEN reposts.user_id IS NOT NULL THEN TRUE ELSE FALSE END as is_reposted,
-                        CASE WHEN follows.follower_id IS NOT NULL THEN TRUE ELSE FALSE END as is_following
-                    ` : ''}
-                FROM user_posts_view post
-                LEFT JOIN "user" u ON u.id = post.tweet_author_id
-                LEFT JOIN "user" reposted_by ON reposted_by.id = post.profile_user_id AND post.post_type = 'repost'
-                ${current_user_id ? `
-                    LEFT JOIN tweet_likes likes ON likes.tweet_id = post.tweet_id AND likes.user_id = $2
-                    LEFT JOIN tweet_reposts reposts ON reposts.tweet_id = post.tweet_id AND reposts.user_id = $2
-                    LEFT JOIN user_follows follows ON follows.follower_id = $2 AND follows.followed_id = u.id
-                ` : ''}
-                WHERE post.profile_user_id = $1
-                ${cursor_condition}
-                ORDER BY post.post_date DESC, post.id DESC
-                LIMIT ${limit}
-            `;
-
-            // Build params array
-            let params: any[];
-            if (current_user_id) {
-                params = [user_id, current_user_id, ...cursor_params];
-            } else {
-                params = [user_id, ...cursor_params];
-            }
-
-            // Execute query using query runner
-            const posts = await query_runner.query(query_string, params);
-
-            // Transform to DTOs
-            const tweet_dtos = posts.map((post: any) => {
-                const dto = plainToInstance(TweetResponseDTO, {
-                    tweet_id: post.tweet_id,
-                    user_id: post.tweet_author_id,
-                    type: post.tweet_type || post.type || 'tweet',
-                    content: post.content,
-                    images: post.images,
-                    videos: post.videos,
-                    num_likes: post.num_likes,
-                    num_reposts: post.num_reposts,
-                    num_views: post.num_views,
-                    num_quotes: post.num_quotes,
-                    num_replies: post.num_replies,
-                    created_at: post.created_at,
-                    updated_at: post.updated_at,
-                    current_user_like: current_user_id && post.is_liked ? { user_id: current_user_id } : null,
-                    current_user_repost: current_user_id && post.is_reposted ? { user_id: current_user_id } : null,
-                    user: post.user,
-                }, {
-                    excludeExtraneousValues: true,
-                });
-
-                // Add reposted_by information if this is a repost
-                if (post.post_type === 'repost' && post.reposted_by_user) {
-                    dto.reposted_by = {
-                        repost_id: post.id,
-                        id: post.reposted_by_user.id,
-                        name: post.reposted_by_user.name,
-                        reposted_at: post.post_date,
-                    };
-                }
-
-                return dto;
-            });
-
-            // Generate next cursor using pagination service
-            const next_cursor = this.paginate_service.generateNextCursor(posts, 'post_date', 'id');
-
-            return {
-                data: tweet_dtos,
-                next_cursor,
-                has_more: posts.length === limit,
-            };
-        } catch (error) {
-            console.error(error);
-            throw error;
-        } finally {
-            await query_runner.release();
-        }
-    }
-
     async incrementTweetViews(tweet_id: string): Promise<{ success: boolean }> {
         try {
             const tweet = await this.tweet_repository.findOne({
                 where: { tweet_id },
             });
-    
+
             if (!tweet) throw new NotFoundException('Tweet not found');
-    
+
             await this.tweet_repository.increment({ tweet_id }, 'num_views', 1);
-    
+
             return { success: true };
-        } catch(error) {
+        } catch (error) {
             console.error(error);
             throw error;
         }
@@ -865,15 +752,13 @@ export class TweetsService {
         limit: number = 20
     ) {
         const tweet = await this.tweet_repository.findOne({
-            where: { tweet_id }
+            where: { tweet_id },
         });
-
-        console.log(tweet);
 
         if (!tweet) throw new NotFoundException('Tweet not found');
 
         // Build query for quote tweets
-        const query = this.tweet_quote_repository
+        let query = this.tweet_quote_repository
             .createQueryBuilder('quote')
             .leftJoinAndSelect('quote.quote_tweet', 'quote_tweet')
             .leftJoinAndSelect('quote_tweet.user', 'user')
@@ -883,38 +768,25 @@ export class TweetsService {
             .take(limit);
 
         // Add interaction joins if current_user_id is provided
-        if (current_user_id) {
-            query
-                .leftJoinAndMapOne(
-                    'quote_tweet.current_user_like',
-                    TweetLike,
-                    'current_user_like',
-                    'current_user_like.tweet_id = quote_tweet.tweet_id AND current_user_like.user_id = :current_user_id',
-                    { current_user_id }
-                )
-                .leftJoinAndMapOne(
-                    'quote_tweet.current_user_repost',
-                    TweetRepost,
-                    'current_user_repost',
-                    'current_user_repost.tweet_id = quote_tweet.tweet_id AND current_user_repost.user_id = :current_user_id',
-                    { current_user_id }
-                )
-                .leftJoinAndMapOne(
-                    'user.current_user_follows',
-                    UserFollows,
-                    'current_user_follows',
-                    'current_user_follows.follower_id = :current_user_id AND current_user_follows.followed_id = user.id',
-                    { current_user_id }
-                );
-        }
+        query = this.tweets_repository.attachUserTweetInteractionFlags(
+            query,
+            current_user_id,
+            'quote_tweet'
+        );
 
         // Apply cursor-based pagination using pagination service
-        this.paginate_service.applyCursorPagination(query, cursor, 'quote_tweet', 'created_at', 'tweet_id');
+        this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'quote_tweet',
+            'created_at',
+            'tweet_id'
+        );
 
         const quotes = await query.getMany();
 
         // Map to DTOs
-        const quote_dtos = quotes.map((quote) => 
+        const quote_dtos = quotes.map((quote) =>
             plainToInstance(TweetQuoteResponseDTO, quote.quote_tweet, {
                 excludeExtraneousValues: true,
             })
@@ -922,7 +794,11 @@ export class TweetsService {
 
         // Generate next_cursor using pagination service
         const quote_tweets = quotes.map((q) => q.quote_tweet);
-        const next_cursor = this.paginate_service.generateNextCursor(quote_tweets, 'created_at', 'tweet_id');
+        const next_cursor = this.paginate_service.generateNextCursor(
+            quote_tweets,
+            'created_at',
+            'tweet_id'
+        );
 
         return {
             data: quote_dtos,
@@ -934,63 +810,23 @@ export class TweetsService {
     }
 
     /***************************************Helper Methods***************************************/
-
-    private async getTweetWithUserById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
+    private async getTweetWithUserById(
+        tweet_id: string,
+        current_user_id?: string
+    ): Promise<TweetResponseDTO> {
         try {
-            const query = this.tweet_repository
-            .createQueryBuilder('tweet')
-            .leftJoinAndSelect('tweet.user', 'user')
-            .where('tweet.tweet_id = :tweet_id', { tweet_id })
-            .select([
-                'tweet.tweet_id',
-                'tweet.user_id',
-                'tweet.type',
-                'tweet.content',
-                'tweet.images',
-                'tweet.videos',
-                'tweet.num_likes',
-                'tweet.num_reposts',
-                'tweet.num_views',
-                'tweet.num_quotes',
-                'tweet.num_replies',
-                'tweet.created_at',
-                'tweet.updated_at',
-                'user.id',
-                'user.username',
-                'user.name',
-                'user.avatar_url',
-                'user.verified',
-                'user.bio',
-                'user.cover_url',
-                'user.followers',
-                'user.following',
-            ]);
+            let query = this.tweet_repository
+                .createQueryBuilder('tweet')
+                .leftJoinAndSelect('tweet.user', 'user')
+                .where('tweet.tweet_id = :tweet_id', { tweet_id })
+                .select(tweet_fields_slect);
 
             // Map interaction flags to the entity using leftJoinAndMapOne
-            if (current_user_id) {
-                query
-                    .leftJoinAndMapOne(
-                        'tweet.current_user_like',
-                        TweetLike,
-                        'current_user_like',
-                        'current_user_like.tweet_id = tweet.tweet_id AND current_user_like.user_id = :current_user_id',
-                        { current_user_id }
-                    )
-                    .leftJoinAndMapOne(
-                        'tweet.current_user_repost',
-                        TweetRepost,
-                        'current_user_repost',
-                        'current_user_repost.tweet_id = tweet.tweet_id AND current_user_repost.user_id = :current_user_id',
-                        { current_user_id }
-                    )
-                    .leftJoinAndMapOne(
-                        'user.current_user_follows',
-                        UserFollows,
-                        'current_user_follows',
-                        'current_user_follows.follower_id = :current_user_id AND current_user_follows.followed_id = user.id',
-                        { current_user_id }
-                    );
-            }
+            query = this.tweets_repository.attachUserTweetInteractionFlags(
+                query,
+                current_user_id,
+                'tweet'
+            );
 
             const tweet = await query.getOne();
             if (!tweet) throw new NotFoundException('Tweet not found');
@@ -1007,95 +843,59 @@ export class TweetsService {
             }
 
             return tweet_dto;
-        } catch(error) {
+        } catch (error) {
             console.error(error);
             throw error;
         }
     }
 
-    private async getReplyWithUserById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
+    private async getReplyWithUserById(
+        tweet_id: string,
+        current_user_id?: string
+    ): Promise<TweetResponseDTO> {
         try {
-            const query = this.tweet_repository
-            .createQueryBuilder('tweet')
-            .leftJoinAndSelect('tweet.user', 'user')
-            .leftJoinAndMapOne(
-                'tweet.reply_info',
-                TweetReply,
-                'reply_info',
-                'reply_info.reply_tweet_id = tweet.tweet_id'
-            )
-            .where('tweet.tweet_id = :tweet_id', { tweet_id })
-            .select([
-                'tweet.tweet_id',
-                'tweet.user_id',
-                'tweet.type',
-                'tweet.content',
-                'tweet.images',
-                'tweet.videos',
-                'tweet.num_likes',
-                'tweet.num_reposts',
-                'tweet.num_views',
-                'tweet.num_quotes',
-                'tweet.num_replies',
-                'tweet.created_at',
-                'tweet.updated_at',
-                'user.id',
-                'user.username',
-                'user.name',
-                'user.avatar_url',
-                'user.verified',
-                'user.bio',
-                'user.cover_url',
-                'user.followers',
-                'user.following',
-                'reply_info.original_tweet_id',
-            ]);
+            const reply_chain = await this.tweets_repository.getReplyWithParentChain(
+                tweet_id,
+                current_user_id
+            );
 
-            // Map interaction flags to the entity using leftJoinAndMapOne
-            if (current_user_id) {
-                query
-                    .leftJoinAndMapOne(
-                        'tweet.current_user_like',
-                        TweetLike,
-                        'current_user_like',
-                        'current_user_like.tweet_id = tweet.tweet_id AND current_user_like.user_id = :current_user_id',
-                        { current_user_id }
-                    )
-                    .leftJoinAndMapOne(
-                        'tweet.current_user_repost',
-                        TweetRepost,
-                        'current_user_repost',
-                        'current_user_repost.tweet_id = tweet.tweet_id AND current_user_repost.user_id = :current_user_id',
-                        { current_user_id }
-                    )
-                    .leftJoinAndMapOne(
-                        'user.current_user_follows',
-                        UserFollows,
-                        'current_user_follows',
-                        'current_user_follows.follower_id = :current_user_id AND current_user_follows.followed_id = user.id',
-                        { current_user_id }
-                    );
+            if (!reply_chain || reply_chain.length === 0) {
+                throw new NotFoundException('Tweet not found');
             }
 
-            const tweet = await query.getOne();
-            if (!tweet) throw new NotFoundException('Tweet not found');
+            // Build nested structure from deepest parent to starting tweet
+            let parent_tweet_dto: TweetResponseDTO | null = null;
 
-            // Transform current tweet to DTO
-            const tweet_dto = plainToInstance(TweetResponseDTO, tweet, {
-                excludeExtraneousValues: true,
-            });
+            for (let i = reply_chain.length - 1; i >= 0; i--) {
+                const raw_tweet = reply_chain[i];
 
-            // If this tweet is also a reply, recursively fetch its parent
-            if (tweet.type === TweetType.REPLY && (tweet as any).reply_info?.original_tweet_id) {
-                const parent_tweet_dto = await this.getReplyWithUserById(
-                    (tweet as any).reply_info.original_tweet_id,
-                    current_user_id
-                );
-                tweet_dto.parent_tweet = parent_tweet_dto as any;
+                raw_tweet.user = {
+                    ...raw_tweet.user,
+                    is_liked: raw_tweet.is_liked,
+                    is_reposted: raw_tweet.is_reposted,
+                    is_following: raw_tweet.is_following,
+                };
+
+                delete raw_tweet.is_liked;
+                delete raw_tweet.is_reposted;
+                delete raw_tweet.is_following;
+
+                const tweet_dto = plainToInstance(TweetResponseDTO, raw_tweet, {
+                    excludeExtraneousValues: true,
+                });
+
+                // Attach parent from previous iteration
+                if (parent_tweet_dto) tweet_dto.parent_tweet = parent_tweet_dto;
+
+                // Set parent_tweet_id if there's a parent
+                if (raw_tweet.parent_tweet_id)
+                    tweet_dto.parent_tweet_id = raw_tweet.parent_tweet_id;
+
+                parent_tweet_dto = tweet_dto;
             }
 
-            return tweet_dto;
-        } catch(error) {
+            return parent_tweet_dto!;
+        } catch (error) {
             console.error(error);
             throw error;
         }
@@ -1130,8 +930,7 @@ export class TweetsService {
 
     async extractTopics(content: string): Promise<Record<string, number>> {
         try {
-
-            if(!process.env.ENABLE_GOOGLE_GEMINI) {
+            if (!process.env.ENABLE_GOOGLE_GEMINI) {
                 console.warn('Gemini is disabled, returning empty topics');
                 const empty_response: Record<string, number> = {};
                 this.TOPICS.forEach((topic) => (empty_response[topic] = 0));

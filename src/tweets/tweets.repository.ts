@@ -9,6 +9,9 @@ import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { plainToInstance } from 'class-transformer';
 import { UserFollows } from 'src/user/entities';
+import { getReplyWithParentChainQuery } from './queries/reply-parent-chain.query';
+import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
+import { SelectQueryBuilder } from 'typeorm/browser';
 
 @Injectable()
 export class TweetsRepository {
@@ -446,6 +449,104 @@ export class TweetsRepository {
         return { tweets, next_cursor };
     }
 
+    /**************************** Alyaa ****************************/
+    async getPostsByUserId(
+        user_id: string,
+        current_user_id?: string,
+        cursor?: string,
+        limit: number = 10
+    ): Promise<{
+        data: TweetResponseDTO[];
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+
+        try {
+            // Parse cursor if provided
+            let cursor_condition = '';
+            let cursor_params: any[] = [];
+
+            if (cursor) {
+                const [cursor_date_str, cursor_id] = cursor.split('_');
+                const cursor_date = new Date(cursor_date_str);
+
+                cursor_condition = `AND (post.post_date < $${current_user_id ? '3' : '2'} OR (post.post_date = $${current_user_id ? '3' : '2'} AND post.id < $${current_user_id ? '4' : '3'}))`;
+                cursor_params = [cursor_date, cursor_id];
+            }
+
+            // Build base query
+            const query_string = getPostsByUserIdQuery(cursor_condition, limit, current_user_id);
+
+            // Build params array
+            let params: any[];
+            if (current_user_id) params = [user_id, current_user_id, ...cursor_params];
+            else params = [user_id, ...cursor_params];
+
+            // Execute query using query runner
+            const posts = await query_runner.query(query_string, params);
+
+            // Transform to DTOs
+            const tweet_dtos = posts.map((post: any) => {
+                const dto = plainToInstance(
+                    TweetResponseDTO,
+                    {
+                        tweet_id: post.tweet_id,
+                        user_id: post.tweet_author_id,
+                        type: post.tweet_type || post.type || 'tweet',
+                        content: post.content,
+                        images: post.images,
+                        videos: post.videos,
+                        num_likes: post.num_likes,
+                        num_reposts: post.num_reposts,
+                        num_views: post.num_views,
+                        num_quotes: post.num_quotes,
+                        num_replies: post.num_replies,
+                        created_at: post.created_at,
+                        updated_at: post.updated_at,
+                        current_user_like:
+                            current_user_id && post.is_liked ? { user_id: current_user_id } : null,
+                        current_user_repost:
+                            current_user_id && post.is_reposted
+                                ? { user_id: current_user_id }
+                                : null,
+                        user: post.user,
+                    },
+                    {
+                        excludeExtraneousValues: true,
+                    }
+                );
+
+                // Add reposted_by information if this is a repost
+                if (post.post_type === 'repost' && post.reposted_by_user) {
+                    dto.reposted_by = {
+                        repost_id: post.id,
+                        id: post.reposted_by_user.id,
+                        name: post.reposted_by_user.name,
+                        reposted_at: post.post_date,
+                    };
+                }
+
+                return dto;
+            });
+
+            // Generate next cursor using pagination service
+            const next_cursor = this.paginate_service.generateNextCursor(posts, 'post_date', 'id');
+
+            return {
+                data: tweet_dtos,
+                next_cursor,
+                has_more: posts.length === limit,
+            };
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+
     async getRepliesByUserId(
         user_id: string,
         current_user_id?: string,
@@ -458,7 +559,7 @@ export class TweetsRepository {
     }> {
         try {
             // Build query for replies by user
-            const query = this.tweet_repository
+            let query = this.tweet_repository
                 .createQueryBuilder('tweet')
                 .innerJoin('tweet_replies', 'reply', 'reply.reply_tweet_id = tweet.tweet_id')
                 .leftJoinAndSelect('tweet.user', 'user')
@@ -469,30 +570,7 @@ export class TweetsRepository {
                 .take(limit);
 
             // Add interaction flags if current_user_id is provided
-            if (current_user_id) {
-                query
-                    .leftJoinAndMapOne(
-                        'tweet.current_user_like',
-                        TweetLike,
-                        'current_user_like',
-                        'current_user_like.tweet_id = tweet.tweet_id AND current_user_like.user_id = :current_user_id',
-                        { current_user_id }
-                    )
-                    .leftJoinAndMapOne(
-                        'tweet.current_user_repost',
-                        TweetRepost,
-                        'current_user_repost',
-                        'current_user_repost.tweet_id = tweet.tweet_id AND current_user_repost.user_id = :current_user_id',
-                        { current_user_id }
-                    )
-                    .leftJoinAndMapOne(
-                        'user.current_user_follows',
-                        UserFollows,
-                        'current_user_follows',
-                        'current_user_follows.follower_id = :current_user_id AND current_user_follows.followed_id = user.id',
-                        { current_user_id }
-                    );
-            }
+            query = this.attachUserTweetInteractionFlags(query, current_user_id, 'tweet');
 
             // Apply cursor pagination
             this.paginate_service.applyCursorPagination(
@@ -750,6 +828,68 @@ export class TweetsRepository {
         } catch (error) {
             console.error(error);
             throw error;
+        }
+    }
+
+    attachUserTweetInteractionFlags(
+        query: SelectQueryBuilder<any>,
+        current_user_id?: string,
+        alias: string = 'tweet'
+    ): SelectQueryBuilder<any> {
+        if (current_user_id) {
+            query
+                .leftJoinAndMapOne(
+                    `${alias}.current_user_like`,
+                    TweetLike,
+                    'current_user_like',
+                    `current_user_like.tweet_id = ${alias}.tweet_id AND current_user_like.user_id = :current_user_id`,
+                    { current_user_id }
+                )
+                .leftJoinAndMapOne(
+                    `${alias}.current_user_repost`,
+                    TweetRepost,
+                    'current_user_repost',
+                    `current_user_repost.tweet_id = ${alias}.tweet_id AND current_user_repost.user_id = :current_user_id`,
+                    { current_user_id }
+                )
+                .leftJoinAndMapOne(
+                    'user.current_user_follows',
+                    UserFollows,
+                    'current_user_follows',
+                    'current_user_follows.follower_id = :current_user_id AND current_user_follows.followed_id = user.id',
+                    { current_user_id }
+                );
+        }
+        return query;
+    }
+
+    /**************************** Alyaa ****************************/
+
+    /**
+     * Fetches a reply tweet along with its entire parent chain using a single recursive query.
+     * This method efficiently retrieves all parent tweets in the conversation thread
+     * without making multiple database calls.
+     *
+     * @param tweet_id - The ID of the reply tweet to start from
+     * @param current_user_id - Optional user ID to check interaction flags (likes, reposts, follows)
+     * @returns An array of tweets from the starting reply up to the root parent, ordered from child to parent
+     */
+    async getReplyWithParentChain(tweet_id: string, current_user_id?: string): Promise<any[]> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+
+        try {
+            const query_string = getReplyWithParentChainQuery(current_user_id);
+
+            const params = current_user_id ? [tweet_id, current_user_id] : [tweet_id];
+            const results = await query_runner.query(query_string, params);
+
+            return results;
+        } catch (error) {
+            console.error('Error fetching reply chain:', error);
+            throw error;
+        } finally {
+            await query_runner.release();
         }
     }
 }
