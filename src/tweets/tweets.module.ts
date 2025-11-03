@@ -2,10 +2,13 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TweetsController } from './tweets.controller';
 import { TweetsService } from './tweets.service';
+import { TweetsRepository } from './tweets.repository';
 import { Tweet, TweetLike, TweetQuote, TweetReply, TweetRepost } from './entities';
 import { Hashtag } from './entities/hashtags.entity';
 import { UserFollows } from 'src/user/entities/user-follows.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
+import { UserPostsView } from './entities/user-posts-view.entity';
 
 @Module({
     imports: [
@@ -17,10 +20,11 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
             TweetReply,
             Hashtag,
             UserFollows,
+            UserPostsView,
         ]),
     ],
     controllers: [TweetsController],
-    providers: [TweetsService, PaginationService],
+    providers: [TweetsService, TweetsRepository, PaginationService, AzureStorageService],
     exports: [TweetsService],
 })
 export class TweetsModule {}

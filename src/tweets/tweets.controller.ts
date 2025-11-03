@@ -33,10 +33,12 @@ import { UpdateTweetWithQuoteDTO } from './dto/update-tweet-with-quote.dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
 import { GetTweetLikesQueryDto } from './dto/get-tweet-likes-query.dto';
 import { GetTweetRepostsQueryDto } from './dto/get-tweet-reposts-query.dto';
+import { GetTweetRepliesQueryDto } from './dto/get-tweet-replies-query.dto';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import { PaginatedTweetsResponseDTO } from './dto/paginated-tweets-response.dto';
 import { PaginatedTweetLikesResponseDTO } from './dto/paginated-tweet-likes-response.dto';
 import { PaginatedTweetRepostsResponseDTO } from './dto/paginated-tweet-reposts-response.dto';
+import { PaginatedTweetRepliesResponseDTO } from './dto/paginated-tweet-replies-response.dto';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
@@ -57,6 +59,8 @@ import {
     get_all_tweets_swagger,
     get_tweet_by_id_swagger,
     get_tweet_likes_swagger,
+    get_tweet_quotes_swagger,
+    get_tweet_replies_swagger,
     get_tweet_reposts_swagger,
     like_tweet_swagger,
     quote_tweet_swagger,
@@ -70,6 +74,7 @@ import {
     upload_video_swagger,
 } from './tweets.swagger';
 import { ImageUploadInterceptor, VideoUploadInterceptor } from './utils/upload.interceptors';
+import { QueryCursorPaginationDTO } from './dto/get-tweet-quotes-query.dto';
 
 @ApiTags('Tweets')
 @ApiBearerAuth('JWT-auth')
@@ -101,7 +106,8 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.TWEETS_RETRIEVED)
     @Get()
     async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id?: string) {
-        return await this.tweets_service.getAllTweets(query, user_id);
+        // return await this.tweets_service.getAllTweets(query, user_id);
+        return;
     }
 
     @ApiOperation(get_tweet_by_id_swagger.operation)
@@ -217,7 +223,7 @@ export class TweetsController {
         @Param('id', ParseUUIDPipe) id: string,
         @Body() create_reply_dto: CreateTweetDTO,
         @GetUserId() user_id: string
-    ): Promise<TweetResponseDTO> {
+    ) {
         return await this.tweets_service.replyToTweet(id, user_id, create_reply_dto);
     }
 
@@ -325,6 +331,42 @@ export class TweetsController {
         return await this.tweets_service.getTweetReposts(id, user_id, query.page, query.limit);
     }
 
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation(get_tweet_quotes_swagger.operation)
+    @ApiParam(get_tweet_quotes_swagger.param)
+    @ApiQuery(get_tweet_quotes_swagger.queries.cursor)
+    @ApiQuery(get_tweet_quotes_swagger.queries.limit)
+    @ApiOkResponse(get_tweet_quotes_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage('Quote tweets retrieved successfully')
+    @Get(':id/quotes')
+    async getTweetQuotes(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: QueryCursorPaginationDTO,
+        @GetUserId() user_id?: string
+    ) {
+        return await this.tweets_service.getTweetQuotes(id, user_id, query.cursor, query.limit);
+    }
+
+    
+
+    @ApiOperation(get_tweet_replies_swagger.operation)
+    @ApiOkResponse(get_tweet_replies_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(ERROR_MESSAGES.TWEET_REPLIES_RETRIEVED_SUCCESSFULLY)
+    @Get(':id/replies')
+    async getTweetReplies(
+        @Param('id', ParseUUIDPipe) id: string,
+        @Query() query: GetTweetRepliesQueryDto,
+        @GetUserId() user_id: string
+    ) {
+        return await this.tweets_service.getTweetReplies(id, user_id, query);
+    }
+
     @ApiOperation(update_quote_tweet_swagger.operation)
     @ApiOperation(update_quote_tweet_swagger.operation)
     @ApiParam(update_quote_tweet_swagger.param)
@@ -392,4 +434,67 @@ export class TweetsController {
     async trackTweetView(@Param('id', ParseUUIDPipe) id: string, @GetUserId() _user_id: string) {
         return await this.tweets_service.incrementTweetViews(id);
     }
+
+
+    /* Test Profile Functionalities */
+
+    // @HttpCode(HttpStatus.OK)
+    // @ApiOperation({ summary: 'Test: Get replies by user ID' })
+    // @ApiQuery({ name: 'cursor', required: false, type: String })
+    // @ApiQuery({ name: 'limit', required: false, type: Number })
+    // @ResponseMessage('User replies retrieved successfully')
+    // @Get('test/user/:user_id/replies')
+    // async testGetRepliesByUserId(
+    //     @Param('user_id', ParseUUIDPipe) user_id: string,
+    //     @Query('cursor') cursor?: string,
+    //     @Query('limit') limit?: number,
+    //     @GetUserId() current_user_id?: string
+    // ) {
+    //     return await this.tweets_service.getRepliesByUserId(
+    //         user_id,
+    //         current_user_id,
+    //         cursor,
+    //         limit ? Number(limit) : 10
+    //     );
+    // }
+
+    // @HttpCode(HttpStatus.OK)
+    // @ApiOperation({ summary: 'Test: Get media posts by user ID' })
+    // @ApiQuery({ name: 'cursor', required: false, type: String })
+    // @ApiQuery({ name: 'limit', required: false, type: Number })
+    // @ResponseMessage('User media posts retrieved successfully')
+    // @Get('test/user/:user_id/media')
+    // async testGetMediaByUserId(
+    //     @Param('user_id', ParseUUIDPipe) user_id: string,
+    //     @Query('cursor') cursor?: string,
+    //     @Query('limit') limit?: number,
+    //     @GetUserId() current_user_id?: string
+    // ) {
+    //     return await this.tweets_service.getMediaByUserId(
+    //         user_id,
+    //         current_user_id,
+    //         cursor,
+    //         limit ? Number(limit) : 10
+    //     );
+    // }
+
+    // @HttpCode(HttpStatus.OK)
+    // @ApiOperation({ summary: 'Test: Get liked posts by user ID' })
+    // @ApiQuery({ name: 'cursor', required: false, type: String })
+    // @ApiQuery({ name: 'limit', required: false, type: Number })
+    // @ResponseMessage('User liked posts retrieved successfully')
+    // @Get('test/user/:user_id/likes')
+    // async testGetLikedPostsByUserId(
+    //     @Param('user_id', ParseUUIDPipe) user_id: string,
+    //     @Query('cursor') cursor?: string,
+    //     @Query('limit') limit?: number,
+    //     @GetUserId() current_user_id?: string
+    // ) {
+    //     return await this.tweets_service.getLikedPostsByUserId(
+    //         user_id,
+    //         current_user_id,
+    //         cursor,
+    //         limit ? Number(limit) : 10
+    //     );
+    // }
 }

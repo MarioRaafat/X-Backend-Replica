@@ -2,8 +2,7 @@ import { ApiProperty } from '@nestjs/swagger';
 import { UserResponseDTO } from './user-response.dto';
 import { RepostedByUserDTO } from './reposted-by-user.dto';
 import { Expose, Transform, Type } from 'class-transformer';
-
-export type TweetType = 'tweet' | 'reply' | 'quote' | 'repost';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
 
 export class TweetResponseDTO {
     @Expose()
@@ -17,7 +16,7 @@ export class TweetResponseDTO {
     @ApiProperty({
         description: 'Tweet type: tweet (normal), reply, quote, or repost',
         example: 'tweet',
-        enum: ['tweet', 'reply', 'quote', 'repost'],
+        enum: TweetType,
     })
     type: TweetType;
 
@@ -53,14 +52,6 @@ export class TweetResponseDTO {
     parent_tweet_id?: string;
 
     @Expose()
-    @ApiProperty({
-        description: 'Conversation ID - the root tweet that started this thread (only for replies)',
-        example: '550e8400-e29b-41d4-a716-446655440000',
-        required: false,
-    })
-    conversation_id?: string;
-
-    @Expose()
     @Type(() => UserResponseDTO)
     @ApiProperty({
         description: 'Tweet author information',
@@ -69,6 +60,7 @@ export class TweetResponseDTO {
     user: UserResponseDTO;
 
     @Expose()
+    @Type(() => TweetResponseDTO)
     @ApiProperty({
         description: 'Parent tweet (if this is a reply or quote)',
         type: () => TweetResponseDTO,
@@ -117,6 +109,7 @@ export class TweetResponseDTO {
     replies_count: number;
 
     @Expose()
+    @Transform(({ obj }) => !!obj.current_user_like)
     @ApiProperty({
         description: 'Whether the current user has liked this tweet',
         example: true,
@@ -124,6 +117,7 @@ export class TweetResponseDTO {
     is_liked: boolean;
 
     @Expose()
+    @Transform(({ obj }) => !!obj.current_user_repost)
     @ApiProperty({
         description: 'Whether the current user has reposted this tweet',
         example: false,

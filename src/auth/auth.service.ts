@@ -20,7 +20,7 @@ import { UsernameService } from './username.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
-import { EmailService } from 'src/communication/email.service';
+import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
@@ -28,8 +28,6 @@ import { GoogleLoginDTO } from './dto/google-login.dto';
 import { FacebookLoginDTO } from './dto/facebook-login.dto';
 import { Response } from 'express';
 import { ConfigService } from '@nestjs/config';
-import { generateOtpEmailHtml } from 'src/templates/otp-email';
-import { reset_password_email_object, verification_email_object } from 'src/constants/variables';
 import { instanceToPlain } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import {
@@ -57,7 +55,7 @@ export class AuthService {
         private readonly username_service: UsernameService,
         private readonly redis_service: RedisService,
         private readonly verification_service: VerificationService,
-        private readonly email_service: EmailService,
+        private readonly background_jobs_service: BackgroundJobsService,
         private readonly captcha_service: CaptchaService,
         private readonly config_service: ConfigService
     ) {}
@@ -147,32 +145,22 @@ export class AuthService {
     async signupStep1(dto: SignupStep1Dto) {
         const { name, birth_date, email, captcha_token } = dto;
 
-        // Verify CAPTCHA first (uncomment in production)
-        // try {
-        //     await this.captcha_service.validateCaptcha(captcha_token);
-        // } catch (error) {
-        //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
-        // }
+        // Verify CAPTCHA first
+        try {
+            await this.captcha_service.validateCaptcha(captcha_token);
+        } catch (error) {
+            throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
+        }
 
         const existing_user = await this.user_repository.findByEmail(email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
-        const signup_session_key = SIGNUP_SESSION_KEY(email);
-        const existing_session = await this.redis_service.hget(signup_session_key);
-        if (existing_session) {
-            throw new ConflictException({
-                message: ERROR_MESSAGES.SIGNUP_SESSION_ALREADY_EXISTS,
-                current_step: existing_session.step,
-            });
-        }
-
         const signup_session_object = SIGNUP_SESSION_OBJECT(email, {
             name,
             birth_date,
             email,
-            step: '1',
             email_verified: 'false',
         });
 
@@ -189,6 +177,10 @@ export class AuthService {
 
     async signupStep2(dto: SignupStep2Dto) {
         const { email, token } = dto;
+        const existing_user = await this.user_repository.findByEmail(email);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
+        }
 
         const signup_session_key = SIGNUP_SESSION_KEY(email);
         const signup_session = await this.redis_service.hget(signup_session_key);
@@ -205,7 +197,6 @@ export class AuthService {
         // Update session to mark email as verified
         const updated_session = SIGNUP_SESSION_OBJECT(email, {
             ...signup_session,
-            step: '2',
             email_verified: 'true',
         });
 
@@ -226,6 +217,16 @@ export class AuthService {
 
     async signupStep3(dto: SignupStep3Dto) {
         const { email, password, username, language } = dto;
+
+        let existing_user = await this.user_repository.findByEmail(email);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
+        }
+
+        existing_user = await this.user_repository.findByUsername(username);
+        if (existing_user) {
+            throw new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN);
+        }
 
         const signup_session_key = SIGNUP_SESSION_KEY(email);
         const signup_session = await this.redis_service.hget(signup_session_key);
@@ -257,11 +258,8 @@ export class AuthService {
         const otp_key = OTP_KEY('email', email);
         await this.redis_service.del(otp_key);
 
-        // Return user data with tokens for automatic login
-        const user = instanceToPlain(created_user);
-
         return {
-            user_id: created_user.id,
+            user: created_user,
             access_token,
             refresh_token,
         };
@@ -274,9 +272,7 @@ export class AuthService {
         if (identifier.includes('@')) {
             identifier_type = 'email';
             user = await this.user_repository.findByEmail(identifier);
-            // should be fixed :
-            // eslint-disable-next-line no-useless-escape
-        } else if (/^[\+]?[0-9\-\(\)\s]+$/.test(identifier)) {
+        } else if (/^[+]?[0-9\-()\s]+$/.test(identifier)) {
             identifier_type = 'phone_number';
             user = await this.user_repository.findByPhoneNumber(identifier);
         } else {
@@ -307,16 +303,18 @@ export class AuthService {
             login_dto.type
         );
 
-        const user_instance = await this.user_repository.findById(id);
-        if (!user_instance) {
+        const user = await this.user_repository.findById(id);
+        if (!user) {
             throw new InternalServerErrorException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const user = instanceToPlain(user_instance);
-
         const { access_token, refresh_token } = await this.generateTokens(id);
 
-        return { user, access_token, refresh_token };
+        return {
+            user: user,
+            access_token: access_token,
+            refresh_token: refresh_token,
+        };
     }
 
     async generateEmailVerification(email: string) {
@@ -333,24 +331,17 @@ export class AuthService {
             `${process.env.BACKEND_URL}/auth/not-me`
         );
 
-        const { subject, title, description, subtitle, subtitle_description } =
-            verification_email_object(otp, not_me_link);
-        const html = generateOtpEmailHtml(
-            title,
-            description,
+        const otp_data = {
+            email,
+            username: user.name,
             otp,
-            subtitle,
-            subtitle_description,
-            user.name
-        );
+            email_type: 'verification' as const,
+            not_me_link,
+        };
 
-        const email_sent = await this.email_service.sendEmail({
-            subject: subject,
-            recipients: [{ name: user.name ?? '', address: email }],
-            html,
-        });
+        const email_result = await this.background_jobs_service.queueOtpEmail(otp_data);
 
-        if (!email_sent) {
+        if (!email_result.success) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
         }
 
@@ -365,26 +356,20 @@ export class AuthService {
         }
 
         const otp = await this.verification_service.generateOtp(user.id, 'password');
+
+        const email = user.email;
         const username = user.username;
 
-        const { subject, title, description, subtitle, subtitle_description } =
-            reset_password_email_object(username);
-        const html = generateOtpEmailHtml(
-            title,
-            description,
+        const otp_data = {
+            email,
+            username,
             otp,
-            subtitle,
-            subtitle_description,
-            username
-        );
+            email_type: 'reset_password' as const,
+            not_me_link: undefined,
+        };
+        const email_result = await this.background_jobs_service.queueOtpEmail(otp_data);
 
-        const email_sent = await this.email_service.sendEmail({
-            subject: subject,
-            recipients: [{ name: user.name ?? '', address: user.email }],
-            html,
-        });
-
-        if (!email_sent) {
+        if (!email_result.success) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
         }
 
@@ -588,38 +573,10 @@ export class AuthService {
         const email_update_session_key = `email_update:${user_id}`;
         await this.redis_service.set(email_update_session_key, new_email, 3600); // 1 hour
 
-        // Send OTP email
-        const { subject, title, description, subtitle, subtitle_description } = {
-            subject: 'Email Update Verification',
-            title: 'Verify Your New Email Address',
-            description: `Please use the following code to verify your new email address:`,
-            subtitle: 'Security Notice',
-            subtitle_description:
-                "If you didn't request this email change, please ignore this message.",
-        };
-
-        const html = generateOtpEmailHtml(
-            title,
-            description,
-            otp,
-            subtitle,
-            subtitle_description,
-            user.username || user.name
-        );
-
-        const email_sent = await this.email_service.sendEmail({
-            subject: subject,
-            recipients: [{ name: user.name ?? '', address: new_email }],
-            html,
-        });
-
-        if (!email_sent) {
-            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
-        }
+        // there is no code for now as I finished my emails on X, so I don't know their flow
 
         return {
-            new_email,
-            verification_sent: true,
+            message: 'no available for now, contact Mario',
         };
     }
 

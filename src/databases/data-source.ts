@@ -6,6 +6,7 @@ import { User } from '../user/entities/user.entity';
 import { Verification } from '../verification/entities/verification.entity';
 import { Category } from '../category/entities';
 import { Tweet, TweetLike, TweetQuote, TweetReply, TweetRepost } from '../tweets/entities';
+import { UserPostsView } from '../tweets/entities/user-posts-view.entity';
 import { UserBlocks, UserFollows, UserMutes } from '../user/entities';
 import { UserInterests } from '../user/entities/user-interests.entity';
 config({ path: resolve(__dirname, '../../config/.env') });
@@ -34,6 +35,7 @@ export default new DataSource({
         UserFollows,
         UserInterests,
         UserMutes,
+        UserPostsView,
     ],
     migrations: ['src/migrations/*{.ts,.js}'],
     synchronize: false,

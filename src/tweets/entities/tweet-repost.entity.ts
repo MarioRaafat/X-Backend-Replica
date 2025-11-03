@@ -4,6 +4,7 @@ import {
     Entity,
     JoinColumn,
     ManyToOne,
+    PrimaryColumn,
     PrimaryGeneratedColumn,
     Unique,
 } from 'typeorm';
@@ -12,15 +13,12 @@ import { User } from '../../user/entities/user.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
 
 @Entity('tweet_reposts')
-@Unique('UQ_tweet_reposts_user_tweet', ['user_id', 'tweet_id'])
+// @Unique('UQ_tweet_reposts_user_tweet', ['user_id', 'tweet_id'])
 export class TweetRepost {
-    @PrimaryGeneratedColumn('uuid')
-    id: string;
-
-    @Column({ type: 'uuid' })
+    @PrimaryColumn({ type: 'uuid' })
     user_id: string;
 
-    @Column({ type: 'uuid' })
+    @PrimaryColumn({ type: 'uuid' })
     tweet_id: string;
 
     @CreateDateColumn()
@@ -34,8 +32,7 @@ export class TweetRepost {
     @JoinColumn({ name: 'tweet_id' })
     tweet: Tweet;
 
-    // Virtual properties to hold follow relationship data
-    // These are not columns in the database, but will be populated by queries
+
     follower_relation?: UserFollows | null; // User who reposted follows current user
     following_relation?: UserFollows | null; // Current user follows user who reposted
 }

@@ -96,10 +96,12 @@ export class AuthController {
     constructor(private readonly auth_service: AuthService) {}
 
     private httpOnlyRefreshToken(response: Response, refresh: string) {
+        const is_production = process.env.NODE_ENV === 'production';
+
         response.cookie('refresh_token', refresh, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: is_production,
+            sameSite: is_production ? 'strict' : 'none',
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
     }
@@ -135,10 +137,10 @@ export class AuthController {
     @ResponseMessage(SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED)
     @Post('signup/step3')
     async signupStep3(@Body() dto: SignupStep3Dto, @Res({ passthrough: true }) response: Response) {
-        const { user_id, access_token, refresh_token } = await this.auth_service.signupStep3(dto);
+        const { user, access_token, refresh_token } = await this.auth_service.signupStep3(dto);
 
         this.httpOnlyRefreshToken(response, refresh_token);
-        return { user_id, access_token };
+        return { user, access_token };
     }
 
     @ApiOperation(login_swagger.operation)
@@ -507,38 +509,29 @@ export class AuthController {
         @Body() dto: MobileGitHubAuthDto,
         @Res({ passthrough: true }) response: Response
     ) {
-        try {
-            const result = await this.auth_service.verifyGitHubMobileToken(
-                dto.code,
-                dto.redirect_uri,
-                dto.code_verifier
-            );
+        const result = await this.auth_service.verifyGitHubMobileToken(dto.code, dto.redirect_uri, dto.code_verifier);
 
-            if ('needs_completion' in result && result.needs_completion) {
-                const session_token = await this.auth_service.createOAuthSession(result.user);
-                return {
-                    needs_completion: true,
-                    session_token: session_token,
-                    provider: 'github',
-                };
-            }
-
-            if (!('user' in result) || !('id' in result.user)) {
-                throw new BadRequestException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
-            }
-
-            const user = result.user;
-            const { access_token, refresh_token } = await this.auth_service.generateTokens(user.id);
-            this.httpOnlyRefreshToken(response, refresh_token);
-
+        if ('needs_completion' in result && result.needs_completion) {
+            const sessionToken = await this.auth_service.createOAuthSession(result.user);
             return {
-                access_token,
-                user: user,
+                needs_completion: true,
+                session_token: sessionToken,
+                provider: 'github',
             };
-        } catch (error) {
-            console.error('Error in mobileGitHubAuth:', error);
-            throw new InternalServerErrorException(ERROR_MESSAGES.INTERNAL_SERVER_ERROR);
         }
+
+        if (!("user" in result) || !("id" in result.user)) {
+            throw new BadRequestException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID);
+        }
+
+        const user = result.user;
+        const { access_token, refresh_token } = await this.auth_service.generateTokens(user.id);
+        this.httpOnlyRefreshToken(response, refresh_token);
+
+        return {
+            access_token,
+            user: user,
+        };
     }
 
     @UseGuards(GitHubAuthGuard)

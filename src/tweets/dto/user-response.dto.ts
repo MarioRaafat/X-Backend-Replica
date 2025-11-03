@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Expose } from 'class-transformer';
+import { Expose, Transform } from 'class-transformer';
 
 export class UserResponseDTO {
     @Expose()
@@ -38,6 +38,36 @@ export class UserResponseDTO {
     })
     verified: boolean;
 
+    @Expose()
+    @ApiProperty({
+        description: 'User bio/description',
+        example: 'Software developer passionate about tech',
+        required: false,
+    })
+    bio?: string;
+
+    @Expose()
+    @ApiProperty({
+        description: 'User cover image URL',
+        example: 'https://example.com/cover.jpg',
+        required: false,
+    })
+    cover_url?: string;
+
+    @Expose()
+    @ApiProperty({
+        description: 'Number of followers',
+        example: 1250,
+    })
+    followers: number;
+
+    @Expose()
+    @ApiProperty({
+        description: 'Number of users following',
+        example: 340,
+    })
+    following: number;
+    
     @Expose()
     @ApiProperty({
         description: 'Whether the current user is following this user',

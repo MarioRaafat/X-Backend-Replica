@@ -451,7 +451,7 @@ describe('TweetsService', () => {
                 .mockResolvedValue({} as any);
             const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
 
-            await tweets_service.unLikeTweet(mock_tweet_id, mock_user_id);
+            await tweets_service.unlikeTweet(mock_tweet_id, mock_user_id);
 
             expect(mock_query_runner.connect).toHaveBeenCalled();
             expect(mock_query_runner.startTransaction).toHaveBeenCalled();

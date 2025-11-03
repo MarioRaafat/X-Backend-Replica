@@ -1,4 +1,4 @@
-import { Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Entity, JoinColumn, ManyToOne, PrimaryColumn, CreateDateColumn } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
@@ -10,6 +10,9 @@ export class TweetLike {
 
     @PrimaryColumn({ type: 'uuid' })
     tweet_id: string;
+
+    @CreateDateColumn({ type: 'timestamp' })
+    created_at: Date;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })
