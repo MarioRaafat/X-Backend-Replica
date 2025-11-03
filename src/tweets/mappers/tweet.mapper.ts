@@ -15,6 +15,10 @@ export class TweetMapper {
             name: tweet.user.name,
             avatar_url: tweet.user.avatar_url,
             verified: tweet.user.verified,
+            bio: tweet.user.bio,
+            cover_url: tweet.user.cover_url,
+            followers: tweet.user.followers,
+            following: tweet.user.following,
             is_following,
         };
 

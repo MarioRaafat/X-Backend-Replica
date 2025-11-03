@@ -21,7 +21,7 @@ export class GetUsersByIdDto {
             return value
                 .split(',')
                 .map((id) => id.trim())
-                .filter((id) => id.length > 0);
+                .filter((id) => id.length > 0 && id.length <= 50);
         }
         return value;
     })

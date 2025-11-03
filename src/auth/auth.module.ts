@@ -20,6 +20,8 @@ import { VerificationService } from 'src/verification/verification.service';
 import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
 import { UserRepository } from 'src/user/user.repository';
+import { BackgroundJobsModule } from 'src/background-jobs/background-jobs.module';
+import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 
 @Module({
     imports: [
@@ -39,6 +41,7 @@ import { UserRepository } from 'src/user/user.repository';
         RedisModule,
         VerificationModule,
         CommunicationModule,
+        BackgroundJobsModule,
     ],
     controllers: [AuthController],
     providers: [
@@ -49,6 +52,7 @@ import { UserRepository } from 'src/user/user.repository';
         RedisService,
         VerificationService,
         EmailService,
+        BackgroundJobsService,
         CaptchaService,
         UsernameService,
         GoogleStrategy,

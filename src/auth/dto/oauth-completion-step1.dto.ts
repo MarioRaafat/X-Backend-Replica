@@ -1,5 +1,7 @@
-import { IsDateString, IsNotEmpty, IsString } from 'class-validator';
+import { IsDateString, IsNotEmpty, IsString, MaxLength, Validate } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { AgeRangeValidator } from '../../validations/birth-date';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class OAuthCompletionStep1Dto {
     @ApiProperty({
@@ -8,14 +10,16 @@ export class OAuthCompletionStep1Dto {
     })
     @IsNotEmpty()
     @IsString()
+    @MaxLength(500)
     oauth_session_token: string;
 
     @ApiProperty({
-        description: 'User birth date',
+        description: "Mario's birth date",
         example: '2004-05-22',
         format: 'date',
     })
     @IsNotEmpty()
     @IsDateString()
+    @Validate(AgeRangeValidator, [6, 100])
     birth_date: string;
 }
