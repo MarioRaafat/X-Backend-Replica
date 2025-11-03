@@ -23,6 +23,7 @@ export class TimelinePaginationDto {
     })
     @IsOptional()
     cursor?: string | null;
+
     @IsOptional()
     @ApiProperty({
         required: false,

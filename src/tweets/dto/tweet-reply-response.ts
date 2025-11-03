@@ -1,6 +1,6 @@
-import { Expose, Type } from "class-transformer";
-import { TweetResponseDTO } from "./tweet-response.dto";
-import { ApiProperty } from "@nestjs/swagger";
+import { Expose, Type } from 'class-transformer';
+import { TweetResponseDTO } from './tweet-response.dto';
+import { ApiProperty } from '@nestjs/swagger';
 
 export class TweetReplyResponseDTO extends TweetResponseDTO {
     @Expose()

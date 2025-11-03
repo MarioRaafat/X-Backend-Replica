@@ -350,8 +350,6 @@ export class TweetsController {
         return await this.tweets_service.getTweetQuotes(id, user_id, query.cursor, query.limit);
     }
 
-    
-
     @ApiOperation(get_tweet_replies_swagger.operation)
     @ApiOkResponse(get_tweet_replies_swagger.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
@@ -434,7 +432,6 @@ export class TweetsController {
     async trackTweetView(@Param('id', ParseUUIDPipe) id: string, @GetUserId() _user_id: string) {
         return await this.tweets_service.incrementTweetViews(id);
     }
-
 
     /* Test Profile Functionalities */
 

@@ -20,7 +20,7 @@ export class TweetsRepository {
         @InjectRepository(TweetRepost)
         private readonly tweet_repost_repository: Repository<TweetRepost>,
         private readonly paginate_service: PaginationService,
-        private data_source: DataSource,
+        private data_source: DataSource
     ) {}
 
     async getFollowingTweets(
@@ -495,7 +495,13 @@ export class TweetsRepository {
             }
 
             // Apply cursor pagination
-            this.paginate_service.applyCursorPagination(query, cursor, 'tweet', 'created_at', 'tweet_id');
+            this.paginate_service.applyCursorPagination(
+                query,
+                cursor,
+                'tweet',
+                'created_at',
+                'tweet_id'
+            );
 
             const replies = await query.getMany();
 
@@ -507,7 +513,11 @@ export class TweetsRepository {
             );
 
             // Generate next cursor
-            const next_cursor = this.paginate_service.generateNextCursor(replies, 'created_at', 'tweet_id');
+            const next_cursor = this.paginate_service.generateNextCursor(
+                replies,
+                'created_at',
+                'tweet_id'
+            );
 
             return {
                 data: reply_dtos,
@@ -532,22 +542,22 @@ export class TweetsRepository {
     }> {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
-        
+
         try {
             // Parse cursor if provided
             let cursor_condition = '';
             let cursor_params: any[] = [];
-            
+
             if (cursor) {
                 const [cursor_date_str, cursor_id] = cursor.split('_');
                 const cursor_date = new Date(cursor_date_str);
-                
+
                 cursor_condition = `AND (t.created_at < $${current_user_id ? '3' : '2'} OR (t.created_at = $${current_user_id ? '3' : '2'} AND t.tweet_id < $${current_user_id ? '4' : '3'}))`;
                 cursor_params = [cursor_date, cursor_id];
             }
-            
+
             // Build query for tweets with media (images or videos)
-            let query_string = `
+            const query_string = `
                 SELECT 
                     t.*,
                     json_build_object(
@@ -561,18 +571,26 @@ export class TweetsRepository {
                         'followers', u.followers,
                         'following', u.following
                     ) as user
-                    ${current_user_id ? `,
+                    ${
+                        current_user_id
+                            ? `,
                         CASE WHEN likes.user_id IS NOT NULL THEN TRUE ELSE FALSE END as is_liked,
                         CASE WHEN reposts.user_id IS NOT NULL THEN TRUE ELSE FALSE END as is_reposted,
                         CASE WHEN follows.follower_id IS NOT NULL THEN TRUE ELSE FALSE END as is_following
-                    ` : ''}
+                    `
+                            : ''
+                    }
                 FROM tweets t
                 LEFT JOIN "user" u ON u.id = t.user_id
-                ${current_user_id ? `
+                ${
+                    current_user_id
+                        ? `
                     LEFT JOIN tweet_likes likes ON likes.tweet_id = t.tweet_id AND likes.user_id = $2
                     LEFT JOIN tweet_reposts reposts ON reposts.tweet_id = t.tweet_id AND reposts.user_id = $2
                     LEFT JOIN user_follows follows ON follows.follower_id = $2 AND follows.followed_id = u.id
-                ` : ''}
+                `
+                        : ''
+                }
                 WHERE t.user_id = $1 
                     AND (array_length(t.images, 1) > 0 OR array_length(t.videos, 1) > 0)
                 ${cursor_condition}
@@ -593,30 +611,42 @@ export class TweetsRepository {
 
             // Transform to DTOs
             const tweet_dtos = media_tweets.map((tweet: any) => {
-                return plainToInstance(TweetResponseDTO, {
-                    tweet_id: tweet.tweet_id,
-                    user_id: tweet.user_id,
-                    type: tweet.type || 'tweet',
-                    content: tweet.content,
-                    images: tweet.images,
-                    videos: tweet.videos,
-                    num_likes: tweet.num_likes,
-                    num_reposts: tweet.num_reposts,
-                    num_views: tweet.num_views,
-                    num_quotes: tweet.num_quotes,
-                    num_replies: tweet.num_replies,
-                    created_at: tweet.created_at,
-                    updated_at: tweet.updated_at,
-                    current_user_like: current_user_id && tweet.is_liked ? { user_id: current_user_id } : null,
-                    current_user_repost: current_user_id && tweet.is_reposted ? { user_id: current_user_id } : null,
-                    user: tweet.user,
-                }, {
-                    excludeExtraneousValues: true,
-                });
+                return plainToInstance(
+                    TweetResponseDTO,
+                    {
+                        tweet_id: tweet.tweet_id,
+                        user_id: tweet.user_id,
+                        type: tweet.type || 'tweet',
+                        content: tweet.content,
+                        images: tweet.images,
+                        videos: tweet.videos,
+                        num_likes: tweet.num_likes,
+                        num_reposts: tweet.num_reposts,
+                        num_views: tweet.num_views,
+                        num_quotes: tweet.num_quotes,
+                        num_replies: tweet.num_replies,
+                        created_at: tweet.created_at,
+                        updated_at: tweet.updated_at,
+                        current_user_like:
+                            current_user_id && tweet.is_liked ? { user_id: current_user_id } : null,
+                        current_user_repost:
+                            current_user_id && tweet.is_reposted
+                                ? { user_id: current_user_id }
+                                : null,
+                        user: tweet.user,
+                    },
+                    {
+                        excludeExtraneousValues: true,
+                    }
+                );
             });
 
             // Generate next cursor
-            const next_cursor = this.paginate_service.generateNextCursor(media_tweets, 'created_at', 'tweet_id');
+            const next_cursor = this.paginate_service.generateNextCursor(
+                media_tweets,
+                'created_at',
+                'tweet_id'
+            );
 
             return {
                 data: tweet_dtos,
@@ -679,12 +709,18 @@ export class TweetsRepository {
             }
 
             // Apply cursor pagination using like.created_at for ordering
-            this.paginate_service.applyCursorPagination(query, cursor, 'like', 'created_at', 'tweet_id');
+            this.paginate_service.applyCursorPagination(
+                query,
+                cursor,
+                'like',
+                'created_at',
+                'tweet_id'
+            );
 
             const liked_posts = await query.getMany();
 
             // Extract tweets from the likes
-            const tweets = liked_posts.map(like => like.tweet);
+            const tweets = liked_posts.map((like) => like.tweet);
 
             // Transform to DTOs
             const tweet_dtos = tweets.map((tweet) =>
@@ -694,13 +730,17 @@ export class TweetsRepository {
             );
 
             // Generate next cursor using liked posts (which have like.created_at)
-            const next_cursor = liked_posts.length > 0
-                ? this.paginate_service.generateNextCursor(
-                    liked_posts.map(lp => ({ created_at: lp.created_at, tweet_id: lp.tweet.tweet_id })),
-                    'created_at',
-                    'tweet_id'
-                )
-                : null;
+            const next_cursor =
+                liked_posts.length > 0
+                    ? this.paginate_service.generateNextCursor(
+                          liked_posts.map((lp) => ({
+                              created_at: lp.created_at,
+                              tweet_id: lp.tweet.tweet_id,
+                          })),
+                          'created_at',
+                          'tweet_id'
+                      )
+                    : null;
 
             return {
                 data: tweet_dtos,

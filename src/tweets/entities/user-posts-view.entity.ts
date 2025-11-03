@@ -1,4 +1,4 @@
-import { ViewEntity, ViewColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { JoinColumn, ManyToOne, ViewColumn, ViewEntity } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { TweetLike } from './tweet-like.entity';
 import { TweetRepost } from './tweet-repost.entity';

@@ -67,7 +67,7 @@ export class UserResponseDTO {
         example: 340,
     })
     following: number;
-    
+
     @Expose()
     @ApiProperty({
         description: 'Whether the current user is following this user',

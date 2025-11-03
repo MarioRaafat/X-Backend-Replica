@@ -28,7 +28,7 @@ export class Tweet {
     user_id: string;
 
     // nullable should be true
-    @Column({ type: "enum", enum: TweetType, nullable: true })
+    @Column({ type: 'enum', enum: TweetType, nullable: true })
     type: TweetType;
 
     @Column({ type: 'text', nullable: true })

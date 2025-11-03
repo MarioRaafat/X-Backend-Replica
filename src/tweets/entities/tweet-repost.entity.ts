@@ -32,7 +32,6 @@ export class TweetRepost {
     @JoinColumn({ name: 'tweet_id' })
     tweet: Tweet;
 
-
     follower_relation?: UserFollows | null; // User who reposted follows current user
     following_relation?: UserFollows | null; // Current user follows user who reposted
 }
