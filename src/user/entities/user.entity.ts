@@ -48,20 +48,17 @@ export class User {
     @Column({ type: 'date' })
     birth_date: Date;
 
-    // 'en', 'ar'.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
-    @Exclude()
-    language: string;
+    language: 'en' | 'ar';
 
     @Column({ type: 'boolean', default: false })
-    verified: boolean;
+    verified: boolean = false;
 
     @Column({ type: 'varchar', nullable: true })
-    country?: string;
+    country?: string | null;
 
     @Column({ type: 'boolean', default: false })
-    @Exclude()
-    online: boolean;
+    online: boolean = false;
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
@@ -72,14 +69,13 @@ export class User {
         onUpdate: 'CURRENT_TIMESTAMP',
     })
     @UpdateDateColumn()
-    @Exclude()
     updated_at: Date;
 
     @Column({ type: 'int', default: 0 })
-    followers: number;
+    followers: number = 0;
 
     @Column({ type: 'int', default: 0 })
-    following: number;
+    following: number = 0;
 
     @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
     hashtags: Hashtag[];

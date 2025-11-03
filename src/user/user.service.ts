@@ -31,6 +31,12 @@ import { ConfigService } from '@nestjs/config';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
 import { Category } from 'src/category/entities';
 import { ChangeLanguageDto } from './dto/change-language.dto';
+import { DeleteFileDto } from './dto/delete-file.dto';
+import { delete_cover } from './user.swagger';
+import { promises } from 'dns';
+import { UploadFileResponseDto } from './dto/upload-file-response.dto';
+import { TweetsService } from 'src/tweets/tweets.service';
+import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
 
 @Injectable()
 export class UserService {
@@ -42,11 +48,11 @@ export class UserService {
         private readonly category_repository: Repository<Category>
     ) {}
 
-    async getUsersById(
+    async getUsersByIds(
         current_user_id: string | null,
         get_users_by_id_dto: GetUsersByIdDto
     ): Promise<UserLookupDto[]> {
-        const results = await this.user_repository.getUsersById(
+        const results = await this.user_repository.getUsersByIds(
             get_users_by_id_dto.ids,
             current_user_id
         );
@@ -70,11 +76,11 @@ export class UserService {
         });
     }
 
-    async getUsersByUsername(
+    async getUsersByUsernames(
         current_user_id: string | null,
         get_users_by_username_dto: GetUsersByUsernameDto
     ): Promise<UserLookupDto[]> {
-        const results = await this.user_repository.getUsersByUsername(
+        const results = await this.user_repository.getUsersByUsernames(
             get_users_by_username_dto.usernames,
             current_user_id
         );
@@ -144,6 +150,12 @@ export class UserService {
         target_user_id: string,
         query_dto: GetFollowersDto
     ): Promise<UserListItemDto[]> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const { page_offset, page_size, following } = query_dto;
 
         const results = await this.user_repository.getFollowersList(
@@ -168,6 +180,12 @@ export class UserService {
         target_user_id: string,
         query_dto: PaginationParamsDto
     ): Promise<UserListItemDto[]> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const { page_offset, page_size } = query_dto;
 
         const results = await this.user_repository.getFollowingList(
@@ -235,8 +253,7 @@ export class UserService {
             this.user_repository.validateRelationshipRequest(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             ),
             this.user_repository.verifyFollowPermissions(current_user_id, target_user_id),
         ]);
@@ -265,18 +282,14 @@ export class UserService {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNFOLLOW_YOURSELF);
         }
 
-        const validation_result = await this.user_repository.validateRelationshipRequest(
+        const result = await this.user_repository.deleteFollowRelationship(
             current_user_id,
-            target_user_id,
-            RelationshipType.FOLLOW,
-            'remove'
+            target_user_id
         );
 
-        if (!validation_result.relationship_exists) {
+        if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_FOLLOWED);
         }
-
-        await this.user_repository.deleteFollowRelationship(current_user_id, target_user_id);
     }
 
     async removeFollower(current_user_id: string, target_user_id: string): Promise<void> {
@@ -284,19 +297,14 @@ export class UserService {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_REMOVE_SELF);
         }
 
-        const validation_result = await this.user_repository.validateRelationshipRequest(
+        const result = await this.user_repository.deleteFollowRelationship(
             target_user_id,
-            current_user_id,
-            RelationshipType.FOLLOW,
-            'remove'
+            current_user_id
         );
 
-        console.log(validation_result.relationship_exists);
-        if (!validation_result.relationship_exists) {
+        if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_A_FOLLOWER);
         }
-
-        await this.user_repository.deleteFollowRelationship(target_user_id, current_user_id);
     }
 
     async muteUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -307,8 +315,7 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.MUTE,
-            'insert'
+            RelationshipType.MUTE
         );
 
         if (!validation_result || !validation_result.user_exists) {
@@ -327,18 +334,14 @@ export class UserService {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNMUTE_YOURSELF);
         }
 
-        const validation_result = await this.user_repository.validateRelationshipRequest(
+        const result = await this.user_repository.deleteMuteRelationship(
             current_user_id,
-            target_user_id,
-            RelationshipType.MUTE,
-            'remove'
+            target_user_id
         );
 
-        if (!validation_result.relationship_exists) {
+        if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_MUTED);
         }
-
-        await this.user_repository.deleteMuteRelationship(current_user_id, target_user_id);
     }
 
     async blockUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -349,8 +352,7 @@ export class UserService {
         const validation_result = await this.user_repository.validateRelationshipRequest(
             current_user_id,
             target_user_id,
-            RelationshipType.BLOCK,
-            'insert'
+            RelationshipType.BLOCK
         );
 
         if (!validation_result || !validation_result.user_exists) {
@@ -369,19 +371,35 @@ export class UserService {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_UNBLOCK_YOURSELF);
         }
 
-        const validation_result = await this.user_repository.validateRelationshipRequest(
+        const result = await this.user_repository.deleteBlockRelationship(
             current_user_id,
-            target_user_id,
-            RelationshipType.BLOCK,
-            'remove'
+            target_user_id
         );
 
-        if (!validation_result.relationship_exists) {
+        if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_BLOCKED);
         }
-
-        await this.user_repository.deleteBlockRelationship(current_user_id, target_user_id);
     }
+
+    async getLikedPosts(current_user_id: string, query_dto: PaginationParamsDto) {}
+
+    async getPosts(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: PaginationParamsDto
+    ) {}
+
+    async getReplies(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: PaginationParamsDto
+    ) {}
+
+    async getMedia(
+        current_user_id: string,
+        target_user_id: string,
+        query_dto: PaginationParamsDto
+    ) {}
 
     async updateUser(user_id: string, update_user_dto: UpdateUserDto): Promise<UserProfileDto> {
         const user = await this.user_repository.findOne({
@@ -401,13 +419,27 @@ export class UserService {
         });
     }
 
-    async uploadAvatar(current_user_id: string, file: Express.Multer.File) {
-        try {
-            if (!file || !file.buffer) {
-                throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
-            }
+    async deleteUser(current_user_id: string): Promise<void> {
+        const user = await this.user_repository.findOne({
+            where: { id: current_user_id },
+        });
 
-            const image_name = this.azure_storage_service.generateImageName(
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        await this.user_repository.delete(current_user_id);
+    }
+
+    async uploadAvatar(
+        current_user_id: string,
+        file: Express.Multer.File
+    ): Promise<UploadFileResponseDto> {
+        if (!file || !file.buffer) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+        }
+        try {
+            const image_name = this.azure_storage_service.generateFileName(
                 current_user_id,
                 file.originalname
             );
@@ -416,7 +448,7 @@ export class UserService {
                 'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
             );
 
-            const image_url = await this.azure_storage_service.uploadImage(
+            const image_url = await this.azure_storage_service.uploadFile(
                 file.buffer,
                 image_name,
                 container_name
@@ -431,13 +463,32 @@ export class UserService {
         }
     }
 
-    async uploadCover(current_user_id: string, file: Express.Multer.File) {
-        try {
-            if (!file || !file.buffer) {
-                throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
-            }
+    async deleteAvatar(current_user_id: string, delete_file_dto: DeleteFileDto): Promise<void> {
+        const { file_url } = delete_file_dto;
 
-            const image_name = this.azure_storage_service.generateImageName(
+        const file_name = this.azure_storage_service.extractFileName(file_url);
+        const user_id = this.azure_storage_service.extractUserIdFromFileName(file_name);
+
+        if (user_id !== current_user_id) {
+            throw new ForbiddenException(ERROR_MESSAGES.UNAUTHORIZED_FILE_DELETE);
+        }
+
+        const container_name = this.config_service.get<string>(
+            'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
+        );
+
+        return await this.azure_storage_service.deleteFile(file_name, container_name);
+    }
+
+    async uploadCover(
+        current_user_id: string,
+        file: Express.Multer.File
+    ): Promise<UploadFileResponseDto> {
+        if (!file || !file.buffer) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+        }
+        try {
+            const image_name = this.azure_storage_service.generateFileName(
                 current_user_id,
                 file.originalname
             );
@@ -446,7 +497,7 @@ export class UserService {
                 'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
             );
 
-            const image_url = await this.azure_storage_service.uploadImage(
+            const image_url = await this.azure_storage_service.uploadFile(
                 file.buffer,
                 image_name,
                 container_name
@@ -461,7 +512,27 @@ export class UserService {
         }
     }
 
-    async assignInserests(user_id: string, assign_interests_dto: AssignInterestsDto) {
+    async deleteCover(current_user_id: string, delete_file_dto: DeleteFileDto): Promise<void> {
+        const { file_url } = delete_file_dto;
+
+        const file_name = this.azure_storage_service.extractFileName(file_url);
+        const user_id = this.azure_storage_service.extractUserIdFromFileName(file_name);
+
+        if (user_id !== current_user_id) {
+            throw new ForbiddenException(ERROR_MESSAGES.UNAUTHORIZED_FILE_DELETE);
+        }
+
+        const container_name = this.config_service.get<string>(
+            'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
+        );
+
+        return await this.azure_storage_service.deleteFile(file_name, container_name);
+    }
+
+    async assignInterests(
+        user_id: string,
+        assign_interests_dto: AssignInterestsDto
+    ): Promise<void> {
         const { category_ids } = assign_interests_dto;
 
         const existing_categories = await this.category_repository.findBy({
@@ -480,7 +551,10 @@ export class UserService {
         await this.user_repository.insertUserInterests(user_interests);
     }
 
-    async changeLanguage(user_id: string, change_language_dto: ChangeLanguageDto) {
+    async changeLanguage(
+        user_id: string,
+        change_language_dto: ChangeLanguageDto
+    ): Promise<ChangeLanguageResponseDto> {
         const user = await this.user_repository.findOne({ where: { id: user_id } });
 
         if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);

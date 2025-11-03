@@ -16,11 +16,6 @@ export const GetUserId = createParamDecorator(
     (data: unknown, ctx: ExecutionContext): string | null => {
         const request = ctx.switchToHttp().getRequest<IAuthenticatedRequest>();
         const user = request.user;
-
-        if (!user) {
-            return null;
-        }
-
-        return user.id;
+        return user ? user.id : null;
     }
 );
