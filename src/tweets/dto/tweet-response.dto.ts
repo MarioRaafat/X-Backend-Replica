@@ -69,6 +69,15 @@ export class TweetResponseDTO {
     parent_tweet?: TweetResponseDTO;
 
     @Expose()
+    @Type(() => TweetResponseDTO)
+    @ApiProperty({
+        description: 'Limited number of replies to this tweet',
+        type: [TweetResponseDTO],
+        required: false,
+    })
+    replies?: TweetResponseDTO[];
+
+    @Expose()
     @Transform(({ obj }) => obj.num_likes)
     @ApiProperty({
         description: 'Number of likes',

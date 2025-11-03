@@ -176,12 +176,12 @@ export class TweetsController {
     @ApiForbiddenErrorResponse('You can only delete your own reposts')
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.REPOST_DELETED)
-    @Delete('repost/:repost_id')
+    @Delete('repost/:tweet_id')
     async deleteRepost(
-        @Param('repost_id', ParseUUIDPipe) repost_id: string,
+        @Param('tweet_id', ParseUUIDPipe) tweet_id: string,
         @GetUserId() user_id: string
     ): Promise<void> {
-        return await this.tweets_service.deleteRepost(repost_id, user_id);
+        return await this.tweets_service.deleteRepost(tweet_id, user_id);
     }
 
     @HttpCode(HttpStatus.CREATED)

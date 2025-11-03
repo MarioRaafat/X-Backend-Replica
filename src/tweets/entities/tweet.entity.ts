@@ -85,11 +85,6 @@ export class Tweet {
     @OneToMany(() => TweetRepost, (tweet_repost) => tweet_repost.tweet, { onDelete: 'CASCADE' })
     reposts: TweetRepost[];
 
-    // Virtual fields to identify tweet type (loaded via leftJoin in queries)
-    reply_info?: TweetReply[];
-    quote_info?: TweetQuote[];
-    repost_info?: TweetRepost[];
-
     // Virtual fields for current user interactions (loaded via leftJoinAndMapOne in queries)
     current_user_like?: TweetLike | null;
     current_user_repost?: TweetRepost | null;

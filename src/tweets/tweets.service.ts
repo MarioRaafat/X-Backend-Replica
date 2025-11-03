@@ -80,35 +80,6 @@ export class TweetsService {
     private readonly TOPICS = ['Sports', 'Entertainment', 'News'];
 
     /**
-     * Helper method to attach type information from raw query results to tweet entities
-     */
-    private attachTypeInfo(tweet: Tweet, raw: Record<string, unknown>): ITweetWithTypeInfo {
-        const tweet_with_type = tweet as ITweetWithTypeInfo;
-
-        // TypeORM raw results can have different key formats
-        // Check: alias name, dotted path, and original column name
-        tweet_with_type.reply_info_original_tweet_id =
-            (raw.reply_info_original_tweet_id as string | undefined) ||
-            (raw['reply_info.original_tweet_id'] as string | undefined) ||
-            (raw['reply_info_original_tweet_id'] as string | undefined) ||
-            undefined;
-
-        tweet_with_type.quote_info_original_tweet_id =
-            (raw.quote_info_original_tweet_id as string | undefined) ||
-            (raw['quote_info.original_tweet_id'] as string | undefined) ||
-            (raw['quote_info_original_tweet_id'] as string | undefined) ||
-            undefined;
-
-        tweet_with_type.repost_info_original_tweet_id =
-            (raw.repost_info_tweet_id as string | undefined) ||
-            (raw['repost_info.tweet_id'] as string | undefined) ||
-            (raw['repost_info_tweet_id'] as string | undefined) ||
-            undefined;
-
-        return tweet_with_type;
-    }
-
-    /**
      * Handles image upload processing
      * @param file - The uploaded image file (in memory, not saved to disk)
      * @param _user_id - The authenticated user's ID
@@ -244,7 +215,6 @@ export class TweetsService {
 
         try {
             await this.extractDataFromTweets(tweet, user_id, query_runner);
-            const extracted_topics = this.extractTopics(tweet.content);
             // watch the error which could exist if user id not found here
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
@@ -395,7 +365,7 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const parentTweet = await this.getTweetWithUserById(tweet_id, user_id);
+            const parentTweet = await this.getTweetWithUserById(tweet_id, user_id, false);
 
             await this.extractDataFromTweets(quote, user_id, query_runner);
 
@@ -812,7 +782,10 @@ export class TweetsService {
     /***************************************Helper Methods***************************************/
     private async getTweetWithUserById(
         tweet_id: string,
-        current_user_id?: string
+        current_user_id?: string,
+        flag: boolean = false,
+        include_replies: boolean = true,
+        replies_limit: number = 3
     ): Promise<TweetResponseDTO> {
         try {
             let query = this.tweet_repository
@@ -837,9 +810,19 @@ export class TweetsService {
             });
 
             // If this is a reply, delegate to getReplyWithUserById to get the cascaded parent tweets
-            if (tweet.type === TweetType.REPLY) {
+            if (flag && tweet.type === TweetType.REPLY) {
                 const parent_tweet_dto = await this.getReplyWithUserById(tweet_id, current_user_id);
                 tweet_dto.parent_tweet = parent_tweet_dto as any;
+            }
+
+            // Fetch limited replies if requested and tweet has replies
+            if (include_replies && tweet.num_replies > 0) {
+                const replies_result = await this.tweets_repository.getReplies(
+                    tweet_id,
+                    current_user_id || '',
+                    { limit: replies_limit }
+                );
+                tweet_dto.replies = replies_result.tweets;
             }
 
             return tweet_dto;
