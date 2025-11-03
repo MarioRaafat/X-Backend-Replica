@@ -259,7 +259,7 @@ export class AuthService {
         await this.redis_service.del(otp_key);
 
         return {
-            user: created_user,
+            user: instanceToPlain(created_user),
             access_token,
             refresh_token,
         };
@@ -311,7 +311,7 @@ export class AuthService {
         const { access_token, refresh_token } = await this.generateTokens(id);
 
         return {
-            user: user,
+            user: instanceToPlain(user),
             access_token: access_token,
             refresh_token: refresh_token,
         };
@@ -629,7 +629,7 @@ export class AuthService {
 
             if (user) {
                 return {
-                    user: user,
+                    user: instanceToPlain(user),
                     needs_completion: false,
                 };
             }
@@ -655,7 +655,7 @@ export class AuthService {
                     }
 
                     return {
-                        user: updated_user,
+                        user: instanceToPlain(updated_user),
                         needs_completion: false,
                     };
                 }
@@ -736,7 +736,7 @@ export class AuthService {
             let user = await this.user_repository.findByGithubId(github_user.github_id);
             if (user) {
                 return {
-                    user: user,
+                    user: instanceToPlain(user),
                     needs_completion: false,
                 };
             }
@@ -758,7 +758,7 @@ export class AuthService {
                 }
 
                 return {
-                    user: updated_user,
+                    user: instanceToPlain(updated_user),
                     needs_completion: false,
                 };
             }

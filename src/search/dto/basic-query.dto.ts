@@ -1,5 +1,6 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class BasicQueryDto {
     @ApiProperty({
@@ -8,6 +9,7 @@ export class BasicQueryDto {
         type: String,
     })
     @IsNotEmpty({ message: 'Query is required' })
+    @MaxLength(STRING_MAX_LENGTH)
     query: string;
 
     @ApiPropertyOptional({
@@ -17,5 +19,6 @@ export class BasicQueryDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     username?: string;
 }

@@ -20,6 +20,7 @@ export class CreateTweetDTO {
     @IsOptional()
     @IsArray()
     @IsUrl({}, { each: true })
+    @MaxLength(500, { each: true })
     images?: string[];
 
     @ApiProperty({
@@ -31,5 +32,6 @@ export class CreateTweetDTO {
     @IsOptional()
     @IsArray()
     @IsUrl({}, { each: true })
+    @MaxLength(500, { each: true })
     videos?: string[];
 }

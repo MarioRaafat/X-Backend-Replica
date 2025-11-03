@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
-import { IsIn, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsIn, IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
 import { ApiExtraModels, ApiProperty } from '@nestjs/swagger';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 @ApiExtraModels()
 export class PaginationQueryDto {
@@ -25,6 +26,7 @@ export class PaginationQueryDto {
 
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     @ApiProperty({ description: 'Search term', default: '', required: false })
     search?: string;
 
