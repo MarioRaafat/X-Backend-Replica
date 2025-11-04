@@ -5,14 +5,17 @@ import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GetTweetLikesQueryDto {
     @ApiProperty({
-        description: 'Cursor for pagination (format: "timestamp_userId")',
+        description: 'Page number (starts from 1)',
         required: false,
-        example: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+        default: 1,
+        minimum: 1,
+        example: 1,
     })
     @IsOptional()
-    @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
-    cursor?: string;
+    @Type(() => Number)
+    @IsInt()
+    @Min(1)
+    page?: number = 1;
 
     @ApiProperty({
         description: 'Number of users to return per page',

@@ -17,7 +17,7 @@ export class VerificationService {
     ) {}
 
     async generateOtp(
-        identifier: string, // email or userId
+        identifier: string, // email or user_id
         type: 'email' | 'password',
         size = 6
     ): Promise<string> {
@@ -46,7 +46,7 @@ export class VerificationService {
     }
 
     async validateOtp(
-        identifier: string, // email or userId
+        identifier: string, // email or user_id
         token: string,
         type: string
     ): Promise<boolean> {
@@ -93,7 +93,7 @@ export class VerificationService {
     }
 
     async generatePasswordResetToken(user_id: string): Promise<string> {
-        const payload = { userId: user_id, purpose: 'password-reset' };
+        const payload = { user_id: user_id, purpose: 'password-reset' };
         const token = await this.jwt_service.signAsync(payload, {
             expiresIn: (process.env.PASSWORD_RESET_TOKEN_EXPIRATION ?? '15m') as StringValue,
             secret: process.env.PASSWORD_RESET_TOKEN_SECRET ?? 'password-reset-secret',
@@ -102,7 +102,7 @@ export class VerificationService {
         return token;
     }
 
-    async validatePasswordResetToken(token: string): Promise<{ userId: string } | null> {
+    async validatePasswordResetToken(token: string): Promise<{ user_id: string } | null> {
         try {
             const payload = await this.jwt_service.verifyAsync(token, {
                 secret: process.env.PASSWORD_RESET_TOKEN_SECRET,
@@ -112,7 +112,7 @@ export class VerificationService {
                 return null;
             }
 
-            return { userId: payload.userId };
+            return { user_id: payload.user_id };
         } catch (error) {
             console.log('Password reset token validation error:', error);
             return null;

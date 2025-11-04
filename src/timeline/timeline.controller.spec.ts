@@ -3,6 +3,7 @@ import { TimelineController } from './timeline.controller';
 import { TimelineService } from './timeline.service';
 import { TimelinePaginationDto } from './dto/timeline-pagination.dto';
 import { UserResponseDTO } from 'src/tweets/dto/user-response.dto';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { RepostedByUserDTO, TweetResponseDTO } from 'src/tweets/dto';
 import { TimelineResponseDto } from './dto/timeline-response.dto';
 
@@ -57,11 +58,10 @@ describe('TimelineController', () => {
             const parent_tweet: TweetResponseDTO = {
                 tweet_id: 'tweet-parent-789',
                 content: 'This is the original tweet being replied to',
-                type: 'tweet',
+                type: TweetType.TWEET,
                 images: ['https://example.com/image1.jpg'],
                 videos: [],
                 user: user_response,
-                conversation_id: 'conv-123',
                 likes_count: 245,
                 reposts_count: 67,
                 replies_count: 34,
@@ -84,7 +84,7 @@ describe('TimelineController', () => {
                 {
                     tweet_id: 'tweet-reply-001',
                     content: 'Great point! I completely agree with this perspective.',
-                    type: 'reply',
+                    type: TweetType.REPLY,
                     images: [],
                     videos: [],
                     parent_tweet_id: 'tweet-parent-789',
@@ -102,7 +102,6 @@ describe('TimelineController', () => {
                     },
                     parent_tweet: parent_tweet,
                     reposted_by: reposted_by,
-                    conversation_id: 'conv-123',
                     likes_count: 89,
                     reposts_count: 23,
                     replies_count: 12,
@@ -175,11 +174,10 @@ describe('TimelineController', () => {
             const parent_tweet: TweetResponseDTO = {
                 tweet_id: 'tweet-parent-789',
                 content: 'This is the original tweet being replied to',
-                type: 'tweet',
+                type: TweetType.TWEET,
                 images: ['https://example.com/image1.jpg'],
                 videos: [],
                 user: user_response,
-                conversation_id: 'conv-123',
                 likes_count: 245,
                 reposts_count: 67,
                 replies_count: 34,
@@ -202,7 +200,7 @@ describe('TimelineController', () => {
                 {
                     tweet_id: 'tweet-reply-001',
                     content: 'Great point! I completely agree with this perspective.',
-                    type: 'reply',
+                    type: TweetType.REPLY,
                     images: [],
                     videos: [],
                     parent_tweet_id: 'tweet-parent-789',
@@ -220,7 +218,6 @@ describe('TimelineController', () => {
                     },
                     parent_tweet: parent_tweet,
                     reposted_by: reposted_by,
-                    conversation_id: 'conv-123',
                     likes_count: 89,
                     reposts_count: 23,
                     replies_count: 12,

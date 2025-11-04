@@ -267,7 +267,7 @@ describe('VerificationService', () => {
             expect(token).toBe('reset-token');
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(jwt_service.signAsync).toHaveBeenCalledWith(
-                { userId: 'user123', purpose: 'password-reset' },
+                { user_id: 'user123', purpose: 'password-reset' },
                 expect.objectContaining({
                     expiresIn: '15m',
                     secret: 'reset-secret',
@@ -285,7 +285,7 @@ describe('VerificationService', () => {
             expect(token).toBe('reset-token');
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(jwt_service.signAsync).toHaveBeenCalledWith(
-                { userId: 'user123', purpose: 'password-reset' },
+                { user_id: 'user123', purpose: 'password-reset' },
                 expect.objectContaining({
                     expiresIn: '15m',
                     secret: 'password-reset-secret',
@@ -298,13 +298,13 @@ describe('VerificationService', () => {
         it('should validate password reset token successfully', async () => {
             process.env.PASSWORD_RESET_TOKEN_SECRET = 'reset-secret';
             jwt_service.verifyAsync.mockResolvedValue({
-                userId: 'user123',
+                user_id: 'user123',
                 purpose: 'password-reset',
             });
 
             const result = await service.validatePasswordResetToken('valid-token');
 
-            expect(result).toEqual({ userId: 'user123' });
+            expect(result).toEqual({ user_id: 'user123' });
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(jwt_service.verifyAsync).toHaveBeenCalledWith('valid-token', {
                 secret: 'reset-secret',
@@ -314,7 +314,7 @@ describe('VerificationService', () => {
         it('should return null when purpose is incorrect', async () => {
             process.env.PASSWORD_RESET_TOKEN_SECRET = 'reset-secret';
             jwt_service.verifyAsync.mockResolvedValue({
-                userId: 'user123',
+                user_id: 'user123',
                 purpose: 'wrong-purpose',
             });
 

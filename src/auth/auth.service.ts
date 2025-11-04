@@ -389,7 +389,7 @@ export class AuthService {
 
         return {
             isValid: true,
-            resetToken: reset_token, // This token will be used in step 3
+            reset_token: reset_token, // This token will be used in step 3
         };
     }
 
@@ -425,7 +425,7 @@ export class AuthService {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
         // check that the 2 ids are same
-        if (token_data.userId !== user_id) {
+        if (token_data.user_id !== user_id) {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
 

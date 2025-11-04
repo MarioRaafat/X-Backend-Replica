@@ -48,7 +48,7 @@ describe('GitHubStrategy', () => {
             const profile = {
                 id: 'github-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [{ value: 'http://example.com/photo.jpg' }],
             } as any;
@@ -82,7 +82,7 @@ describe('GitHubStrategy', () => {
             const profile = {
                 id: 'github-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             } as any;
@@ -108,7 +108,7 @@ describe('GitHubStrategy', () => {
             const profile = {
                 id: 'github-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [],
                 photos: [],
             } as any;
@@ -120,11 +120,11 @@ describe('GitHubStrategy', () => {
             ).rejects.toThrow('No email found in GitHub profile');
         });
 
-        it('should handle profile with username only when displayName is missing', async () => {
+        it('should handle profile with username only when display_name is missing', async () => {
             const profile = {
                 id: 'github-123',
                 username: 'johndoe',
-                displayName: null,
+                display_name: null,
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             } as any;
@@ -153,7 +153,7 @@ describe('GitHubStrategy', () => {
             const profile = {
                 id: 'github-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             } as any;
@@ -181,7 +181,7 @@ describe('GitHubStrategy', () => {
             const profile = {
                 id: 'github-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             } as any;
@@ -200,7 +200,7 @@ describe('GitHubStrategy', () => {
             const profile = {
                 id: 'github-123',
                 username: 'johndoe',
-                displayName: 'John Michael Doe',
+                display_name: 'John Michael Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             } as any;

@@ -25,7 +25,7 @@ export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
         profile: Profile,
         done?: any
     ): Promise<any> {
-        const { id, username, displayName, emails, photos } = profile;
+        const { id, username, display_name, emails, photos } = profile;
 
         // GitHub might not always return email in the profile (for now we must have email so I will throw an error if not)
         const email = emails && emails.length > 0 ? emails[0].value : null;
@@ -35,7 +35,7 @@ export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
         }
 
         // Split display name into first and last name
-        const name_parts = displayName ? displayName.split(' ') : [username];
+        const name_parts = display_name ? display_name.split(' ') : [username];
         const first_name = name_parts[0] || username || '';
         const last_name = name_parts.slice(1).join(' ') || '';
 

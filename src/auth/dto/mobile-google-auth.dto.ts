@@ -8,6 +8,6 @@ export class MobileGoogleAuthDto {
     })
     @IsNotEmpty()
     @IsString()
-    @MaxLength(500)
+    @MaxLength(1500)
     access_token: string;
 }

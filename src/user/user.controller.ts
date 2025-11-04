@@ -67,7 +67,7 @@ import { GetFollowersDto } from './dto/get-followers.dto';
 import { PaginationParamsDto } from './dto/pagination-params.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePhoneNumberDto } from './dto/update_phone_number.dto';
-import { GetUserId } from 'src/decorators/get-userId.decorator';
+import { GetUserId } from 'src/decorators/get-user_id.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
@@ -83,14 +83,13 @@ export class UserController {
     @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_users_by_ids.operation)
     @ApiOkResponse(get_users_by_ids.responses.success)
-    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USERS_RETRIEVED)
     @Get()
     async getUsersByIds(
         @GetUserId() current_user_id: string | null,
         @Query() get_users_by_id_dto: GetUsersByIdDto
     ) {
-        return await this.user_service.getUsersById(current_user_id, get_users_by_id_dto);
+        return await this.user_service.getUsersByIds(current_user_id, get_users_by_id_dto);
     }
 
     @UseGuards(OptionalJwtAuthGuard)
@@ -103,7 +102,7 @@ export class UserController {
         @GetUserId() current_user_id: string | null,
         @Query() get_users_by_username_dto: GetUsersByUsernameDto
     ) {
-        return await this.user_service.getUsersByUsername(
+        return await this.user_service.getUsersByUsernames(
             current_user_id,
             get_users_by_username_dto
         );
@@ -321,38 +320,62 @@ export class UserController {
     @ApiOkResponse(get_liked_posts.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.LIKED_POSTS_RETRIEVED)
-    @Get('me/liked-yaps')
-    async getLikedYaps(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {}
+    @Get('me/liked-posts')
+    async getLikedPosts(
+        @GetUserId() current_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getLikedPosts(current_user_id, query_dto);
+    }
 
-    @UseGuards(OptionalJwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
     @ApiOperation(get_user_posts.operation)
     @ApiOkResponse(get_user_posts.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.POSTS_RETRIEVED)
-    @Get(':userId/posts')
-    async getPosts(@Param('userId') user_id: string, @Query() query_dto: PaginationParamsDto) {}
+    @Get(':target_user_id/posts')
+    async getPosts(
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getPosts(current_user_id, target_user_id, query_dto);
+    }
 
-    @UseGuards(OptionalJwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
     @ApiOperation(get_user_replies.operation)
     @ApiOkResponse(get_user_replies.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.REPLIES_RETRIEVED)
-    @Get(':user_id/replies')
-    async getReplies(@Param('user_id') user_id: string, @Query() query_dto: PaginationParamsDto) {}
+    @Get(':target_user_id/replies')
+    async getReplies(
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getReplies(current_user_id, target_user_id, query_dto);
+    }
 
-    @UseGuards(OptionalJwtAuthGuard)
+    @UseGuards(JwtAuthGuard)
     @ApiOperation(get_user_media.operation)
     @ApiOkResponse(get_user_media.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.MEDIA_RETRIEVED)
-    @Get(':user_id/media')
-    async getMedia(@Param('user_id') user_id: string, @Query() query_dto: PaginationParamsDto) {}
+    @Get(':target_user_id/media')
+    async getMedia(
+        @GetUserId() current_user_id: string,
+        @Param('target_user_id') target_user_id: string,
+        @Query() query_dto: PaginationParamsDto
+    ) {
+        return await this.user_service.getMedia(current_user_id, target_user_id, query_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(update_user.operation)
     @ApiOkResponse(update_user.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USER_UPDATED)
     @Patch('me')
     async updateUser(@GetUserId() user_id: string, @Body() update_user_dto: UpdateUserDto) {
@@ -367,7 +390,9 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.ACCOUNT_DELETED)
     @Delete('me/delete-account')
-    async deleteUser(@GetUserId() current_user_id: string) {}
+    async deleteUser(@GetUserId() current_user_id: string) {
+        return await this.user_service.deleteUser(current_user_id);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -393,10 +418,16 @@ export class UserController {
     @ApiOkResponse(delete_avatar.responses.success)
     @ApiBody({ type: DeleteFileDto })
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_URL)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.FILE_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.AVATAR_DELETED)
     @Delete('me/delete-avatar')
-    async deleteAvatar(@Body() file_url: DeleteFileDto) {}
+    async deleteAvatar(
+        @GetUserId() current_user_id: string,
+        @Body() delete_file_dto: DeleteFileDto
+    ) {
+        return await this.user_service.deleteAvatar(current_user_id, delete_file_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -422,10 +453,16 @@ export class UserController {
     @ApiBody({ type: DeleteFileDto })
     @ApiOkResponse(delete_cover.responses.success)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_URL)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.FILE_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.COVER_DELETED)
     @Delete('me/delete-cover')
-    async deleteCover(@Body() file_url: DeleteFileDto) {}
+    async deleteCover(
+        @GetUserId() current_user_id: string,
+        @Body() delete_file_dto: DeleteFileDto
+    ) {
+        return await this.user_service.deleteCover(current_user_id, delete_file_dto);
+    }
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -440,7 +477,7 @@ export class UserController {
         @GetUserId() current_user_id: string,
         @Body() assign_interests_dto: AssignInterestsDto
     ) {
-        return await this.user_service.assignInserests(current_user_id, assign_interests_dto);
+        return await this.user_service.assignInterests(current_user_id, assign_interests_dto);
     }
 
     @UseGuards(JwtAuthGuard)

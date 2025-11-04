@@ -3,6 +3,7 @@ import { TimelineService } from './timeline.service';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { TimelinePaginationDto } from './dto/timeline-pagination.dto';
 import { TweetResponseDTO } from 'src/tweets/dto/tweet-response.dto';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { RepostedByUserDTO, UserResponseDTO } from 'src/tweets/dto';
 
 describe('TimelineService', () => {
@@ -56,11 +57,10 @@ describe('TimelineService', () => {
         const parent_tweet: TweetResponseDTO = {
             tweet_id: 'tweet-parent-789',
             content: 'This is the original tweet being replied to',
-            type: 'tweet',
+            type: TweetType.TWEET,
             images: ['https://example.com/image1.jpg'],
             videos: [],
             user: user_response,
-            conversation_id: 'conv-123',
             likes_count: 245,
             reposts_count: 67,
             replies_count: 34,
@@ -83,7 +83,7 @@ describe('TimelineService', () => {
             {
                 tweet_id: 'tweet-reply-001',
                 content: 'Great point! I completely agree with this perspective.',
-                type: 'reply',
+                type: TweetType.REPLY,
                 images: [],
                 videos: [],
                 parent_tweet_id: 'tweet-parent-789',
@@ -101,7 +101,6 @@ describe('TimelineService', () => {
                 },
                 parent_tweet: parent_tweet,
                 reposted_by: reposted_by,
-                conversation_id: 'conv-123',
                 likes_count: 89,
                 reposts_count: 23,
                 replies_count: 12,
@@ -138,7 +137,7 @@ describe('TimelineService', () => {
                 .map((_, i) => ({
                     tweet_id: `tweet-${i}`,
                     content: `This is test tweet number ${i + 1}`,
-                    type: 'tweet',
+                    type: TweetType.TWEET,
                     images: [],
                     videos: [],
                     user: user_response,
@@ -228,11 +227,10 @@ describe('TimelineService', () => {
         const parent_tweet: TweetResponseDTO = {
             tweet_id: 'tweet-parent-789',
             content: 'This is the original tweet being replied to',
-            type: 'tweet',
+            type: TweetType.TWEET,
             images: ['https://example.com/image1.jpg'],
             videos: [],
             user: user_response,
-            conversation_id: 'conv-123',
             likes_count: 245,
             reposts_count: 67,
             replies_count: 34,
@@ -255,7 +253,7 @@ describe('TimelineService', () => {
             {
                 tweet_id: 'tweet-foryou-001',
                 content: 'Trending topic: The future of AI and machine learning',
-                type: 'tweet',
+                type: TweetType.TWEET,
                 images: ['https://example.com/ai-image.jpg'],
                 videos: [],
                 user: {
@@ -271,7 +269,6 @@ describe('TimelineService', () => {
                     cover_url: 'https://example.com/ai-cover.jpg',
                 },
                 reposted_by: reposted_by,
-                conversation_id: 'conv-foryou-123',
                 likes_count: 567,
                 reposts_count: 189,
                 replies_count: 78,
@@ -308,7 +305,7 @@ describe('TimelineService', () => {
                 .map((_, i) => ({
                     tweet_id: `tweet-foryou-${i}`,
                     content: `Trending tweet ${i + 1}: Interesting content for you`,
-                    type: 'tweet',
+                    type: TweetType.TWEET,
                     images: i % 2 === 0 ? [`https://example.com/image-${i}.jpg`] : [],
                     videos: [],
                     user: {

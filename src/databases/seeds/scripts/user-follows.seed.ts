@@ -42,7 +42,7 @@ export class UserFollowsSeeder extends BaseSeeder {
         const user_targets = new Map<string, { followers: number; following: number }>();
 
         for (const raw_user of data.users) {
-            const user_id = user_id_map.get(String(raw_user.userId));
+            const user_id = user_id_map.get(String(raw_user.user_id));
             if (!user_id) continue;
 
             let followers_count = SeedHelper.parseInt(raw_user.followers, 0);
@@ -76,7 +76,7 @@ export class UserFollowsSeeder extends BaseSeeder {
             const follow_relations: UserFollows[] = [];
 
             for (const raw_user of batch) {
-                const user_id = user_id_map.get(String(raw_user.userId));
+                const user_id = user_id_map.get(String(raw_user.user_id));
                 if (!user_id) continue;
 
                 const targets = user_targets.get(user_id);

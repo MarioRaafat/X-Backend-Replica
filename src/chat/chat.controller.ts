@@ -29,17 +29,17 @@ import {
     ApiForbiddenErrorResponse,
     ApiNotFoundErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
-import { GetUserId } from '../decorators/get-userId.decorator';
+import { GetUserId } from '../decorators/get-user_id.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import {
-    CreateChatDto,
+    create_chat_dto,
     GetChatsQueryDto,
     GetMessagesQueryDto,
-    MarkMessagesReadDto,
+    mark_messages_read_dto,
     SearchChatsQueryDto,
-    SendMessageDto,
-    UpdateMessageDto,
+    send_message_dto,
+    update_message_dto,
 } from './dto';
 import {
     create_chat_swagger,
@@ -65,15 +65,15 @@ export class ChatController {
     constructor(private readonly chat_service: ChatService) {}
 
     @ApiOperation(create_chat_swagger.operation)
-    @ApiBody({ type: CreateChatDto })
+    @ApiBody({ type: create_chat_dto })
     @ApiCreatedResponse(create_chat_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.RECIPIENT_NOT_FOUND)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_MESSAGE_YOURSELF)
     @ApiConflictErrorResponse(ERROR_MESSAGES.CHAT_ALREADY_EXISTS)
     @ResponseMessage(SUCCESS_MESSAGES.CHAT_CREATED)
     @Post()
-    async createChat(@Body() createChatDto: CreateChatDto, @GetUserId() user_id: string) {
-        return this.chat_service.createChat(user_id, createChatDto);
+    async createChat(@Body() create_chat_dto: create_chat_dto, @GetUserId() user_id: string) {
+        return this.chat_service.createChat(user_id, create_chat_dto);
     }
 
     @ApiOperation(get_chats_swagger.operation)
@@ -118,7 +118,7 @@ export class ChatController {
 
     @ApiOperation(send_message_swagger.operation)
     @ApiParam(send_message_swagger.params.chat_id)
-    @ApiBody({ type: SendMessageDto })
+    @ApiBody({ type: send_message_dto })
     @ApiCreatedResponse(send_message_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.CHAT_NOT_FOUND)
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
@@ -127,10 +127,10 @@ export class ChatController {
     @Post('chats/:chat_id/messages')
     async sendMessage(
         @Param('chat_id') chat_id: string,
-        @Body() sendMessageDto: SendMessageDto,
+        @Body() send_message_dto: send_message_dto,
         @GetUserId() user_id: string
     ) {
-        return this.chat_service.sendMessage(user_id, chat_id, sendMessageDto);
+        return this.chat_service.sendMessage(user_id, chat_id, send_message_dto);
     }
 
     @ApiOperation(get_messages_swagger.operation)
@@ -168,7 +168,7 @@ export class ChatController {
     @ApiOperation(update_message_swagger.operation)
     @ApiParam(update_message_swagger.params.chat_id)
     @ApiParam(update_message_swagger.params.message_id)
-    @ApiBody({ type: UpdateMessageDto })
+    @ApiBody({ type: update_message_dto })
     @ApiOkResponse(update_message_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.MESSAGE_NOT_FOUND)
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_MESSAGE)
@@ -178,10 +178,10 @@ export class ChatController {
     async updateMessage(
         @Param('chat_id') chat_id: string,
         @Param('message_id') message_id: string,
-        @Body() updateMessageDto: UpdateMessageDto,
+        @Body() update_message_dto: update_message_dto,
         @GetUserId() user_id: string
     ) {
-        return this.chat_service.updateMessage(user_id, chat_id, message_id, updateMessageDto);
+        return this.chat_service.updateMessage(user_id, chat_id, message_id, update_message_dto);
     }
 
     @ApiOperation(delete_message_swagger.operation)
@@ -202,7 +202,7 @@ export class ChatController {
 
     @ApiOperation(mark_messages_read_swagger.operation)
     @ApiParam(mark_messages_read_swagger.params.chat_id)
-    @ApiBody({ type: MarkMessagesReadDto })
+    @ApiBody({ type: mark_messages_read_dto })
     @ApiOkResponse(mark_messages_read_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.CHAT_NOT_FOUND)
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
@@ -210,9 +210,9 @@ export class ChatController {
     @Post('chats/:chat_id/read')
     async markMessagesAsRead(
         @Param('chat_id') chat_id: string,
-        @Body() markMessagesReadDto: MarkMessagesReadDto,
+        @Body() mark_messages_read_dto: mark_messages_read_dto,
         @GetUserId() user_id: string
     ) {
-        return this.chat_service.markMessagesAsRead(user_id, chat_id, markMessagesReadDto);
+        return this.chat_service.markMessagesAsRead(user_id, chat_id, mark_messages_read_dto);
     }
 }

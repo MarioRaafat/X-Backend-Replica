@@ -148,7 +148,7 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.signupStep3 throws', async () => {
-            const mock_dto = { username: 'existinguser', password: 'password123' };
+            const mock_dto = { username: 'existing_user', password: 'password123' };
             mock_auth_service.signupStep3.mockRejectedValue(
                 new Error(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN)
             );
@@ -515,7 +515,7 @@ describe('AuthController', () => {
     describe('forgetPassword', () => {
         beforeEach(() => jest.clearAllMocks());
 
-        it('should call auth_service.sendResetPasswordEmail with the correct userId and return its result', async () => {
+        it('should call auth_service.sendResetPasswordEmail with the correct user_id and return its result', async () => {
             const forget_req = {
                 identifier: 'user123',
             };
@@ -808,7 +808,7 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.checkIdentifier throws', async () => {
-            const mock_dto = { identifier: 'existinguser' };
+            const mock_dto = { identifier: 'existing_user' };
             mock_auth_service.checkIdentifier.mockRejectedValue(
                 new Error(ERROR_MESSAGES.USERNAME_NOT_FOUND)
             );
@@ -845,7 +845,7 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.updateUsername throws', async () => {
-            const mock_dto = { username: 'existinguser' };
+            const mock_dto = { username: 'existing_user' };
             const mock_user_id = 'user123';
             mock_auth_service.updateUsername.mockRejectedValue(
                 new Error(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN)
@@ -1211,7 +1211,7 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.oauthCompletionStep2 throws', async () => {
-            const mock_dto = { session_token: 'session123', username: 'existinguser' };
+            const mock_dto = { session_token: 'session123', username: 'existing_user' };
             mock_auth_service.oauthCompletionStep2.mockRejectedValue(
                 new Error(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN)
             );

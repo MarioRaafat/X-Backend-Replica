@@ -1,7 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { UserService } from './user.service';
-import { getRepositoryToken } from '@nestjs/typeorm';
-import { User } from './entities/user.entity';
 import { UserRepository } from './user.repository';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
@@ -15,20 +13,31 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { UserListItemDto } from './dto/user-list-item.dto';
 import { GetFollowersDto } from './dto/get-followers.dto';
 import { RelationshipType } from './enums/relationship-type.enum';
+import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
+import { ConfigService } from '@nestjs/config';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { Category } from 'src/category/entities';
+import { UserLookupDto } from './dto/user-lookup.dto';
+import { GetUsersByIdDto } from './dto/get-users-by-id.dto';
+import { GetUsersByUsernameDto } from './dto/get-users-by-username.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
+import { User } from './entities';
+import { UploadFileResponseDto } from './dto/upload-file-response.dto';
+import { DeleteFileDto } from './dto/delete-file.dto';
+import { AssignInterestsDto } from './dto/assign-interests.dto';
+import { DeleteResult, In, Repository } from 'typeorm';
+import { ChangeLanguageDto } from './dto/change-language.dto';
+import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
 
 describe('UserService', () => {
     let service: UserService;
     let user_repository: jest.Mocked<UserRepository>;
-
-    const mock_query_builder = {
-        getRawOne: jest.fn(),
-        getRawMany: jest.fn(),
-    };
+    let azure_storage_service: jest.Mocked<AzureStorageService>;
+    let config_service: jest.Mocked<ConfigService>;
+    let category_repository: jest.Mocked<Repository<Category>>;
 
     beforeEach(async () => {
         const mock_user_repository = {
-            buildProfileQuery: jest.fn().mockReturnValue(mock_query_builder),
-            buildUserListQuery: jest.fn(),
             getFollowersList: jest.fn(),
             getFollowingList: jest.fn(),
             getMutedUsersList: jest.fn(),
@@ -41,17 +50,496 @@ describe('UserService', () => {
             deleteBlockRelationship: jest.fn(),
             validateRelationshipRequest: jest.fn(),
             verifyFollowPermissions: jest.fn(),
+            getMyProfile: jest.fn(),
+            getProfileById: jest.fn(),
+            getProfileByUsername: jest.fn(),
+            getUsersByIds: jest.fn(),
+            getUsersByUsernames: jest.fn(),
+            insertUserInterests: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
+            delete: jest.fn(),
+            exists: jest.fn(),
+        };
+
+        const mock_azure_storage_service = {
+            uploadFile: jest.fn(),
+            deleteFile: jest.fn(),
+            generateFileName: jest.fn(),
+            getContainerClient: jest.fn(),
+            onModuleInit: jest.fn(),
+            extractFileName: jest.fn(),
+            extractUserIdFromFileName: jest.fn(),
+        };
+
+        const mock_config_service = {
+            get: jest.fn(),
+        };
+
+        const mock_category_repository = {
+            findBy: jest.fn(),
         };
 
         const module: TestingModule = await Test.createTestingModule({
-            providers: [UserService, { provide: UserRepository, useValue: mock_user_repository }],
+            providers: [
+                UserService,
+                { provide: UserRepository, useValue: mock_user_repository },
+                { provide: AzureStorageService, useValue: mock_azure_storage_service },
+                { provide: ConfigService, useValue: mock_config_service },
+                { provide: getRepositoryToken(Category), useValue: mock_category_repository },
+            ],
         }).compile();
 
-        service = module.get<UserService>(UserService);
+        service = module.get(UserService);
         user_repository = module.get(UserRepository);
+        azure_storage_service = module.get(AzureStorageService);
+        config_service = module.get(ConfigService);
+        category_repository = module.get(getRepositoryToken(Category));
     });
 
     afterEach(() => jest.clearAllMocks());
+
+    describe('getUsersByIds', () => {
+        it('should return list of users with success status for all found users', async () => {
+            const mock_user: UserListItemDto[] = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: true,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
+                },
+            ];
+            const mock_response: UserLookupDto[] = [
+                {
+                    identifier: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    success: true,
+                    user: {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: true,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                },
+            ];
+
+            const get_users_by_id_dto: GetUsersByIdDto = {
+                ids: ['0c059899-f706-4c8f-97d7-ba2e9fc22d6d'],
+            };
+
+            const current_user_id = '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6';
+
+            const get_users_by_ids_spy = jest
+                .spyOn(user_repository, 'getUsersByIds')
+                .mockResolvedValueOnce(mock_user);
+
+            const result = await service.getUsersByIds(current_user_id, get_users_by_id_dto);
+
+            expect(get_users_by_ids_spy).toHaveBeenCalledWith(
+                get_users_by_id_dto.ids,
+                current_user_id
+            );
+            expect(get_users_by_ids_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should return users with success false for not found users', async () => {
+            const mock_user: UserListItemDto[] = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: true,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
+                },
+            ];
+            const mock_response: UserLookupDto[] = [
+                {
+                    identifier: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    success: true,
+                    user: {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: true,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                },
+                {
+                    identifier: 'nonexistent-user-id',
+                    success: false,
+                    user: null,
+                },
+            ];
+            const get_users_by_id_dto: GetUsersByIdDto = {
+                ids: ['0c059899-f706-4c8f-97d7-ba2e9fc22d6d', 'nonexistent-user-id'],
+            };
+
+            const current_user_id = '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6';
+
+            const get_users_by_ids_spy = jest
+                .spyOn(user_repository, 'getUsersByIds')
+                .mockResolvedValueOnce(mock_user);
+
+            const result = await service.getUsersByIds(current_user_id, get_users_by_id_dto);
+
+            expect(get_users_by_ids_spy).toHaveBeenCalledWith(
+                get_users_by_id_dto.ids,
+                current_user_id
+            );
+            expect(get_users_by_ids_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should work with null current_user_id', async () => {
+            const mock_user: UserListItemDto[] = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: false,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
+                },
+            ];
+            const mock_response: UserLookupDto[] = [
+                {
+                    identifier: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    success: true,
+                    user: {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: false,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                },
+            ];
+
+            const get_users_by_id_dto: GetUsersByIdDto = {
+                ids: ['0c059899-f706-4c8f-97d7-ba2e9fc22d6d'],
+            };
+
+            const current_user_id = null;
+
+            const get_users_by_ids_spy = jest
+                .spyOn(user_repository, 'getUsersByIds')
+                .mockResolvedValueOnce(mock_user);
+
+            const result = await service.getUsersByIds(current_user_id, get_users_by_id_dto);
+
+            expect(get_users_by_ids_spy).toHaveBeenCalledWith(
+                get_users_by_id_dto.ids,
+                current_user_id
+            );
+            expect(get_users_by_ids_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should return all users with success false when no users found', async () => {
+            const mock_user = [];
+            const mock_response: UserLookupDto[] = [
+                {
+                    identifier: 'nonexistent-id-1',
+                    success: false,
+                    user: null,
+                },
+                {
+                    identifier: 'nonexistent-id-2',
+                    success: false,
+                    user: null,
+                },
+            ];
+
+            const get_users_by_id_dto: GetUsersByIdDto = {
+                ids: ['nonexistent-id-1', 'nonexistent-id-2'],
+            };
+
+            const current_user_id = '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6';
+
+            const get_users_by_ids_spy = jest
+                .spyOn(user_repository, 'getUsersByIds')
+                .mockResolvedValueOnce(mock_user);
+
+            const result = await service.getUsersByIds(current_user_id, get_users_by_id_dto);
+
+            expect(get_users_by_ids_spy).toHaveBeenCalledWith(
+                get_users_by_id_dto.ids,
+                current_user_id
+            );
+            expect(get_users_by_ids_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+    });
+
+    describe('getUsersByUsernames', () => {
+        it('should return list of users with success status for all found users', async () => {
+            const mock_user: UserListItemDto[] = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: true,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
+                },
+            ];
+            const mock_response: UserLookupDto[] = [
+                {
+                    identifier: 'Alyaali242',
+                    success: true,
+                    user: {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: true,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                },
+            ];
+
+            const get_users_by_username_dto: GetUsersByUsernameDto = {
+                usernames: ['Alyaali242'],
+            };
+
+            const current_user_id = '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6';
+
+            const get_users_by_usernames_spy = jest
+                .spyOn(user_repository, 'getUsersByUsernames')
+                .mockResolvedValueOnce(mock_user);
+
+            const result = await service.getUsersByUsernames(
+                current_user_id,
+                get_users_by_username_dto
+            );
+
+            expect(get_users_by_usernames_spy).toHaveBeenCalledWith(
+                get_users_by_username_dto.usernames,
+                current_user_id
+            );
+            expect(get_users_by_usernames_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should return users with success false for not found users', async () => {
+            const mock_user: UserListItemDto[] = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: true,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
+                },
+            ];
+            const mock_response: UserLookupDto[] = [
+                {
+                    identifier: 'Alyaali242',
+                    success: true,
+                    user: {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: true,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                },
+                {
+                    identifier: 'nonexistent-username',
+                    success: false,
+                    user: null,
+                },
+            ];
+            const get_users_by_username_dto: GetUsersByUsernameDto = {
+                usernames: ['Alyaali242', 'nonexistent-username'],
+            };
+
+            const current_user_id = '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6';
+
+            const get_users_by_usernames_spy = jest
+                .spyOn(user_repository, 'getUsersByUsernames')
+                .mockResolvedValueOnce(mock_user);
+
+            const result = await service.getUsersByUsernames(
+                current_user_id,
+                get_users_by_username_dto
+            );
+
+            expect(get_users_by_usernames_spy).toHaveBeenCalledWith(
+                get_users_by_username_dto.usernames,
+                current_user_id
+            );
+            expect(get_users_by_usernames_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should work with null current_user_id', async () => {
+            const mock_user: UserListItemDto[] = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    bio: 'hi there!',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: false,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
+                },
+            ];
+            const mock_response: UserLookupDto[] = [
+                {
+                    identifier: 'Alyaali242',
+                    success: true,
+                    user: {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: false,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                },
+            ];
+
+            const get_users_by_username_dto: GetUsersByUsernameDto = {
+                usernames: ['Alyaali242'],
+            };
+
+            const current_user_id = null;
+
+            const get_users_by_usernames_spy = jest
+                .spyOn(user_repository, 'getUsersByUsernames')
+                .mockResolvedValueOnce(mock_user);
+
+            const result = await service.getUsersByUsernames(
+                current_user_id,
+                get_users_by_username_dto
+            );
+
+            expect(get_users_by_usernames_spy).toHaveBeenCalledWith(
+                get_users_by_username_dto.usernames,
+                current_user_id
+            );
+            expect(get_users_by_usernames_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should return all users with success false when no users found', async () => {
+            const mock_user = [];
+            const mock_response: UserLookupDto[] = [
+                {
+                    identifier: 'nonexistent-username-1',
+                    success: false,
+                    user: null,
+                },
+                {
+                    identifier: 'nonexistent-username-2',
+                    success: false,
+                    user: null,
+                },
+            ];
+
+            const get_users_by_username_dto: GetUsersByUsernameDto = {
+                usernames: ['nonexistent-username-1', 'nonexistent-username-2'],
+            };
+
+            const current_user_id = '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6';
+
+            const get_users_by_usernames_spy = jest
+                .spyOn(user_repository, 'getUsersByUsernames')
+                .mockResolvedValueOnce(mock_user);
+
+            const result = await service.getUsersByUsernames(
+                current_user_id,
+                get_users_by_username_dto
+            );
+
+            expect(get_users_by_usernames_spy).toHaveBeenCalledWith(
+                get_users_by_username_dto.usernames,
+                current_user_id
+            );
+            expect(get_users_by_usernames_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+    });
 
     describe('getMe', () => {
         it('should call user_service.getMe with the current user id', async () => {
@@ -70,17 +558,14 @@ describe('UserService', () => {
 
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
 
-            const build_profile_spy = jest
-                .spyOn(user_repository, 'buildProfileQuery')
-                .mockReturnValue(mock_query_builder as any);
-
-            mock_query_builder.getRawOne.mockResolvedValueOnce(mock_response);
+            const get_my_profile_spy = jest
+                .spyOn(user_repository, 'getMyProfile')
+                .mockResolvedValue(mock_response);
 
             const result = await service.getMe(user_id);
 
-            expect(build_profile_spy).toHaveBeenCalledWith(user_id, 'id');
-            expect(build_profile_spy).toHaveBeenCalledTimes(1);
-            expect(mock_query_builder.getRawOne).toHaveBeenCalledTimes(1);
+            expect(get_my_profile_spy).toHaveBeenCalledWith(user_id);
+            expect(get_my_profile_spy).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_response);
         });
     });
@@ -118,15 +603,14 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const build_profile_spy = jest
-                .spyOn(user_repository, 'buildProfileQuery')
-                .mockReturnValue(mock_query_builder as any);
-
-            mock_query_builder.getRawOne.mockResolvedValueOnce(mock_response);
+            const get_profile_by_id_spy = jest
+                .spyOn(user_repository, 'getProfileById')
+                .mockResolvedValue(mock_response);
 
             const result = await service.getUserById(current_user_id, target_user_id);
 
-            expect(build_profile_spy).toHaveBeenCalledWith(target_user_id, 'id', current_user_id);
+            expect(get_profile_by_id_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(get_profile_by_id_spy).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_response);
         });
 
@@ -153,14 +637,14 @@ describe('UserService', () => {
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
             const current_user_id = null;
 
-            const build_profile_spy = jest
-                .spyOn(user_repository, 'buildProfileQuery')
-                .mockReturnValue(mock_query_builder as any);
-            mock_query_builder.getRawOne.mockResolvedValueOnce(mock_response);
+            const get_profile_by_id_spy = jest
+                .spyOn(user_repository, 'getProfileById')
+                .mockResolvedValue(mock_response);
 
             const result = await service.getUserById(current_user_id, target_user_id);
 
-            expect(build_profile_spy).toHaveBeenCalledWith(target_user_id, 'id', current_user_id);
+            expect(get_profile_by_id_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(get_profile_by_id_spy).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_response);
         });
 
@@ -168,19 +652,16 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const build_profile_spy = jest
-                .spyOn(user_repository, 'buildProfileQuery')
-                .mockReturnValue(mock_query_builder as any);
-            mock_query_builder.getRawOne.mockRejectedValueOnce(error);
+            const get_profile_by_id_spy = jest
+                .spyOn(user_repository, 'getProfileById')
+                .mockResolvedValueOnce(null);
 
             await expect(service.getUserById(current_user_id, target_user_id)).rejects.toThrow(
                 ERROR_MESSAGES.USER_NOT_FOUND
             );
 
-            expect(build_profile_spy).toHaveBeenCalledWith(target_user_id, 'id', current_user_id);
-            expect(build_profile_spy).toHaveBeenCalledTimes(1);
+            expect(get_profile_by_id_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(get_profile_by_id_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -217,19 +698,17 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_username = 'Alyaa242';
 
-            const build_profile_spy = jest
-                .spyOn(user_repository, 'buildProfileQuery')
-                .mockReturnValue(mock_query_builder as any);
-
-            mock_query_builder.getRawOne.mockResolvedValueOnce(mock_response);
+            const get_profile_by_username_spy = jest
+                .spyOn(user_repository, 'getProfileByUsername')
+                .mockResolvedValue(mock_response);
 
             const result = await service.getUserByUsername(current_user_id, target_username);
 
-            expect(build_profile_spy).toHaveBeenCalledWith(
-                target_username,
-                'username',
-                current_user_id
+            expect(get_profile_by_username_spy).toHaveBeenCalledWith(
+                current_user_id,
+                target_username
             );
+            expect(get_profile_by_username_spy).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_response);
         });
 
@@ -256,18 +735,17 @@ describe('UserService', () => {
             const target_username = 'Alyaa242';
             const current_user_id = null;
 
-            const build_profile_spy = jest
-                .spyOn(user_repository, 'buildProfileQuery')
-                .mockReturnValue(mock_query_builder as any);
-            mock_query_builder.getRawOne.mockResolvedValueOnce(mock_response);
+            const get_profile_by_username_spy = jest
+                .spyOn(user_repository, 'getProfileByUsername')
+                .mockResolvedValue(mock_response);
 
             const result = await service.getUserByUsername(current_user_id, target_username);
 
-            expect(build_profile_spy).toHaveBeenCalledWith(
-                target_username,
-                'username',
-                current_user_id
+            expect(get_profile_by_username_spy).toHaveBeenCalledWith(
+                current_user_id,
+                target_username
             );
+            expect(get_profile_by_username_spy).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_response);
         });
 
@@ -275,23 +753,19 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_username = 'Alyaa242';
 
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const build_profile_spy = jest
-                .spyOn(user_repository, 'buildProfileQuery')
-                .mockReturnValue(mock_query_builder as any);
-            mock_query_builder.getRawOne.mockRejectedValueOnce(error);
+            const get_profile_by_username_spy = jest
+                .spyOn(user_repository, 'getProfileByUsername')
+                .mockResolvedValueOnce(null);
 
             await expect(
                 service.getUserByUsername(current_user_id, target_username)
             ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
 
-            expect(build_profile_spy).toHaveBeenCalledWith(
-                target_username,
-                'username',
-                current_user_id
+            expect(get_profile_by_username_spy).toHaveBeenCalledWith(
+                current_user_id,
+                target_username
             );
-            expect(build_profile_spy).toHaveBeenCalledTimes(1);
+            expect(get_profile_by_username_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -308,6 +782,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -319,6 +796,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -330,12 +810,15 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(true);
+
             const get_followers_spy = jest
                 .spyOn(user_repository, 'getFollowersList')
                 .mockResolvedValueOnce(mock_followers);
 
             const result = await service.getFollowers(current_user_id, target_user_id, query_dto);
 
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
             expect(get_followers_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
@@ -358,6 +841,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -370,12 +856,15 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(true);
+
             const get_followers_spy = jest
                 .spyOn(user_repository, 'getFollowersList')
                 .mockResolvedValueOnce(mock_followers);
 
             const result = await service.getFollowers(current_user_id, target_user_id, query_dto);
 
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
             expect(get_followers_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
@@ -395,24 +884,13 @@ describe('UserService', () => {
                 page_size: 10,
             };
 
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const get_followers_spy = jest
-                .spyOn(user_repository, 'getFollowersList')
-                .mockRejectedValueOnce(error);
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(false);
 
             await expect(
                 service.getFollowers(current_user_id, target_user_id, query_dto)
             ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
 
-            expect(get_followers_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                0,
-                10,
-                undefined
-            );
-            expect(get_followers_spy).toHaveBeenCalledTimes(1);
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
         });
     });
 
@@ -429,6 +907,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -440,6 +921,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -451,12 +935,15 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(true);
+
             const get_following_spy = jest
                 .spyOn(user_repository, 'getFollowingList')
                 .mockResolvedValueOnce(mock_following);
 
             const result = await service.getFollowing(current_user_id, target_user_id, query_dto);
 
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
             expect(get_following_spy).toHaveBeenCalledWith(current_user_id, target_user_id, 0, 10);
             expect(result).toEqual(mock_following);
         });
@@ -470,18 +957,13 @@ describe('UserService', () => {
                 page_size: 10,
             };
 
-            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-
-            const get_following_spy = jest
-                .spyOn(user_repository, 'getFollowingList')
-                .mockRejectedValueOnce(error);
+            const exists_spy = jest.spyOn(user_repository, 'exists').mockResolvedValueOnce(false);
 
             await expect(
                 service.getFollowing(current_user_id, target_user_id, query_dto)
             ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
 
-            expect(get_following_spy).toHaveBeenCalledWith(current_user_id, target_user_id, 0, 10);
-            expect(get_following_spy).toHaveBeenCalledTimes(1);
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: target_user_id } });
         });
     });
 
@@ -498,6 +980,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -509,6 +994,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -543,6 +1031,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -554,6 +1045,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -592,6 +1086,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: false,
                     is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest
@@ -603,8 +1100,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -641,6 +1137,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: false,
                     is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest.spyOn(user_repository, 'insertFollowRelationship');
@@ -653,8 +1152,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -677,6 +1175,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: false,
                     is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest.spyOn(user_repository, 'insertFollowRelationship');
@@ -690,8 +1191,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -714,6 +1214,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: true,
                     is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest.spyOn(user_repository, 'insertFollowRelationship');
@@ -727,8 +1230,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -751,6 +1253,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest.spyOn(user_repository, 'insertFollowRelationship');
@@ -764,8 +1269,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.FOLLOW,
-                'insert'
+                RelationshipType.FOLLOW
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -778,26 +1282,16 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    user_exists: true,
-                    relationship_exists: true,
-                });
+            const mock_result: DeleteResult = { affected: 1, raw: [] };
 
             const delete_follow_spy = jest
                 .spyOn(user_repository, 'deleteFollowRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await service.unfollowUser(current_user_id, target_user_id);
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.FOLLOW,
-                'remove'
-            );
             expect(delete_follow_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_follow_spy).toHaveBeenCalledTimes(1);
         });
 
         it('should throw BadRequestException when trying to unfollow yourself', async () => {
@@ -818,30 +1312,68 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    user_exists: true,
-                    relationship_exists: false,
-                });
+            const mock_result: DeleteResult = { affected: 0, raw: [] };
 
             const delete_follow_spy = jest
                 .spyOn(user_repository, 'deleteFollowRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await expect(service.unfollowUser(current_user_id, target_user_id)).rejects.toThrow(
                 new ConflictException(ERROR_MESSAGES.NOT_FOLLOWED)
             );
 
-            expect(delete_follow_spy).not.toHaveBeenCalled();
+            expect(delete_follow_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_follow_spy).toHaveBeenCalledTimes(1);
+        });
+    });
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.FOLLOW,
-                'remove'
+    describe('removeFollower', () => {
+        it('should successfully unfollow a user', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_result: DeleteResult = { affected: 1, raw: [] };
+
+            const delete_follow_spy = jest
+                .spyOn(user_repository, 'deleteFollowRelationship')
+                .mockResolvedValue(mock_result);
+
+            await service.removeFollower(current_user_id, target_user_id);
+
+            expect(delete_follow_spy).toHaveBeenCalledWith(target_user_id, current_user_id);
+            expect(delete_follow_spy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw BadRequestException when trying to unfollow yourself', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const delete_follow_spy = jest
+                .spyOn(user_repository, 'deleteFollowRelationship')
+                .mockResolvedValueOnce({} as any);
+
+            await expect(service.removeFollower(current_user_id, current_user_id)).rejects.toThrow(
+                new BadRequestException(ERROR_MESSAGES.CANNOT_REMOVE_SELF)
             );
-            expect(validate_spy).toHaveBeenCalledTimes(1);
+
+            expect(delete_follow_spy).not.toHaveBeenCalled();
+        });
+
+        it('should throw ConflictException when not following the user', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const mock_result: DeleteResult = { affected: 0, raw: [] };
+
+            const delete_follow_spy = jest
+                .spyOn(user_repository, 'deleteFollowRelationship')
+                .mockResolvedValue(mock_result);
+
+            await expect(service.removeFollower(current_user_id, target_user_id)).rejects.toThrow(
+                new ConflictException(ERROR_MESSAGES.NOT_A_FOLLOWER)
+            );
+
+            expect(delete_follow_spy).toHaveBeenCalledWith(target_user_id, current_user_id);
+            expect(delete_follow_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -866,8 +1398,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.MUTE,
-                'insert'
+                RelationshipType.MUTE
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(insert_mute_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -908,8 +1439,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.MUTE,
-                'insert'
+                RelationshipType.MUTE
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
         });
@@ -936,8 +1466,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.MUTE,
-                'insert'
+                RelationshipType.MUTE
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
         });
@@ -948,26 +1477,16 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    user_exists: true,
-                    relationship_exists: true,
-                });
+            const mock_result: DeleteResult = { affected: 1, raw: [] };
 
             const delete_mute_spy = jest
                 .spyOn(user_repository, 'deleteMuteRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await service.unmuteUser(current_user_id, target_user_id);
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.MUTE,
-                'remove'
-            );
             expect(delete_mute_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_mute_spy).toHaveBeenCalledTimes(1);
         });
 
         it('should throw BadRequestException when trying to unmute yourself', async () => {
@@ -988,30 +1507,18 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    user_exists: true,
-                    relationship_exists: false,
-                });
+            const mock_result: DeleteResult = { affected: 0, raw: [] };
 
             const delete_mute_spy = jest
                 .spyOn(user_repository, 'deleteMuteRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await expect(service.unmuteUser(current_user_id, target_user_id)).rejects.toThrow(
                 new ConflictException(ERROR_MESSAGES.NOT_MUTED)
             );
 
-            expect(delete_mute_spy).not.toHaveBeenCalled();
-
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.MUTE,
-                'remove'
-            );
-            expect(validate_spy).toHaveBeenCalledTimes(1);
+            expect(delete_mute_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_mute_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -1036,8 +1543,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.BLOCK,
-                'insert'
+                RelationshipType.BLOCK
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(insert_block_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
@@ -1078,8 +1584,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.BLOCK,
-                'insert'
+                RelationshipType.BLOCK
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
         });
@@ -1106,8 +1611,7 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledWith(
                 current_user_id,
                 target_user_id,
-                RelationshipType.BLOCK,
-                'insert'
+                RelationshipType.BLOCK
             );
             expect(validate_spy).toHaveBeenCalledTimes(1);
         });
@@ -1118,26 +1622,16 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    user_exists: true,
-                    relationship_exists: true,
-                });
+            const mock_result: DeleteResult = { affected: 1, raw: [] };
 
             const delete_block_spy = jest
                 .spyOn(user_repository, 'deleteBlockRelationship')
-                .mockResolvedValueOnce({} as any);
+                .mockResolvedValue(mock_result);
 
             await service.unblockUser(current_user_id, target_user_id);
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.BLOCK,
-                'remove'
-            );
             expect(delete_block_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_block_spy).toHaveBeenCalledTimes(1);
         });
 
         it('should throw BadRequestException when trying to unblock yourself', async () => {
@@ -1158,89 +1652,752 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
-            const validate_spy = jest
-                .spyOn(user_repository, 'validateRelationshipRequest')
-                .mockResolvedValueOnce({
-                    user_exists: true,
-                    relationship_exists: false,
-                });
+            const mock_result: DeleteResult = { affected: 0, raw: [] };
 
             const delete_block_spy = jest
                 .spyOn(user_repository, 'deleteBlockRelationship')
-                .mockResolvedValueOnce({} as any);
-
+                .mockResolvedValue(mock_result);
             await expect(service.unblockUser(current_user_id, target_user_id)).rejects.toThrow(
                 new ConflictException(ERROR_MESSAGES.NOT_BLOCKED)
             );
 
-            expect(delete_block_spy).not.toHaveBeenCalled();
+            expect(delete_block_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
+            expect(delete_block_spy).toHaveBeenCalledTimes(1);
+        });
+    });
 
-            expect(validate_spy).toHaveBeenCalledWith(
-                current_user_id,
-                target_user_id,
-                RelationshipType.BLOCK,
-                'remove'
+    describe('updateUser', () => {
+        it('should update user and return updated profile', async () => {
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const update_user_dto: UpdateUserDto = {
+                name: 'Updated Name',
+                bio: 'Updated bio',
+                avatar_url: 'https://cdn.app.com/profiles/updated.jpg',
+            };
+
+            const existing_user: User = {
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                language: 'ar',
+                bio: 'Software developer and tech enthusiast.',
+                avatar_url: 'https://example.com/images/profile.jpg',
+                cover_url: 'https://example.com/images/cover.jpg',
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                hashtags: [],
+                tweets: [],
+            };
+
+            const updated_user: User = {
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                name: 'Updated Name',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                language: 'ar',
+                bio: 'Updated bio',
+                avatar_url: 'https://cdn.app.com/profiles/updated.jpg',
+                cover_url: 'https://example.com/images/cover.jpg',
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                hashtags: [],
+                tweets: [],
+            };
+
+            const mock_response: UserProfileDto = {
+                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                name: 'Updated Name',
+                username: 'Alyaa242',
+                bio: 'Updated bio',
+                avatar_url: 'https://cdn.app.com/profiles/updated.jpg',
+                cover_url: 'https://example.com/images/cover.jpg',
+                country: null,
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                followers_count: 10,
+                following_count: 15,
+            };
+
+            const find_one_spy = jest
+                .spyOn(user_repository, 'findOne')
+                .mockResolvedValueOnce(existing_user);
+
+            const save_spy = jest
+                .spyOn(user_repository, 'save')
+                .mockResolvedValueOnce(updated_user);
+
+            const result = await service.updateUser(user_id, update_user_dto);
+
+            expect(find_one_spy).toHaveBeenCalledWith({
+                where: { id: user_id },
+            });
+            expect(find_one_spy).toHaveBeenCalledTimes(1);
+            expect(save_spy).toHaveBeenCalledWith(updated_user);
+            expect(save_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw NotFoundException when user does not exist', async () => {
+            const user_id = 'nonexistent-user-id';
+            const update_user_dto: UpdateUserDto = {
+                name: 'Updated Name',
+            };
+
+            const find_one_spy = jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(null);
+
+            await expect(service.updateUser(user_id, update_user_dto)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
             );
-            expect(validate_spy).toHaveBeenCalledTimes(1);
+
+            expect(find_one_spy).toHaveBeenCalledWith({
+                where: { id: user_id },
+            });
+            expect(find_one_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('deleteUser', () => {
+        it('should delete user successfully', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const existing_user: User = {
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                language: 'ar',
+                bio: 'Software developer and tech enthusiast.',
+                avatar_url: 'https://example.com/images/profile.jpg',
+                cover_url: 'https://example.com/images/cover.jpg',
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                hashtags: [],
+                tweets: [],
+            };
+
+            const find_one_spy = jest
+                .spyOn(user_repository, 'findOne')
+                .mockResolvedValueOnce(existing_user);
+
+            const delete_spy = jest
+                .spyOn(user_repository, 'delete')
+                .mockResolvedValueOnce({ affected: 1, raw: {} });
+
+            await service.deleteUser(current_user_id);
+
+            expect(find_one_spy).toHaveBeenCalledWith({
+                where: { id: current_user_id },
+            });
+            expect(find_one_spy).toHaveBeenCalledTimes(1);
+            expect(delete_spy).toHaveBeenCalledWith(current_user_id);
+            expect(delete_spy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw NotFoundException when user does not exist', async () => {
+            const current_user_id = 'nonexistent-user-id';
+
+            const find_one_spy = jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(null);
+
+            await expect(service.deleteUser(current_user_id)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
+            );
+
+            expect(find_one_spy).toHaveBeenCalledWith({
+                where: { id: current_user_id },
+            });
+            expect(find_one_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('uploadAvatar', () => {
+        it('should upload avatar successfully and return file info', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file = {
+                fieldname: 'file',
+                originalname: 'avatar.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                size: 1024,
+                buffer: Buffer.from('fake-image-data'),
+            } as Express.Multer.File;
+
+            const generated_file_name = `${current_user_id}_avatar.jpg`;
+            const uploaded_image_url = 'https://cdn.app.com/profiles/avatar.jpg';
+            const container_name = 'container-name';
+
+            const mock_response: UploadFileResponseDto = {
+                image_url: uploaded_image_url,
+                image_name: generated_file_name,
+            };
+
+            const generate_file_name_spy = jest
+                .spyOn(azure_storage_service, 'generateFileName')
+                .mockReturnValue(generated_file_name);
+
+            const config_get_spy = jest
+                .spyOn(config_service, 'get')
+                .mockReturnValue(container_name);
+
+            const upload_file_spy = jest
+                .spyOn(azure_storage_service, 'uploadFile')
+                .mockResolvedValueOnce(uploaded_image_url);
+
+            const result = await service.uploadAvatar(current_user_id, file);
+
+            expect(generate_file_name_spy).toHaveBeenCalledWith(current_user_id, file.originalname);
+            expect(generate_file_name_spy).toHaveBeenCalledTimes(1);
+            expect(config_get_spy).toHaveBeenCalledWith('AZURE_STORAGE_PROFILE_IMAGE_CONTAINER');
+            expect(upload_file_spy).toHaveBeenCalledWith(
+                file.buffer,
+                generated_file_name,
+                container_name
+            );
+            expect(upload_file_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw BadRequestException when file is not provided', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file = null as any;
+
+            await expect(service.uploadAvatar(current_user_id, file)).rejects.toThrow(
+                ERROR_MESSAGES.FILE_NOT_FOUND
+            );
+        });
+
+        it('should throw BadRequestException when file buffer is missing', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file = {
+                fieldname: 'file',
+                originalname: 'avatar.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                size: 1024,
+                buffer: null,
+            } as any;
+
+            await expect(service.uploadAvatar(current_user_id, file)).rejects.toThrow(
+                ERROR_MESSAGES.FILE_NOT_FOUND
+            );
+        });
+
+        it('should throw InternalServerErrorException when upload fails', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file = {
+                fieldname: 'file',
+                originalname: 'avatar.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                size: 1024,
+                buffer: Buffer.from('fake-image-data'),
+            } as Express.Multer.File;
+
+            const generated_file_name = `${current_user_id}_avatar.jpg`;
+            const container_name = 'profile-images';
+
+            jest.spyOn(azure_storage_service, 'generateFileName').mockReturnValue(
+                generated_file_name
+            );
+
+            jest.spyOn(config_service, 'get').mockReturnValue(container_name);
+
+            const upload_file_spy = jest
+                .spyOn(azure_storage_service, 'uploadFile')
+                .mockRejectedValueOnce(new Error('Upload failed'));
+
+            await expect(service.uploadAvatar(current_user_id, file)).rejects.toThrow(
+                ERROR_MESSAGES.FILE_UPLOAD_FAILED
+            );
+
+            expect(upload_file_spy).toHaveBeenCalledWith(
+                file.buffer,
+                generated_file_name,
+                container_name
+            );
+            expect(upload_file_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('deleteAvatar', () => {
+        it('should delete avatar successfully', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const delete_file_dto: DeleteFileDto = {
+                file_url:
+                    'https://yapperdev.blob.core.windows.net/profile-images/0c059899-f706-4c8f-97d7-ba2e9fc22d6d-1761902534288-kurosensi.png',
+            };
+
+            const file_name = `${current_user_id}-1761902534288-kurosensi.png`;
+            const container_name = 'container-name';
+
+            const extract_file_name_spy = jest
+                .spyOn(azure_storage_service, 'extractFileName')
+                .mockReturnValue(file_name);
+
+            const extract_user_id_spy = jest
+                .spyOn(azure_storage_service, 'extractUserIdFromFileName')
+                .mockReturnValue(current_user_id);
+
+            const config_get_spy = jest
+                .spyOn(config_service, 'get')
+                .mockReturnValue(container_name);
+
+            const delete_file_spy = jest
+                .spyOn(azure_storage_service, 'deleteFile')
+                .mockResolvedValueOnce(undefined);
+
+            await service.deleteAvatar(current_user_id, delete_file_dto);
+
+            expect(extract_file_name_spy).toHaveBeenCalledWith(delete_file_dto.file_url);
+            expect(extract_file_name_spy).toHaveBeenCalledTimes(1);
+            expect(extract_user_id_spy).toHaveBeenCalledWith(file_name);
+            expect(extract_user_id_spy).toHaveBeenCalledTimes(1);
+            expect(config_get_spy).toHaveBeenCalledWith('AZURE_STORAGE_PROFILE_IMAGE_CONTAINER');
+            expect(delete_file_spy).toHaveBeenCalledWith(file_name, container_name);
+            expect(delete_file_spy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw ForbiddenException when user tries to delete another users file', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const other_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const delete_file_dto: DeleteFileDto = {
+                file_url:
+                    'https://yapperdev.blob.core.windows.net/profile-images/b2d59899-f706-4c8f-97d7-ba2e9fc22d90-1761902534288-kurosensi.png',
+            };
+
+            const file_name = `${other_user_id}-1761902534288-kurosensi.png`;
+
+            const extract_file_name_spy = jest
+                .spyOn(azure_storage_service, 'extractFileName')
+                .mockReturnValue(file_name);
+
+            const extract_user_id_spy = jest
+                .spyOn(azure_storage_service, 'extractUserIdFromFileName')
+                .mockReturnValue(other_user_id);
+
+            await expect(service.deleteAvatar(current_user_id, delete_file_dto)).rejects.toThrow(
+                ERROR_MESSAGES.UNAUTHORIZED_FILE_DELETE
+            );
+
+            expect(extract_file_name_spy).toHaveBeenCalledWith(delete_file_dto.file_url);
+            expect(extract_file_name_spy).toHaveBeenCalledTimes(1);
+            expect(extract_user_id_spy).toHaveBeenCalledWith(file_name);
+            expect(extract_user_id_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('uploadCover', () => {
+        it('should upload cover successfully and return file info', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file = {
+                fieldname: 'file',
+                originalname: 'avatar.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                size: 1024,
+                buffer: Buffer.from('fake-image-data'),
+            } as Express.Multer.File;
+
+            const generated_file_name = `${current_user_id}_avatar.jpg`;
+            const uploaded_image_url = 'https://cdn.app.com/profiles/avatar.jpg';
+            const container_name = 'container-name';
+
+            const mock_response: UploadFileResponseDto = {
+                image_url: uploaded_image_url,
+                image_name: generated_file_name,
+            };
+
+            const generate_file_name_spy = jest
+                .spyOn(azure_storage_service, 'generateFileName')
+                .mockReturnValue(generated_file_name);
+
+            const config_get_spy = jest
+                .spyOn(config_service, 'get')
+                .mockReturnValue(container_name);
+
+            const upload_file_spy = jest
+                .spyOn(azure_storage_service, 'uploadFile')
+                .mockResolvedValueOnce(uploaded_image_url);
+
+            const result = await service.uploadCover(current_user_id, file);
+
+            expect(generate_file_name_spy).toHaveBeenCalledWith(current_user_id, file.originalname);
+            expect(generate_file_name_spy).toHaveBeenCalledTimes(1);
+            expect(config_get_spy).toHaveBeenCalledWith('AZURE_STORAGE_COVER_IMAGE_CONTAINER');
+            expect(upload_file_spy).toHaveBeenCalledWith(
+                file.buffer,
+                generated_file_name,
+                container_name
+            );
+            expect(upload_file_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw BadRequestException when file is not provided', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file = null as any;
+
+            await expect(service.uploadCover(current_user_id, file)).rejects.toThrow(
+                ERROR_MESSAGES.FILE_NOT_FOUND
+            );
+        });
+
+        it('should throw BadRequestException when file buffer is missing', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file = {
+                fieldname: 'file',
+                originalname: 'avatar.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                size: 1024,
+                buffer: null,
+            } as any;
+
+            await expect(service.uploadCover(current_user_id, file)).rejects.toThrow(
+                ERROR_MESSAGES.FILE_NOT_FOUND
+            );
+        });
+
+        it('should throw InternalServerErrorException when upload fails', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const file = {
+                fieldname: 'file',
+                originalname: 'avatar.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                size: 1024,
+                buffer: Buffer.from('fake-image-data'),
+            } as Express.Multer.File;
+
+            const generated_file_name = `${current_user_id}_avatar.jpg`;
+            const container_name = 'profile-images';
+
+            jest.spyOn(azure_storage_service, 'generateFileName').mockReturnValue(
+                generated_file_name
+            );
+
+            jest.spyOn(config_service, 'get').mockReturnValue(container_name);
+
+            const upload_file_spy = jest
+                .spyOn(azure_storage_service, 'uploadFile')
+                .mockRejectedValueOnce(new Error('Upload failed'));
+
+            await expect(service.uploadCover(current_user_id, file)).rejects.toThrow(
+                ERROR_MESSAGES.FILE_UPLOAD_FAILED
+            );
+
+            expect(upload_file_spy).toHaveBeenCalledWith(
+                file.buffer,
+                generated_file_name,
+                container_name
+            );
+            expect(upload_file_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('deleteCover', () => {
+        it('should delete cover successfully', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const delete_file_dto: DeleteFileDto = {
+                file_url:
+                    'https://yapperdev.blob.core.windows.net/profile-images/0c059899-f706-4c8f-97d7-ba2e9fc22d6d-1761902534288-kurosensi.png',
+            };
+
+            const file_name = `${current_user_id}-1761902534288-kurosensi.png`;
+            const container_name = 'container-name';
+
+            const extract_file_name_spy = jest
+                .spyOn(azure_storage_service, 'extractFileName')
+                .mockReturnValue(file_name);
+
+            const extract_user_id_spy = jest
+                .spyOn(azure_storage_service, 'extractUserIdFromFileName')
+                .mockReturnValue(current_user_id);
+
+            const config_get_spy = jest
+                .spyOn(config_service, 'get')
+                .mockReturnValue(container_name);
+
+            const delete_file_spy = jest
+                .spyOn(azure_storage_service, 'deleteFile')
+                .mockResolvedValueOnce(undefined);
+
+            await service.deleteCover(current_user_id, delete_file_dto);
+
+            expect(extract_file_name_spy).toHaveBeenCalledWith(delete_file_dto.file_url);
+            expect(extract_file_name_spy).toHaveBeenCalledTimes(1);
+            expect(extract_user_id_spy).toHaveBeenCalledWith(file_name);
+            expect(extract_user_id_spy).toHaveBeenCalledTimes(1);
+            expect(config_get_spy).toHaveBeenCalledWith('AZURE_STORAGE_COVER_IMAGE_CONTAINER');
+            expect(delete_file_spy).toHaveBeenCalledWith(file_name, container_name);
+            expect(delete_file_spy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw ForbiddenException when user tries to delete another users file', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const other_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const delete_file_dto: DeleteFileDto = {
+                file_url:
+                    'https://yapperdev.blob.core.windows.net/profile-images/b2d59899-f706-4c8f-97d7-ba2e9fc22d90-1761902534288-kurosensi.png',
+            };
+
+            const file_name = `${other_user_id}-1761902534288-kurosensi.png`;
+
+            const extract_file_name_spy = jest
+                .spyOn(azure_storage_service, 'extractFileName')
+                .mockReturnValue(file_name);
+
+            const extract_user_id_spy = jest
+                .spyOn(azure_storage_service, 'extractUserIdFromFileName')
+                .mockReturnValue(other_user_id);
+
+            await expect(service.deleteCover(current_user_id, delete_file_dto)).rejects.toThrow(
+                ERROR_MESSAGES.UNAUTHORIZED_FILE_DELETE
+            );
+
+            expect(extract_file_name_spy).toHaveBeenCalledWith(delete_file_dto.file_url);
+            expect(extract_file_name_spy).toHaveBeenCalledTimes(1);
+            expect(extract_user_id_spy).toHaveBeenCalledWith(file_name);
+            expect(extract_user_id_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('assignInterests', () => {
+        it('should assign interests to user successfully', async () => {
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const assign_interests_dto: AssignInterestsDto = {
+                category_ids: [1, 2],
+            };
+
+            const existing_categories: Category[] = [
+                { id: 1, name: 'music' },
+                { id: 2, name: 'sports' },
+            ];
+
+            const user_interests = [
+                {
+                    user_id,
+                    category_id: 1,
+                },
+                {
+                    user_id,
+                    category_id: 2,
+                },
+            ];
+
+            const find_by_spy = jest
+                .spyOn(category_repository, 'findBy')
+                .mockResolvedValueOnce(existing_categories);
+
+            const insert_user_interests_spy = jest
+                .spyOn(user_repository, 'insertUserInterests')
+                .mockResolvedValueOnce({} as any);
+
+            await service.assignInterests(user_id, assign_interests_dto);
+
+            expect(find_by_spy).toHaveBeenCalledWith({
+                id: In(assign_interests_dto.category_ids),
+            });
+            expect(find_by_spy).toHaveBeenCalledTimes(1);
+            expect(insert_user_interests_spy).toHaveBeenCalledWith(user_interests);
+            expect(insert_user_interests_spy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw NotFoundException when some categories do not exist', async () => {
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const assign_interests_dto: AssignInterestsDto = {
+                category_ids: [1, 3],
+            };
+
+            const existing_categories: Category[] = [{ id: 1, name: 'music' }];
+
+            const find_by_spy = jest
+                .spyOn(category_repository, 'findBy')
+                .mockResolvedValueOnce(existing_categories);
+
+            await expect(service.assignInterests(user_id, assign_interests_dto)).rejects.toThrow(
+                ERROR_MESSAGES.CATEGORIES_NOT_FOUND
+            );
+
+            expect(find_by_spy).toHaveBeenCalledWith({
+                id: In(assign_interests_dto.category_ids),
+            });
+            expect(find_by_spy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw NotFoundException when no categories exist', async () => {
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const assign_interests_dto: AssignInterestsDto = {
+                category_ids: [5, 6],
+            };
+
+            const existing_categories: Category[] = [];
+            const find_by_spy = jest
+                .spyOn(category_repository, 'findBy')
+                .mockResolvedValueOnce(existing_categories);
+
+            await expect(service.assignInterests(user_id, assign_interests_dto)).rejects.toThrow(
+                ERROR_MESSAGES.CATEGORIES_NOT_FOUND
+            );
+
+            expect(find_by_spy).toHaveBeenCalledWith({
+                id: In(assign_interests_dto.category_ids),
+            });
+            expect(find_by_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('changeLanguage', () => {
+        it('should change user language successfully', async () => {
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const change_language_dto: ChangeLanguageDto = {
+                language: 'ar',
+            };
+
+            const mock_response: ChangeLanguageResponseDto = { language: 'ar' };
+
+            const existing_user: User = {
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                language: 'en',
+                bio: 'Software developer and tech enthusiast.',
+                avatar_url: 'https://example.com/images/profile.jpg',
+                cover_url: 'https://example.com/images/cover.jpg',
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                hashtags: [],
+                tweets: [],
+            };
+
+            const updated_user = {
+                ...existing_user,
+                language: 'ar' as 'ar' | 'en',
+            };
+
+            const find_one_spy = jest
+                .spyOn(user_repository, 'findOne')
+                .mockResolvedValueOnce(existing_user);
+
+            const save_spy = jest
+                .spyOn(user_repository, 'save')
+                .mockResolvedValueOnce(updated_user as any);
+
+            const result = await service.changeLanguage(user_id, change_language_dto);
+
+            expect(find_one_spy).toHaveBeenCalledWith({ where: { id: user_id } });
+            expect(find_one_spy).toHaveBeenCalledTimes(1);
+            expect(save_spy).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    id: user_id,
+                    language: 'ar',
+                })
+            );
+            expect(save_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw NotFoundException when user does not exist', async () => {
+            const user_id = 'nonexistent-user-id';
+            const change_language_dto: ChangeLanguageDto = {
+                language: 'ar',
+            };
+
+            const find_one_spy = jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(null);
+
+            await expect(service.changeLanguage(user_id, change_language_dto)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
+            );
+
+            expect(find_one_spy).toHaveBeenCalledWith({ where: { id: user_id } });
+            expect(find_one_spy).toHaveBeenCalledTimes(1);
         });
     });
     // describe('findUserById', () => {
     //     it('should find a user by ID', async () => {
-    //         const mockUser = { id: '1', email: 'a@a.com' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '1', email: 'a@a.com' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserById('1');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { id: '1' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
     // describe('findUserByEmail', () => {
     //     it('should find a user by email', async () => {
-    //         const mockUser = { id: '2', email: 'test@example.com' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '2', email: 'test@example.com' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserByEmail('test@example.com');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { email: 'test@example.com' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
     // describe('findUserByGithubId', () => {
     //     it('should find a user by github_id', async () => {
-    //         const mockUser = { id: '3', github_id: 'gh123' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '3', github_id: 'gh123' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserByGithubId('gh123');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { github_id: 'gh123' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
     // describe('findUserByFacebookId', () => {
     //     it('should find a user by facebookId', async () => {
-    //         const mockUser = { id: '4', facebook_id: 'fb123' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '4', facebook_id: 'fb123' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserByFacebookId('fb123');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { facebook_id: 'fb123' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
     // describe('findUserByGoogleId', () => {
     //     it('should find a user by googleId', async () => {
-    //         const mockUser = { id: '5', google_id: 'g123' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '5', google_id: 'g123' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserByGoogleId('g123');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { google_id: 'g123' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
@@ -1259,34 +2416,34 @@ describe('UserService', () => {
 
     // describe('updateUser', () => {
     //     it('should update and return user', async () => {
-    //         const updatedUser = {
+    //         const updated_user = {
     //             id: '1',
     //             name: 'Updated User',
-    //             username: 'updateduser',
+    //             username: 'updated_user',
     //             email: 'test@example.com',
     //             password: 'hashedpassword',
     //             phone_number: '1234567890',
     //         } as User;
     //         (repo.update as jest.Mock).mockResolvedValueOnce(undefined);
-    //         repo.findOne.mockResolvedValueOnce(updatedUser);
+    //         repo.findOne.mockResolvedValueOnce(updated_user);
 
     //         const result = await service.updateUser('1', { name: 'Updated User' });
 
     //         expect(repo.update).toHaveBeenCalledWith('1', { name: 'Updated User' });
-    //         expect(result).toEqual(updatedUser);
+    //         expect(result).toEqual(updated_user);
     //     });
     // });
 
     // describe('updateUserPassword', () => {
     //     it('should update password and return user', async () => {
-    //         const updatedUser = { id: '1', password: 'hashed' } as User;
+    //         const updated_user = { id: '1', password: 'hashed' } as User;
     //         (repo.update as jest.Mock).mockResolvedValueOnce(undefined);
-    //         repo.findOne.mockResolvedValueOnce(updatedUser);
+    //         repo.findOne.mockResolvedValueOnce(updated_user);
 
     //         const result = await service.updateUserPassword('1', 'hashed');
 
     //         expect(repo.update).toHaveBeenCalledWith('1', { password: 'hashed' });
-    //         expect(result).toEqual(updatedUser);
+    //         expect(result).toEqual(updated_user);
     //     });
     // });
 });

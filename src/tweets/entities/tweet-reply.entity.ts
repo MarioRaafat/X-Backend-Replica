@@ -1,4 +1,4 @@
-import { Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from '../../user/entities/user.entity';
 
@@ -12,6 +12,9 @@ export class TweetReply {
 
     @PrimaryColumn({ type: 'uuid' })
     original_tweet_id: string;
+
+    @Column({ type: 'uuid', nullable: true })
+    conversation_id: string | null;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'user_id' })

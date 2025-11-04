@@ -48,7 +48,7 @@ describe('FacebookStrategy', () => {
             const profile = {
                 id: 'facebook-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [{ value: 'http://example.com/photo.jpg' }],
             };
@@ -82,7 +82,7 @@ describe('FacebookStrategy', () => {
             const profile = {
                 id: 'facebook-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             };
@@ -108,7 +108,7 @@ describe('FacebookStrategy', () => {
             const profile = {
                 id: 'facebook-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [],
                 photos: [],
             };
@@ -125,11 +125,11 @@ describe('FacebookStrategy', () => {
             );
         });
 
-        it('should handle profile with username only when displayName is missing', async () => {
+        it('should handle profile with username only when display_name is missing', async () => {
             const profile = {
                 id: 'facebook-123',
                 username: 'johndoe',
-                displayName: null,
+                display_name: null,
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             };
@@ -158,7 +158,7 @@ describe('FacebookStrategy', () => {
             const profile = {
                 id: 'facebook-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             };
@@ -186,7 +186,7 @@ describe('FacebookStrategy', () => {
             const profile = {
                 id: 'facebook-123',
                 username: 'johndoe',
-                displayName: 'John Doe',
+                display_name: 'John Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             };
@@ -205,7 +205,7 @@ describe('FacebookStrategy', () => {
             const profile = {
                 id: 'facebook-123',
                 username: 'johndoe',
-                displayName: 'John Michael Doe',
+                display_name: 'John Michael Doe',
                 emails: [{ value: 'john@example.com' }],
                 photos: [],
             };

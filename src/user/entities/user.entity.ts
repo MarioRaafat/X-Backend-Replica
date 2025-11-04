@@ -2,6 +2,7 @@ import { Exclude } from 'class-transformer';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { Hashtag } from '../../tweets/entities/hashtags.entity';
 import { Column, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { UserFollows } from './user-follows.entity';
 
 @Entity()
 export class User {
@@ -48,20 +49,17 @@ export class User {
     @Column({ type: 'date' })
     birth_date: Date;
 
-    // 'en', 'ar'.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
-    @Exclude()
-    language: string;
+    language: 'en' | 'ar';
 
     @Column({ type: 'boolean', default: false })
-    verified: boolean;
+    verified: boolean = false;
 
     @Column({ type: 'varchar', nullable: true })
-    country?: string;
+    country?: string | null;
 
     @Column({ type: 'boolean', default: false })
-    @Exclude()
-    online: boolean;
+    online: boolean = false;
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
@@ -72,20 +70,22 @@ export class User {
         onUpdate: 'CURRENT_TIMESTAMP',
     })
     @UpdateDateColumn()
-    @Exclude()
     updated_at: Date;
 
     @Column({ type: 'int', default: 0 })
-    followers: number;
+    followers: number = 0;
 
     @Column({ type: 'int', default: 0 })
-    following: number;
+    following: number = 0;
 
     @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
     hashtags: Hashtag[];
 
     @OneToMany(() => Tweet, (tweet) => tweet.user, {})
     tweets: Tweet[];
+
+    current_user_follows?: UserFollows | null;
+    is_following?: boolean;
 
     constructor(user: Partial<User>) {
         Object.assign(this, user);

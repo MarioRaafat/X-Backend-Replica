@@ -38,12 +38,12 @@ export class UserSeeder extends BaseSeeder {
         // Insert in batches
         const inserted = await SeedHelper.insertBatch(user_repository, users);
 
-        // Build Excel userId → database user.id map
+        // Build Excel user_id → database user.id map
         const id_map = new Map<string, string>();
         unique_raw_users.forEach((raw_user, index) => {
             const inserted_user = inserted[index];
-            if (raw_user.userId && inserted_user?.id) {
-                id_map.set(raw_user.userId.toString(), inserted_user.id);
+            if (raw_user.user_id && inserted_user?.id) {
+                id_map.set(raw_user.user_id.toString(), inserted_user.id);
             }
         });
 
