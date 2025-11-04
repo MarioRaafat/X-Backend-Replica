@@ -67,7 +67,7 @@ import { GetFollowersDto } from './dto/get-followers.dto';
 import { PaginationParamsDto } from './dto/pagination-params.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePhoneNumberDto } from './dto/update_phone_number.dto';
-import { GetUserId } from 'src/decorators/get-user_id.decorator';
+import { GetUserId } from 'src/decorators/get-userId.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';

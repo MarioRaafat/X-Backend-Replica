@@ -47,7 +47,7 @@ import { GoogleAuthGuard } from './guards/google-auth.guard';
 import { FacebookAuthGuard } from './guards/facebook.guard';
 import { JwtAuthGuard } from './guards/jwt.guard';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
-import { GetUserId } from 'src/decorators/get-user_id.decorator';
+import { GetUserId } from 'src/decorators/get-userId.decorator';
 import {
     ApiBadRequestErrorResponse,
     ApiConflictErrorResponse,

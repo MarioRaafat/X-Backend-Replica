@@ -29,17 +29,17 @@ import {
     ApiForbiddenErrorResponse,
     ApiNotFoundErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
-import { GetUserId } from '../decorators/get-user_id.decorator';
+import { GetUserId } from '../decorators/get-userId.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import {
-    create_chat_dto,
+    CreateChatDto,
     GetChatsQueryDto,
     GetMessagesQueryDto,
-    mark_messages_read_dto,
+    MarkMessagesReadDto,
     SearchChatsQueryDto,
-    send_message_dto,
-    update_message_dto,
+    SendMessageDto,
+    UpdateMessageDto,
 } from './dto';
 import {
     create_chat_swagger,
@@ -65,14 +65,14 @@ export class ChatController {
     constructor(private readonly chat_service: ChatService) {}
 
     @ApiOperation(create_chat_swagger.operation)
-    @ApiBody({ type: create_chat_dto })
+    @ApiBody({ type: CreateChatDto })
     @ApiCreatedResponse(create_chat_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.RECIPIENT_NOT_FOUND)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.CANNOT_MESSAGE_YOURSELF)
     @ApiConflictErrorResponse(ERROR_MESSAGES.CHAT_ALREADY_EXISTS)
     @ResponseMessage(SUCCESS_MESSAGES.CHAT_CREATED)
     @Post()
-    async createChat(@Body() create_chat_dto: create_chat_dto, @GetUserId() user_id: string) {
+    async createChat(@Body() create_chat_dto: CreateChatDto, @GetUserId() user_id: string) {
         return this.chat_service.createChat(user_id, create_chat_dto);
     }
 
@@ -118,7 +118,7 @@ export class ChatController {
 
     @ApiOperation(send_message_swagger.operation)
     @ApiParam(send_message_swagger.params.chat_id)
-    @ApiBody({ type: send_message_dto })
+    @ApiBody({ type: SendMessageDto })
     @ApiCreatedResponse(send_message_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.CHAT_NOT_FOUND)
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
@@ -127,7 +127,7 @@ export class ChatController {
     @Post('chats/:chat_id/messages')
     async sendMessage(
         @Param('chat_id') chat_id: string,
-        @Body() send_message_dto: send_message_dto,
+        @Body() send_message_dto: SendMessageDto,
         @GetUserId() user_id: string
     ) {
         return this.chat_service.sendMessage(user_id, chat_id, send_message_dto);
@@ -168,7 +168,7 @@ export class ChatController {
     @ApiOperation(update_message_swagger.operation)
     @ApiParam(update_message_swagger.params.chat_id)
     @ApiParam(update_message_swagger.params.message_id)
-    @ApiBody({ type: update_message_dto })
+    @ApiBody({ type: UpdateMessageDto })
     @ApiOkResponse(update_message_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.MESSAGE_NOT_FOUND)
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_MESSAGE)
@@ -178,7 +178,7 @@ export class ChatController {
     async updateMessage(
         @Param('chat_id') chat_id: string,
         @Param('message_id') message_id: string,
-        @Body() update_message_dto: update_message_dto,
+        @Body() update_message_dto: UpdateMessageDto,
         @GetUserId() user_id: string
     ) {
         return this.chat_service.updateMessage(user_id, chat_id, message_id, update_message_dto);
@@ -202,7 +202,7 @@ export class ChatController {
 
     @ApiOperation(mark_messages_read_swagger.operation)
     @ApiParam(mark_messages_read_swagger.params.chat_id)
-    @ApiBody({ type: mark_messages_read_dto })
+    @ApiBody({ type: MarkMessagesReadDto })
     @ApiOkResponse(mark_messages_read_swagger.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.CHAT_NOT_FOUND)
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
@@ -210,7 +210,7 @@ export class ChatController {
     @Post('chats/:chat_id/read')
     async markMessagesAsRead(
         @Param('chat_id') chat_id: string,
-        @Body() mark_messages_read_dto: mark_messages_read_dto,
+        @Body() mark_messages_read_dto: MarkMessagesReadDto,
         @GetUserId() user_id: string
     ) {
         return this.chat_service.markMessagesAsRead(user_id, chat_id, mark_messages_read_dto);

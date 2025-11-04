@@ -10,7 +10,7 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { plainToInstance } from 'class-transformer';
 import { UserFollows } from 'src/user/entities';
 import { getReplyWithParentChainQuery } from './queries/reply-parent-chain.query';
-import { getPostsByUserIdQuery } from './queries/get-posts-by-user_id.query';
+import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
 import { SelectQueryBuilder } from 'typeorm/browser';
 
 @Injectable()

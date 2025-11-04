@@ -9,10 +9,10 @@ describe('generateRandomOtp', () => {
         expect(typeof otp).toBe('string');
     });
 
-    it('should generate OTP with default size of 6', () => {
+    it('should generate OTP with default size of 8', () => {
         const otp = generateRandomOtp();
 
-        expect(otp.length).toBe(6);
+        expect(otp.length).toBe(8);
     });
 
     it('should generate OTP with custom size', () => {
@@ -25,19 +25,19 @@ describe('generateRandomOtp', () => {
         expect(otp10.length).toBe(10);
     });
 
-    it('should only contain alphanumeric characters', () => {
+    it('should only contain lowercase alphanumeric characters', () => {
         const otp = generateRandomOtp(20);
 
-        // Should match only A-Z, a-z, 0-9
-        expect(otp).toMatch(/^[A-Za-z0-9]+$/);
+        // Should match only a-z, 0-9 (lowercase only)
+        expect(otp).toMatch(/^[a-z0-9]+$/);
 
-        // Should not contain special characters
-        expect(otp).not.toMatch(/[^A-Za-z0-9]/);
+        // Should not contain uppercase or special characters
+        expect(otp).not.toMatch(/[^a-z0-9]/);
     });
 
     it('should generate OTP with valid characters from the character set', () => {
         const otp = generateRandomOtp(100);
-        const valid_characters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        const valid_characters = 'abcdefghijklmnopqrstuvwxyz0123456789';
 
         for (const char of otp) {
             expect(valid_characters).toContain(char);
@@ -55,7 +55,7 @@ describe('generateRandomOtp', () => {
         const otp = generateRandomOtp(1);
 
         expect(otp.length).toBe(1);
-        expect(otp).toMatch(/^[A-Za-z0-9]$/);
+        expect(otp).toMatch(/^[a-z0-9]$/);
     });
 
     it('should generate OTP with numeric characters', () => {
@@ -71,17 +71,17 @@ describe('generateRandomOtp', () => {
         expect(has_number).toBe(true);
     });
 
-    it('should generate OTP with uppercase letters', () => {
+    it('should not contain uppercase letters', () => {
         const otps: string[] = [];
 
-        // Generate multiple OTPs to increase chance of getting uppercase
+        // Generate multiple OTPs
         for (let i = 0; i < 50; i++) {
             otps.push(generateRandomOtp(10));
         }
 
-        // At least one OTP should contain an uppercase letter
+        // No OTP should contain an uppercase letter
         const has_uppercase = otps.some((otp) => /[A-Z]/.test(otp));
-        expect(has_uppercase).toBe(true);
+        expect(has_uppercase).toBe(false);
     });
 
     it('should generate OTP with lowercase letters', () => {

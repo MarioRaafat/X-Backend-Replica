@@ -42,7 +42,7 @@ import { PaginatedTweetRepliesResponseDTO } from './dto/paginated-tweet-replies-
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
-import { GetUserId } from '../decorators/get-user_id.decorator';
+import { GetUserId } from '../decorators/get-userId.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
 import {
     ApiBadRequestErrorResponse,

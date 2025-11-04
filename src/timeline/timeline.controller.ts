@@ -12,7 +12,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { TimelinePaginationDto } from './dto/timeline-pagination.dto';
 import { MentionsDto } from './dto/mentions.dto';
 import { TrendsDto } from './dto/trends.dto';
-import { GetUserId } from 'src/decorators/get-user_id.decorator';
+import { GetUserId } from 'src/decorators/get-userId.decorator';
 import { TimelineResponseDto } from './dto/timeline-response.dto';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import {
