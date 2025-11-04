@@ -25,7 +25,7 @@ export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
         profile: Profile,
         done?: any
     ): Promise<any> {
-        const { id, username, display_name, emails, photos } = profile;
+        const { id, username, displayName: display_name, emails, photos } = profile;
 
         // GitHub might not always return email in the profile (for now we must have email so I will throw an error if not)
         const email = emails && emails.length > 0 ? emails[0].value : null;

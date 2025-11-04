@@ -1,17 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import {
-    create_chat_dto,
+    CreateChatDto,
     GetChatsQueryDto,
     GetMessagesQueryDto,
-    mark_messages_read_dto,
+    MarkMessagesReadDto,
     SearchChatsQueryDto,
-    send_message_dto,
-    update_message_dto,
+    SendMessageDto,
+    UpdateMessageDto,
 } from './dto';
 
 @Injectable()
 export class ChatService {
-    async createChat(user_id: string, dto: create_chat_dto) {
+    async createChat(user_id: string, dto: CreateChatDto) {
         throw new Error('Method not implemented');
     }
 
@@ -31,7 +31,7 @@ export class ChatService {
         throw new Error('Method not implemented');
     }
 
-    async sendMessage(user_id: string, chat_id: string, dto: send_message_dto) {
+    async sendMessage(user_id: string, chat_id: string, dto: SendMessageDto) {
         throw new Error('Method not implemented');
     }
 
@@ -47,7 +47,7 @@ export class ChatService {
         user_id: string,
         chat_id: string,
         message_id: string,
-        dto: update_message_dto
+        dto: UpdateMessageDto
     ) {
         throw new Error('Method not implemented');
     }
@@ -56,7 +56,7 @@ export class ChatService {
         throw new Error('Method not implemented');
     }
 
-    async markMessagesAsRead(user_id: string, chat_id: string, dto: mark_messages_read_dto) {
+    async markMessagesAsRead(user_id: string, chat_id: string, dto: MarkMessagesReadDto) {
         throw new Error('Method not implemented');
     }
 }
