@@ -8,6 +8,9 @@ import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
+import { UserFollows } from '../user/entities/user-follows.entity';
+import { PaginationService } from '../shared/services/pagination/pagination.service';
+import { TweetsRepository } from './tweets.repository';
 
 describe('TweetsService', () => {
     let tweets_service: TweetsService;
@@ -38,6 +41,20 @@ describe('TweetsService', () => {
         const mock_tweet_repost_repo = mock_repo();
         const mock_tweet_quote_repo = mock_repo();
         const mock_tweet_reply_repo = mock_repo();
+        const mock_user_follows_repo = mock_repo();
+
+        const mock_pagination_service = {
+            paginate: jest.fn(),
+            calculatePagination: jest.fn(),
+        };
+
+        const mock_tweets_repository = {
+            getTweetById: jest.fn(),
+            getTweetsByIds: jest.fn(),
+            createTweet: jest.fn(),
+            updateTweet: jest.fn(),
+            deleteTweet: jest.fn(),
+        };
 
         mock_query_runner = {
             connect: jest.fn(),
@@ -67,7 +84,10 @@ describe('TweetsService', () => {
                 { provide: getRepositoryToken(TweetRepost), useValue: mock_tweet_repost_repo },
                 { provide: getRepositoryToken(TweetQuote), useValue: mock_tweet_quote_repo },
                 { provide: getRepositoryToken(TweetReply), useValue: mock_tweet_reply_repo },
+                { provide: getRepositoryToken(UserFollows), useValue: mock_user_follows_repo },
                 { provide: DataSource, useValue: mock_data_source },
+                { provide: PaginationService, useValue: mock_pagination_service },
+                { provide: TweetsRepository, useValue: mock_tweets_repository },
             ],
         }).compile();
 
@@ -159,9 +179,6 @@ describe('TweetsService', () => {
             const mock_tweet_dto: CreateTweetDTO = { content: 'oops' } as CreateTweetDTO;
             const db_error = new Error('Database failure');
 
-            const create_spy3 = jest
-                .spyOn(tweet_repo, 'create')
-                .mockReturnValue({ tweet_id: 't1', ...mock_tweet_dto } as any);
             const save_spy3 = jest.spyOn(tweet_repo, 'save').mockRejectedValue(db_error);
 
             await expect(tweets_service.createTweet(mock_tweet_dto, mock_user_id)).rejects.toThrow(
@@ -192,7 +209,11 @@ describe('TweetsService', () => {
                 .spyOn(tweet_repo, 'findOne')
                 .mockResolvedValue(mock_tweet_with_user as any);
 
-            const result = await tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id);
+            const result = await tweets_service.updateTweet(
+                mock_update_dto as any,
+                mock_tweet_id,
+                'user-123'
+            );
 
             expect(preload_spy).toHaveBeenCalledWith({
                 tweet_id: mock_tweet_id,
@@ -213,7 +234,7 @@ describe('TweetsService', () => {
             const preload_spy2 = jest.spyOn(tweet_repo, 'preload').mockResolvedValue(null as any);
 
             await expect(
-                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id, 'user-123')
             ).rejects.toThrow('Tweet not found');
 
             expect(preload_spy2).toHaveBeenCalledWith({
@@ -236,7 +257,7 @@ describe('TweetsService', () => {
             const find_one_spy3 = jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null as any);
 
             await expect(
-                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id, 'user-123')
             ).rejects.toThrow('Tweet not found after update');
 
             expect(preload_spy3).toHaveBeenCalled();
@@ -252,7 +273,7 @@ describe('TweetsService', () => {
             const preload_spy4 = jest.spyOn(tweet_repo, 'preload').mockRejectedValue(db_error);
 
             await expect(
-                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id)
+                tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id, 'user-123')
             ).rejects.toThrow('Database failure');
 
             expect(preload_spy4).toHaveBeenCalled();
@@ -268,7 +289,9 @@ describe('TweetsService', () => {
                 .spyOn(tweet_repo, 'delete')
                 .mockResolvedValue(mock_delete_result as any);
 
-            await expect(tweets_service.deleteTweet(mock_tweet_id)).resolves.toBeUndefined();
+            await expect(
+                tweets_service.deleteTweet(mock_tweet_id, 'user-123')
+            ).resolves.toBeUndefined();
 
             expect(delete_spy).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
         });
@@ -281,7 +304,7 @@ describe('TweetsService', () => {
                 .spyOn(tweet_repo, 'delete')
                 .mockResolvedValue(mock_delete_result as any);
 
-            await expect(tweets_service.deleteTweet(mock_tweet_id)).rejects.toThrow(
+            await expect(tweets_service.deleteTweet(mock_tweet_id, 'user-123')).rejects.toThrow(
                 'Tweet not found'
             );
 
@@ -294,7 +317,7 @@ describe('TweetsService', () => {
 
             const delete_spy3 = jest.spyOn(tweet_repo, 'delete').mockRejectedValue(db_error);
 
-            await expect(tweets_service.deleteTweet(mock_tweet_id)).rejects.toThrow(
+            await expect(tweets_service.deleteTweet(mock_tweet_id, 'user-123')).rejects.toThrow(
                 'Database failure'
             );
 
@@ -437,7 +460,7 @@ describe('TweetsService', () => {
         });
     });
 
-    describe('unLikeTweet', () => {
+    describe('unlikeTweet', () => {
         it('should delete like, decrement num_likes, and commit transaction', async () => {
             const mock_tweet_id = 'tweet-789';
             const mock_user_id = 'user-123';
@@ -451,7 +474,7 @@ describe('TweetsService', () => {
                 .mockResolvedValue({} as any);
             const commit_spy = jest.spyOn(mock_query_runner, 'commitTransaction');
 
-            await tweets_service.unLikeTweet(mock_tweet_id, mock_user_id);
+            await tweets_service.unlikeTweet(mock_tweet_id, mock_user_id);
 
             expect(mock_query_runner.connect).toHaveBeenCalled();
             expect(mock_query_runner.startTransaction).toHaveBeenCalled();
@@ -476,7 +499,7 @@ describe('TweetsService', () => {
             jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue(delete_result as any);
             jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue({} as any);
 
-            await expect(tweets_service.unLikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+            await expect(tweets_service.unlikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'User seemed to not like this tweet or tweet does not exist'
             );
 
@@ -490,7 +513,7 @@ describe('TweetsService', () => {
 
             jest.spyOn(mock_query_runner.manager, 'delete').mockRejectedValue(db_error);
 
-            await expect(tweets_service.unLikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+            await expect(tweets_service.unlikeTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'Database crash'
             );
 
