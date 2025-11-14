@@ -41,4 +41,5 @@ export default new DataSource({
     ],
     migrations: ['src/migrations/*{.ts,.js}'],
     synchronize: false,
+    uuidExtension: 'pgcrypto',
 });
