@@ -9,6 +9,7 @@ import { UserRepository } from './user.repository';
 import { ConfigModule } from '@nestjs/config';
 import { AzureStorageModule } from 'src/azure-storage/azure-storage.module';
 import { CategoryModule } from 'src/category/category.module';
+import { TweetsModule } from 'src/tweets/tweets.module';
 
 @Module({
     imports: [
@@ -16,6 +17,7 @@ import { CategoryModule } from 'src/category/category.module';
         ConfigModule,
         AzureStorageModule,
         CategoryModule,
+        TweetsModule,
     ],
     controllers: [UserController],
     providers: [UserService, UserRepository],

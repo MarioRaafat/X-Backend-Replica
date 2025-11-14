@@ -1,5 +1,6 @@
-import { IsEmail, IsOptional, IsString } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class CreateUserDto {
     @ApiProperty({
@@ -7,6 +8,7 @@ export class CreateUserDto {
         example: 'shady@example.com',
     })
     @IsEmail()
+    @MaxLength(STRING_MAX_LENGTH)
     email: string;
 
     @ApiProperty({
@@ -16,6 +18,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     password?: string;
 
     @ApiProperty({
@@ -23,6 +26,7 @@ export class CreateUserDto {
         example: 'Alyaa Amira',
     })
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     name: string;
 
     @ApiProperty({
@@ -30,6 +34,7 @@ export class CreateUserDto {
         example: 'mario2252004',
     })
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     username: string;
 
     @ApiProperty({
@@ -39,6 +44,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(500)
     bio?: string;
 
     @ApiProperty({
@@ -48,6 +54,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(20)
     phone_number?: string;
 
     @ApiProperty({
@@ -57,6 +64,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(500)
     avatar_url?: string;
 
     @ApiProperty({
@@ -66,6 +74,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(500)
     cover_url?: string;
 
     @ApiProperty({
@@ -83,6 +92,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     facebook_id?: string;
 
     @ApiProperty({
@@ -92,6 +102,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     google_id?: string;
 
     @ApiProperty({
@@ -101,5 +112,6 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     github_id?: string;
 }

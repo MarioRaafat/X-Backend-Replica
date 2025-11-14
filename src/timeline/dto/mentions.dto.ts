@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { TimelinePaginationDto } from './timeline-pagination.dto';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class MentionsDto extends TimelinePaginationDto {
     @ApiProperty({
@@ -10,6 +11,7 @@ export class MentionsDto extends TimelinePaginationDto {
     })
     @IsString()
     @IsNotEmpty()
+    @MaxLength(50)
     user_id: string;
 
     // limit and cursor are inherited from TimelinePaginationDto

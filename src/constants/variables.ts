@@ -1,6 +1,8 @@
 export const Y_LOGO_URL = 'https://iili.io/KUhrEyN.png';
 export const Y_LOGO_HOST_URL = 'https://freeimage.host/';
 
+export const STRING_MAX_LENGTH = 100;
+
 // ------------------------- Email Templates ------------------------- //
 export const verification_email_object = (otp: string, link: string) => ({
     subject: `${otp} is your Y verification code`,

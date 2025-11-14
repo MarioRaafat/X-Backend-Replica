@@ -8,7 +8,6 @@ services:
       - "3000:3000"
     depends_on:
       - redis
-      - rabbitmq
       - relational_db
       - non_relational_db
 
@@ -19,20 +18,6 @@ services:
       - config/local.env
     ports:
       - "${REDIS_PORT}:6379"
-
-  rabbitmq:
-    image: rabbitmq:3.13-management
-    container_name: rabbitmq
-    env_file:
-      - config/local.env
-    ports:
-      - "${RABBITMQ_PORT}:5672"
-      - "${RABBITMQ_MANAGEMENT_PORT}:15672"
-    environment:
-      RABBITMQ_DEFAULT_USER: "${RABBITMQ_DEFAULT_USER}"
-      RABBITMQ_DEFAULT_PASS: "${RABBITMQ_DEFAULT_PASS}"
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
 
   relational_db:
     image: postgres
@@ -49,6 +34,3 @@ services:
     container_name: mongo
     env_file:
       - config/local.env
-
-volumes:
-  rabbitmq_data:

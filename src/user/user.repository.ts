@@ -11,8 +11,8 @@ import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
-    constructor(private dataSource: DataSource) {
-        super(User, dataSource.createEntityManager());
+    constructor(private data_source: DataSource) {
+        super(User, data_source.createEntityManager());
     }
 
     async findById(id: string): Promise<User | null> {
@@ -74,9 +74,9 @@ export class UserRepository extends Repository<User> {
 
         let profile;
         if (!current_user_id) {
-            profile = base_profile_query.getRawOne<UserProfileDto>();
+            profile = await base_profile_query.getRawOne<UserProfileDto>();
         } else {
-            profile = this.addViewerContextToProfileQuery(
+            profile = await this.addViewerContextToProfileQuery(
                 base_profile_query,
                 current_user_id
             ).getRawOne<DetailedUserProfileDto>();
@@ -93,9 +93,9 @@ export class UserRepository extends Repository<User> {
 
         let profile;
         if (!current_user_id) {
-            profile = base_profile_query.getRawOne<UserProfileDto>();
+            profile = await base_profile_query.getRawOne<UserProfileDto>();
         } else {
-            profile = this.addViewerContextToProfileQuery(
+            profile = await this.addViewerContextToProfileQuery(
                 base_profile_query,
                 current_user_id
             ).getRawOne<DetailedUserProfileDto>();
@@ -209,6 +209,10 @@ export class UserRepository extends Repository<User> {
                 'user.username AS username',
                 'user.bio AS bio',
                 'user.avatar_url AS avatar_url',
+                'user.cover_url AS cover_url',
+                'user.verified AS verified',
+                'user.followers AS followers',
+                'user.following AS following',
             ])
             .addSelect(
                 `CASE WHEN EXISTS(
@@ -243,7 +247,7 @@ export class UserRepository extends Repository<User> {
         return query;
     }
 
-    async getUsersById(
+    async getUsersByIds(
         user_ids: string[],
         current_user_id: string | null
     ): Promise<UserListItemDto[]> {
@@ -258,13 +262,17 @@ export class UserRepository extends Repository<User> {
                 'user.username AS username',
                 'user.bio AS bio',
                 'user.avatar_url AS avatar_url',
+                'user.cover_url AS cover_url',
+                'user.verified AS verified',
+                'user.followers AS followers',
+                'user.following AS following',
             ]);
         }
 
         return await query.where('"user"."id" IN (:...user_ids)', { user_ids }).getRawMany();
     }
 
-    async getUsersByUsername(
+    async getUsersByUsernames(
         usernames: string[],
         current_user_id: string | null
     ): Promise<UserListItemDto[]> {
@@ -279,6 +287,10 @@ export class UserRepository extends Repository<User> {
                 'user.username AS username',
                 'user.bio AS bio',
                 'user.avatar_url AS avatar_url',
+                'user.cover_url AS cover_url',
+                'user.verified AS verified',
+                'user.followers AS followers',
+                'user.following AS following',
             ]);
         }
 
@@ -377,7 +389,7 @@ export class UserRepository extends Repository<User> {
         follower_id: string,
         followed_id: string
     ): Promise<InsertResult> {
-        return await this.dataSource.transaction(async (manager) => {
+        return await this.data_source.transaction(async (manager) => {
             const user_follows = new UserFollows({ follower_id, followed_id });
             const insert_result = await manager.insert(UserFollows, user_follows);
 
@@ -392,7 +404,7 @@ export class UserRepository extends Repository<User> {
         follower_id: string,
         followed_id: string
     ): Promise<DeleteResult> {
-        return await this.dataSource.transaction(async (manager) => {
+        return await this.data_source.transaction(async (manager) => {
             const delete_result = await manager.delete(UserFollows, {
                 follower_id,
                 followed_id,
@@ -409,45 +421,58 @@ export class UserRepository extends Repository<User> {
 
     async insertMuteRelationship(muter_id: string, muted_id: string): Promise<InsertResult> {
         const user_mutes = new UserMutes({ muter_id, muted_id });
-        return await this.dataSource.getRepository(UserMutes).insert(user_mutes);
+        return await this.data_source.getRepository(UserMutes).insert(user_mutes);
     }
 
     async deleteMuteRelationship(muter_id: string, muted_id: string): Promise<DeleteResult> {
-        return await this.dataSource.getRepository(UserMutes).delete({ muter_id, muted_id });
+        return await this.data_source.getRepository(UserMutes).delete({ muter_id, muted_id });
     }
 
     async insertBlockRelationship(blocker_id: string, blocked_id: string) {
-        const user_blocks = new UserBlocks({ blocker_id, blocked_id });
-        await this.dataSource.transaction(async (manager) => {
-            const user_blocks_repository = manager.getRepository(UserBlocks);
-            const user_follows_repository = manager.getRepository(UserFollows);
+        await this.data_source.transaction(async (manager) => {
+            const [remove_followed, remove_follower] = await Promise.all([
+                manager.delete(UserFollows, { follower_id: blocker_id, followed_id: blocked_id }),
+                manager.delete(UserFollows, { follower_id: blocked_id, followed_id: blocker_id }),
+                manager.insert(UserBlocks, { blocker_id, blocked_id }),
+            ]);
 
-            await user_blocks_repository.insert(user_blocks);
+            const decrement_following_conditions: { id: string }[] = [];
+            const decrement_followers_conditions: { id: string }[] = [];
 
-            await user_follows_repository
-                .createQueryBuilder()
-                .delete()
-                .where('follower_id = :blocker_id AND followed_id = :blocked_id')
-                .orWhere('follower_id = :blocked_id AND followed_id = :blocker_id')
-                .setParameters({ blocker_id, blocked_id })
-                .execute();
+            if (remove_followed.affected && remove_followed.affected > 0) {
+                decrement_followers_conditions.push({ id: blocked_id });
+                decrement_following_conditions.push({ id: blocker_id });
+            }
+
+            if (remove_follower.affected && remove_follower.affected > 0) {
+                decrement_followers_conditions.push({ id: blocker_id });
+                decrement_following_conditions.push({ id: blocked_id });
+            }
+
+            if (decrement_followers_conditions.length > 0) {
+                await manager.decrement(User, decrement_followers_conditions, 'followers', 1);
+            }
+
+            if (decrement_following_conditions.length > 0) {
+                await manager.decrement(User, decrement_following_conditions, 'following', 1);
+            }
         });
     }
 
     async deleteBlockRelationship(blocker_id: string, blocked_id: string): Promise<DeleteResult> {
-        return await this.dataSource.getRepository(UserBlocks).delete({ blocker_id, blocked_id });
+        return await this.data_source.getRepository(UserBlocks).delete({ blocker_id, blocked_id });
     }
 
     async validateRelationshipRequest(
         current_user_id: string,
         target_user_id: string,
-        relationship_type: RelationshipType,
-        operation: 'insert' | 'remove'
+        relationship_type: RelationshipType
     ): Promise<any> {
         const { table_name, source_column, target_column } =
             this.getRelationshipConfig(relationship_type);
 
-        const query = this.createQueryBuilder('user')
+        return this.createQueryBuilder('user')
+            .select('user.id', 'user_exists')
             .addSelect(
                 `EXISTS(
                     SELECT 1 FROM ${table_name} ur
@@ -456,20 +481,14 @@ export class UserRepository extends Repository<User> {
                 )`,
                 'relationship_exists'
             )
-            .where('user.id = :target_user_id');
-
-        if (operation === 'insert') {
-            query.addSelect('user.id', 'user_exists');
-        }
-
-        return await query
+            .where('user.id = :target_user_id')
             .setParameter('current_user_id', current_user_id)
             .setParameter('target_user_id', target_user_id)
             .getRawOne();
     }
 
     async verifyFollowPermissions(current_user_id: string, target_user_id: string): Promise<any> {
-        const blocks = await this.dataSource
+        const blocks = await this.data_source
             .getRepository(UserBlocks)
             .createQueryBuilder('ub')
             .select(['ub.blocker_id', 'ub.blocked_id'])
@@ -520,7 +539,7 @@ export class UserRepository extends Repository<User> {
     }
 
     async insertUserInterests(user_interests) {
-        return await this.dataSource.getRepository(UserInterests).upsert(user_interests, {
+        return await this.data_source.getRepository(UserInterests).upsert(user_interests, {
             conflictPaths: ['user_id', 'category_id'],
             skipUpdateIfNoValuesChanged: true,
         });

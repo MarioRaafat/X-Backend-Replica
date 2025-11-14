@@ -1,5 +1,6 @@
-import { IsNotEmpty, IsString } from 'class-validator';
+import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class MobileGitHubAuthDto {
     @ApiProperty({
@@ -8,6 +9,7 @@ export class MobileGitHubAuthDto {
     })
     @IsNotEmpty()
     @IsString()
+    @MaxLength(500)
     code: string;
 
     @ApiProperty({
@@ -16,6 +18,7 @@ export class MobileGitHubAuthDto {
     })
     @IsNotEmpty()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     redirect_uri: string;
 
     @ApiProperty({
@@ -24,5 +27,6 @@ export class MobileGitHubAuthDto {
         required: false,
     })
     @IsString()
+    @MaxLength(500)
     code_verifier: string;
 }

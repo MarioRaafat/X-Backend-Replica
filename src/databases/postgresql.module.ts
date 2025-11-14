@@ -8,18 +8,18 @@ import { TypeOrmModule } from '@nestjs/typeorm';
         TypeOrmModule.forRootAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
-            useFactory: async (config_service: ConfigService) => {
-                return {
-                    type: 'postgres',
-                    host: config_service.get<string>('POSTGRES_HOST'),
-                    username: config_service.get<string>('POSTGRES_USERNAME'),
-                    password: config_service.get<string>('POSTGRES_PASSWORD'),
-                    database: config_service.get<string>('POSTGRES_DB'),
-                    port: config_service.get<number>('POSTGRES_PORT'),
-                    synchronize: false, // Should be false in production
-                    autoLoadEntities: true,
-                };
-            },
+            useFactory: (config_service: ConfigService) => ({
+                type: 'postgres',
+                host: config_service.get<string>('POSTGRES_HOST'),
+                username: config_service.get<string>('POSTGRES_USERNAME'),
+                password: config_service.get<string>('POSTGRES_PASSWORD'),
+                database: config_service.get<string>('POSTGRES_DB'),
+                port: config_service.get<number>('POSTGRES_PORT'),
+                synchronize: false, // Using migrations instead
+                autoLoadEntities: true,
+                // logging: ['query'],
+                // logger: 'advanced-console',
+            }),
         }),
     ],
     providers: [ConfigService],

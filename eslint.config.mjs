@@ -144,6 +144,7 @@ export default tseslint.config(
             ],
             '@typescript-eslint/interface-name-prefix': 'off',
             '@typescript-eslint/no-empty-function': 'warn',
+            '@typescript-eslint/unbound-method': 'warn',
 
             // Import organization
             'sort-imports': [

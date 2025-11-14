@@ -42,7 +42,7 @@ export const ERROR_MESSAGES = {
     ALREADY_MUTED: 'Already muted this user',
     CANNOT_BLOCK_YOURSELF: 'You cannot block yourself',
     ALREADY_BLOCKED: 'Already blocked this user',
-    CANNOT_UNFOLLOW_YOURSELF: 'You cannot unblock yourself',
+    CANNOT_UNFOLLOW_YOURSELF: 'You cannot unfollow yourself',
     CANNOT_REMOVE_SELF: 'You are not a follower to yourself',
     NOT_FOLLOWED: 'User is not followed',
     NOT_A_FOLLOWER: 'User is not a follower',
@@ -58,11 +58,6 @@ export const ERROR_MESSAGES = {
     // database
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
-
-    // file upload
-    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
-    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
-    NO_FILE_PROVIDED: 'No file provided',
 
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
@@ -90,9 +85,14 @@ export const ERROR_MESSAGES = {
     INVALID_CATEGORY_PARAMETER: 'Invalid category parameter',
 
     // file
+    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
+    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
+    NO_FILE_PROVIDED: 'No file provided',
     FILE_NOT_FOUND: 'File not found',
     INVALID_FILE_FORMAT: 'Invalid file format',
     FILE_UPLOAD_FAILED: 'File upload failed',
+    INVALID_FILE_URL: 'Invalid file url',
+    UNAUTHORIZED_FILE_DELETE: 'You are not allowed to delete this file',
 
     // search
     INVALID_SEARCH_QUERY: 'Invalid search query',
@@ -102,6 +102,7 @@ export const ERROR_MESSAGES = {
     TWEET_ALREADY_LIKED: 'Tweet already liked',
     TWEET_NOT_LIKED: 'Tweet not liked yet',
     UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
+    TWEET_REPLIES_RETRIEVED_SUCCESSFULLY: 'Tweet replies retrieved successfully',
 
     // category
     CATEGORY_NOT_FOUND: 'Category not found',
@@ -207,9 +208,11 @@ export const SUCCESS_MESSAGES = {
     TWEET_UPDATED: 'Tweet updated successfully',
     TWEET_DELETED: 'Tweet deleted successfully',
     TWEET_REPOSTED: 'Tweet reposted successfully',
+    REPOST_DELETED: 'Repost deleted successfully',
     TWEET_QUOTED: 'Tweet quoted successfully',
     TWEET_LIKED: 'Tweet liked successfully',
     TWEET_UNLIKED: 'Tweet unliked successfully',
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
+    TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
 } as const;

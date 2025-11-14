@@ -1,6 +1,7 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
+import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 
 @Injectable()
 export class AzureStorageService implements OnModuleInit {
@@ -28,26 +29,45 @@ export class AzureStorageService implements OnModuleInit {
         );
     }
 
-    async uploadImage(
-        image_buffer: Buffer,
-        image_name: string,
+    async uploadFile(
+        file_buffer: Buffer,
+        file_name: string,
         container_name?: string
     ): Promise<string> {
         const container_client = this.getContainerClient(container_name);
-        const block_blob_client = container_client.getBlockBlobClient(image_name);
+        const block_blob_client = container_client.getBlockBlobClient(file_name);
 
-        await block_blob_client.upload(image_buffer, image_buffer.length);
+        await block_blob_client.upload(file_buffer, file_buffer.length);
 
         return block_blob_client.url;
     }
 
-    async deleteImage(image_name: string, container_name?: string): Promise<void> {
+    async deleteFile(file_name: string, container_name?: string): Promise<void> {
         const container_client = this.getContainerClient(container_name);
-        const block_blob_client = container_client.getBlockBlobClient(image_name);
+        const block_blob_client = container_client.getBlockBlobClient(file_name);
+
+        const exists = await block_blob_client.exists();
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.FILE_NOT_FOUND);
+        }
+
         await block_blob_client.delete();
     }
 
-    generateImageName(user_id: string, original_name: string): string {
+    generateFileName(user_id: string, original_name: string): string {
         return `${user_id}-${Date.now()}-${original_name}`;
+    }
+
+    extractFileName(file_url: string): string {
+        const file_name = file_url.split('/').pop();
+        if (!file_name) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_FILE_URL);
+        }
+        return file_name;
+    }
+
+    extractUserIdFromFileName(file_name: string): string {
+        const parts = file_name.split('-');
+        return parts.slice(0, 5).join('-');
     }
 }
