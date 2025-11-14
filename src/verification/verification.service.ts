@@ -53,9 +53,7 @@ export class VerificationService {
         const otp_key = OTP_KEY(type as 'email' | 'password', identifier);
         const valid_token = await this.redis_service.hget(otp_key);
 
-        // the variable will be BYPASS_FOR_TESTING instead of BYPASS_CAPTCHA_FOR_TESTING, for now as Anas is sleeping, we'll keep the same name
-        const bypass_key = this.config_service.get<string>('BYPASS_CAPTCHA_FOR_TESTING');
-
+        const bypass_key = this.config_service.get<string>('BYPASS_FOR_TESTING');
         if (bypass_key === 'true') {
             console.log('Bypassing OTP validation for testing purposes');
             return true;

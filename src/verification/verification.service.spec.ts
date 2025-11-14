@@ -125,7 +125,7 @@ describe('VerificationService', () => {
 
             expect(result).toBe(true);
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(config_service.get).toHaveBeenCalledWith('BYPASS_CAPTCHA_FOR_TESTING');
+            expect(config_service.get).toHaveBeenCalledWith('BYPASS_FOR_TESTING');
         });
 
         it('should validate OTP successfully with correct token', async () => {
