@@ -9,27 +9,15 @@ import { TypeOrmModule } from '@nestjs/typeorm';
             imports: [ConfigModule],
             inject: [ConfigService],
             useFactory: async (config_service: ConfigService) => {
-                const db_url = config_service.get<string>('DB_URL');
-
-                if (!db_url) {
-                    throw new Error('DB_URL environment variable is not defined');
-                }
-
-                const url = new URL(db_url);
-
                 return {
                     type: 'postgres',
-                    host: url.hostname,
-                    port: parseInt(url.port) || 5432,
-                    username: decodeURIComponent(url.username),
-                    password: decodeURIComponent(url.password),
-                    database: url.pathname.slice(1),
-                    synchronize: false,
+                    host: config_service.get<string>('POSTGRES_HOST'),
+                    username: config_service.get<string>('POSTGRES_USERNAME'),
+                    password: config_service.get<string>('POSTGRES_PASSWORD'),
+                    database: config_service.get<string>('POSTGRES_DB'),
+                    port: config_service.get<number>('POSTGRES_PORT'),
+                    synchronize: false, // Should be false in production
                     autoLoadEntities: true,
-                    logging: true,
-                    ssl: {
-                        rejectUnauthorized: false,
-                    },
                 };
             },
         }),
