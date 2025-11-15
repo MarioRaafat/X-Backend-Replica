@@ -2,26 +2,29 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { TweetsController } from './tweets.controller';
 import { TweetsService } from './tweets.service';
-import { 
-  Tweet, 
-  TweetLike, 
-  TweetRepost, 
-  TweetQuote, 
-  TweetReply 
-} from './entities';
+import { TweetsRepository } from './tweets.repository';
+import { Tweet, TweetLike, TweetQuote, TweetReply, TweetRepost } from './entities';
+import { Hashtag } from './entities/hashtags.entity';
+import { UserFollows } from 'src/user/entities/user-follows.entity';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
+import { UserPostsView } from './entities/user-posts-view.entity';
 
 @Module({
-  imports: [
-    TypeOrmModule.forFeature([
-      Tweet,
-      TweetLike,
-      TweetRepost,
-      TweetQuote,
-      TweetReply,
-    ]),
-  ],
-  controllers: [TweetsController],
-  providers: [TweetsService],
-  exports: [TweetsService],
+    imports: [
+        TypeOrmModule.forFeature([
+            Tweet,
+            TweetLike,
+            TweetRepost,
+            TweetQuote,
+            TweetReply,
+            Hashtag,
+            UserFollows,
+            UserPostsView,
+        ]),
+    ],
+    controllers: [TweetsController],
+    providers: [TweetsService, TweetsRepository, PaginationService, AzureStorageService],
+    exports: [TweetsService],
 })
 export class TweetsModule {}

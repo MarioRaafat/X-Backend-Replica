@@ -1,28 +1,55 @@
 export const ERROR_MESSAGES = {
-
     // auth
     WRONG_PASSWORD: 'Wrong password',
     PASSWORD_CONFIRMATION_MISMATCH: 'Confirmation password must match password',
     NEW_PASSWORD_SAME_AS_OLD: 'New password must be different from the old password',
     EMAIL_ALREADY_EXISTS: 'Email already exists',
     EMAIL_NOT_VERIFIED: 'Email not verified yet. Please check your inbox',
-    SOCIAL_LOGIN_REQUIRED: 'User registered with social login. Please use social login to access your account',
+    SOCIAL_LOGIN_REQUIRED:
+        'User registered with social login. Please use social login to access your account',
     CAPTCHA_VERIFICATION_FAILED: 'CAPTCHA verification failed. Please try again',
     ACCOUNT_ALREADY_VERIFIED: 'Account was already verified',
-    SIGNUP_SESSION_NOT_FOUND: 'Signup session not found or expired. Please start registration again',
-    SIGNUP_SESSION_ALREADY_EXISTS: 'Signup session already exists. Please verify your email or start over',
+    SIGNUP_SESSION_NOT_FOUND:
+        'Signup session not found or expired. Please start registration again',
+    SIGNUP_SESSION_ALREADY_EXISTS:
+        'Signup session already exists. Please verify your email or start over',
     EMAIL_NOT_FOUND: 'Email not found',
     PHONE_NUMBER_NOT_FOUND: 'Phone number not found',
     USERNAME_NOT_FOUND: 'Username not found',
+    USERNAME_ALREADY_TAKEN: 'Username is already taken',
 
     // OAuth completion
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
-    USERNAME_ALREADY_TAKEN: 'Username is already taken',
     USER_NOT_FOUND_OAUTH_COMPLETION_REQUIRED: 'User not found, OAuth completion required',
+    GOOGLE_TOKEN_INVALID: 'Invalid Google access token',
+    GITHUB_TOKEN_INVALID: 'Invalid GitHub access token',
+    GITHUB_CODE_INVALID:
+        'GitHub authorization code is invalid or expired. Please try signing in again',
+    GITHUB_CODE_VERIFIER_REQUIRED:
+        'GitHub authorization failed. Please ensure you include the code_verifier if using PKCE',
+    GITHUB_OAUTH_FAILED: 'Failed to authenticate with GitHub. Please try again',
+    EMAIL_NOT_PROVIDED_BY_OAUTH_GOOGLE: 'Unable to retrieve user email from Google',
+    EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB: 'Unable to retrieve user email from GitHub',
 
     // user
     USER_NOT_FOUND: 'User not found',
     USER_NOT_FOUND_OR_VERIFIED: 'User not found or already verified',
+    CANNOT_FOLLOW_YOURSELF: 'You cannot follow yourself',
+    ALREADY_FOLLOWING: 'Already following this user',
+    CANNOT_FOLLOW_USER: 'Cannot follow user, user blocked you',
+    CANNOT_FOLLOW_BLOCKED_USER: 'Cannot follow a blocked user',
+    CANNOT_MUTE_YOURSELF: 'You cannot mute yourself',
+    ALREADY_MUTED: 'Already muted this user',
+    CANNOT_BLOCK_YOURSELF: 'You cannot block yourself',
+    ALREADY_BLOCKED: 'Already blocked this user',
+    CANNOT_UNFOLLOW_YOURSELF: 'You cannot unfollow yourself',
+    CANNOT_REMOVE_SELF: 'You are not a follower to yourself',
+    NOT_FOLLOWED: 'User is not followed',
+    NOT_A_FOLLOWER: 'User is not a follower',
+    CANNOT_UNMUTE_YOURSELF: 'You cannot unmute yourself',
+    NOT_MUTED: 'User is not muted',
+    CANNOT_UNBLOCK_YOURSELF: 'You cannot unblock yourself',
+    NOT_BLOCKED: 'User is not blocked',
 
     // communication
     FAILED_TO_SEND_OTP_EMAIL: 'Failed to send OTP email',
@@ -31,11 +58,6 @@ export const ERROR_MESSAGES = {
     // database
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
-
-    // file upload
-    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
-    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
-    NO_FILE_PROVIDED: 'No file provided',
 
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
@@ -57,30 +79,38 @@ export const ERROR_MESSAGES = {
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
     CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
-  
-  
+
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
     INVALID_CATEGORY_PARAMETER: 'Invalid category parameter',
-  
-  
+
     // file
+    FILE_TOO_LARGE: 'File size exceeds the maximum limit',
+    INVALID_FILE_TYPE: 'Invalid file type. Only images and videos are allowed',
+    NO_FILE_PROVIDED: 'No file provided',
     FILE_NOT_FOUND: 'File not found',
     INVALID_FILE_FORMAT: 'Invalid file format',
-     // search
+    FILE_UPLOAD_FAILED: 'File upload failed',
+    INVALID_FILE_URL: 'Invalid file url',
+    UNAUTHORIZED_FILE_DELETE: 'You are not allowed to delete this file',
+
+    // search
     INVALID_SEARCH_QUERY: 'Invalid search query',
 
-  // tweets
-  TWEET_NOT_FOUND: 'Tweet not found',
-  TWEET_ALREADY_LIKED: 'Tweet already liked',
-  TWEET_NOT_LIKED: 'Tweet not liked yet',
-  UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
+    // tweets
+    TWEET_NOT_FOUND: 'Tweet not found',
+    TWEET_ALREADY_LIKED: 'Tweet already liked',
+    TWEET_NOT_LIKED: 'Tweet not liked yet',
+    UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
+    TWEET_REPLIES_RETRIEVED_SUCCESSFULLY: 'Tweet replies retrieved successfully',
 
+    // category
+    CATEGORY_NOT_FOUND: 'Category not found',
+    CATEGORIES_NOT_FOUND: 'Categories not found',
 } as const;
 
 // Success Messages
 export const SUCCESS_MESSAGES = {
-
     // auth
     USER_REGISTERED: 'User successfully registered. Check email for verification',
     SIGNUP_STEP1_COMPLETED: 'Information saved. Check email for verification code',
@@ -118,7 +148,7 @@ export const SUCCESS_MESSAGES = {
     MESSAGE_RETRIEVED: 'Message retrieved successfully',
     CHAT_RETRIEVED: 'Chat retrieved successfully',
     MESSAGE_READ_STATUS_UPDATED: 'Message read status updated successfully',
-  
+
     //Timeline
     TIMELINE_RETRIEVED: 'Timeline retrieved successfully',
     MENTIONS_RETRIEVED: 'Mentions retrieved successfully',
@@ -128,12 +158,12 @@ export const SUCCESS_MESSAGES = {
     USERS_RETRIEVED: 'Users retrieved successfully',
     USER_RETRIEVED: 'User retrieved successfully',
     FOLLOWERS_LIST_RETRIEVED: 'Followers retrieved successfully',
-    FOLLOWER_REMOVED: 'Followers removed successfully',
+    FOLLOWER_REMOVED: 'Follower removed successfully',
     FOLLOWING_LIST_RETRIEVED: 'Following list retrieved successfully',
     FOLLOW_USER: 'Followed user successfully',
     UNFOLLOW_USER: 'Unfollowed user successfully',
     MUTED_LIST_RETRIEVED: 'Muted list retrieved successfully',
-    BLOCKED_LIST_RETRIEVED: 'Muted list retrieved successfully',
+    BLOCKED_LIST_RETRIEVED: 'Blocked list retrieved successfully',
     MUTE_USER: 'Muted user successfully',
     UNMUTE_USER: 'Unmuted user successfully',
     BLOCK_USER: 'Blocked user successfully',
@@ -143,20 +173,19 @@ export const SUCCESS_MESSAGES = {
     REPLIES_RETRIEVED: 'Retrieved replies successfully',
     MEDIA_RETRIEVED: 'Retrieved media successfully',
     USER_UPDATED: 'Updated user successfully',
-    PHONE_NUMBER_CHANGED: 'Phone number changed successfully',
-    ACCOUNT_DEACTIVATED: 'Account deactivated successfully',
-    ACCOUNT_REACTIVATED: 'Account reactivated successfully',
+    ACCOUNT_DELETED: 'Account deleted successfully',
     AVATAR_UPLOADED: 'Avatar uploaded successfully',
     COVER_UPLOADED: 'Cover uploaded successfully',
     AVATAR_DELETED: 'Avatar deleted successfully',
     COVER_DELETED: 'Cover deleted successfully',
-  
+    INTERESTS_ASSIGNED: 'Interests assigned successfully',
+    LANGUAGE_CHANGED: 'Language changed successfully',
+
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
     SEARCH_USERS_RETRIEVED: 'User search results retrieved successfully',
     SEARCH_POSTS_RETRIEVED: 'Posts search results retrieved successfully',
-    SEARCH_LATEST_POSTS_RETRIEVED:
-        'Latest posts search results retrieved successfully',
+    SEARCH_LATEST_POSTS_RETRIEVED: 'Latest posts search results retrieved successfully',
     SEARCH_HISTORY_RETRIEVED: 'Search history retrieved successfully',
     SEARCH_HISTORY_CLEARED: 'Search history cleared successfully',
     SEARCH_HISTORY_ITEM_DELETED: 'Search history item deleted successfully',
@@ -165,10 +194,8 @@ export const SUCCESS_MESSAGES = {
 
     // explore
     EXPLORE_TRENDING_RETRIEVED: 'Explore trending items retrieved successfully',
-    EXPLORE_WHO_TO_FOLLOW_RETRIEVED:
-        'Explore who-to-follow suggestions retrieved successfully',
-    EXPLORE_FOR_YOU_POSTS_RETRIEVED:
-        'Explore for-you posts retrieved successfully',
+    EXPLORE_WHO_TO_FOLLOW_RETRIEVED: 'Explore who-to-follow suggestions retrieved successfully',
+    EXPLORE_FOR_YOU_POSTS_RETRIEVED: 'Explore for-you posts retrieved successfully',
 
     // file upload
     IMAGE_UPLOADED: 'Image uploaded successfully',
@@ -181,9 +208,11 @@ export const SUCCESS_MESSAGES = {
     TWEET_UPDATED: 'Tweet updated successfully',
     TWEET_DELETED: 'Tweet deleted successfully',
     TWEET_REPOSTED: 'Tweet reposted successfully',
+    REPOST_DELETED: 'Repost deleted successfully',
     TWEET_QUOTED: 'Tweet quoted successfully',
     TWEET_LIKED: 'Tweet liked successfully',
     TWEET_UNLIKED: 'Tweet unliked successfully',
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
+    TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
 } as const;

@@ -1,4 +1,11 @@
-export const Y_LOGO_URL = 'https://i.postimg.cc/2j7H1htR/Y-Logo.jpg';
+export const Y_LOGO_URL = 'https://iili.io/KUhrEyN.png';
+export const Y_LOGO_HOST_URL = 'https://freeimage.host/';
+
+export const STRING_MAX_LENGTH = 100;
+export const LARGE_MAX_LENGTH = 1500;
+export const POST_CONTENT_LENGTH = 280;
+export const MESSAGE_CONTENT_LENGTH = 300;
+export const OTP_LENGTH = 6;
 
 // ------------------------- Email Templates ------------------------- //
 export const verification_email_object = (otp: string, link: string) => ({

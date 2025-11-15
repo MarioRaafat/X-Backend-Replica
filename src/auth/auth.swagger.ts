@@ -1,5 +1,53 @@
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
+// OAuth Response Constants
+function getOAuthResponseDescription(provider: 'Google' | 'GitHub' | 'Facebook') {
+    return `
+**Two Possible Responses:**
+1. **Existing User**: ${provider} account linked to existing user - Returns user data with access_token and refresh_token (direct login)
+2. **New User**: New ${provider} account - Returns session_token requiring OAuth completion flow (birth date + username)
+`;
+}
+
+const OAUTH_RESPONSE_EXISTING_USER = {
+    description: 'Existing user - successfully logged in',
+    example: {
+        data: {
+            user: {
+                id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
+                email: 'lionel_messi10@gmail.com',
+                name: 'Messi 3amk',
+                username: 'lionel_messi',
+                birth_date: '1987-06-24',
+                avatar_url:
+                    'https://media.cnn.com/api/v1/images/stellar/prod/221218184732-messi-wc-trophy.jpg?c=16x9&q=h_833,w_1480,c_fill',
+                verified: true,
+                country: 'Argentina',
+                followers: 1000000,
+                following: 150,
+            },
+            access_token: "messi doesn't need a token to be authenticated bro",
+        },
+        count: 1,
+        message: SUCCESS_MESSAGES.LOGGED_IN,
+    },
+};
+
+function getOAuthResponseNewUser(provider: 'google' | 'github' | 'facebook') {
+    return {
+        description: 'New user - needs to complete registration',
+        example: {
+            data: {
+                needs_completion: true,
+                session_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+                provider: provider,
+            },
+            count: 1,
+            message: SUCCESS_MESSAGES.LOGGED_IN,
+        },
+    };
+}
+
 export const signup_step1_swagger = {
     operation: {
         summary: 'Signup Step 1 - Submit basic information',
@@ -62,11 +110,7 @@ Verify your email address using the OTP code sent to your inbox.
                 example: {
                     data: {
                         isVerified: true,
-                        recommendations: [
-                            'mario198',
-                            'marioraafat01743',
-                            'raafat9720',
-                        ],
+                        recommendations: ['mario198', 'marioraafat01743', 'raafat9720'],
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.SIGNUP_STEP2_COMPLETED,
@@ -109,8 +153,21 @@ Complete your registration by setting a password, choosing a username, and optio
             schema: {
                 example: {
                     data: {
-                        userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
-                        access_token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        user: {
+                            id: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                            email: 'mario.raafat@example.com',
+                            name: 'Mario Raafat',
+                            username: 'mario_raafat',
+                            birth_date: '1995-06-15',
+                            avatar_url: null,
+                            language: 'en',
+                            verified: false,
+                            country: null,
+                            followers: 0,
+                            following: 0,
+                        },
+                        access_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED,
@@ -133,8 +190,7 @@ Complete your registration by setting a password, choosing a username, and optio
 export const generate_otp_swagger = {
     operation: {
         summary: 'Generate email verification OTP',
-        description:
-            "Generate and send a new email verification OTP to the user's email.",
+        description: "Generate and send a new email verification OTP to the user's email.",
     },
 
     responses: {
@@ -168,7 +224,7 @@ export const verify_email_swagger = {
             schema: {
                 example: {
                     data: {
-                        userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                        user_id: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.EMAIL_VERIFIED,
@@ -202,6 +258,10 @@ export const login_swagger = {
                             facebook_id: null,
                             google_id: null,
                             avatar_url: null,
+                            verified: false,
+                            country: null,
+                            followers: 0,
+                            following: 0,
                         },
                     },
                     count: 1,
@@ -225,8 +285,7 @@ export const login_swagger = {
 export const refresh_token_swagger = {
     operation: {
         summary: 'Refresh access token',
-        description:
-            'Use refresh token from httpOnly cookie to get a new access token.',
+        description: 'Use refresh token from httpOnly cookie to get a new access token.',
     },
 
     responses: {
@@ -276,6 +335,8 @@ export const google_oauth_swagger = {
       - System creates/finds user account and generates JWT tokens
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
+
+export ${getOAuthResponseDescription('Google')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -290,8 +351,7 @@ export const google_oauth_swagger = {
                     description: 'Google OAuth URL',
                     schema: {
                         type: 'string',
-                        example:
-                            'https://accounts.google.com/oauth/authorize?client_id=...',
+                        example: 'https://accounts.google.com/oauth/authorize?client_id=...',
                     },
                 },
             },
@@ -304,8 +364,38 @@ export const google_oauth_swagger = {
                 example: {
                     message: 'OAuth configuration error',
                     error: 'Internal Server Error',
-                    statusCode: 500,
+                    status_code: 500,
                 },
+            },
+        },
+    },
+};
+
+export const google_mobile_swagger = {
+    operation: {
+        summary: 'Mobile Google OAuth Authentication',
+        description: `
+**Mobile Google OAuth Flow**
+
+This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView.
+
+**How it works:**
+- Mobile app obtains Google ID token through native OAuth flow
+- Mobile app sends the token to this endpoint
+- Backend verifies the token with Google's API
+- Returns user data and JWT tokens (or session token for new users)
+
+export ${getOAuthResponseDescription('Google')}
+
+**For web applications, use:** \`GET /auth/google\` instead
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'Google authentication successful - User logged in or needs completion',
+            schema: {
+                oneOf: [OAUTH_RESPONSE_EXISTING_USER, getOAuthResponseNewUser('google')],
             },
         },
     },
@@ -337,8 +427,7 @@ export const google_callback_swagger = {
     responses: {
         success: {
             status: 302,
-            description:
-                'Successful authentication - redirects to frontend with token',
+            description: 'Successful authentication - redirects to frontend with token',
             headers: {
                 Location: {
                     description: 'Frontend success URL with access token',
@@ -395,6 +484,8 @@ export const facebook_oauth_swagger = {
       - System creates/finds user account and generates JWT tokens
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
+
+export ${getOAuthResponseDescription('Facebook')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -409,8 +500,7 @@ export const facebook_oauth_swagger = {
                     description: 'Facebook OAuth URL',
                     schema: {
                         type: 'string',
-                        example:
-                            'https://www.facebook.com/v18.0/dialog/oauth?client_id=...',
+                        example: 'https://www.facebook.com/v18.0/dialog/oauth?client_id=...',
                     },
                 },
             },
@@ -423,7 +513,7 @@ export const facebook_oauth_swagger = {
                 example: {
                     message: 'OAuth configuration error',
                     error: 'Internal Server Error',
-                    statusCode: 500,
+                    status_code: 500,
                 },
             },
         },
@@ -456,8 +546,7 @@ export const facebook_callback_swagger = {
     responses: {
         success: {
             status: 302,
-            description:
-                'Successful authentication - redirects to frontend with token',
+            description: 'Successful authentication - redirects to frontend with token',
             headers: {
                 Location: {
                     description: 'Frontend success URL with access token',
@@ -514,6 +603,8 @@ export const github_oauth_swagger = {
       - System creates/finds user account and generates JWT tokens
       - User is redirected to frontend with access token in URL
       - Refresh token is set as httpOnly cookie
+
+export ${getOAuthResponseDescription('GitHub')}
       
       **Frontend URL format:** \`<front url>/auth/success?token={access_token}\`
       `,
@@ -540,8 +631,46 @@ export const github_oauth_swagger = {
                 example: {
                     message: 'OAuth configuration error',
                     error: 'Internal Server Error',
-                    statusCode: 500,
+                    status_code: 500,
                 },
+            },
+        },
+    },
+};
+
+export const github_mobile_swagger = {
+    operation: {
+        summary: 'Mobile GitHub OAuth Authentication',
+        description: `
+**Mobile GitHub OAuth Flow with PKCE Support**
+
+This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView with PKCE (Proof Key for Code Exchange) security.
+
+**How it works:**
+- Mobile app generates PKCE \`code_verifier\` and \`code_challenge\` pair
+- App opens GitHub authorization with \`code_challenge\`
+- User authorizes and GitHub returns authorization \`code\`
+- App sends \`code\`, \`redirect_uri\`, and \`code_verifier\` to this endpoint
+- Backend exchanges code for access token using PKCE verification
+- Backend validates token with GitHub API
+- Returns user data and JWT tokens (or session token for new users)
+
+export ${getOAuthResponseDescription('GitHub')}
+
+**Important Notes:**
+- PKCE \`code_verifier\` is **required** for mobile OAuth flows
+- Authorization codes are **single-use** and expire quickly (~10 minutes)
+- The \`redirect_uri\` must **exactly match** your GitHub OAuth App configuration
+
+**For web applications, use:** \`GET /auth/github\` instead
+        `,
+    },
+
+    responses: {
+        success: {
+            description: 'GitHub authentication successful - User logged in or needs completion',
+            schema: {
+                oneOf: [OAUTH_RESPONSE_EXISTING_USER, getOAuthResponseNewUser('github')],
             },
         },
     },
@@ -572,8 +701,7 @@ export const github_callback_swagger = {
     responses: {
         success: {
             status: 302,
-            description:
-                'Successful authentication - redirects to frontend with token',
+            description: 'Successful authentication - redirects to frontend with token',
             headers: {
                 Location: {
                     description: 'Frontend success URL with access token',
@@ -610,9 +738,9 @@ export const github_callback_swagger = {
 };
 
 export const not_me_swagger = {
-  operation: {
-    summary: 'Verify "Not Me" Report for Unauthorized Email Access',
-    description: `
+    operation: {
+        summary: 'Verify "Not Me" Report for Unauthorized Email Access',
+        description: `
       **⚠️ Important: This endpoint cannot be tested in Swagger UI**
       
       **How it works:**
@@ -632,35 +760,35 @@ export const not_me_swagger = {
       
       **This endpoint is automatically called from email links - Do not call manually**
       `,
-  },
-
-  api_query: {
-      name: 'token',
-      type: String,
-      required: true,
-      description: 'The JWT token from the link sent to the user’s email',
-      example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
-  },
-
-  responses: {
-    success: {
-      description: 'User account deleted successfully',
-      schema: {
-        example: {
-          data: {},
-          count: 0,
-          message: SUCCESS_MESSAGES.ACCOUNT_REMOVED,
-        },
-      },
     },
-  },
+
+    api_query: {
+        name: 'token',
+        type: String,
+        required: true,
+        description: 'The JWT token from the link sent to the user’s email',
+        example: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...',
+    },
+
+    responses: {
+        success: {
+            description: 'User account deleted successfully',
+            schema: {
+                example: {
+                    data: {},
+                    count: 0,
+                    message: SUCCESS_MESSAGES.ACCOUNT_REMOVED,
+                },
+            },
+        },
+    },
 };
 
 export const change_password_swagger = {
     operation: {
         summary: 'Change user password',
         description:
-            'Change the authenticated user\'s password. Requires current password validation and JWT authentication.',
+            "Change the authenticated user's password. Requires current password validation and JWT authentication.",
     },
 
     responses: {
@@ -680,8 +808,7 @@ export const change_password_swagger = {
 export const captcha_swagger = {
     operation: {
         summary: 'Get reCAPTCHA site key',
-        description:
-            'Returns the reCAPTCHA site key needed for frontend widget initialization.',
+        description: 'Returns the reCAPTCHA site key needed for frontend widget initialization.',
     },
 
     responses: {
@@ -703,8 +830,7 @@ export const captcha_swagger = {
 export const forget_password_swagger = {
     operation: {
         summary: 'Request password reset',
-        description:
-            'Initiates password reset process by sending OTP to user\'s email address.',
+        description: "Initiates password reset process by sending OTP to user's email address.",
     },
 
     responses: {
@@ -727,7 +853,7 @@ export const verify_reset_otp_swagger = {
     operation: {
         summary: 'Verify password reset OTP',
         description:
-            'Verifies the OTP code sent to user\'s email for password reset. Step 2 of the password reset flow. Returns a secure reset token for step 3.',
+            "Verifies the OTP code sent to user's email for password reset. Step 2 of the password reset flow. Returns a secure reset token for step 3.",
     },
 
     responses: {
@@ -737,7 +863,8 @@ export const verify_reset_otp_swagger = {
                 example: {
                     data: {
                         isValid: true,
-                        resetToken: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
+                        reset_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.OTP_VERIFIED,
@@ -750,8 +877,7 @@ export const verify_reset_otp_swagger = {
 export const reset_password_swagger = {
     operation: {
         summary: 'Reset password with secure token',
-        description:
-            `Final step of password reset flow. Changes user password using the secure reset token from step 2. 
+        description: `Final step of password reset flow. Changes user password using the secure reset token from step 2. 
       Token ensures the person resetting is the same who verified the OTP.`,
     },
 
@@ -790,7 +916,7 @@ export const logout_swagger = {
     },
 };
 
-export const logout_All_swagger = {
+export const logout_all_swagger = {
     operation: {
         summary: 'Logout from all devices',
         description:
@@ -831,10 +957,10 @@ export const oauth_completion_step1_swagger = {
                             'bahgot123',
                             'shady.mo',
                             'alyaa_official',
-                            'amira_k_2024'
+                            'amira_k_2024',
                         ],
                         token: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                        nextStep: 'choose-username'
+                        nextStep: 'choose-username',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.BIRTH_DATE_SET,
@@ -872,6 +998,10 @@ export const oauth_completion_step2_swagger = {
                             facebook_id: null,
                             google_id: '1234567890',
                             avatar_url: 'https://lh3.googleusercontent.com/a/avatar.jpg',
+                            verified: false,
+                            country: null,
+                            followers: 0,
+                            following: 0,
                         },
                     },
                     count: 1,
@@ -920,6 +1050,7 @@ Check if an email, phone number, or username already exists in the database.
                 example: {
                     data: {
                         identifier_type: 'email',
+                        user_id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.IDENTIFIER_AVAILABLE,

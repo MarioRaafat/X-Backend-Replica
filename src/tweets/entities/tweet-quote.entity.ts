@@ -1,11 +1,6 @@
-import { 
-    Entity, 
-    PrimaryColumn,
-    ManyToOne,
-    JoinColumn
-} from 'typeorm';
+import { Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Tweet } from './tweet.entity';
-import { User } from 'src/user/entities/user.entity';
+import { User } from '../../user/entities/user.entity';
 
 @Entity('tweet_quotes')
 export class TweetQuote {
@@ -22,11 +17,11 @@ export class TweetQuote {
     @JoinColumn({ name: 'user_id' })
     user: User;
 
-    @ManyToOne(() => Tweet, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Tweet, { cascade: true, onDelete: 'CASCADE', eager: true })
     @JoinColumn({ name: 'quote_tweet_id' })
     quote_tweet: Tweet;
 
-    @ManyToOne(() => Tweet, { onDelete: 'CASCADE' })
+    @ManyToOne(() => Tweet, { onDelete: 'CASCADE', eager: true })
     @JoinColumn({ name: 'original_tweet_id' })
     original_tweet: Tweet;
 }

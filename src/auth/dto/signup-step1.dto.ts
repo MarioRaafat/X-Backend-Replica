@@ -1,5 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEmail, IsNotEmpty, IsString } from 'class-validator';
+import { IsDateString, IsEmail, IsNotEmpty, IsString, MaxLength, Validate } from 'class-validator';
+import { AgeRangeValidator } from '../../validations/birth-date';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class SignupStep1Dto {
     @ApiProperty({
@@ -8,14 +10,16 @@ export class SignupStep1Dto {
     })
     @IsNotEmpty()
     @IsString()
+    @MaxLength(STRING_MAX_LENGTH)
     name: string;
 
     @ApiProperty({
-        description: 'User birth date',
-        example: '1990-01-01',
+        description: "Mario's birth date",
+        example: '2004-05-22',
     })
     @IsNotEmpty()
-    @IsString()
+    @IsDateString()
+    @Validate(AgeRangeValidator, [6, 100])
     birth_date: string;
 
     @ApiProperty({
@@ -24,6 +28,7 @@ export class SignupStep1Dto {
         format: 'email',
     })
     @IsEmail()
+    @MaxLength(STRING_MAX_LENGTH)
     email: string;
 
     @ApiProperty({
@@ -33,5 +38,6 @@ export class SignupStep1Dto {
     })
     @IsNotEmpty()
     @IsString()
+    @MaxLength(LARGE_MAX_LENGTH)
     captcha_token: string;
 }

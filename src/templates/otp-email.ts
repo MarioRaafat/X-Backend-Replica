@@ -1,4 +1,4 @@
-import { Y_LOGO_URL } from '../constants/variables';
+import { Y_LOGO_HOST_URL, Y_LOGO_URL } from '../constants/variables';
 
 export function generateOtpEmailHtml(
     title: string,
@@ -44,7 +44,9 @@ export function generateOtpEmailHtml(
             <tr>
               <td style="padding: 32px 48px 0 48px; text-align: right;">
                 <div style="width: 40px; height: 40px; background-color: #000000; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;">
-                  <img src="${Y_LOGO_URL}" alt="Yapper" style="width: 40px; height: 40px; filter: brightness(0) invert(1);" />
+                  <a href=${Y_LOGO_HOST_URL}>
+                    <img src=${Y_LOGO_URL} alt="Yapper" style="width: 40px; height: 40px; filter: brightness(0) invert(1);" />
+                  </a>
                 </div>
               </td>
             </tr>

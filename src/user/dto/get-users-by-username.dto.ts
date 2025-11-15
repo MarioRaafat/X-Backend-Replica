@@ -1,15 +1,35 @@
-import { IsArray, ArrayNotEmpty, ArrayUnique, IsString } from 'class-validator';
+import {
+    ArrayMaxSize,
+    ArrayMinSize,
+    ArrayUnique,
+    IsArray,
+    IsNotEmpty,
+    IsString,
+} from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GetUsersByUsernameDto {
-  @ApiProperty({
-    description: 'List of usernames to fetch',
-    example: ['alyaa242', 'amira#9', 'hagar#3', 'Esraa#1'],
-    type: [String],
-  })
-  @IsArray()
-  @ArrayNotEmpty()
-  @ArrayUnique()
-  @IsString({ each: true })
-  usernames: string[];
+    @ApiProperty({
+        description: 'List of usernames to fetch',
+        example: 'alyaa242,amira999',
+        type: String,
+    })
+    @IsNotEmpty()
+    @Transform(({ value }) => {
+        if (typeof value === 'string') {
+            return value
+                .split(',')
+                .map((username) => username.trim())
+                .filter((username) => username.length > 0 && username.length <= STRING_MAX_LENGTH);
+        }
+        return value;
+    })
+    @IsArray()
+    @ArrayMinSize(1, { message: 'At least one username must be provided' })
+    @ArrayMaxSize(50, { message: 'Maximum 50 usernames allowed' })
+    @ArrayUnique()
+    @IsString({ each: true, message: 'Each username must be a string' })
+    usernames: string[];
 }

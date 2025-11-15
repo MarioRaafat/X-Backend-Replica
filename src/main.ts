@@ -4,12 +4,23 @@ import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import cookieParser from 'cookie-parser';
 import { ResponseInterceptor } from './interceptor/response.interceptor';
-import { RabbitmqService } from './rabbitmq/rabbitmq.service';
 
 async function bootstrap() {
     const app = await NestFactory.create(AppModule);
-    app.useGlobalPipes(new ValidationPipe());
+    app.useGlobalPipes(
+        new ValidationPipe({
+            transform: true,
+            transformOptions: {
+                exposeDefaultValues: true,
+                enableImplicitConversion: true,
+            },
+        })
+    );
     app.use(cookieParser());
+    app.enableCors({
+        origin: [process.env.FRONTEND_URL || 'http://localhost:3001'],
+        credentials: true, // for cookies and auth headers
+    });
 
     // response interceptor
     app.useGlobalInterceptors(new ResponseInterceptor(app.get(Reflector)));
@@ -18,7 +29,7 @@ async function bootstrap() {
     const config = new DocumentBuilder()
         .setTitle('Backend API')
         .setDescription(
-            'El-Sabe3 Documentation presented by backend team with lots of kisses for you 😘',
+            'El-Sabe3 Documentation presented by backend team with lots of kisses for you 😘'
         )
         .setVersion('1.0')
         .addBearerAuth(
@@ -30,14 +41,17 @@ async function bootstrap() {
                 description: 'Enter JWT token',
                 in: 'header',
             },
-            'JWT-auth', // This name here is important for matching up with @ApiBearerAuth() in the controller!
-        )
-        .build();
+            'JWT-auth' // This name here is important for matching up with @ApiBearerAuth() in the controller!
+        );
 
-    const document = SwaggerModule.createDocument(app, config);
+    const swagger_server_url = process.env.BACKEND_URL;
+    if (swagger_server_url) {
+        config.addServer(swagger_server_url);
+    }
+    const config_document = config.build();
+
+    const document = SwaggerModule.createDocument(app, config_document);
     SwaggerModule.setup('api-docs', app, document);
-    const rabbit = app.get(RabbitmqService);
-    await rabbit.onModuleInit();
 
     await app.listen(process.env.PORT ?? 3000);
 }

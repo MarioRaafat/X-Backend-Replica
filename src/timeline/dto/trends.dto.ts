@@ -1,26 +1,29 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class TrendsDto {
-  @ApiProperty({
-    required: true,
-    example: 'technology',
-    description: 'Category of trends to retrieve (e.g., technology, sports, entertainment, politics, business, health, science, travel, food, fashion)',
-    enum: [
-      'technology',
-      'sports', 
-      'entertainment',
-      'politics',
-      'business',
-      'health',
-      'science',
-      'travel',
-      'food',
-      'fashion',
-      'all'
-    ]
-  })
-  @IsString()
-  @IsNotEmpty()
-  category: string;
+    @ApiProperty({
+        required: true,
+        example: 'technology',
+        description:
+            'Category of trends to retrieve (e.g., technology, sports, entertainment, politics, business, health, science, travel, food, fashion)',
+        enum: [
+            'technology',
+            'sports',
+            'entertainment',
+            'politics',
+            'business',
+            'health',
+            'science',
+            'travel',
+            'food',
+            'fashion',
+            'all',
+        ],
+    })
+    @IsString()
+    @IsNotEmpty()
+    @MaxLength(STRING_MAX_LENGTH)
+    category: string;
 }

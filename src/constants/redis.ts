@@ -15,20 +15,19 @@ export const REFRESH_TOKEN_OBJECT = (jti: string, id: string) => {
 };
 
 // set of JTIs
-export const USER_REFRESH_TOKENS_KEY = (userId: string) => `user:${userId}:refreshTokens`;
+export const USER_REFRESH_TOKENS_KEY = (user_id: string) => `user:${user_id}:refreshTokens`;
 
 // add JTI to the set
-export const USER_REFRESH_TOKENS_ADD = (userId: string, jti: string) => ({
-    key: USER_REFRESH_TOKENS_KEY(userId),
+export const USER_REFRESH_TOKENS_ADD = (user_id: string, jti: string) => ({
+    key: USER_REFRESH_TOKENS_KEY(user_id),
     value: jti,
     ttl: REFRESH_TOKEN_TTL,
 });
 
-export const USER_REFRESH_TOKENS_REMOVE = (userId: string, jti: string) => ({
-    key: USER_REFRESH_TOKENS_KEY(userId),
+export const USER_REFRESH_TOKENS_REMOVE = (user_id: string, jti: string) => ({
+    key: USER_REFRESH_TOKENS_KEY(user_id),
     value: jti,
 });
-
 
 // ------------------ SIGNUP SESSION (Multi-stage signup) ------------------
 export const SIGNUP_SESSION_KEY = (email: string) => `signup:session:${email}`;
@@ -53,18 +52,22 @@ export const OAUTH_SESSION_OBJECT = (session_token: string, user_data: Record<st
     ttl: OAUTH_SESSION_TTL,
 });
 
-
-
 /* 
     ######################### OTPs Section #########################
 */
-export const OTP_KEY = (type: 'email' | 'password', identifier: string) => `otp:${type}:${identifier}`;
+export const OTP_KEY = (type: 'email' | 'password', identifier: string) =>
+    `otp:${type}:${identifier}`;
 
 // OTPs use the default TTL (1 hour)
-export const OTP_OBJECT = (type: 'email' | 'password', identifier: string, hashedToken: string, created_at: string) => ({
+export const OTP_OBJECT = (
+    type: 'email' | 'password',
+    identifier: string,
+    hashed_token: string,
+    created_at: string
+) => ({
     key: OTP_KEY(type, identifier),
     value: {
-        token: hashedToken,
+        token: hashed_token,
         created_at,
     },
 });

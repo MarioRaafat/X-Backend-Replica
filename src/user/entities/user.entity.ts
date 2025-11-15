@@ -1,5 +1,8 @@
 import { Exclude } from 'class-transformer';
-import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
+import { Tweet } from '../../tweets/entities/tweet.entity';
+import { Hashtag } from '../../tweets/entities/hashtags.entity';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import { UserFollows } from './user-follows.entity';
 
 @Entity()
 export class User {
@@ -13,7 +16,6 @@ export class User {
     @Exclude()
     password: string;
 
-
     @Column({ type: 'varchar' })
     name: string;
 
@@ -24,15 +26,18 @@ export class User {
     bio?: string;
 
     @Column({ type: 'varchar', nullable: true, unique: true })
-    phone_number?: string;
+    phone_number?: string | null;
 
     @Column({ type: 'varchar', nullable: true })
+    @Exclude()
     github_id?: string;
 
     @Column({ type: 'varchar', nullable: true })
+    @Exclude()
     facebook_id?: string;
 
     @Column({ type: 'varchar', nullable: true })
+    @Exclude()
     google_id?: string;
 
     @Column({ type: 'varchar', nullable: true })
@@ -41,32 +46,46 @@ export class User {
     @Column({ type: 'text', nullable: true })
     cover_url?: string;
 
-    @Column({ type: 'date'})
+    @Column({ type: 'date' })
     birth_date: Date;
 
-    // Role can be 'user', 'admin' only
-    @Column({ type: 'varchar', default: 'user' })
-    role: string;
-
-    @Column({ type: 'varchar', nullable: true })
-    gender?: string;
-
-    // language code like 'en', 'es', 'fr', 'ar' etc.
     @Column({ type: 'varchar', nullable: false, default: 'en' })
-    language: string;
+    language: 'en' | 'ar';
 
     @Column({ type: 'boolean', default: false })
-    verified: boolean;
+    verified: boolean = false;
 
-    // TODO: country
-    // @Column({ type: 'varchar', nullable: true })
-    // country: string;
+    @Column({ type: 'varchar', nullable: true })
+    country?: string | null;
 
-    @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP'})
+    @Column({ type: 'boolean', default: false })
+    online: boolean = false;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
 
-    @Column({type: 'timestamp', default: () => 'CURRENT_TIMESTAMP', onUpdate: 'CURRENT_TIMESTAMP'})
+    @Column({
+        type: 'timestamp',
+        default: () => 'CURRENT_TIMESTAMP',
+        onUpdate: 'CURRENT_TIMESTAMP',
+    })
+    @UpdateDateColumn()
     updated_at: Date;
+
+    @Column({ type: 'int', default: 0 })
+    followers: number = 0;
+
+    @Column({ type: 'int', default: 0 })
+    following: number = 0;
+
+    @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
+    hashtags: Hashtag[];
+
+    @OneToMany(() => Tweet, (tweet) => tweet.user, {})
+    tweets: Tweet[];
+
+    current_user_follows?: UserFollows | null;
+    is_following?: boolean;
 
     constructor(user: Partial<User>) {
         Object.assign(this, user);

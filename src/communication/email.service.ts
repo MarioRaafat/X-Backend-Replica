@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createTransport, Transporter, SendMailOptions } from 'nodemailer';
+import { createTransport, SendMailOptions, Transporter } from 'nodemailer';
 import { SendEmailDto } from './dto/send-email.dto';
 
 @Injectable()
@@ -22,7 +22,7 @@ export class EmailService {
     }
 
     async sendEmail(
-        email_data: SendEmailDto,
+        email_data: SendEmailDto
     ): Promise<{ success: boolean; message: string } | null> {
         const { sender, recipients, subject, html, text } = email_data;
 
