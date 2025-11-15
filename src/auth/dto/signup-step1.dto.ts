@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsEmail, IsNotEmpty, IsString, MaxLength, Validate } from 'class-validator';
 import { AgeRangeValidator } from '../../validations/birth-date';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class SignupStep1Dto {
     @ApiProperty({
@@ -38,6 +38,6 @@ export class SignupStep1Dto {
     })
     @IsNotEmpty()
     @IsString()
-    @MaxLength(500)
+    @MaxLength(LARGE_MAX_LENGTH)
     captcha_token: string;
 }

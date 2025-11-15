@@ -1,5 +1,5 @@
-import { IsArray, IsEmail, IsOptional, IsString, MaxLength, ValidateNested } from 'class-validator';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { IsArray, IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class OtpEmailJobDto {
     @IsEmail()
@@ -20,6 +20,6 @@ export class OtpEmailJobDto {
 
     @IsOptional()
     @IsString()
-    @MaxLength(500)
+    @MaxLength(LARGE_MAX_LENGTH)
     not_me_link?: string;
 }

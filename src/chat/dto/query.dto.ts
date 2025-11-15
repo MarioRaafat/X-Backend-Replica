@@ -1,7 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GetMessagesQueryDto {
     @ApiPropertyOptional({
@@ -65,7 +65,7 @@ export class SearchChatsQueryDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(LARGE_MAX_LENGTH)
     query?: string;
 
     @ApiPropertyOptional({
