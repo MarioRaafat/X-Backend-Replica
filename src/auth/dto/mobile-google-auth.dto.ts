@@ -1,5 +1,6 @@
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
+import { LARGE_MAX_LENGTH } from 'src/constants/variables';
 
 export class MobileGoogleAuthDto {
     @ApiProperty({
@@ -8,6 +9,6 @@ export class MobileGoogleAuthDto {
     })
     @IsNotEmpty()
     @IsString()
-    @MaxLength(1500)
+    @MaxLength(LARGE_MAX_LENGTH)
     access_token: string;
 }

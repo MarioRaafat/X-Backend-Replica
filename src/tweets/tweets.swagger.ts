@@ -1162,7 +1162,7 @@ export const get_tweet_replies_swagger = {
                 example: {
                     message: 'Tweet not found',
                     error: 'Not Found',
-                    statusCode: 404,
+                    status_code: 404,
                 },
             },
         },

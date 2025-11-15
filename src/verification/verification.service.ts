@@ -17,7 +17,7 @@ export class VerificationService {
     ) {}
 
     async generateOtp(
-        identifier: string, // email or userId
+        identifier: string, // email or user_id
         type: 'email' | 'password',
         size = 6
     ): Promise<string> {
@@ -46,16 +46,14 @@ export class VerificationService {
     }
 
     async validateOtp(
-        identifier: string, // email or userId
+        identifier: string, // email or user_id
         token: string,
         type: string
     ): Promise<boolean> {
         const otp_key = OTP_KEY(type as 'email' | 'password', identifier);
         const valid_token = await this.redis_service.hget(otp_key);
 
-        // the variable will be BYPASS_FOR_TESTING instead of BYPASS_CAPTCHA_FOR_TESTING, for now as Anas is sleeping, we'll keep the same name
-        const bypass_key = this.config_service.get<string>('BYPASS_CAPTCHA_FOR_TESTING');
-
+        const bypass_key = this.config_service.get<string>('BYPASS_FOR_TESTING');
         if (bypass_key === 'true') {
             console.log('Bypassing OTP validation for testing purposes');
             return true;
@@ -93,7 +91,7 @@ export class VerificationService {
     }
 
     async generatePasswordResetToken(user_id: string): Promise<string> {
-        const payload = { userId: user_id, purpose: 'password-reset' };
+        const payload = { user_id: user_id, purpose: 'password-reset' };
         const token = await this.jwt_service.signAsync(payload, {
             expiresIn: (process.env.PASSWORD_RESET_TOKEN_EXPIRATION ?? '15m') as StringValue,
             secret: process.env.PASSWORD_RESET_TOKEN_SECRET ?? 'password-reset-secret',
@@ -102,7 +100,7 @@ export class VerificationService {
         return token;
     }
 
-    async validatePasswordResetToken(token: string): Promise<{ userId: string } | null> {
+    async validatePasswordResetToken(token: string): Promise<{ user_id: string } | null> {
         try {
             const payload = await this.jwt_service.verifyAsync(token, {
                 secret: process.env.PASSWORD_RESET_TOKEN_SECRET,
@@ -112,7 +110,7 @@ export class VerificationService {
                 return null;
             }
 
-            return { userId: payload.userId };
+            return { user_id: payload.user_id };
         } catch (error) {
             console.log('Password reset token validation error:', error);
             return null;

@@ -1,14 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsArray, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
+import { LARGE_MAX_LENGTH, POST_CONTENT_LENGTH } from 'src/constants/variables';
 
 export class CreateTweetDTO {
     @ApiProperty({
         description: 'The text content of the tweet',
         example: 'This is my first tweet!',
-        maxLength: 280,
+        maxLength: POST_CONTENT_LENGTH,
     })
     @IsString()
-    @MaxLength(280)
+    @MaxLength(POST_CONTENT_LENGTH)
     content: string;
 
     @ApiProperty({
@@ -20,7 +21,7 @@ export class CreateTweetDTO {
     @IsOptional()
     @IsArray()
     @IsUrl({}, { each: true })
-    @MaxLength(500, { each: true })
+    @MaxLength(LARGE_MAX_LENGTH, { each: true })
     images?: string[];
 
     @ApiProperty({
@@ -32,6 +33,6 @@ export class CreateTweetDTO {
     @IsOptional()
     @IsArray()
     @IsUrl({}, { each: true })
-    @MaxLength(500, { each: true })
+    @MaxLength(LARGE_MAX_LENGTH, { each: true })
     videos?: string[];
 }

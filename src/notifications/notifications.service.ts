@@ -1,3 +1,9 @@
+import { Injectable } from '@nestjs/common';
+
+// Placeholder service - implementation commented out
+@Injectable()
+export class NotificationsService {}
+
 // import { Injectable, OnModuleInit } from '@nestjs/common';
 // import { InjectModel } from '@nestjs/mongoose';
 // import { Model } from 'mongoose';
@@ -7,7 +13,7 @@
 // import { NotificationType } from './enums/notification-types';
 
 // interface NotificationMessage {
-//     userId: string;
+//     user_id: string;
 //     notification: BaseNotificationEntity;
 // }
 
@@ -25,10 +31,10 @@
 
 //     async handleMessage(data: NotificationMessage): Promise<void> {
 //         try {
-//             const { userId, notification } = data;
+//             const { user_id, notification } = data;
 
 //             await this.notificationModel.updateOne(
-//                 { user: userId },
+//                 { user: user_id },
 //                 {
 //                     $push: {
 //                         notifications: {
@@ -46,15 +52,15 @@
 //         }
 //     }
 
-//     async getUserMentionsNotifications(userId: string) {}
+//     async getUserMentionsNotifications(user_id: string) {}
 
-//     async markNotificationsAsSeen(userId: string) {}
+//     async markNotificationsAsSeen(user_id: string) {}
 
-//     async getUnseenCount(userId: string) {}
+//     async getUnseenCount(user_id: string) {}
 
-//     async getUserNotifications(userId: string): Promise<Notification | null> {
+//     async getUserNotifications(user_id: string): Promise<Notification | null> {
 //         const userNotifications = await this.notificationModel
-//             .findOne({ user: userId })
+//             .findOne({ user: user_id })
 //             .lean<Notification>()
 //             .exec();
 //         return userNotifications;
@@ -79,7 +85,7 @@
 //         };
 
 //         await this.sendNotification({
-//             userId: object.user,
+//             user_id: object.user,
 //             notification: BaseNotification,
 //         });
 //     }

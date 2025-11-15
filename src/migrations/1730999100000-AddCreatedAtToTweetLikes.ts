@@ -1,4 +1,4 @@
-import { MigrationInterface, QueryRunner } from "typeorm";
+import { MigrationInterface, QueryRunner } from 'typeorm';
 
 export class AddCreatedAtToTweetLikes1730999100000 implements MigrationInterface {
     public async up(query_runner: QueryRunner): Promise<void> {

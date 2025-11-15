@@ -1,6 +1,7 @@
-import { IsEmail, IsOptional, IsString, MaxLength } from 'class-validator';
+import { IsEmail, IsOptional, IsString, MaxLength, Validate } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
+import { AgeRangeValidator } from 'src/validations/birth-date';
 
 export class CreateUserDto {
     @ApiProperty({
@@ -44,7 +45,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(500)
+    @MaxLength(STRING_MAX_LENGTH)
     bio?: string;
 
     @ApiProperty({
@@ -74,7 +75,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(500)
+    @MaxLength(LARGE_MAX_LENGTH)
     cover_url?: string;
 
     @ApiProperty({
@@ -83,6 +84,7 @@ export class CreateUserDto {
         required: true,
     })
     @IsString()
+    @Validate(AgeRangeValidator, [6, 100])
     birth_date: Date;
 
     @ApiProperty({
@@ -92,7 +94,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(LARGE_MAX_LENGTH)
     facebook_id?: string;
 
     @ApiProperty({
@@ -102,7 +104,7 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(LARGE_MAX_LENGTH)
     google_id?: string;
 
     @ApiProperty({
@@ -112,6 +114,6 @@ export class CreateUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(LARGE_MAX_LENGTH)
     github_id?: string;
 }

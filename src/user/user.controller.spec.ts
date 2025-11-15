@@ -94,6 +94,9 @@ describe('UserController', () => {
                         is_follower: false,
                         is_muted: false,
                         is_blocked: false,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
                 {
@@ -134,6 +137,13 @@ describe('UserController', () => {
                         bio: 'grok it',
                         avatar_url:
                             'https://pbs.twimg.com/profile_images/1893219113717342208/Vgg2hEPa_normal.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: false,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
                 {
@@ -177,6 +187,9 @@ describe('UserController', () => {
                         is_follower: false,
                         is_muted: false,
                         is_blocked: false,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
                 {
@@ -220,6 +233,13 @@ describe('UserController', () => {
                         bio: 'grok it',
                         avatar_url:
                             'https://pbs.twimg.com/profile_images/1893219113717342208/Vgg2hEPa_normal.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: false,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
                 {
@@ -489,6 +509,9 @@ describe('UserController', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -500,6 +523,9 @@ describe('UserController', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -540,6 +566,9 @@ describe('UserController', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -607,6 +636,9 @@ describe('UserController', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -618,6 +650,9 @@ describe('UserController', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -652,6 +687,9 @@ describe('UserController', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -663,6 +701,9 @@ describe('UserController', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 

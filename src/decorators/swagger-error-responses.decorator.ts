@@ -16,7 +16,7 @@ export const ApiBadRequestErrorResponse = (message: string) => {
             example: {
                 message: message,
                 error: 'Bad Request',
-                statusCode: 400,
+                status_code: 400,
             },
         })
     );
@@ -29,7 +29,7 @@ export const ApiUnauthorizedErrorResponse = (message: string) => {
             example: {
                 message: message,
                 error: 'Unauthorized',
-                statusCode: 401,
+                status_code: 401,
             },
         })
     );
@@ -42,7 +42,7 @@ export const ApiForbiddenErrorResponse = (message: string) => {
             example: {
                 message: message,
                 error: 'Forbidden',
-                statusCode: 403,
+                status_code: 403,
             },
         })
     );
@@ -55,7 +55,7 @@ export const ApiNotFoundErrorResponse = (message: string) => {
             example: {
                 message: message,
                 error: 'Not Found',
-                statusCode: 404,
+                status_code: 404,
             },
         })
     );
@@ -68,7 +68,7 @@ export const ApiConflictErrorResponse = (message: string) => {
             example: {
                 message: message,
                 error: 'Conflict',
-                statusCode: 409,
+                status_code: 409,
             },
         })
     );
@@ -81,7 +81,7 @@ export const ApiUnprocessableEntityErrorResponse = (message: string) => {
             example: {
                 message: message,
                 error: 'Unprocessable Entity',
-                statusCode: 422,
+                status_code: 422,
             },
         })
     );
@@ -94,7 +94,7 @@ export const ApiInternalServerError = (message: string) => {
             example: {
                 message: message,
                 error: 'Internal Server Error',
-                statusCode: 500,
+                status_code: 500,
             },
         })
     );

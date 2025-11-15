@@ -11,7 +11,7 @@ export class MentionsDto extends TimelinePaginationDto {
     })
     @IsString()
     @IsNotEmpty()
-    @MaxLength(50)
+    @MaxLength(STRING_MAX_LENGTH)
     user_id: string;
 
     // limit and cursor are inherited from TimelinePaginationDto

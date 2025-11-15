@@ -217,7 +217,12 @@ describe('TweetsController', () => {
 
             const result = await controller.getTweetLikes(tweet_id, query, user_id);
 
-            expect(service.getTweetLikes).toHaveBeenCalledWith(tweet_id, user_id, query.page, query.limit);
+            expect(service.getTweetLikes).toHaveBeenCalledWith(
+                tweet_id,
+                user_id,
+                query.page,
+                query.limit
+            );
             expect(result).toEqual(mock_likes);
         });
     });
@@ -233,7 +238,12 @@ describe('TweetsController', () => {
 
             const result = await controller.getTweetReposts(tweet_id, query, user_id);
 
-            expect(service.getTweetReposts).toHaveBeenCalledWith(tweet_id, user_id, query.page, query.limit);
+            expect(service.getTweetReposts).toHaveBeenCalledWith(
+                tweet_id,
+                user_id,
+                query.page,
+                query.limit
+            );
             expect(result).toEqual(mock_reposts);
         });
     });
@@ -249,7 +259,12 @@ describe('TweetsController', () => {
 
             const result = await controller.getTweetQuotes(tweet_id, query, user_id);
 
-            expect(service.getTweetQuotes).toHaveBeenCalledWith(tweet_id, user_id, query.cursor, query.limit);
+            expect(service.getTweetQuotes).toHaveBeenCalledWith(
+                tweet_id,
+                user_id,
+                query.cursor,
+                query.limit
+            );
             expect(result).toEqual(mock_quotes);
         });
     });
@@ -287,7 +302,7 @@ describe('TweetsController', () => {
         it('should throw BadRequestException if no file provided', async () => {
             const user_id = 'user-123';
 
-            await expect(controller.uploadImage(undefined, user_id)).rejects.toThrow(
+            await expect(controller.uploadImage(undefined as any, user_id)).rejects.toThrow(
                 BadRequestException
             );
         });
@@ -310,7 +325,7 @@ describe('TweetsController', () => {
         it('should throw BadRequestException if no file provided', async () => {
             const user_id = 'user-123';
 
-            await expect(controller.uploadVideo(undefined, user_id)).rejects.toThrow(
+            await expect(controller.uploadVideo(undefined as any, user_id)).rejects.toThrow(
                 BadRequestException
             );
         });
@@ -319,11 +334,12 @@ describe('TweetsController', () => {
     describe('trackTweetView', () => {
         it('should track tweet view', async () => {
             const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
             const mock_response = { success: true };
 
             mock_tweets_service.incrementTweetViews.mockResolvedValue(mock_response);
 
-            const result = await controller.trackTweetView(tweet_id);
+            const result = await controller.trackTweetView(tweet_id, user_id);
 
             expect(service.incrementTweetViews).toHaveBeenCalledWith(tweet_id);
             expect(result).toEqual(mock_response);

@@ -224,7 +224,7 @@ export const verify_email_swagger = {
             schema: {
                 example: {
                     data: {
-                        userId: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
+                        user_id: 'c8b1f8e2-3f4a-4d2a-9f0e-123456789abc',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.EMAIL_VERIFIED,
@@ -364,7 +364,7 @@ export ${getOAuthResponseDescription('Google')}
                 example: {
                     message: 'OAuth configuration error',
                     error: 'Internal Server Error',
-                    statusCode: 500,
+                    status_code: 500,
                 },
             },
         },
@@ -513,7 +513,7 @@ export ${getOAuthResponseDescription('Facebook')}
                 example: {
                     message: 'OAuth configuration error',
                     error: 'Internal Server Error',
-                    statusCode: 500,
+                    status_code: 500,
                 },
             },
         },
@@ -631,7 +631,7 @@ export ${getOAuthResponseDescription('GitHub')}
                 example: {
                     message: 'OAuth configuration error',
                     error: 'Internal Server Error',
-                    statusCode: 500,
+                    status_code: 500,
                 },
             },
         },
@@ -863,7 +863,7 @@ export const verify_reset_otp_swagger = {
                 example: {
                     data: {
                         isValid: true,
-                        resetToken:
+                        reset_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ1c2VySWQiOiIxMjMiLCJwdXJwb3NlIjoicGFzc3dvcmQtcmVzZXQiLCJpYXQiOjE2MzIxNjE2MDAsImV4cCI6MTYzMjE2MjUwMH0...',
                     },
                     count: 1,

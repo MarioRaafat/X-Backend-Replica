@@ -1,9 +1,9 @@
 import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GoogleLoginDTO {
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(LARGE_MAX_LENGTH)
     google_id: string;
 
     @IsEmail()
@@ -22,6 +22,6 @@ export class GoogleLoginDTO {
 
     @IsOptional()
     @IsString()
-    @MaxLength(500)
+    @MaxLength(LARGE_MAX_LENGTH)
     avatar_url?: string;
 }

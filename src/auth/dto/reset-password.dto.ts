@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEmail, IsNotEmpty, IsString, Matches, MaxLength, MinLength } from 'class-validator';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class ResetPasswordDto {
     @ApiProperty({
@@ -11,7 +11,7 @@ export class ResetPasswordDto {
     })
     @IsString({ message: 'Reset token must be a string' })
     @IsNotEmpty({ message: 'Reset token is required' })
-    @MaxLength(500)
+    @MaxLength(LARGE_MAX_LENGTH)
     reset_token: string;
 
     @ApiProperty({

@@ -4,7 +4,7 @@ export class FixUserPostsViewTypeColumn1730999000000 implements MigrationInterfa
     public async up(query_runner: QueryRunner): Promise<void> {
         // Drop existing view
         await query_runner.query(`DROP VIEW IF EXISTS user_posts_view`);
-        
+
         // Recreate view with type cast to text
         await query_runner.query(`
             CREATE VIEW user_posts_view AS
@@ -58,7 +58,7 @@ export class FixUserPostsViewTypeColumn1730999000000 implements MigrationInterfa
     public async down(query_runner: QueryRunner): Promise<void> {
         // Drop the view
         await query_runner.query(`DROP VIEW IF EXISTS user_posts_view`);
-        
+
         // Recreate old version (without cast)
         await query_runner.query(`
             CREATE VIEW user_posts_view AS

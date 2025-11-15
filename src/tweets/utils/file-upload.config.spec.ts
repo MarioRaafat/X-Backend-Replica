@@ -48,12 +48,7 @@ describe('File Upload Config', () => {
 
     describe('video_file_filter', () => {
         it('should accept valid video types', () => {
-            const valid_types = [
-                'video/mp4',
-                'video/quicktime',
-                'video/x-msvideo',
-                'video/webm',
-            ];
+            const valid_types = ['video/mp4', 'video/quicktime', 'video/x-msvideo', 'video/webm'];
 
             valid_types.forEach((mimetype) => {
                 const callback = jest.fn();

@@ -112,6 +112,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
             const mock_response: UserLookupDto[] = [
@@ -128,6 +131,9 @@ describe('UserService', () => {
                         is_follower: false,
                         is_muted: false,
                         is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
             ];
@@ -164,6 +170,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
             const mock_response: UserLookupDto[] = [
@@ -180,6 +189,9 @@ describe('UserService', () => {
                         is_follower: false,
                         is_muted: false,
                         is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
                 {
@@ -216,6 +228,13 @@ describe('UserService', () => {
                     username: 'Alyaali242',
                     bio: 'hi there!',
                     avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: false,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
             const mock_response: UserLookupDto[] = [
@@ -228,6 +247,13 @@ describe('UserService', () => {
                         username: 'Alyaali242',
                         bio: 'hi there!',
                         avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: false,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
             ];
@@ -301,6 +327,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
             const mock_response: UserLookupDto[] = [
@@ -317,6 +346,9 @@ describe('UserService', () => {
                         is_follower: false,
                         is_muted: false,
                         is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
             ];
@@ -356,6 +388,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
             const mock_response: UserLookupDto[] = [
@@ -372,6 +407,9 @@ describe('UserService', () => {
                         is_follower: false,
                         is_muted: false,
                         is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
                 {
@@ -411,6 +449,13 @@ describe('UserService', () => {
                     username: 'Alyaali242',
                     bio: 'hi there!',
                     avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: false,
+                    is_follower: false,
+                    is_muted: false,
+                    is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
             const mock_response: UserLookupDto[] = [
@@ -423,6 +468,13 @@ describe('UserService', () => {
                         username: 'Alyaali242',
                         bio: 'hi there!',
                         avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: false,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
                     },
                 },
             ];
@@ -730,6 +782,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -741,6 +796,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -783,6 +841,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -846,6 +907,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -857,6 +921,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -913,6 +980,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -924,6 +994,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -958,6 +1031,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
                 {
                     user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -969,6 +1045,9 @@ describe('UserService', () => {
                     is_follower: false,
                     is_muted: true,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 },
             ];
 
@@ -1007,6 +1086,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: false,
                     is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest
@@ -1055,6 +1137,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: false,
                     is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest.spyOn(user_repository, 'insertFollowRelationship');
@@ -1090,6 +1175,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: false,
                     is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest.spyOn(user_repository, 'insertFollowRelationship');
@@ -1126,6 +1214,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: true,
                     is_blocked: false,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest.spyOn(user_repository, 'insertFollowRelationship');
@@ -1162,6 +1253,9 @@ describe('UserService', () => {
                 .mockResolvedValueOnce({
                     blocked_me: false,
                     is_blocked: true,
+                    verified: false,
+                    followers: 0,
+                    following: 0,
                 });
 
             const insert_follow_spy = jest.spyOn(user_repository, 'insertFollowRelationship');
@@ -2206,7 +2300,7 @@ describe('UserService', () => {
 
             const updated_user = {
                 ...existing_user,
-                language: 'ar',
+                language: 'ar' as 'ar' | 'en',
             };
 
             const find_one_spy = jest
@@ -2215,7 +2309,7 @@ describe('UserService', () => {
 
             const save_spy = jest
                 .spyOn(user_repository, 'save')
-                .mockResolvedValueOnce(updated_user);
+                .mockResolvedValueOnce(updated_user as any);
 
             const result = await service.changeLanguage(user_id, change_language_dto);
 
@@ -2249,61 +2343,61 @@ describe('UserService', () => {
     });
     // describe('findUserById', () => {
     //     it('should find a user by ID', async () => {
-    //         const mockUser = { id: '1', email: 'a@a.com' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '1', email: 'a@a.com' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserById('1');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { id: '1' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
     // describe('findUserByEmail', () => {
     //     it('should find a user by email', async () => {
-    //         const mockUser = { id: '2', email: 'test@example.com' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '2', email: 'test@example.com' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserByEmail('test@example.com');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { email: 'test@example.com' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
     // describe('findUserByGithubId', () => {
     //     it('should find a user by github_id', async () => {
-    //         const mockUser = { id: '3', github_id: 'gh123' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '3', github_id: 'gh123' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserByGithubId('gh123');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { github_id: 'gh123' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
     // describe('findUserByFacebookId', () => {
     //     it('should find a user by facebookId', async () => {
-    //         const mockUser = { id: '4', facebook_id: 'fb123' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '4', facebook_id: 'fb123' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserByFacebookId('fb123');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { facebook_id: 'fb123' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
     // describe('findUserByGoogleId', () => {
     //     it('should find a user by googleId', async () => {
-    //         const mockUser = { id: '5', google_id: 'g123' } as User;
-    //         repo.findOne.mockResolvedValueOnce(mockUser);
+    //         const mock_user = { id: '5', google_id: 'g123' } as User;
+    //         repo.findOne.mockResolvedValueOnce(mock_user);
 
     //         const result = await service.findUserByGoogleId('g123');
 
     //         expect(repo.findOne).toHaveBeenCalledWith({ where: { google_id: 'g123' } });
-    //         expect(result).toBe(mockUser);
+    //         expect(result).toBe(mock_user);
     //     });
     // });
 
@@ -2322,34 +2416,34 @@ describe('UserService', () => {
 
     // describe('updateUser', () => {
     //     it('should update and return user', async () => {
-    //         const updatedUser = {
+    //         const updated_user = {
     //             id: '1',
     //             name: 'Updated User',
-    //             username: 'updateduser',
+    //             username: 'updated_user',
     //             email: 'test@example.com',
     //             password: 'hashedpassword',
     //             phone_number: '1234567890',
     //         } as User;
     //         (repo.update as jest.Mock).mockResolvedValueOnce(undefined);
-    //         repo.findOne.mockResolvedValueOnce(updatedUser);
+    //         repo.findOne.mockResolvedValueOnce(updated_user);
 
     //         const result = await service.updateUser('1', { name: 'Updated User' });
 
     //         expect(repo.update).toHaveBeenCalledWith('1', { name: 'Updated User' });
-    //         expect(result).toEqual(updatedUser);
+    //         expect(result).toEqual(updated_user);
     //     });
     // });
 
     // describe('updateUserPassword', () => {
     //     it('should update password and return user', async () => {
-    //         const updatedUser = { id: '1', password: 'hashed' } as User;
+    //         const updated_user = { id: '1', password: 'hashed' } as User;
     //         (repo.update as jest.Mock).mockResolvedValueOnce(undefined);
-    //         repo.findOne.mockResolvedValueOnce(updatedUser);
+    //         repo.findOne.mockResolvedValueOnce(updated_user);
 
     //         const result = await service.updateUserPassword('1', 'hashed');
 
     //         expect(repo.update).toHaveBeenCalledWith('1', { password: 'hashed' });
-    //         expect(result).toEqual(updatedUser);
+    //         expect(result).toEqual(updated_user);
     //     });
     // });
 });

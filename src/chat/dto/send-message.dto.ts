@@ -9,18 +9,19 @@ import {
     MinLength,
 } from 'class-validator';
 import { MessageType } from '../entities/message.entity';
+import { MESSAGE_CONTENT_LENGTH } from 'src/constants/variables';
 
 export class SendMessageDto {
     @ApiProperty({
         description: 'Content of the message',
         example: 'انا شامم ريحة نقاشة 🤮',
         minLength: 1,
-        maxLength: 1000,
+        maxLength: MESSAGE_CONTENT_LENGTH,
     })
     @IsNotEmpty()
     @IsString()
     @MinLength(1)
-    @MaxLength(1000)
+    @MaxLength(MESSAGE_CONTENT_LENGTH)
     content: string;
 
     @ApiProperty({

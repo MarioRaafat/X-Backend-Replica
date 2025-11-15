@@ -15,17 +15,17 @@ export const REFRESH_TOKEN_OBJECT = (jti: string, id: string) => {
 };
 
 // set of JTIs
-export const USER_REFRESH_TOKENS_KEY = (userId: string) => `user:${userId}:refreshTokens`;
+export const USER_REFRESH_TOKENS_KEY = (user_id: string) => `user:${user_id}:refreshTokens`;
 
 // add JTI to the set
-export const USER_REFRESH_TOKENS_ADD = (userId: string, jti: string) => ({
-    key: USER_REFRESH_TOKENS_KEY(userId),
+export const USER_REFRESH_TOKENS_ADD = (user_id: string, jti: string) => ({
+    key: USER_REFRESH_TOKENS_KEY(user_id),
     value: jti,
     ttl: REFRESH_TOKEN_TTL,
 });
 
-export const USER_REFRESH_TOKENS_REMOVE = (userId: string, jti: string) => ({
-    key: USER_REFRESH_TOKENS_KEY(userId),
+export const USER_REFRESH_TOKENS_REMOVE = (user_id: string, jti: string) => ({
+    key: USER_REFRESH_TOKENS_KEY(user_id),
     value: jti,
 });
 
@@ -62,12 +62,12 @@ export const OTP_KEY = (type: 'email' | 'password', identifier: string) =>
 export const OTP_OBJECT = (
     type: 'email' | 'password',
     identifier: string,
-    hashedToken: string,
+    hashed_token: string,
     created_at: string
 ) => ({
     key: OTP_KEY(type, identifier),
     value: {
-        token: hashedToken,
+        token: hashed_token,
         created_at,
     },
 });
