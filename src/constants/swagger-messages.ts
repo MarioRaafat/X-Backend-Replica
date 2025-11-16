@@ -57,6 +57,7 @@ export const ERROR_MESSAGES = {
 
     // database
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
+    FAILED_TO_FETCH_FROM_DB: 'Failed to fetch the data from database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
 
     // links & Tokens
@@ -79,6 +80,7 @@ export const ERROR_MESSAGES = {
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
     CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
+    LAST_READ_MESSAGE_NOT_IN_CHAT: 'Last read message does not belong to this chat',
 
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
