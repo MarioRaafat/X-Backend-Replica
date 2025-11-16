@@ -37,6 +37,9 @@ import { promises } from 'dns';
 import { UploadFileResponseDto } from './dto/upload-file-response.dto';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
+import { TweetsRepository } from 'src/tweets/tweets.repository';
+import { CursorPaginationDto } from './dto/cursor-pagination-params.dto';
+import { TweetResponseDTO } from 'src/tweets/dto';
 
 @Injectable()
 export class UserService {
@@ -45,7 +48,8 @@ export class UserService {
         private readonly azure_storage_service: AzureStorageService,
         private readonly config_service: ConfigService,
         @InjectRepository(Category)
-        private readonly category_repository: Repository<Category>
+        private readonly category_repository: Repository<Category>,
+        private readonly tweets_repository: TweetsRepository
     ) {}
 
     async getUsersByIds(
@@ -381,25 +385,73 @@ export class UserService {
         }
     }
 
-    async getLikedPosts(current_user_id: string, query_dto: PaginationParamsDto) {}
+    async getLikedPosts(
+        current_user_id: string,
+        query_dto: CursorPaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        const { cursor, limit } = query_dto;
+        return await this.tweets_repository.getLikedPostsByUserId(current_user_id, cursor, limit);
+    }
 
     async getPosts(
-        current_user_id: string,
+        current_user_id: string | null,
         target_user_id: string,
-        query_dto: PaginationParamsDto
-    ) {}
+        query_dto: CursorPaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        const { cursor, limit } = query_dto;
+        console.log(cursor);
+        console.log(limit);
+        return await this.tweets_repository.getPostsByUserId(
+            target_user_id,
+            current_user_id ? current_user_id : undefined,
+            cursor,
+            limit
+        );
+    }
 
     async getReplies(
-        current_user_id: string,
+        current_user_id: string | null,
         target_user_id: string,
-        query_dto: PaginationParamsDto
-    ) {}
+        query_dto: CursorPaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        const { cursor, limit } = query_dto;
+        return await this.tweets_repository.getRepliesByUserId(
+            target_user_id,
+            current_user_id ? current_user_id : undefined,
+            cursor,
+            limit
+        );
+    }
 
     async getMedia(
-        current_user_id: string,
+        current_user_id: string | null,
         target_user_id: string,
-        query_dto: PaginationParamsDto
-    ) {}
+        query_dto: CursorPaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        const { cursor, limit } = query_dto;
+        return await this.tweets_repository.getMediaByUserId(
+            target_user_id,
+            current_user_id ? current_user_id : undefined,
+            cursor,
+            limit
+        );
+    }
 
     async updateUser(user_id: string, update_user_dto: UpdateUserDto): Promise<UserProfileDto> {
         const user = await this.user_repository.findOne({

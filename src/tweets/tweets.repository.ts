@@ -750,7 +750,6 @@ export class TweetsRepository {
 
     async getLikedPostsByUserId(
         user_id: string,
-        current_user_id?: string,
         cursor?: string,
         limit: number = 10
     ): Promise<{
@@ -768,32 +767,6 @@ export class TweetsRepository {
                 .orderBy('like.created_at', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .take(limit);
-
-            // Add interaction flags if current_user_id is provided
-            if (current_user_id) {
-                query
-                    .leftJoinAndMapOne(
-                        'tweet.current_user_like',
-                        TweetLike,
-                        'current_user_like',
-                        'current_user_like.tweet_id = tweet.tweet_id AND current_user_like.user_id = :current_user_id',
-                        { current_user_id }
-                    )
-                    .leftJoinAndMapOne(
-                        'tweet.current_user_repost',
-                        TweetRepost,
-                        'current_user_repost',
-                        'current_user_repost.tweet_id = tweet.tweet_id AND current_user_repost.user_id = :current_user_id',
-                        { current_user_id }
-                    )
-                    .leftJoinAndMapOne(
-                        'user.current_user_follows',
-                        UserFollows,
-                        'current_user_follows',
-                        'current_user_follows.follower_id = :current_user_id AND current_user_follows.followed_id = user.id',
-                        { current_user_id }
-                    );
-            }
 
             // Apply cursor pagination using like.created_at for ordering
             this.paginate_service.applyCursorPagination(
