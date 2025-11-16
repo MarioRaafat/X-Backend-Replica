@@ -407,8 +407,6 @@ export class UserService {
         has_more: boolean;
     }> {
         const { cursor, limit } = query_dto;
-        console.log(cursor);
-        console.log(limit);
         return await this.tweets_repository.getPostsByUserId(
             target_user_id,
             current_user_id ? current_user_id : undefined,
@@ -462,7 +460,11 @@ export class UserService {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        Object.assign(user, update_user_dto);
+        Object.keys(update_user_dto).forEach((key) => {
+            if (update_user_dto[key] !== undefined) {
+                user[key] = update_user_dto[key];
+            }
+        });
 
         const updated_user = await this.user_repository.save(user);
 
