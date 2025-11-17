@@ -24,10 +24,9 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, IResponse<T>> 
                 const data = response_body.data ?? response_body;
 
                 return {
-                    data,
+                    data: response_body,
                     count: Array.isArray(data) ? data.length : data ? 1 : 0,
 
-                    ...(response_body.pagination && { pagination: response_body.pagination }),
                     message: custom_message || 'Success',
                 };
             })
