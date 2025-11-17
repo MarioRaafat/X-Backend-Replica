@@ -1048,6 +1048,7 @@ export const update_user = {
                         cover_url: 'https://cdn.app.com/profiles/u877.jpg',
                         country: null,
                         created_at: '2025-10-21T09:26:17.432Z',
+                        birth_date: '2003-05-14',
                         followers_count: 5,
                         following_count: 10,
                     },
