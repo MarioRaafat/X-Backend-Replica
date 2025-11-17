@@ -307,13 +307,19 @@ export class TweetsService {
             const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
             if (!tweet_exists) throw new NotFoundException('Tweet not found');
 
+            console.log('BUFIDWEBUI');
+
             const new_like = query_runner.manager.create(TweetLike, {
                 tweet: { tweet_id },
                 user: { id: user_id },
             });
 
+            console.log('Hello');
+
             await query_runner.manager.insert(TweetLike, new_like);
+            console.log('Test');
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_likes', 1);
+            console.log('Test2');
             await query_runner.commitTransaction();
         } catch (error) {
             await query_runner.rollbackTransaction();
