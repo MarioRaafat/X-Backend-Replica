@@ -9,8 +9,7 @@ export class TimelineService {
     constructor(private readonly tweet_repository: TweetsRepository) {}
     async getFollowingTimeline(
         user_id: string,
-        cursor?: string,
-        limit: number = 20
+        pagination: TimelinePaginationDto
     ): Promise<{
         data: TweetResponseDTO[];
         pagination: { next_cursor: string | null; has_more: boolean };
@@ -21,23 +20,23 @@ export class TimelineService {
         // replies
         //get my tweets
 
-        return await this.tweet_repository.getFollowingTweets(user_id, cursor, limit);
+        return await this.tweet_repository.getFollowingTweets(
+            user_id,
+            pagination.cursor,
+            pagination.limit
+        );
     }
-    // async getForyouTimeline(
-    //     user_id: string,
-    //     pagination: TimelinePaginationDto
-    // ): Promise<TimelineResponseDto> {
-    //     const { tweets, next_cursor } = await this.tweet_repository.getForyouTweets(
-    //         user_id,
-    //         pagination
-    //     );
-
-    //     return {
-    //         tweets,
-    //         next_cursor,
-    //         has_more: tweets.length === pagination.limit,
-    //         timestamp: new Date().toISOString(),
-    //         count: tweets.length,
-    //     };
-    // }
+    async getForyouTimeline(
+        user_id: string,
+        pagination: TimelinePaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: { next_cursor: string | null; has_more: boolean };
+    }> {
+        return await this.tweet_repository.getForyouTweets(
+            user_id,
+            pagination.cursor,
+            pagination.limit
+        );
+    }
 }

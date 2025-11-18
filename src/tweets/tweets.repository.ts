@@ -13,6 +13,7 @@ import { getReplyWithParentChainQuery } from './queries/reply-parent-chain.query
 import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
 import { SelectQueryBuilder } from 'typeorm/browser';
 import { getFollowingTweetsQuery } from './queries/get-following-tweets.query';
+import { getForyouTweetsQuery } from './queries/get-foryou-tweets.query';
 
 @Injectable()
 export class TweetsRepository {
@@ -54,7 +55,7 @@ export class TweetsRepository {
                 cursor_condition = `AND (post.post_date < $2 OR (post.post_date = $2 AND post.id < $3))`;
                 cursor_params = [cursor_date, cursor_id];
             }
-            const query_string = getFollowingTweetsQuery(user_id, cursor_condition, limit);
+            const query_string = getFollowingTweetsQuery(cursor_condition, limit);
 
             // execute query
 
@@ -88,7 +89,99 @@ export class TweetsRepository {
                     }
                 );
 
-                // attach is following
+                // add repost info
+                if (post.post_type === 'repost' && post.reposted_by_user) {
+                    dto.reposted_by = {
+                        repost_id: post.id,
+                        id: post.reposted_by_user.id,
+                        name: post.reposted_by_user.name,
+                        reposted_at: post.post_date,
+                    };
+                }
+
+                // add quote info
+                // add reply info
+
+                return dto;
+            });
+
+            // generate next cursor
+            const next_cursor = this.paginate_service.generateNextCursor(tweets, 'post_date', 'id');
+            // return data + pagination
+
+            return {
+                data: tweet_dtos,
+                pagination: {
+                    next_cursor,
+                    has_more: tweet_dtos.length === limit,
+                },
+            };
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+    async getForyouTweets(
+        user_id: string,
+        cursor?: string,
+        limit: number = 20
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: { next_cursor: string | null; has_more: boolean };
+    }> {
+        const query_runner = this.data_source.createQueryRunner();
+
+        await query_runner.connect();
+
+        try {
+            // extract pagination params
+
+            let cursor_condition = '';
+            let cursor_params: any[] = [];
+
+            if (cursor) {
+                const [cursor_date_str, cursor_id] = cursor.split('_');
+                const cursor_date = new Date(cursor_date_str);
+                cursor_condition = `AND (post.post_date < $2 OR (post.post_date = $2 AND post.id < $3))`;
+                cursor_params = [cursor_date, cursor_id];
+            }
+            const query_string = getForyouTweetsQuery(cursor_condition, limit);
+
+            // execute query
+
+            const tweets = await query_runner.query(query_string, [user_id, ...cursor_params]);
+
+            // mapping to tweet response dto
+
+            const tweet_dtos = tweets.map((post: any) => {
+                const dto = plainToInstance(
+                    TweetResponseDTO,
+                    {
+                        tweet_id: post.tweet_id,
+                        user_id: post.tweet_author_id,
+                        type: post.post_type === 'tweet' ? post.type : post.post_type,
+                        content: post.content,
+                        images: post.images,
+                        videos: post.videos,
+                        num_likes: post.num_likes,
+                        num_reposts: post.num_reposts,
+                        num_views: post.num_views,
+                        num_quotes: post.num_quotes,
+                        num_replies: post.num_replies,
+                        created_at: post.created_at,
+                        updated_at: post.updated_at,
+                        is_liked: post.is_liked,
+                        is_reposted: post.is_reposted,
+                        // attach is following
+
+                        user: { ...post.user, is_following: post.is_following },
+                    },
+                    {
+                        excludeExtraneousValues: true,
+                    }
+                );
 
                 // add repost info
                 if (post.post_type === 'repost' && post.reposted_by_user) {

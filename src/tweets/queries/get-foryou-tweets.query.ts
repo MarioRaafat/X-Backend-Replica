@@ -1,6 +1,6 @@
 import { TweetResponseDTO } from '../dto/tweet-response.dto';
 
-export function getFollowingTweetsQuery(cursor_condition: string, limit: number = 10): string {
+export function getForyouTweetsQuery(cursor_condition: string, limit: number = 20): string {
     return `  SELECT 
             post.*,
             json_build_object(
@@ -51,24 +51,14 @@ export function getFollowingTweetsQuery(cursor_condition: string, limit: number 
             ON follows.follower_id = $1 
             AND follows.followed_id = post.tweet_author_id
 
-        WHERE (
-            post.tweet_author_id = $1 
-            OR post.tweet_author_id IN (
-                SELECT followed_id FROM user_follows WHERE follower_id = $1
-            )
-            OR post.profile_user_id = $1 
-            OR post.profile_user_id IN (
-                SELECT followed_id FROM user_follows WHERE follower_id = $1
-            )
-        )
-        AND post.tweet_author_id NOT IN (
+        WHERE post.tweet_author_id NOT IN (
             SELECT muted_id FROM user_mutes WHERE muter_id = $1
         )
         AND post.profile_user_id NOT IN (
             SELECT muted_id FROM user_mutes WHERE muter_id = $1
         )
             ${cursor_condition}
-            ORDER BY post.created_at
+            ORDER BY RANDOM()
             LIMIT ${limit}
             
             `;
