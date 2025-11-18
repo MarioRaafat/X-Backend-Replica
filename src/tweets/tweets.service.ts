@@ -15,7 +15,12 @@ import {
     ObjectLiteral,
 } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
-import { CreateTweetDTO, PaginatedTweetLikesResponseDTO, UpdateTweetDTO } from './dto';
+import {
+    CreateTweetDTO,
+    PaginatedTweetLikesResponseDTO,
+    PaginatedTweetRepostsResponseDTO,
+    UpdateTweetDTO,
+} from './dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { PostgresErrorCodes } from '../shared/enums/postgres-error-codes';
@@ -41,6 +46,7 @@ import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
+import { categorize_prompt, TOPICS } from './constants';
 
 @Injectable()
 export class TweetsService {
@@ -70,8 +76,6 @@ export class TweetsService {
 
     private readonly API_KEY = process.env.GOOGLE_API_KEY ?? '';
     private readonly genAI = new GoogleGenAI({ apiKey: this.API_KEY });
-
-    private readonly TOPICS = ['Sports', 'Entertainment', 'News'];
 
     /**
      * Handles image upload processing
@@ -616,10 +620,10 @@ export class TweetsService {
             'created_at',
             'user_id'
         );
-        data.next_cursor = next_cursor;
 
-        // count: tweet.num_likes,
-        // has_more: likes.length === limit,
+        data.next_cursor = next_cursor;
+        data.has_more = likes.length === limit;
+
         return data;
     }
 
@@ -628,20 +632,7 @@ export class TweetsService {
         current_user_id: string,
         cursor?: string,
         limit: number = 20
-    ): Promise<{
-        data: {
-            id: string;
-            username: string;
-            name: string;
-            avatar_url: string;
-            verified: boolean;
-            is_follower: boolean;
-            is_following: boolean;
-        }[];
-        count: number;
-        next_cursor: string | null;
-        has_more: boolean;
-    }> {
+    ): Promise<PaginatedTweetRepostsResponseDTO> {
         // Check if tweet exists and get the owner
         const tweet = await this.tweet_repository.findOne({
             where: { tweet_id },
@@ -670,7 +661,7 @@ export class TweetsService {
             )
             .where('repost.tweet_id = :tweet_id', { tweet_id })
             .orderBy('repost.created_at', 'DESC')
-            .addOrderBy('repost.id', 'DESC')
+            .addOrderBy('repost.user_id', 'DESC')
             .take(limit);
 
         // Apply cursor-based pagination
@@ -679,34 +670,38 @@ export class TweetsService {
             cursor,
             'repost',
             'created_at',
-            'id'
+            'user_id'
         );
 
         const reposts = await query_builder.getMany();
 
-        const users = reposts.map((repost) => ({
-            id: repost.user.id,
-            username: repost.user.username,
-            name: repost.user.name,
-            avatar_url: repost.user.avatar_url || '',
-            verified: repost.user.verified,
-            is_follower: !!repost.follower_relation,
-            bio: repost.user.bio,
-            cover_url: repost.user.cover_url,
-            followers: repost.user.followers,
-            following: repost.user.following,
-            is_following: !!repost.following_relation,
-        }));
+        const data = plainToInstance(
+            PaginatedTweetRepostsResponseDTO,
+            {
+                data: reposts.map((repost) => {
+                    return {
+                        ...repost.user,
+                        is_following: !!repost.following_relation,
+                        is_follower: !!repost.follower_relation,
+                    };
+                }),
+            },
+            {
+                excludeExtraneousValues: true,
+            }
+        );
 
         // Generate next_cursor using pagination service
-        const next_cursor = this.paginate_service.generateNextCursor(reposts, 'created_at', 'id');
+        const next_cursor = this.paginate_service.generateNextCursor(
+            reposts,
+            'created_at',
+            'user_id'
+        );
 
-        return {
-            data: users,
-            count: tweet.num_reposts,
-            next_cursor,
-            has_more: reposts.length === limit,
-        };
+        data.next_cursor = next_cursor;
+        data.has_more = reposts.length === limit;
+
+        return data;
     }
 
     async getTweetQuotes(
@@ -910,22 +905,11 @@ export class TweetsService {
             if (!process.env.ENABLE_GOOGLE_GEMINI) {
                 console.warn('Gemini is disabled, returning empty topics');
                 const empty_response: Record<string, number> = {};
-                this.TOPICS.forEach((topic) => (empty_response[topic] = 0));
+                TOPICS.forEach((topic) => (empty_response[topic] = 0));
                 return empty_response;
             }
 
-            const prompt = `Analyze the following text and categorize it into these topics: ${this.TOPICS.join(', ')}.
-                Return ONLY a JSON object with topic names as keys and percentage values (0-100) as numbers. The percentages should add up to 100.
-                Only include topics that are relevant (percentage > 0).
-
-                Example format:
-                { "Sports": 60, "Entertainment": 30, "News": 10 }
-
-                Text to analyze:
-                "${content}"
-
-                Return only the JSON object, no additional text or explanation.
-            `;
+            const prompt = categorize_prompt(content);
 
             const response = await this.genAI.models.generateContent({
                 model: 'gemini-2.0-flash-exp',
@@ -935,7 +919,7 @@ export class TweetsService {
             if (!response.text) {
                 console.warn('Gemini returned empty response');
                 const empty_response: Record<string, number> = {};
-                this.TOPICS.forEach((topic) => (empty_response[topic] = 0));
+                TOPICS.forEach((topic) => (empty_response[topic] = 0));
                 return empty_response;
             }
 
