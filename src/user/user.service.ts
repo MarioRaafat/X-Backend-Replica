@@ -460,6 +460,9 @@ export class UserService {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
+        const old_avatar_url = user.avatar_url;
+        const old_cover_url = user.cover_url;
+
         Object.keys(update_user_dto).forEach((key) => {
             if (update_user_dto[key] !== undefined) {
                 user[key] = update_user_dto[key];
@@ -467,6 +470,33 @@ export class UserService {
         });
 
         const updated_user = await this.user_repository.save(user);
+
+        if (update_user_dto.avatar_url !== undefined && old_avatar_url) {
+            const file_name = this.azure_storage_service.extractFileName(old_avatar_url);
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
+            );
+
+            try {
+                await this.azure_storage_service.deleteFile(file_name, container_name);
+            } catch (error) {
+                console.warn('Failed to delete old avatar file:', error.message);
+            }
+        }
+
+        if (update_user_dto.cover_url !== undefined && old_cover_url) {
+            const file_name = this.azure_storage_service.extractFileName(old_cover_url);
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
+            );
+            try {
+                await this.azure_storage_service.deleteFile(file_name, container_name);
+            } catch (error) {
+                console.warn('Failed to delete old cover file:', error.message);
+            }
+        }
 
         return plainToInstance(UserProfileDto, updated_user, {
             excludeExtraneousValues: true,

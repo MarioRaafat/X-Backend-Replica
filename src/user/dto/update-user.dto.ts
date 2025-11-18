@@ -32,7 +32,7 @@ export class UpdateUserDto {
     @IsOptional()
     @IsString()
     @MaxLength(LARGE_MAX_LENGTH)
-    avatar_url?: string;
+    avatar_url?: string | null;
 
     @ApiProperty({
         example: 'https://example.com/images/cover.jpg',
@@ -42,7 +42,7 @@ export class UpdateUserDto {
     @IsOptional()
     @IsString()
     @MaxLength(LARGE_MAX_LENGTH)
-    cover_url?: string;
+    cover_url?: string | null;
 
     @ApiProperty({
         example: 'Cairo, Egypt',
