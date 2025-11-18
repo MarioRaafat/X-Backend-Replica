@@ -9,42 +9,35 @@ export class TimelineService {
     constructor(private readonly tweet_repository: TweetsRepository) {}
     async getFollowingTimeline(
         user_id: string,
-        pagination: TimelinePaginationDto
-    ): Promise<TimelineResponseDto> {
+        cursor?: string,
+        limit: number = 20
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: { next_cursor: string | null; has_more: boolean };
+    }> {
         // tweets
         // quotes
         // reposts
         // replies
         //get my tweets
 
-        const { tweets, next_cursor } = await this.tweet_repository.getFollowingTweets(
-            user_id,
-            pagination
-        );
-
-        return {
-            tweets,
-            next_cursor,
-            has_more: tweets.length === pagination.limit,
-            timestamp: new Date().toISOString(),
-            count: tweets.length,
-        };
+        return await this.tweet_repository.getFollowingTweets(user_id, cursor, limit);
     }
-    async getForyouTimeline(
-        user_id: string,
-        pagination: TimelinePaginationDto
-    ): Promise<TimelineResponseDto> {
-        const { tweets, next_cursor } = await this.tweet_repository.getForyouTweets(
-            user_id,
-            pagination
-        );
+    // async getForyouTimeline(
+    //     user_id: string,
+    //     pagination: TimelinePaginationDto
+    // ): Promise<TimelineResponseDto> {
+    //     const { tweets, next_cursor } = await this.tweet_repository.getForyouTweets(
+    //         user_id,
+    //         pagination
+    //     );
 
-        return {
-            tweets,
-            next_cursor,
-            has_more: tweets.length === pagination.limit,
-            timestamp: new Date().toISOString(),
-            count: tweets.length,
-        };
-    }
+    //     return {
+    //         tweets,
+    //         next_cursor,
+    //         has_more: tweets.length === pagination.limit,
+    //         timestamp: new Date().toISOString(),
+    //         count: tweets.length,
+    //     };
+    // }
 }

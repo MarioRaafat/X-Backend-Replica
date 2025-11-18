@@ -12,6 +12,7 @@ import { UserFollows } from 'src/user/entities';
 import { getReplyWithParentChainQuery } from './queries/reply-parent-chain.query';
 import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
 import { SelectQueryBuilder } from 'typeorm/browser';
+import { getFollowingTweetsQuery } from './queries/get-following-tweets.query';
 
 @Injectable()
 export class TweetsRepository {
@@ -25,211 +26,181 @@ export class TweetsRepository {
         private readonly paginate_service: PaginationService,
         private data_source: DataSource
     ) {}
-
+    // Tweets
+    // Replies
+    // Quotes
+    // Reposts
     async getFollowingTweets(
         user_id: string,
-        pagination: TimelinePaginationDto
-    ): Promise<{ tweets: TweetResponseDTO[]; next_cursor: string | null }> {
-        const query_builder = this.tweet_repository
-            .createQueryBuilder('tweet')
-            .leftJoinAndSelect('tweet.user', 'user')
-            .leftJoin('tweet_replies', 'reply', 'reply.reply_tweet_id = tweet.tweet_id')
-            .leftJoin('tweet_quotes', 'quote', 'quote.quote_tweet_id = tweet.tweet_id')
-            .leftJoinAndSelect(
-                'tweet_reposts',
-                'repost',
-                'repost.tweet_id = tweet.tweet_id  AND ( repost.user_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id) or repost.user_id = :user_id )'
-            )
-            .leftJoinAndSelect('user', 'repost_user', 'repost_user.id = repost.user_id')
-            .leftJoinAndSelect(
-                'tweets',
-                'parent_tweet',
-                'parent_tweet.tweet_id = COALESCE(reply.original_tweet_id, quote.original_tweet_id)'
-            )
-            .leftJoinAndSelect('parent_tweet.user', 'parent_user')
-            .addSelect(
-                `CASE 
-                WHEN repost.user_id IS NOT NULL THEN 'repost'
-                WHEN reply.reply_tweet_id IS NOT NULL THEN 'reply'
-                WHEN quote.quote_tweet_id IS NOT NULL THEN 'quote'
-                ELSE 'tweet'
-            END`,
-                'tweet_type'
-            )
-            .addSelect(
-                'COALESCE(reply.original_tweet_id, quote.original_tweet_id)',
-                'parent_tweet_id'
-            )
+        cursor?: string,
+        limit: number = 20
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: { next_cursor: string | null; has_more: boolean };
+    }> {
+        const query_runner = this.data_source.createQueryRunner();
 
-            //TODO: This will be removed as we store converstion id but till i fill the database again
-            .addSelect(
-                `(
-                WITH RECURSIVE conversation_tree AS (
-                    SELECT 
-                        reply.reply_tweet_id,
-                        reply.original_tweet_id,
-                        reply.original_tweet_id as root_id,
-                        1 as depth
-                    FROM tweet_replies reply
-                    WHERE reply.reply_tweet_id = tweet.tweet_id
-                    
-                    UNION ALL
-                    
-                    SELECT 
-                        ct.reply_tweet_id,
-                        tr.original_tweet_id,
-                        tr.original_tweet_id,
-                        ct.depth + 1
-                    FROM conversation_tree ct
-                    INNER JOIN tweet_replies tr ON ct.root_id = tr.reply_tweet_id
-                    WHERE ct.depth < 100
-                )
-                SELECT root_id
-                FROM conversation_tree
-                ORDER BY depth DESC
-                LIMIT 1
-            )`,
-                'conversation_root_id'
-            )
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM tweet_likes 
-                WHERE tweet_likes.tweet_id = tweet.tweet_id 
-                AND tweet_likes.user_id = :user_id
-            )`,
-                'is_liked'
-            )
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM tweet_reposts 
-                WHERE tweet_reposts.tweet_id = tweet.tweet_id 
-                AND tweet_reposts.user_id = :user_id
-            )`,
-                'is_reposted'
-            )
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM user_follows             
-                WHERE follower_id = :user_id
-                AND followed_id = tweet.user_id)`,
-                'is_following'
-            )
-            .where(
-                `(tweet.user_id = :user_id
-     OR tweet.user_id IN (
-        SELECT followed_id 
-        FROM user_follows
-        WHERE follower_id = :user_id
-    )
-    OR repost.user_id IS NOT NULL)`
-            )
-            .andWhere(
-                `tweet.user_id NOT IN(
-                SELECT muted_id 
-                FROM user_mutes
-                WHERE muter_id=:user_id
-            )`
-            )
-            .orderBy('COALESCE(repost.created_at, tweet.created_at)', 'DESC')
-            .limit(pagination.limit)
-            .setParameters({ user_id });
+        await query_runner.connect();
 
-        // This will be delegated to a pagination service
+        try {
+            // extract pagination params
 
-        if (pagination.cursor) {
-            const [cursor_timestamp, cursor_id] = pagination.cursor.split('_');
-            if (cursor_timestamp && cursor_id) {
-                query_builder.andWhere(
-                    '(tweet.created_at < :cursor_timestamp OR (tweet.created_at = :cursor_timestamp AND tweet.tweet_id < :cursor_id))',
-                    { cursor_timestamp, cursor_id }
-                );
+            let cursor_condition = '';
+            let cursor_params: any[] = [];
+
+            if (cursor) {
+                const [cursor_date_str, cursor_id] = cursor.split('_');
+                const cursor_date = new Date(cursor_date_str);
+                cursor_condition = `AND (post.post_date < $2 OR (post.post_date = $2 AND post.id < $3))`;
+                cursor_params = [cursor_date, cursor_id];
             }
+            const query_string = getFollowingTweetsQuery(user_id, cursor_condition, limit);
+
+            // execute query
+
+            const tweets = await query_runner.query(query_string, [user_id, ...cursor_params]);
+
+            // mapping to tweet response dto
+
+            const tweet_dtos = tweets.map((post: any) => {
+                const dto = plainToInstance(
+                    TweetResponseDTO,
+                    {
+                        tweet_id: post.tweet_id,
+                        user_id: post.tweet_author_id,
+                        type: post.post_type === 'tweet' ? post.type : post.post_type,
+                        content: post.content,
+                        images: post.images,
+                        videos: post.videos,
+                        num_likes: post.num_likes,
+                        num_reposts: post.num_reposts,
+                        num_views: post.num_views,
+                        num_quotes: post.num_quotes,
+                        num_replies: post.num_replies,
+                        created_at: post.created_at,
+                        updated_at: post.updated_at,
+                        is_liked: post.is_liked,
+                        is_reposted: post.is_reposted,
+                        user: { ...post.user, is_following: post.is_following },
+                    },
+                    {
+                        excludeExtraneousValues: true,
+                    }
+                );
+
+                // attach is following
+
+                // add repost info
+                if (post.post_type === 'repost' && post.reposted_by_user) {
+                    dto.reposted_by = {
+                        repost_id: post.id,
+                        id: post.reposted_by_user.id,
+                        name: post.reposted_by_user.name,
+                        reposted_at: post.post_date,
+                    };
+                }
+
+                // add quote info
+                // add reply info
+
+                return dto;
+            });
+
+            // generate next cursor
+            const next_cursor = this.paginate_service.generateNextCursor(tweets, 'post_date', 'id');
+            // return data + pagination
+
+            return {
+                data: tweet_dtos,
+                pagination: {
+                    next_cursor,
+                    has_more: tweets.length === limit,
+                },
+            };
+        } catch (error) {
+            console.error(error);
+            throw error;
+        } finally {
+            await query_runner.release();
         }
-
-        const raw_results = await query_builder.getRawMany();
-        const tweets = this.mapRawTweetsToDTOs(raw_results);
-
-        const next_cursor =
-            tweets.length > 0 && tweets.length === pagination.limit
-                ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
-                : null;
-
-        return { tweets, next_cursor };
     }
 
-    async getForyouTweets(
-        user_id: string,
-        pagination: TimelinePaginationDto
-    ): Promise<{ tweets: TweetResponseDTO[]; next_cursor: string | null }> {
-        const query_builder = this.tweet_repository
-            .createQueryBuilder('tweet')
-            .leftJoinAndSelect('tweet.user', 'user')
-            .leftJoin('tweet_quotes', 'quote', 'quote.quote_tweet_id = tweet.tweet_id')
-            .leftJoinAndSelect('tweet_reposts', 'repost', 'repost.tweet_id = tweet.tweet_id')
-            .leftJoinAndSelect('user', 'repost_user', 'repost_user.id = repost.user_id')
-            .leftJoinAndSelect(
-                'tweets',
-                'parent_tweet',
-                'parent_tweet.tweet_id = quote.original_tweet_id'
-            )
-            .leftJoinAndSelect('parent_tweet.user', 'parent_user')
-            .addSelect(
-                `CASE 
-                WHEN repost.user_id IS NOT NULL THEN 'repost'
-                WHEN quote.quote_tweet_id IS NOT NULL THEN 'quote'
-                ELSE 'tweet'
-            END`,
-                'tweet_type'
-            )
-            .addSelect('quote.original_tweet_id', 'parent_tweet_id')
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM tweet_likes 
-                WHERE tweet_likes.tweet_id = tweet.tweet_id 
-                AND tweet_likes.user_id = :user_id
-            )`,
-                'is_liked'
-            )
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM tweet_reposts 
-                WHERE tweet_reposts.tweet_id = tweet.tweet_id 
-                AND tweet_reposts.user_id = :user_id
-            )`,
-                'is_reposted'
-            )
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM user_follows             
-                WHERE follower_id = :user_id
-                AND followed_id = tweet.user_id)`,
-                'is_following'
-            )
-            .orderBy('RANDOM()')
-            .limit(pagination.limit)
-            .setParameters({ user_id });
+    // async getForyouTweets(
+    //     user_id: string,
+    //     pagination: TimelinePaginationDto
+    // ): Promise<{ tweets: TweetResponseDTO[]; next_cursor: string | null }> {
+    //     const query_runner = this.data_source.createQueryRunner();
 
-        // This will be delegated to a pagination service
+    //     await query_runner.connect();
+    //     // const query_builder = this.tweet_repository
+    //     //     .createQueryBuilder('tweet')
+    //     //     .leftJoinAndSelect('tweet.user', 'user')
+    //     //     .leftJoin('tweet_quotes', 'quote', 'quote.quote_tweet_id = tweet.tweet_id')
+    //     //     .leftJoinAndSelect('tweet_reposts', 'repost', 'repost.tweet_id = tweet.tweet_id')
+    //     //     .leftJoinAndSelect('user', 'repost_user', 'repost_user.id = repost.user_id')
+    //     //     .leftJoinAndSelect(
+    //     //         'tweets',
+    //     //         'parent_tweet',
+    //     //         'parent_tweet.tweet_id = quote.original_tweet_id'
+    //     //     )
+    //     //     .leftJoinAndSelect('parent_tweet.user', 'parent_user')
+    //     //     .addSelect(
+    //     //         `CASE
+    //     //         WHEN repost.user_id IS NOT NULL THEN 'repost'
+    //     //         WHEN quote.quote_tweet_id IS NOT NULL THEN 'quote'
+    //     //         ELSE 'tweet'
+    //     //     END`,
+    //     //         'tweet_type'
+    //     //     )
+    //     //     .addSelect('quote.original_tweet_id', 'parent_tweet_id')
+    //     //     .addSelect(
+    //     //         `EXISTS(
+    //     //         SELECT 1 FROM tweet_likes
+    //     //         WHERE tweet_likes.tweet_id = tweet.tweet_id
+    //     //         AND tweet_likes.user_id = :user_id
+    //     //     )`,
+    //     //         'is_liked'
+    //     //     )
+    //     //     .addSelect(
+    //     //         `EXISTS(
+    //     //         SELECT 1 FROM tweet_reposts
+    //     //         WHERE tweet_reposts.tweet_id = tweet.tweet_id
+    //     //         AND tweet_reposts.user_id = :user_id
+    //     //     )`,
+    //     //         'is_reposted'
+    //     //     )
+    //     //     .addSelect(
+    //     //         `EXISTS(
+    //     //         SELECT 1 FROM user_follows
+    //     //         WHERE follower_id = :user_id
+    //     //         AND followed_id = tweet.user_id)`,
+    //     //         'is_following'
+    //     //     )
+    //     //     .orderBy('RANDOM()')
+    //     //     .limit(pagination.limit)
+    //     //     .setParameters({ user_id });
 
-        if (pagination.cursor) {
-            const [cursor_timestamp, cursor_id] = pagination.cursor.split('_');
-            if (cursor_timestamp && cursor_id) {
-                query_builder.andWhere(
-                    '(tweet.created_at < :cursor_timestamp OR (tweet.created_at = :cursor_timestamp AND tweet.tweet_id < :cursor_id))',
-                    { cursor_timestamp, cursor_id }
-                );
-            }
-        }
-        const raw_results = await query_builder.getRawMany();
-        const tweets = this.mapRawTweetsToDTOs(raw_results);
+    //     // // This will be delegated to a pagination service
 
-        const next_cursor =
-            tweets.length > 0 && tweets.length === pagination.limit
-                ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
-                : null;
+    //     // if (pagination.cursor) {
+    //     //     const [cursor_timestamp, cursor_id] = pagination.cursor.split('_');
+    //     //     if (cursor_timestamp && cursor_id) {
+    //     //         query_builder.andWhere(
+    //     //             '(tweet.created_at < :cursor_timestamp OR (tweet.created_at = :cursor_timestamp AND tweet.tweet_id < :cursor_id))',
+    //     //             { cursor_timestamp, cursor_id }
+    //     //         );
+    //     //     }
+    //     // }
+    //     // const raw_results = await query_builder.getRawMany();
+    //     // const tweets = this.mapRawTweetsToDTOs(raw_results);
 
-        return { tweets, next_cursor };
-    }
+    //     // const next_cursor =
+    //     //     tweets.length > 0 && tweets.length === pagination.limit
+    //     //         ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
+    //     //         : null;
+
+    //     // return { tweets, next_cursor };
+    // }
 
     //TODO: I will use tweets mapper later
     private mapRawTweetsToDTOs(raw_results: any[]): TweetResponseDTO[] {

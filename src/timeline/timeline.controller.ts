@@ -30,25 +30,25 @@ import { ApiImplementationStatus, ImplementationStatus } from 'src/decorators/ap
 export class TimelineController {
     constructor(private readonly timelineService: TimelineService) {}
 
-    @ApiImplementationStatus({
-        status: ImplementationStatus.IN_PROGRESS,
-        summary: timeline_swagger.for_you.operation.summary,
-    })
-    @ApiOperation(timeline_swagger.for_you.operation)
-    @ApiQuery(timeline_swagger.api_query.limit)
-    @ApiQuery(timeline_swagger.api_query.cursor)
-    @ApiQuery(timeline_swagger.api_query.since_id)
-    @ApiOkResponse(timeline_swagger.responses.success)
-    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_PAGINATION_PARAMETERS)
-    @ResponseMessage(SUCCESS_MESSAGES.TIMELINE_RETRIEVED)
-    @Get('/for-you')
-    async getForyouTimeline(
-        @GetUserId() user_id: string,
-        @Query() pagination: TimelinePaginationDto
-    ) {
-        return await this.timelineService.getForyouTimeline(user_id, pagination);
-    }
+    // @ApiImplementationStatus({
+    //     status: ImplementationStatus.IN_PROGRESS,
+    //     summary: timeline_swagger.for_you.operation.summary,
+    // })
+    // @ApiOperation(timeline_swagger.for_you.operation)
+    // @ApiQuery(timeline_swagger.api_query.limit)
+    // @ApiQuery(timeline_swagger.api_query.cursor)
+    // @ApiQuery(timeline_swagger.api_query.since_id)
+    // @ApiOkResponse(timeline_swagger.responses.success)
+    // @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    // @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_PAGINATION_PARAMETERS)
+    // @ResponseMessage(SUCCESS_MESSAGES.TIMELINE_RETRIEVED)
+    // @Get('/for-you')
+    // async getForyouTimeline(
+    //     @GetUserId() user_id: string,
+    //     @Query() pagination: TimelinePaginationDto
+    // ) {
+    //     return await this.timelineService.getForyouTimeline(user_id, pagination);
+    // }
     @ApiImplementationStatus({
         status: ImplementationStatus.IMPLEMENTED,
         summary: timeline_swagger.following.operation.summary,
@@ -66,7 +66,11 @@ export class TimelineController {
         @GetUserId() user_id: string,
         @Query() pagination: TimelinePaginationDto
     ) {
-        return await this.timelineService.getFollowingTimeline(user_id, pagination);
+        return await this.timelineService.getFollowingTimeline(
+            user_id,
+            pagination.cursor,
+            pagination.limit
+        );
     }
 
     @ApiOperation(timeline_swagger.mentions.operation)

@@ -25,7 +25,7 @@ export class TimelinePaginationDto {
     @IsOptional()
     @IsString()
     @MaxLength(STRING_MAX_LENGTH)
-    cursor?: string | null;
+    cursor?: string;
 
     @IsOptional()
     @ApiProperty({
