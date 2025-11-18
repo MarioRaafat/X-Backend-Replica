@@ -15,7 +15,7 @@ import {
     ObjectLiteral,
 } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
-import { CreateTweetDTO, UpdateTweetDTO } from './dto';
+import { CreateTweetDTO, PaginatedTweetLikesResponseDTO, UpdateTweetDTO } from './dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { PostgresErrorCodes } from '../shared/enums/postgres-error-codes';
@@ -544,27 +544,9 @@ export class TweetsService {
     async getTweetLikes(
         tweet_id: string,
         current_user_id: string,
-        page: number = 1,
+        cursor?: string,
         limit: number = 20
-    ): Promise<{
-        data: {
-            id: string;
-            username: string;
-            name: string;
-            avatar_url: string;
-            verified: boolean;
-            is_follower: boolean;
-            is_following: boolean;
-        }[];
-        pagination: {
-            total_items: number;
-            total_pages: number;
-            current_page: number;
-            items_per_page: number;
-            has_next_page: boolean;
-            has_previous_page: boolean;
-        };
-    }> {
+    ): Promise<PaginatedTweetLikesResponseDTO> {
         // Check if tweet exists and get the owner
         const tweet = await this.tweet_repository.findOne({
             where: { tweet_id },
@@ -596,39 +578,55 @@ export class TweetsService {
                 'following_relation.follower_id = :current_user_id AND following_relation.followed_id = user.id',
                 { current_user_id }
             )
-            .where('like.tweet_id = :tweet_id', { tweet_id });
+            .where('like.tweet_id = :tweet_id', { tweet_id })
+            .orderBy('like.created_at', 'DESC')
+            .addOrderBy('like.user_id', 'DESC')
+            .take(limit);
 
-        const paginated_result = await this.paginate_service.paginate(
+        // Apply cursor-based pagination
+        this.paginate_service.applyCursorPagination(
             query_builder,
-            { page, limit, sort_by: 'user_id', sort_order: 'DESC' },
+            cursor,
             'like',
-            ['user_id', 'tweet_id']
+            'created_at',
+            'user_id'
         );
 
-        const users = paginated_result.data.map((like) => ({
-            id: like.user.id,
-            username: like.user.username,
-            name: like.user.name,
-            avatar_url: like.user.avatar_url || '',
-            verified: like.user.verified,
-            is_follower: !!like.follower_relation,
-            bio: like.user.bio,
-            cover_url: like.user.cover_url,
-            followers: like.user.followers,
-            following: like.user.following,
-            is_following: !!like.following_relation,
-        }));
+        const likes = await query_builder.getMany();
 
-        return {
-            data: users,
-            pagination: paginated_result.pagination,
-        };
+        const data = plainToInstance(
+            PaginatedTweetLikesResponseDTO,
+            {
+                data: likes.map((like) => {
+                    return {
+                        ...like.user,
+                        is_following: !!like.following_relation,
+                        is_follower: !!like.follower_relation,
+                    };
+                }),
+            },
+            {
+                excludeExtraneousValues: true,
+            }
+        );
+
+        // Generate next_cursor using pagination service
+        const next_cursor = this.paginate_service.generateNextCursor(
+            likes,
+            'created_at',
+            'user_id'
+        );
+        data.next_cursor = next_cursor;
+
+        // count: tweet.num_likes,
+        // has_more: likes.length === limit,
+        return data;
     }
 
     async getTweetReposts(
         tweet_id: string,
         current_user_id: string,
-        page: number = 1,
+        cursor?: string,
         limit: number = 20
     ): Promise<{
         data: {
@@ -640,14 +638,9 @@ export class TweetsService {
             is_follower: boolean;
             is_following: boolean;
         }[];
-        pagination: {
-            total_items: number;
-            total_pages: number;
-            current_page: number;
-            items_per_page: number;
-            has_next_page: boolean;
-            has_previous_page: boolean;
-        };
+        count: number;
+        next_cursor: string | null;
+        has_more: boolean;
     }> {
         // Check if tweet exists and get the owner
         const tweet = await this.tweet_repository.findOne({
@@ -675,16 +668,23 @@ export class TweetsService {
                 'following_relation.follower_id = :current_user_id AND following_relation.followed_id = user.id',
                 { current_user_id }
             )
-            .where('repost.tweet_id = :tweet_id', { tweet_id });
+            .where('repost.tweet_id = :tweet_id', { tweet_id })
+            .orderBy('repost.created_at', 'DESC')
+            .addOrderBy('repost.id', 'DESC')
+            .take(limit);
 
-        const paginated_result = await this.paginate_service.paginate(
+        // Apply cursor-based pagination
+        this.paginate_service.applyCursorPagination(
             query_builder,
-            { page, limit, sort_by: 'created_at', sort_order: 'DESC' },
+            cursor,
             'repost',
-            ['created_at', 'id']
+            'created_at',
+            'id'
         );
 
-        const users = paginated_result.data.map((repost) => ({
+        const reposts = await query_builder.getMany();
+
+        const users = reposts.map((repost) => ({
             id: repost.user.id,
             username: repost.user.username,
             name: repost.user.name,
@@ -698,9 +698,14 @@ export class TweetsService {
             is_following: !!repost.following_relation,
         }));
 
+        // Generate next_cursor using pagination service
+        const next_cursor = this.paginate_service.generateNextCursor(reposts, 'created_at', 'id');
+
         return {
             data: users,
-            pagination: paginated_result.pagination,
+            count: tweet.num_reposts,
+            next_cursor,
+            has_more: reposts.length === limit,
         };
     }
 
@@ -772,7 +777,7 @@ export class TweetsService {
     private async getTweetWithUserById(
         tweet_id: string,
         current_user_id?: string,
-        flag: boolean = false,
+        flag: boolean = true,
         include_replies: boolean = true,
         replies_limit: number = 3
     ): Promise<TweetResponseDTO> {

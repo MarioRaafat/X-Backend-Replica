@@ -297,10 +297,10 @@ export class TweetsController {
     @Get(':id/likes')
     async getTweetLikes(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query() query: GetTweetLikesQueryDto,
+        @Query() query: GetTweetRepliesQueryDto,
         @GetUserId() user_id: string
     ) {
-        return await this.tweets_service.getTweetLikes(id, user_id, query.page, query.limit);
+        return await this.tweets_service.getTweetLikes(id, user_id, query.cursor, query.limit);
     }
 
     @ApiOperation(get_tweet_reposts_swagger.operation)
@@ -337,10 +337,10 @@ export class TweetsController {
     @Get(':id/reposts')
     async getTweetReposts(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query() query: GetTweetRepostsQueryDto,
+        @Query() query: GetTweetRepliesQueryDto,
         @GetUserId() user_id: string
     ) {
-        return await this.tweets_service.getTweetReposts(id, user_id, query.page, query.limit);
+        return await this.tweets_service.getTweetReposts(id, user_id, query.cursor, query.limit);
     }
 
     @HttpCode(HttpStatus.OK)
