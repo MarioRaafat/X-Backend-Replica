@@ -100,7 +100,7 @@ export class AuthController {
 
         response.cookie('refresh_token', refresh, {
             httpOnly: true,
-            secure: is_production,
+            secure: true,
             sameSite: is_production ? 'strict' : 'none',
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
@@ -263,7 +263,6 @@ export class AuthController {
         return await this.auth_service.logoutAll(refresh_token, response);
     }
 
-    @ApiCookieAuth('refresh_token')
     @ApiOperation(refresh_token_swagger.operation)
     @ApiOkResponse(refresh_token_swagger.responses.success)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED)

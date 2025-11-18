@@ -79,7 +79,6 @@ export const ERROR_MESSAGES = {
     CHAT_ALREADY_EXISTS: 'Chat already exists between these users',
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
-    CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
     LAST_READ_MESSAGE_NOT_IN_CHAT: 'Last read message does not belong to this chat',
 
     //timeline
