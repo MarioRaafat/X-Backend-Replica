@@ -21,7 +21,7 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, IResponse<T>> 
         );
         return next.handle().pipe(
             map((response_body) => {
-                const data = response_body.data ?? response_body;
+                const data = response_body?.data ?? response_body;
 
                 return {
                     data: response_body,
