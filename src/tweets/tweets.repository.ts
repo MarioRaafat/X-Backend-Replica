@@ -8,10 +8,11 @@ import { TweetResponseDTO } from './dto';
 import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { plainToInstance } from 'class-transformer';
-import { UserFollows } from 'src/user/entities';
+import { User, UserFollows } from 'src/user/entities';
 import { getReplyWithParentChainQuery } from './queries/reply-parent-chain.query';
 import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
 import { SelectQueryBuilder } from 'typeorm/browser';
+import { UserPostsView } from './entities/user-posts-view.entity';
 
 @Injectable()
 export class TweetsRepository {
@@ -23,7 +24,9 @@ export class TweetsRepository {
         @InjectRepository(TweetRepost)
         private readonly tweet_repost_repository: Repository<TweetRepost>,
         private readonly paginate_service: PaginationService,
-        private data_source: DataSource
+        private data_source: DataSource,
+        @InjectRepository(UserPostsView)
+        private user_posts_view_repository: Repository<UserPostsView>
     ) {}
 
     async getFollowingTweets(
@@ -469,90 +472,49 @@ export class TweetsRepository {
         next_cursor: string | null;
         has_more: boolean;
     }> {
-        const query_runner = this.data_source.createQueryRunner();
-        await query_runner.connect();
-
         try {
-            // Parse cursor if provided
-            let cursor_condition = '';
-            let cursor_params: any[] = [];
+            let query = this.user_posts_view_repository
+                .createQueryBuilder('tweet')
+                .leftJoinAndSelect('tweet.user', 'user')
+                .addSelect("COALESCE(tweet.type, 'tweet')", 'tweet_type')
+                .where('tweet.profile_user_id = :user_id', { user_id })
+                .orderBy('tweet.created_at', 'DESC')
+                .addOrderBy('tweet.tweet_id', 'DESC')
+                .limit(limit);
 
-            if (cursor) {
-                const [cursor_date_str, cursor_id] = cursor.split('_');
-                const cursor_date = new Date(cursor_date_str);
+            query = this.attachUserTweetInteractionFlags(query, current_user_id, 'tweet');
 
-                cursor_condition = `AND (post.post_date < $${current_user_id ? '3' : '2'} OR (post.post_date = $${current_user_id ? '3' : '2'} AND post.id < $${current_user_id ? '4' : '3'}))`;
-                cursor_params = [cursor_date, cursor_id];
-            }
+            query = this.paginate_service.applyCursorPagination(
+                query,
+                cursor,
+                'tweet',
+                'created_at',
+                'tweet_id'
+            );
 
-            // Build base query
-            const query_string = getPostsByUserIdQuery(cursor_condition, limit, current_user_id);
+            const tweets = await query.getMany();
 
-            // Build params array
-            let params: any[];
-            if (current_user_id) params = [user_id, current_user_id, ...cursor_params];
-            else params = [user_id, ...cursor_params];
+            const tweet_dtos = tweets.map((reply) =>
+                plainToInstance(TweetResponseDTO, reply, {
+                    excludeExtraneousValues: true,
+                })
+            );
 
-            // Execute query using query runner
-            const posts = await query_runner.query(query_string, params);
-
-            // Transform to DTOs
-            const tweet_dtos = posts.map((post: any) => {
-                const dto = plainToInstance(
-                    TweetResponseDTO,
-                    {
-                        tweet_id: post.tweet_id,
-                        user_id: post.tweet_author_id,
-                        type: post.tweet_type || post.type || 'tweet',
-                        content: post.content,
-                        images: post.images,
-                        videos: post.videos,
-                        num_likes: post.num_likes,
-                        num_reposts: post.num_reposts,
-                        num_views: post.num_views,
-                        num_quotes: post.num_quotes,
-                        num_replies: post.num_replies,
-                        created_at: post.created_at,
-                        updated_at: post.updated_at,
-                        current_user_like:
-                            current_user_id && post.is_liked ? { user_id: current_user_id } : null,
-                        current_user_repost:
-                            current_user_id && post.is_reposted
-                                ? { user_id: current_user_id }
-                                : null,
-                        user: post.user,
-                    },
-                    {
-                        excludeExtraneousValues: true,
-                    }
-                );
-
-                // Add reposted_by information if this is a repost
-                if (post.post_type === 'repost' && post.reposted_by_user) {
-                    dto.reposted_by = {
-                        repost_id: post.id,
-                        id: post.reposted_by_user.id,
-                        name: post.reposted_by_user.name,
-                        reposted_at: post.post_date,
-                    };
-                }
-
-                return dto;
-            });
-
-            // Generate next cursor using pagination service
-            const next_cursor = this.paginate_service.generateNextCursor(posts, 'post_date', 'id');
+            // Generate next cursor
+            const next_cursor = this.paginate_service.generateNextCursor(
+                tweets,
+                'created_at',
+                'tweet_id'
+            );
 
             return {
                 data: tweet_dtos,
                 next_cursor,
-                has_more: posts.length === limit,
+                has_more: tweets.length === limit,
             };
         } catch (error) {
             console.error(error);
             throw error;
-        } finally {
-            await query_runner.release();
         }
     }
 

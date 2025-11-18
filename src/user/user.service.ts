@@ -401,11 +401,7 @@ export class UserService {
         current_user_id: string | null,
         target_user_id: string,
         query_dto: CursorPaginationDto
-    ): Promise<{
-        data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
-    }> {
+    ) {
         const { cursor, limit } = query_dto;
         return await this.tweets_repository.getPostsByUserId(
             target_user_id,
