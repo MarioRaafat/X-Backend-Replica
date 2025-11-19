@@ -475,14 +475,46 @@ export class TweetsRepository {
         try {
             let query = this.user_posts_view_repository
                 .createQueryBuilder('tweet')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .addSelect("COALESCE(tweet.type, 'tweet')", 'tweet_type')
+                .select([
+                    'tweet.tweet_id AS tweet_id',
+                    'tweet.profile_user_id AS profile_user_id',
+                    'tweet.tweet_author_id AS tweet_author_id',
+                    'tweet.repost_id AS repost_id',
+                    'tweet.post_type AS post_type',
+                    'tweet.type AS type',
+                    'tweet.content AS content',
+                    'tweet.type AS type',
+                    'tweet.post_date AS post_date',
+                    'tweet.images AS images',
+                    'tweet.videos AS videos',
+                    'tweet.num_likes AS num_likes',
+                    'tweet.num_reposts AS num_reposts',
+                    'tweet.num_views AS num_views',
+                    'tweet.num_quotes AS num_quotes',
+                    'tweet.num_replies AS num_replies',
+                    'tweet.created_at AS created_at',
+                    'tweet.updated_at AS updated_at',
+                    'tweet.username AS username',
+                    'tweet.name AS name',
+                    'tweet.followers AS followers',
+                    'tweet.following AS following',
+                    'tweet.avatar_url AS avatar_url',
+                    'tweet.cover_url AS cover_url',
+                    'tweet.verified AS verified',
+                    'tweet.bio AS bio',
+                ])
                 .where('tweet.profile_user_id = :user_id', { user_id })
+                .andWhere('tweet.type != :type', { type: 'reply' })
                 .orderBy('tweet.created_at', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
-            query = this.attachUserTweetInteractionFlags(query, current_user_id, 'tweet');
+            query = this.attachUserInteractionBooleanFlags(
+                query,
+                current_user_id,
+                'tweet_author_id',
+                'tweet_id'
+            );
 
             query = this.paginate_service.applyCursorPagination(
                 query,
@@ -492,15 +524,17 @@ export class TweetsRepository {
                 'tweet_id'
             );
 
-            const tweets = await query.getMany();
+            const tweets = await query.getRawMany();
 
-            const tweet_dtos = tweets.map((reply) =>
+            const transformed_tweets = this.transformTweetsWithUserObject(tweets);
+
+            console.log(transformed_tweets);
+            const tweet_dtos = transformed_tweets.map((reply) =>
                 plainToInstance(TweetResponseDTO, reply, {
                     excludeExtraneousValues: true,
                 })
             );
 
-            // Generate next cursor
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
                 'created_at',
@@ -773,6 +807,83 @@ export class TweetsRepository {
             console.error(error);
             throw error;
         }
+    }
+
+    private transformTweetsWithUserObject(tweets: UserPostsView[]): any[] {
+        return tweets.map((tweet) => {
+            const {
+                username,
+                name,
+                avatar_url,
+                verified,
+                bio,
+                cover_url,
+                followers,
+                following,
+                ...tweet_data
+            } = tweet;
+
+            return {
+                ...tweet_data,
+                user: {
+                    id: tweet.tweet_author_id,
+                    username,
+                    name,
+                    avatar_url,
+                    verified,
+                    bio,
+                    cover_url,
+                    followers,
+                    following,
+                },
+            };
+        });
+    }
+
+    attachUserInteractionBooleanFlags(
+        query: SelectQueryBuilder<any>,
+        current_user_id?: string,
+        user_id_column: string = 'tweet.tweet_author_id',
+        tweet_id_column: string = 'tweet.tweet_id'
+    ): SelectQueryBuilder<any> {
+        if (current_user_id) {
+            console.log('hi');
+            query
+                .addSelect(
+                    `EXISTS(
+                    SELECT 1 FROM tweet_likes 
+                    WHERE tweet_likes.tweet_id = ${tweet_id_column} 
+                    AND tweet_likes.user_id = :current_user_id
+                )`,
+                    'is_liked'
+                )
+                .addSelect(
+                    `EXISTS(
+                    SELECT 1 FROM tweet_reposts 
+                    WHERE tweet_reposts.tweet_id = ${tweet_id_column} 
+                    AND tweet_reposts.user_id = :current_user_id
+                )`,
+                    'is_reposted'
+                )
+                .addSelect(
+                    `EXISTS(
+                    SELECT 1 FROM user_follows 
+                    WHERE user_follows.follower_id = :current_user_id 
+                    AND user_follows.followed_id = ${user_id_column}
+                )`,
+                    'is_following'
+                )
+                .addSelect(
+                    `EXISTS(
+                    SELECT 1 FROM user_follows 
+                    WHERE user_follows.follower_id = ${user_id_column}
+                    AND user_follows.followed_id = :current_user_id
+                )`,
+                    'is_follower'
+                )
+                .setParameter('current_user_id', current_user_id);
+        }
+        return query;
     }
 
     attachUserTweetInteractionFlags(

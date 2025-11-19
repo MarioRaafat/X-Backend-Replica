@@ -45,9 +45,9 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.user_id AS tweet_author_id,
             tr.tweet_id,
             tr.tweet_id AS repost_id,
-            'repost' AS post_type,
+            t.type::text AS post_type,
             tr.created_at AS post_date,
-            t.type::text AS type,
+            'repost' AS type,
             t.content,
             t.images,
             t.videos,
@@ -162,4 +162,9 @@ export class UserPostsView {
     current_user_like?: TweetLike | null;
     current_user_repost?: TweetRepost | null;
     current_user_follows?: UserFollows | null;
+
+    is_liked?: boolean;
+    is_reposted?: boolean;
+    is_following?: boolean;
+    is_follower?: boolean;
 }
