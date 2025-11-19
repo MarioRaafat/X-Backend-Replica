@@ -544,4 +544,15 @@ export class UserRepository extends Repository<User> {
             skipUpdateIfNoValuesChanged: true,
         });
     }
+
+    async getUserInterests(user_id: string): Promise<{ category_id: number; score: number }[]> {
+        return this.data_source
+            .createQueryBuilder()
+            .select('category_id')
+            .addSelect('COALESCE(score, 0)', 'score')
+            .from(UserInterests, 'ui')
+            .where('ui.user_id = :user_id', { user_id })
+            .orderBy('score', 'DESC')
+            .getRawMany();
+    }
 }
