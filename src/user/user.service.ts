@@ -11,7 +11,7 @@ import { In, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserProfileDto } from './dto/user-profile.dto';
-import { plainToInstance } from 'class-transformer';
+import { instanceToInstance, plainToInstance } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { SelectQueryBuilder } from 'typeorm/browser';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
@@ -104,12 +104,13 @@ export class UserService {
         });
     }
 
-    async getMe(user_id: string): Promise<UserProfileDto> {
-        const result = await this.user_repository.getMyProfile(user_id);
+    async getMe(user_id: string) {
+        const user = await this.user_repository.findById(user_id);
 
-        return plainToInstance(UserProfileDto, result, {
-            enableImplicitConversion: true,
-        });
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+        return instanceToInstance(user);
     }
 
     async getUserById(

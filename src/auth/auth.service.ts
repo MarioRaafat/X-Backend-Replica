@@ -31,6 +31,8 @@ import { ConfigService } from '@nestjs/config';
 import { instanceToPlain } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import {
+    OAUTH_EXCHANGE_TOKEN_KEY,
+    OAUTH_EXCHANGE_TOKEN_OBJECT,
     OAUTH_SESSION_KEY,
     OAUTH_SESSION_OBJECT,
     OTP_KEY,
@@ -1028,5 +1030,53 @@ export class AuthService {
             access_token,
             refresh_token,
         };
+    }
+
+    async createExchangeToken(payload: {
+        user_id?: string;
+        session_token?: string;
+        type: 'auth' | 'completion';
+    }): Promise<string> {
+        const token_id = crypto.randomUUID();
+        const exchange_token = this.jwt_service.sign(
+            { token_id, type: payload.type },
+            {
+                secret:
+                    process.env.OAUTH_EXCHANGE_TOKEN_SECRET ?? 'fallback-exchange-secret-change-me',
+                expiresIn: '5m',
+            }
+        );
+
+        const redis_object = OAUTH_EXCHANGE_TOKEN_OBJECT(token_id, payload);
+        await this.redis_service.set(redis_object.key, redis_object.value, redis_object.ttl);
+
+        return exchange_token;
+    }
+
+    async validateExchangeToken(exchange_token: string): Promise<{
+        user_id?: string;
+        session_token?: string;
+        type: 'auth' | 'completion';
+    }> {
+        try {
+            const decoded = this.jwt_service.verify(exchange_token, {
+                secret:
+                    process.env.OAUTH_EXCHANGE_TOKEN_SECRET ?? 'fallback-exchange-secret-change-me',
+            });
+
+            const { token_id, type } = decoded;
+            const redis_key = OAUTH_EXCHANGE_TOKEN_KEY(token_id);
+            const stored_data = await this.redis_service.get(redis_key);
+
+            if (!stored_data) {
+                throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+            }
+
+            await this.redis_service.del(redis_key);
+            const payload = JSON.parse(stored_data);
+            return { ...payload, type };
+        } catch (error) {
+            throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
     }
 }

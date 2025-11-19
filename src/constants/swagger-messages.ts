@@ -136,6 +136,7 @@ export const SUCCESS_MESSAGES = {
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',
     OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
+    TOKEN_EXCHANGE_SUCCESS: 'Token exchanged successfully',
 
     // chat
     CHAT_CREATED: 'Chat created successfully',

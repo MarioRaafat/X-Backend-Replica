@@ -1140,3 +1140,76 @@ export const verify_update_email_swagger = {
         },
     },
 };
+
+export const exchange_token_swagger = {
+    operation: {
+        summary: 'Exchange one-time token for credentials',
+        description: `
+**Secure OAuth Token Exchange**
+
+This endpoint exchanges a one-time exchange token (received from OAuth callback redirect) for the actual credentials.
+
+**Security features:**
+- One-time use only - token is deleted after exchange
+- Short-lived (5 minutes)
+- Encrypted and stored in Redis
+- Prevents token exposure in URLs from being exploited
+
+**Use cases:**
+1. **After successful OAuth login**: Exchange token for access_token and refresh_token
+2. **After OAuth requiring completion**: Exchange token for session_token to complete registration
+
+**Flow:**
+1. User authenticates via OAuth (Google/Facebook/GitHub)
+2. Backend creates exchange token and stores only user_id or session_token in Redis (NO actual tokens stored)
+3. User is redirected to frontend with exchange token in URL
+4. Frontend immediately calls this endpoint to exchange token
+5. Backend generates fresh access_token and refresh_token on-the-fly (for auth type)
+6. Exchange token is deleted from Redis (single-use)
+
+**Important:** 
+- The exchange token can only be used once and expires after 5 minutes
+        `,
+    },
+
+    responses: {
+        auth_success: {
+            description: 'Exchange successful - credentials returned (type: auth)',
+            schema: {
+                example: {
+                    data: {
+                        type: 'auth',
+                        access_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.TOKEN_EXCHANGE_SUCCESS,
+                },
+            },
+            headers: {
+                'Set-Cookie': {
+                    description: 'HttpOnly cookie containing refresh token (only for auth type)',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
+                    },
+                },
+            },
+        },
+        completion_success: {
+            description: 'Exchange successful - session token returned (type: completion)',
+            schema: {
+                example: {
+                    data: {
+                        type: 'completion',
+                        session_token: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                        provider: 'google',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.TOKEN_EXCHANGE_SUCCESS,
+                },
+            },
+        },
+    },
+};
