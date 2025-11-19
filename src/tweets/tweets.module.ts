@@ -27,6 +27,6 @@ import { UserPostsView } from './entities/user-posts-view.entity';
     ],
     controllers: [TweetsController],
     providers: [TweetsService, TweetsRepository, PaginationService, AzureStorageService],
-    exports: [TweetsService],
+    exports: [TweetsService, TweetsRepository],
 })
 export class TweetsModule {}

@@ -126,7 +126,7 @@ export class TweetResponseDTO {
     bookmarks_count: number;
 
     @Expose()
-    @Transform(({ obj }) => !!obj.current_user_like)
+    @Transform(({ obj }) => !!obj.current_user_like || obj.is_liked)
     @ApiProperty({
         description: 'Whether the current user has liked this tweet',
         example: true,
@@ -134,7 +134,7 @@ export class TweetResponseDTO {
     is_liked: boolean;
 
     @Expose()
-    @Transform(({ obj }) => !!obj.current_user_repost)
+    @Transform(({ obj }) => !!obj.current_user_repost || obj.is_reposted)
     @ApiProperty({
         description: 'Whether the current user has reposted this tweet',
         example: false,
