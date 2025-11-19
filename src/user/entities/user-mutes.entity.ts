@@ -1,4 +1,4 @@
-import { Entity, JoinColumn, ManyToMany, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToMany, PrimaryColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('user_mutes')
@@ -8,6 +8,9 @@ export class UserMutes {
 
     @PrimaryColumn({ type: 'uuid' })
     muted_id: string;
+
+    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    created_at: Date;
 
     @ManyToMany(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'muter_id' })

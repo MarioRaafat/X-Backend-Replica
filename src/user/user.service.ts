@@ -40,6 +40,8 @@ import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { CursorPaginationDto } from './dto/cursor-pagination-params.dto';
 import { TweetResponseDTO } from 'src/tweets/dto';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { UserListResponseDto } from './dto/user-list-response.dto';
 
 @Injectable()
 export class UserService {
@@ -49,7 +51,8 @@ export class UserService {
         private readonly config_service: ConfigService,
         @InjectRepository(Category)
         private readonly category_repository: Repository<Category>,
-        private readonly tweets_repository: TweetsRepository
+        private readonly tweets_repository: TweetsRepository,
+        private readonly pagination_service: PaginationService
     ) {}
 
     async getUsersByIds(
@@ -153,50 +156,61 @@ export class UserService {
         current_user_id: string,
         target_user_id: string,
         query_dto: GetFollowersDto
-    ): Promise<UserListItemDto[]> {
+    ): Promise<UserListResponseDto> {
         const exists = await this.user_repository.exists({ where: { id: target_user_id } });
 
         if (!exists) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const { page_offset, page_size, following } = query_dto;
+        const { cursor, limit, following } = query_dto;
 
         const results = await this.user_repository.getFollowersList(
             current_user_id,
             target_user_id,
-            page_offset,
-            page_size,
+            cursor,
+            limit,
             following
         );
 
         const users = results.map((result) =>
             plainToInstance(UserListItemDto, result, {
                 enableImplicitConversion: true,
+                excludeExtraneousValues: true,
             })
         );
 
-        return users;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            results,
+            'created_at',
+            'user_id'
+        );
+
+        return {
+            data: users,
+            next_cursor,
+            has_more: users.length === limit,
+        };
     }
 
     async getFollowing(
         current_user_id: string,
         target_user_id: string,
-        query_dto: PaginationParamsDto
-    ): Promise<UserListItemDto[]> {
+        query_dto: CursorPaginationDto
+    ): Promise<UserListResponseDto> {
         const exists = await this.user_repository.exists({ where: { id: target_user_id } });
 
         if (!exists) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const { page_offset, page_size } = query_dto;
+        const { cursor, limit } = query_dto;
 
         const results = await this.user_repository.getFollowingList(
             current_user_id,
             target_user_id,
-            page_offset,
-            page_size
+            cursor,
+            limit
         );
         const users = results.map((result) =>
             plainToInstance(UserListItemDto, result, {
@@ -204,19 +218,29 @@ export class UserService {
             })
         );
 
-        return users;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            results,
+            'created_at',
+            'user_id'
+        );
+
+        return {
+            data: users,
+            next_cursor,
+            has_more: users.length === limit,
+        };
     }
 
     async getMutedList(
         current_user_id: string,
-        query_dto: PaginationParamsDto
-    ): Promise<UserListItemDto[]> {
-        const { page_offset, page_size } = query_dto;
+        query_dto: CursorPaginationDto
+    ): Promise<UserListResponseDto> {
+        const { cursor, limit } = query_dto;
 
         const results = await this.user_repository.getMutedUsersList(
             current_user_id,
-            page_offset,
-            page_size
+            cursor,
+            limit
         );
 
         const users = results.map((result) =>
@@ -225,19 +249,29 @@ export class UserService {
             })
         );
 
-        return users;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            results,
+            'created_at',
+            'user_id'
+        );
+
+        return {
+            data: users,
+            next_cursor,
+            has_more: users.length === limit,
+        };
     }
 
     async getBlockedList(
         current_user_id: string,
-        query_dto: PaginationParamsDto
-    ): Promise<UserListItemDto[]> {
-        const { page_offset, page_size } = query_dto;
+        query_dto: CursorPaginationDto
+    ): Promise<UserListResponseDto> {
+        const { cursor, limit } = query_dto;
 
         const results = await this.user_repository.getBlockedUsersList(
             current_user_id,
-            page_offset,
-            page_size
+            cursor,
+            limit
         );
 
         const users = results.map((result) =>
@@ -246,7 +280,17 @@ export class UserService {
             })
         );
 
-        return users;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            results,
+            'created_at',
+            'user_id'
+        );
+
+        return {
+            data: users,
+            next_cursor,
+            has_more: users.length === limit,
+        };
     }
 
     async followUser(current_user_id: string, target_user_id: string): Promise<void> {

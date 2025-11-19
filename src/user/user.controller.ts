@@ -161,6 +161,7 @@ export class UserController {
         @Param('user_id') target_user_id: string,
         @Query() query_dto: GetFollowersDto
     ) {
+        console.log(query_dto);
         return await this.user_service.getFollowers(current_user_id, target_user_id, query_dto);
     }
 
@@ -190,7 +191,7 @@ export class UserController {
     async getFollowing(
         @GetUserId() current_user_id: string,
         @Param('user_id') target_user_id: string,
-        @Query() query_dto: PaginationParamsDto
+        @Query() query_dto: CursorPaginationDto
     ) {
         return await this.user_service.getFollowing(current_user_id, target_user_id, query_dto);
     }
@@ -236,7 +237,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.MUTED_LIST_RETRIEVED)
     @Get('me/muted')
-    async getMutedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
+    async getMutedList(@GetUserId() user_id: string, @Query() query_dto: CursorPaginationDto) {
         return await this.user_service.getMutedList(user_id, query_dto);
     }
 
@@ -279,7 +280,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.BLOCKED_LIST_RETRIEVED)
     @Get('me/blocked')
-    async getBlockedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
+    async getBlockedList(@GetUserId() user_id: string, @Query() query_dto: CursorPaginationDto) {
         return await this.user_service.getBlockedList(user_id, query_dto);
     }
 
