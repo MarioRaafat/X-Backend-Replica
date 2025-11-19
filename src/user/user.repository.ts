@@ -117,6 +117,7 @@ export class UserRepository extends Repository<User> {
             'user.cover_url AS cover_url',
             'user.country AS country',
             'user.created_at AS created_at',
+            'user.birth_date AS birth_date',
             'user.followers AS followers_count',
             'user.following AS following_count',
         ]);
