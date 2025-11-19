@@ -14,6 +14,7 @@ import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
 import { SelectQueryBuilder } from 'typeorm/browser';
 import { getFollowingTweetsQuery } from './queries/get-following-tweets.query';
 import { getForyouTweetsQuery } from './queries/get-foryou-tweets.query';
+import { TweetCategory } from './entities/tweet-category.entity';
 
 @Injectable()
 export class TweetsRepository {
@@ -24,6 +25,9 @@ export class TweetsRepository {
         private readonly tweet_like_repository: Repository<TweetLike>,
         @InjectRepository(TweetRepost)
         private readonly tweet_repost_repository: Repository<TweetRepost>,
+
+        @InjectRepository(TweetCategory)
+        private readonly tweet_category_repository: Repository<TweetCategory>,
         private readonly paginate_service: PaginationService,
         private data_source: DataSource
     ) {}
@@ -855,5 +859,42 @@ export class TweetsRepository {
                 excludeExtraneousValues: true,
             })
         );
+    }
+
+    async getTweetsCategories(
+        tweet_ids: string[]
+    ): Promise<Record<string, { category_id: number; percentage: number }[]>> {
+        try {
+            const query = this.tweet_category_repository
+                .createQueryBuilder('tc')
+                .select('tc.tweet_id', 'tweet_id')
+                .addSelect('tc.category_id', 'category_id')
+                .addSelect('tc.percentage', 'percentage')
+                .where('tc.tweet_id IN (:...tweet_ids)', { tweet_ids })
+                .orderBy('tc.tweet_id', 'DESC')
+                .addOrderBy('tc.percentage', 'DESC');
+
+            const categories = await query.getMany();
+            return (
+                categories.reduce((acc, entity) => {
+                    const tweet_id = entity.tweet_id;
+
+                    if (!acc[tweet_id]) {
+                        acc[tweet_id] = [];
+                    }
+
+                    acc[tweet_id].push({
+                        category_id: entity.category_id,
+                        percentage: entity.percentage,
+                    });
+
+                    return acc;
+                }),
+                {} as Record<string, { category_id: number; percentage: number }[]>
+            );
+        } catch (error) {
+            console.log(error);
+            throw error;
+        }
     }
 }
