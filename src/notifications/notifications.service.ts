@@ -1,92 +1,62 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, OnModuleInit } from '@nestjs/common';
+import { InjectModel } from '@nestjs/mongoose';
+import { Model } from 'mongoose';
+import { Notification } from './entities/notifications.entity';
+import { BaseNotificationEntity } from './entities/base-notification.entity';
+import { Not } from 'typeorm';
+import { NotificationType } from './enums/notification-types';
 
-// Placeholder service - implementation commented out
 @Injectable()
-export class NotificationsService {}
+export class NotificationsService {
+    private readonly key = 'notifications';
 
-// import { Injectable, OnModuleInit } from '@nestjs/common';
-// import { InjectModel } from '@nestjs/mongoose';
-// import { Model } from 'mongoose';
-// import { Notification } from './entities/notifications.entity';
-// import { BaseNotificationEntity } from './entities/base-notification.entity';
-// import { Not } from 'typeorm';
-// import { NotificationType } from './enums/notification-types';
+    constructor(
+        @InjectModel(Notification.name)
+        private readonly notificationModel: Model<Notification>
+    ) {}
 
-// interface NotificationMessage {
-//     user_id: string;
-//     notification: BaseNotificationEntity;
-// }
+    async handleMessage(data: any): Promise<void> {
+        try {
+            const { user_id, notification } = data;
 
-// @Injectable()
-// export class NotificationsService implements OnModuleInit {
-//     private readonly key = 'notifications';
+            await this.notificationModel.updateOne(
+                { user: user_id },
+                {
+                    $push: {
+                        notifications: {
+                            $each: [notification],
+                            $position: 0,
+                            $slice: 50,
+                        },
+                    },
+                },
+                { upsert: true }
+            );
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
 
-//     constructor(
-//         @InjectModel(Notification.name)
-//         private readonly notificationModel: Model<Notification>,
-//     ) {}
+    async getUserMentionsNotifications(user_id: string) {}
 
-//     async onModuleInit() {
-//     }
+    async markNotificationsAsSeen(user_id: string) {}
 
-//     async handleMessage(data: NotificationMessage): Promise<void> {
-//         try {
-//             const { user_id, notification } = data;
+    async getUnseenCount(user_id: string) {}
 
-//             await this.notificationModel.updateOne(
-//                 { user: user_id },
-//                 {
-//                     $push: {
-//                         notifications: {
-//                             $each: [notification],
-//                             $position: 0,
-//                             $slice: 50,
-//                         },
-//                     },
-//                 },
-//                 { upsert: true }
-//             );
-//         } catch (error) {
-//             console.error(error);
-//             throw error;
-//         }
-//     }
+    // async getUserNotifications(user_id: string): Promise<Notification | null> {
+    //     const userNotifications = await this.notificationModel
+    //         .findOne({ user: user_id })
+    //         .lean<Notification>()
+    //         .exec();
+    //     return userNotifications;
+    // }
 
-//     async getUserMentionsNotifications(user_id: string) {}
+    // Just for testing, but notifications messages will be sent from other services
+    async sendNotification(notification: any): Promise<void> {
+        console.log('Send');
+    }
 
-//     async markNotificationsAsSeen(user_id: string) {}
-
-//     async getUnseenCount(user_id: string) {}
-
-//     async getUserNotifications(user_id: string): Promise<Notification | null> {
-//         const userNotifications = await this.notificationModel
-//             .findOne({ user: user_id })
-//             .lean<Notification>()
-//             .exec();
-//         return userNotifications;
-//     }
-
-//     // Just for testing, but notifications messages will be sent from other services
-//     async sendNotification(notification: NotificationMessage): Promise<void> {
-//         console.log('Send');
-//     }
-
-//     // Test function
-//     async temp(object: any) {
-//         console.log(object);
-//         const BaseNotification: BaseNotificationEntity = {
-//             type: NotificationType.LIKE,
-//             created_at: new Date(),
-//             updated_at: new Date(),
-//             trigger_ids: [],
-//             user_ids: [],
-//             seen: false,
-//             content: 'Alyaa liked your post',
-//         };
-
-//         await this.sendNotification({
-//             user_id: object.user,
-//             notification: BaseNotification,
-//         });
-//     }
-// }
+    // Test function
+    async temp(object: any) {}
+}
