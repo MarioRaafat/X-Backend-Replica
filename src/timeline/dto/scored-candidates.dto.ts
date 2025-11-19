@@ -16,4 +16,5 @@ export class ScoredCandidateDTO {
     // source: string;
     // will be added
     author_similarity?: number;
+    _final_score?: number;
 }

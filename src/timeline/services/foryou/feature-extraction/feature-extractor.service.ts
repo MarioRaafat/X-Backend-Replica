@@ -27,7 +27,6 @@ export class FeatureExtractor {
 
         const now = Date.now();
 
-        // Map with clean, separated feature functions
         return candidates.map((tweet) => {
             const categories = tweet_categories_map[tweet.tweet_id] || [];
 
