@@ -58,6 +58,7 @@ export const ERROR_MESSAGES = {
     // database
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
+    FAILED_TO_FETCH_FROM_DB: 'Failed to fetch data from database',
 
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
@@ -216,4 +217,7 @@ export const SUCCESS_MESSAGES = {
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
     TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
+
+    // category
+    CATEGORIES_RETRIEVED: 'Categories retrieved successfully',
 } as const;
