@@ -1,5 +1,6 @@
 import { DataSource, Repository } from 'typeorm';
 import { Tweet, TweetLike, TweetReply, TweetRepost } from './entities';
+import { TweetBookmark } from './entities/tweet-bookmark.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
 import { TimelineResponseDto } from 'src/timeline/dto/timeline-response.dto';
@@ -109,6 +110,14 @@ export class TweetsRepository {
             )
             .addSelect(
                 `EXISTS(
+                SELECT 1 FROM tweet_bookmarks 
+                WHERE tweet_bookmarks.tweet_id = tweet.tweet_id 
+                AND tweet_bookmarks.user_id = :user_id
+            )`,
+                'is_bookmarked'
+            )
+            .addSelect(
+                `EXISTS(
                 SELECT 1 FROM user_follows             
                 WHERE follower_id = :user_id
                 AND followed_id = tweet.user_id)`,
@@ -200,6 +209,14 @@ export class TweetsRepository {
             )
             .addSelect(
                 `EXISTS(
+                SELECT 1 FROM tweet_bookmarks 
+                WHERE tweet_bookmarks.tweet_id = tweet.tweet_id 
+                AND tweet_bookmarks.user_id = :user_id
+            )`,
+                'is_bookmarked'
+            )
+            .addSelect(
+                `EXISTS(
                 SELECT 1 FROM user_follows             
                 WHERE follower_id = :user_id
                 AND followed_id = tweet.user_id)`,
@@ -258,8 +275,10 @@ export class TweetsRepository {
                 quotes_count: row.tweet_num_quotes,
                 replies_count: row.tweet_num_replies,
                 views_count: row.tweet_num_views,
+                bookmarks_count: row.tweet_num_bookmarks || 0,
                 is_liked: row.is_liked === true,
                 is_reposted: row.is_reposted === true,
+                is_bookmarked: row.is_bookmarked === true,
                 created_at: row.tweet_created_at,
                 updated_at: row.tweet_updated_at,
             };
@@ -335,8 +354,10 @@ export class TweetsRepository {
                 quotes_count: row.tweet_num_quotes,
                 replies_count: row.tweet_num_replies,
                 views_count: row.tweet_num_views,
+                bookmarks_count: row.tweet_num_bookmarks || 0,
                 is_liked: row.is_liked === true,
                 is_reposted: row.is_reposted === true,
+                is_bookmarked: row.is_bookmarked === true,
                 created_at: row.tweet_created_at,
                 updated_at: row.tweet_updated_at,
             };
@@ -424,6 +445,14 @@ export class TweetsRepository {
                 AND tweet_reposts.user_id = :user_id
             )`,
                 'is_reposted'
+            )
+            .addSelect(
+                `EXISTS(
+                SELECT 1 FROM tweet_bookmarks 
+                WHERE tweet_bookmarks.tweet_id = tweet.tweet_id 
+                AND tweet_bookmarks.user_id = :user_id
+            )`,
+                'is_bookmarked'
             )
             .where('reply.original_tweet_id = :tweet_id')
             .andWhere(
@@ -787,6 +816,13 @@ export class TweetsRepository {
                         { current_user_id }
                     )
                     .leftJoinAndMapOne(
+                        'tweet.current_user_bookmark',
+                        TweetBookmark,
+                        'current_user_bookmark',
+                        'current_user_bookmark.tweet_id = tweet.tweet_id AND current_user_bookmark.user_id = :current_user_id',
+                        { current_user_id }
+                    )
+                    .leftJoinAndMapOne(
                         'user.current_user_follows',
                         UserFollows,
                         'current_user_follows',
@@ -859,6 +895,13 @@ export class TweetsRepository {
                     TweetRepost,
                     'current_user_repost',
                     `current_user_repost.tweet_id = ${alias}.tweet_id AND current_user_repost.user_id = :current_user_id`,
+                    { current_user_id }
+                )
+                .leftJoinAndMapOne(
+                    `${alias}.current_user_bookmark`,
+                    TweetBookmark,
+                    'current_user_bookmark',
+                    `current_user_bookmark.tweet_id = ${alias}.tweet_id AND current_user_bookmark.user_id = :current_user_id`,
                     { current_user_id }
                 )
                 .leftJoinAndMapOne(

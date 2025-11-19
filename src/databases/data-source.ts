@@ -6,6 +6,7 @@ import { User } from '../user/entities/user.entity';
 import { Verification } from '../verification/entities/verification.entity';
 import { Category } from '../category/entities';
 import { Tweet, TweetLike, TweetQuote, TweetReply, TweetRepost } from '../tweets/entities';
+import { TweetBookmark } from '../tweets/entities/tweet-bookmark.entity';
 import { Hashtag } from '../tweets/entities/hashtags.entity';
 import { UserPostsView } from '../tweets/entities/user-posts-view.entity';
 import { UserBlocks, UserFollows, UserMutes } from '../user/entities';
@@ -30,6 +31,7 @@ export default new DataSource({
         TweetLike,
         TweetReply,
         TweetQuote,
+        TweetBookmark,
         Category,
         TweetRepost,
         Hashtag,

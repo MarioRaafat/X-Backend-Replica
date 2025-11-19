@@ -29,6 +29,7 @@ import { TweetLike } from './entities/tweet-like.entity';
 import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
+import { TweetBookmark } from './entities/tweet-bookmark.entity';
 import { Hashtag } from './entities/hashtags.entity';
 import { UserFollows } from '../user/entities/user-follows.entity';
 import { User } from '../user/entities/user.entity';
@@ -61,6 +62,8 @@ export class TweetsService {
         private readonly tweet_quote_repository: Repository<TweetQuote>,
         @InjectRepository(TweetReply)
         private readonly tweet_reply_repository: Repository<TweetReply>,
+        @InjectRepository(TweetBookmark)
+        private readonly tweet_bookmark_repository: Repository<TweetBookmark>,
         @InjectRepository(UserFollows)
         private readonly user_follows_repository: Repository<UserFollows>,
         @InjectRepository(UserPostsView)
@@ -347,6 +350,61 @@ export class TweetsService {
                 throw new BadRequestException('User has not liked this tweet');
 
             await query_runner.manager.decrement(Tweet, { tweet_id }, 'num_likes', 1);
+            await query_runner.commitTransaction();
+        } catch (error) {
+            await query_runner.rollbackTransaction();
+            console.error(error);
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+
+    async bookmarkTweet(tweet_id: string, user_id: string): Promise<void> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
+        try {
+            const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
+            if (!tweet_exists) throw new NotFoundException('Tweet not found');
+
+            const new_bookmark = query_runner.manager.create(TweetBookmark, {
+                tweet: { tweet_id },
+                user: { id: user_id },
+            });
+
+            await query_runner.manager.insert(TweetBookmark, new_bookmark);
+            await query_runner.manager.increment(Tweet, { tweet_id }, 'num_bookmarks', 1);
+            await query_runner.commitTransaction();
+        } catch (error) {
+            await query_runner.rollbackTransaction();
+            if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
+                throw new BadRequestException('User already bookmarked this tweet');
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+
+    async unbookmarkTweet(tweet_id: string, user_id: string): Promise<void> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
+        try {
+            const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
+            if (!tweet_exists) throw new NotFoundException('Tweet not found');
+
+            const delete_result = await query_runner.manager.delete(TweetBookmark, {
+                tweet: { tweet_id },
+                user: { id: user_id },
+            });
+
+            if (delete_result.affected === 0)
+                throw new BadRequestException('User has not bookmarked this tweet');
+
+            await query_runner.manager.decrement(Tweet, { tweet_id }, 'num_bookmarks', 1);
             await query_runner.commitTransaction();
         } catch (error) {
             await query_runner.rollbackTransaction();
