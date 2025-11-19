@@ -15,7 +15,12 @@ import {
     ObjectLiteral,
 } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
-import { CreateTweetDTO, UpdateTweetDTO } from './dto';
+import {
+    CreateTweetDTO,
+    PaginatedTweetLikesResponseDTO,
+    PaginatedTweetRepostsResponseDTO,
+    UpdateTweetDTO,
+} from './dto';
 import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { PostgresErrorCodes } from '../shared/enums/postgres-error-codes';
@@ -24,6 +29,7 @@ import { TweetLike } from './entities/tweet-like.entity';
 import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
+import { TweetBookmark } from './entities/tweet-bookmark.entity';
 import { Hashtag } from './entities/hashtags.entity';
 import { UserFollows } from '../user/entities/user-follows.entity';
 import { User } from '../user/entities/user.entity';
@@ -41,6 +47,7 @@ import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
+import { categorize_prompt, TOPICS } from './constants';
 
 @Injectable()
 export class TweetsService {
@@ -55,6 +62,8 @@ export class TweetsService {
         private readonly tweet_quote_repository: Repository<TweetQuote>,
         @InjectRepository(TweetReply)
         private readonly tweet_reply_repository: Repository<TweetReply>,
+        @InjectRepository(TweetBookmark)
+        private readonly tweet_bookmark_repository: Repository<TweetBookmark>,
         @InjectRepository(UserFollows)
         private readonly user_follows_repository: Repository<UserFollows>,
         @InjectRepository(UserPostsView)
@@ -70,8 +79,6 @@ export class TweetsService {
 
     private readonly API_KEY = process.env.GOOGLE_API_KEY ?? '';
     private readonly genAI = new GoogleGenAI({ apiKey: this.API_KEY });
-
-    private readonly TOPICS = ['Sports', 'Entertainment', 'News'];
 
     /**
      * Handles image upload processing
@@ -353,6 +360,61 @@ export class TweetsService {
         }
     }
 
+    async bookmarkTweet(tweet_id: string, user_id: string): Promise<void> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
+        try {
+            const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
+            if (!tweet_exists) throw new NotFoundException('Tweet not found');
+
+            const new_bookmark = query_runner.manager.create(TweetBookmark, {
+                tweet: { tweet_id },
+                user: { id: user_id },
+            });
+
+            await query_runner.manager.insert(TweetBookmark, new_bookmark);
+            await query_runner.manager.increment(Tweet, { tweet_id }, 'num_bookmarks', 1);
+            await query_runner.commitTransaction();
+        } catch (error) {
+            await query_runner.rollbackTransaction();
+            if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
+                throw new BadRequestException('User already bookmarked this tweet');
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+
+    async unbookmarkTweet(tweet_id: string, user_id: string): Promise<void> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
+        try {
+            const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
+            if (!tweet_exists) throw new NotFoundException('Tweet not found');
+
+            const delete_result = await query_runner.manager.delete(TweetBookmark, {
+                tweet: { tweet_id },
+                user: { id: user_id },
+            });
+
+            if (delete_result.affected === 0)
+                throw new BadRequestException('User has not bookmarked this tweet');
+
+            await query_runner.manager.decrement(Tweet, { tweet_id }, 'num_bookmarks', 1);
+            await query_runner.commitTransaction();
+        } catch (error) {
+            await query_runner.rollbackTransaction();
+            console.error(error);
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+
     async repostTweetWithQuote(tweet_id: string, user_id: string, quote: CreateTweetDTO) {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
@@ -544,27 +606,9 @@ export class TweetsService {
     async getTweetLikes(
         tweet_id: string,
         current_user_id: string,
-        page: number = 1,
+        cursor?: string,
         limit: number = 20
-    ): Promise<{
-        data: {
-            id: string;
-            username: string;
-            name: string;
-            avatar_url: string;
-            verified: boolean;
-            is_follower: boolean;
-            is_following: boolean;
-        }[];
-        pagination: {
-            total_items: number;
-            total_pages: number;
-            current_page: number;
-            items_per_page: number;
-            has_next_page: boolean;
-            has_previous_page: boolean;
-        };
-    }> {
+    ): Promise<PaginatedTweetLikesResponseDTO> {
         // Check if tweet exists and get the owner
         const tweet = await this.tweet_repository.findOne({
             where: { tweet_id },
@@ -596,59 +640,57 @@ export class TweetsService {
                 'following_relation.follower_id = :current_user_id AND following_relation.followed_id = user.id',
                 { current_user_id }
             )
-            .where('like.tweet_id = :tweet_id', { tweet_id });
+            .where('like.tweet_id = :tweet_id', { tweet_id })
+            .orderBy('like.created_at', 'DESC')
+            .addOrderBy('like.user_id', 'DESC')
+            .take(limit);
 
-        const paginated_result = await this.paginate_service.paginate(
+        // Apply cursor-based pagination
+        this.paginate_service.applyCursorPagination(
             query_builder,
-            { page, limit, sort_by: 'user_id', sort_order: 'DESC' },
+            cursor,
             'like',
-            ['user_id', 'tweet_id']
+            'created_at',
+            'user_id'
         );
 
-        const users = paginated_result.data.map((like) => ({
-            id: like.user.id,
-            username: like.user.username,
-            name: like.user.name,
-            avatar_url: like.user.avatar_url || '',
-            verified: like.user.verified,
-            is_follower: !!like.follower_relation,
-            bio: like.user.bio,
-            cover_url: like.user.cover_url,
-            followers: like.user.followers,
-            following: like.user.following,
-            is_following: !!like.following_relation,
-        }));
+        const likes = await query_builder.getMany();
 
-        return {
-            data: users,
-            pagination: paginated_result.pagination,
-        };
+        const data = plainToInstance(
+            PaginatedTweetLikesResponseDTO,
+            {
+                data: likes.map((like) => {
+                    return {
+                        ...like.user,
+                        is_following: !!like.following_relation,
+                        is_follower: !!like.follower_relation,
+                    };
+                }),
+            },
+            {
+                excludeExtraneousValues: true,
+            }
+        );
+
+        // Generate next_cursor using pagination service
+        const next_cursor = this.paginate_service.generateNextCursor(
+            likes,
+            'created_at',
+            'user_id'
+        );
+
+        data.next_cursor = next_cursor;
+        data.has_more = likes.length === limit;
+
+        return data;
     }
 
     async getTweetReposts(
         tweet_id: string,
         current_user_id: string,
-        page: number = 1,
+        cursor?: string,
         limit: number = 20
-    ): Promise<{
-        data: {
-            id: string;
-            username: string;
-            name: string;
-            avatar_url: string;
-            verified: boolean;
-            is_follower: boolean;
-            is_following: boolean;
-        }[];
-        pagination: {
-            total_items: number;
-            total_pages: number;
-            current_page: number;
-            items_per_page: number;
-            has_next_page: boolean;
-            has_previous_page: boolean;
-        };
-    }> {
+    ): Promise<PaginatedTweetRepostsResponseDTO> {
         // Check if tweet exists and get the owner
         const tweet = await this.tweet_repository.findOne({
             where: { tweet_id },
@@ -675,33 +717,49 @@ export class TweetsService {
                 'following_relation.follower_id = :current_user_id AND following_relation.followed_id = user.id',
                 { current_user_id }
             )
-            .where('repost.tweet_id = :tweet_id', { tweet_id });
+            .where('repost.tweet_id = :tweet_id', { tweet_id })
+            .orderBy('repost.created_at', 'DESC')
+            .addOrderBy('repost.user_id', 'DESC')
+            .take(limit);
 
-        const paginated_result = await this.paginate_service.paginate(
+        // Apply cursor-based pagination
+        this.paginate_service.applyCursorPagination(
             query_builder,
-            { page, limit, sort_by: 'created_at', sort_order: 'DESC' },
+            cursor,
             'repost',
-            ['created_at', 'id']
+            'created_at',
+            'user_id'
         );
 
-        const users = paginated_result.data.map((repost) => ({
-            id: repost.user.id,
-            username: repost.user.username,
-            name: repost.user.name,
-            avatar_url: repost.user.avatar_url || '',
-            verified: repost.user.verified,
-            is_follower: !!repost.follower_relation,
-            bio: repost.user.bio,
-            cover_url: repost.user.cover_url,
-            followers: repost.user.followers,
-            following: repost.user.following,
-            is_following: !!repost.following_relation,
-        }));
+        const reposts = await query_builder.getMany();
 
-        return {
-            data: users,
-            pagination: paginated_result.pagination,
-        };
+        const data = plainToInstance(
+            PaginatedTweetRepostsResponseDTO,
+            {
+                data: reposts.map((repost) => {
+                    return {
+                        ...repost.user,
+                        is_following: !!repost.following_relation,
+                        is_follower: !!repost.follower_relation,
+                    };
+                }),
+            },
+            {
+                excludeExtraneousValues: true,
+            }
+        );
+
+        // Generate next_cursor using pagination service
+        const next_cursor = this.paginate_service.generateNextCursor(
+            reposts,
+            'created_at',
+            'user_id'
+        );
+
+        data.next_cursor = next_cursor;
+        data.has_more = reposts.length === limit;
+
+        return data;
     }
 
     async getTweetQuotes(
@@ -772,7 +830,7 @@ export class TweetsService {
     private async getTweetWithUserById(
         tweet_id: string,
         current_user_id?: string,
-        flag: boolean = false,
+        flag: boolean = true,
         include_replies: boolean = true,
         replies_limit: number = 3
     ): Promise<TweetResponseDTO> {
@@ -905,22 +963,11 @@ export class TweetsService {
             if (!process.env.ENABLE_GOOGLE_GEMINI) {
                 console.warn('Gemini is disabled, returning empty topics');
                 const empty_response: Record<string, number> = {};
-                this.TOPICS.forEach((topic) => (empty_response[topic] = 0));
+                TOPICS.forEach((topic) => (empty_response[topic] = 0));
                 return empty_response;
             }
 
-            const prompt = `Analyze the following text and categorize it into these topics: ${this.TOPICS.join(', ')}.
-                Return ONLY a JSON object with topic names as keys and percentage values (0-100) as numbers. The percentages should add up to 100.
-                Only include topics that are relevant (percentage > 0).
-
-                Example format:
-                { "Sports": 60, "Entertainment": 30, "News": 10 }
-
-                Text to analyze:
-                "${content}"
-
-                Return only the JSON object, no additional text or explanation.
-            `;
+            const prompt = categorize_prompt(content);
 
             const response = await this.genAI.models.generateContent({
                 model: 'gemini-2.0-flash-exp',
@@ -930,7 +977,7 @@ export class TweetsService {
             if (!response.text) {
                 console.warn('Gemini returned empty response');
                 const empty_response: Record<string, number> = {};
-                this.TOPICS.forEach((topic) => (empty_response[topic] = 0));
+                TOPICS.forEach((topic) => (empty_response[topic] = 0));
                 return empty_response;
             }
 
