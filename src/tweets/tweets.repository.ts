@@ -34,7 +34,8 @@ export class TweetsRepository {
     async getFollowingTweets(
         user_id: string,
         cursor?: string,
-        limit: number = 20
+        limit: number = 20,
+        since_hours_ago?: number
     ): Promise<{
         data: TweetResponseDTO[];
         pagination: { next_cursor: string | null; has_more: boolean };
@@ -57,6 +58,10 @@ export class TweetsRepository {
             }
             const query_string = getFollowingTweetsQuery(cursor_condition, limit);
 
+            // since time filtararion for (in-network candidate)
+            if (since_hours_ago) {
+                cursor_condition += ` AND post.post_date > NOW() - INTERVAL '${since_hours_ago} hours'`;
+            }
             // execute query
 
             const tweets = await query_runner.query(query_string, [user_id, ...cursor_params]);
@@ -809,5 +814,46 @@ export class TweetsRepository {
         } finally {
             await query_runner.release();
         }
+    }
+
+    async getRecentTweetsByCategoryIds(
+        category_ids: string[],
+        user_id: string,
+        options: {
+            limit?: number;
+            since_hours_ago?: number;
+        } = {}
+    ): Promise<TweetResponseDTO[]> {
+        const limit = options.limit ?? 300;
+        const since_hours_ago = options.since_hours_ago ?? 48;
+
+        const query = this.tweet_repository
+            .createQueryBuilder('tweet')
+            .leftJoinAndSelect('tweet.user', 'user')
+            .innerJoin('tweet_category', 'tc', 'tc.tweet_id = tweet.tweet_id')
+            .where('tc.category_id = ANY(:category_ids)', { category_ids })
+            .andWhere('tweet.created_at > NOW() - INTERVAL :hours hours', {
+                hours: since_hours_ago,
+            })
+            .andWhere('tweet.user_id != :user_id', { user_id })
+            //         .andWhere(
+            //             `tweet.user_id NOT IN (
+            //   SELECT followed_id FROM user_follows WHERE follower_id = :user_id
+            // )`
+            //         )
+            .orderBy('tweet.created_at', 'DESC')
+            .addOrderBy('tweet.tweet_id', 'DESC')
+            .take(limit + 50); // extra buffer
+
+        // Attach all interaction flags
+        const final_query = this.attachUserTweetInteractionFlags(query, user_id, 'tweet');
+
+        const tweets = await final_query.getMany();
+
+        return tweets.map((tweet) =>
+            plainToInstance(TweetResponseDTO, tweet, {
+                excludeExtraneousValues: true,
+            })
+        );
     }
 }
