@@ -494,14 +494,17 @@ export class TweetsRepository {
                     'tweet.num_replies AS num_replies',
                     'tweet.created_at AS created_at',
                     'tweet.updated_at AS updated_at',
-                    'tweet.username AS username',
-                    'tweet.name AS name',
-                    'tweet.followers AS followers',
-                    'tweet.following AS following',
-                    'tweet.avatar_url AS avatar_url',
-                    'tweet.cover_url AS cover_url',
-                    'tweet.verified AS verified',
-                    'tweet.bio AS bio',
+                    `json_build_object(
+                        'id', tweet.tweet_author_id,
+                        'username', tweet.username,
+                        'name', tweet.name,
+                        'avatar_url', tweet.avatar_url,
+                        'cover_url', tweet.cover_url,
+                        'verified', tweet.verified,
+                        'bio', tweet.bio,
+                        'followers', tweet.followers,
+                        'following', tweet.following
+                    ) AS user`,
                 ])
                 .where('tweet.profile_user_id = :user_id', { user_id })
                 .andWhere('tweet.type != :type', { type: 'reply' })
@@ -509,11 +512,13 @@ export class TweetsRepository {
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
+            query = this.attachQuotedTweetQuery(query);
+
             query = this.attachUserInteractionBooleanFlags(
                 query,
                 current_user_id,
-                'tweet_author_id',
-                'tweet_id'
+                'tweet.tweet_author_id',
+                'tweet.tweet_id'
             );
 
             query = this.paginate_service.applyCursorPagination(
@@ -526,10 +531,7 @@ export class TweetsRepository {
 
             const tweets = await query.getRawMany();
 
-            const transformed_tweets = this.transformTweetsWithUserObject(tweets);
-
-            console.log(transformed_tweets);
-            const tweet_dtos = transformed_tweets.map((reply) =>
+            const tweet_dtos = tweets.map((reply) =>
                 plainToInstance(TweetResponseDTO, reply, {
                     excludeExtraneousValues: true,
                 })
@@ -809,35 +811,45 @@ export class TweetsRepository {
         }
     }
 
-    private transformTweetsWithUserObject(tweets: UserPostsView[]): any[] {
-        return tweets.map((tweet) => {
-            const {
-                username,
-                name,
-                avatar_url,
-                verified,
-                bio,
-                cover_url,
-                followers,
-                following,
-                ...tweet_data
-            } = tweet;
-
-            return {
-                ...tweet_data,
-                user: {
-                    id: tweet.tweet_author_id,
-                    username,
-                    name,
-                    avatar_url,
-                    verified,
-                    bio,
-                    cover_url,
-                    followers,
-                    following,
-                },
-            };
-        });
+    attachQuotedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
+        query
+            .leftJoin(
+                'tweet_quotes',
+                'quote_rel',
+                `quote_rel.quote_tweet_id = tweet.tweet_id AND tweet.type = 'quote'`
+            )
+            .leftJoin(
+                'user_posts_view',
+                'quoted_tweet',
+                'quoted_tweet.tweet_id = quote_rel.original_tweet_id'
+            )
+            .addSelect(
+                `CASE
+                    WHEN tweet.type = 'quote' AND quoted_tweet.tweet_id IS NOT NULL THEN
+                    json_build_object(
+                        'tweet_id', quoted_tweet.tweet_id,
+                        'content', quoted_tweet.content,
+                        'created_at', quoted_tweet.post_date,
+                        'type', quoted_tweet.type,
+                        'images', quoted_tweet.images,
+                        'videos', quoted_tweet.videos,
+                        'user', json_build_object(
+                            'id', quoted_tweet.tweet_author_id,
+                            'username', quoted_tweet.username,
+                            'name', quoted_tweet.name,
+                            'avatar_url', quoted_tweet.avatar_url,
+                            'verified', quoted_tweet.verified,
+                            'bio', quoted_tweet.bio,
+                            'cover_url', quoted_tweet.cover_url,
+                            'followers', quoted_tweet.followers,
+                            'following', quoted_tweet.following
+                        )
+                    )
+                    ELSE NULL
+                    END`,
+                'parent_tweet'
+            );
+        return query;
     }
 
     attachUserInteractionBooleanFlags(
@@ -847,7 +859,6 @@ export class TweetsRepository {
         tweet_id_column: string = 'tweet.tweet_id'
     ): SelectQueryBuilder<any> {
         if (current_user_id) {
-            console.log('hi');
             query
                 .addSelect(
                     `EXISTS(
