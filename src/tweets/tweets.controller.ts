@@ -53,6 +53,7 @@ import {
 } from '../decorators/swagger-error-responses.decorator';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import {
+    bookmark_tweet_swagger,
     create_tweet_swagger,
     delete_repost_swagger,
     delete_tweet_swagger,
@@ -67,6 +68,7 @@ import {
     reply_to_tweet_swagger,
     repost_tweet_swagger,
     track_tweet_view_swagger,
+    unbookmark_tweet_swagger,
     unlike_tweet_swagger,
     update_quote_tweet_swagger,
     update_tweet_swagger,
@@ -263,6 +265,34 @@ export class TweetsController {
         return await this.tweets_service.unlikeTweet(id, user_id);
     }
 
+    @HttpCode(HttpStatus.CREATED)
+    @ApiOperation(bookmark_tweet_swagger.operation)
+    @ApiParam(bookmark_tweet_swagger.param)
+    @ApiNoContentResponse(bookmark_tweet_swagger.responses.noContent)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_BOOKMARKED)
+    @UseGuards(JwtAuthGuard)
+    @Post(':id/bookmark')
+    async bookmarkTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
+        return await this.tweets_service.bookmarkTweet(id, user_id);
+    }
+
+    @HttpCode(HttpStatus.NO_CONTENT)
+    @ApiOperation(unbookmark_tweet_swagger.operation)
+    @ApiParam(unbookmark_tweet_swagger.param)
+    @ApiNoContentResponse(unbookmark_tweet_swagger.responses.noContent)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(SUCCESS_MESSAGES.TWEET_UNBOOKMARKED)
+    @UseGuards(JwtAuthGuard)
+    @Delete(':id/bookmark')
+    async unbookmarkTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
+        return await this.tweets_service.unbookmarkTweet(id, user_id);
+    }
+
     @ApiOperation(get_tweet_likes_swagger.operation)
     @ApiParam({
         name: 'id',
@@ -297,10 +327,10 @@ export class TweetsController {
     @Get(':id/likes')
     async getTweetLikes(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query() query: GetTweetLikesQueryDto,
+        @Query() query: GetTweetRepliesQueryDto,
         @GetUserId() user_id: string
     ) {
-        return await this.tweets_service.getTweetLikes(id, user_id, query.page, query.limit);
+        return await this.tweets_service.getTweetLikes(id, user_id, query.cursor, query.limit);
     }
 
     @ApiOperation(get_tweet_reposts_swagger.operation)
@@ -337,10 +367,10 @@ export class TweetsController {
     @Get(':id/reposts')
     async getTweetReposts(
         @Param('id', ParseUUIDPipe) id: string,
-        @Query() query: GetTweetRepostsQueryDto,
+        @Query() query: GetTweetRepliesQueryDto,
         @GetUserId() user_id: string
     ) {
-        return await this.tweets_service.getTweetReposts(id, user_id, query.page, query.limit);
+        return await this.tweets_service.getTweetReposts(id, user_id, query.cursor, query.limit);
     }
 
     @HttpCode(HttpStatus.OK)

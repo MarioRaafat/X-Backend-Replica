@@ -101,6 +101,8 @@ export const ERROR_MESSAGES = {
     TWEET_NOT_FOUND: 'Tweet not found',
     TWEET_ALREADY_LIKED: 'Tweet already liked',
     TWEET_NOT_LIKED: 'Tweet not liked yet',
+    TWEET_ALREADY_BOOKMARKED: 'Tweet already bookmarked',
+    TWEET_NOT_BOOKMARKED: 'Tweet not bookmarked yet',
     UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
     TWEET_REPLIES_RETRIEVED_SUCCESSFULLY: 'Tweet replies retrieved successfully',
 
@@ -213,6 +215,8 @@ export const SUCCESS_MESSAGES = {
     TWEET_LIKED: 'Tweet liked successfully',
     TWEET_UNLIKED: 'Tweet unliked successfully',
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
+    TWEET_BOOKMARKED: 'Tweet bookmarked successfully',
+    TWEET_UNBOOKMARKED: 'Tweet unbookmarked successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
     TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
 } as const;
