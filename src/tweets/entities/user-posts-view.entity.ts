@@ -25,8 +25,17 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_quotes,
             t.num_replies,
             t.created_at,
-            t.updated_at
+            t.updated_at,
+            u.username,
+            u.name,
+            u.followers,
+            u.following,
+            u.avatar_url,
+            u.cover_url,
+            u.verified,
+            u.bio
         FROM tweets t
+        INNER JOIN "user" u ON t.user_id = u.id
         
         UNION ALL
         
@@ -48,9 +57,18 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_quotes,
             t.num_replies,
             t.created_at,
-            t.updated_at
+            t.updated_at,
+            u.username,
+            u.name,
+            u.followers,
+            u.following,
+            u.avatar_url,
+            u.cover_url,
+            u.verified,
+            u.bio
         FROM tweet_reposts tr
         INNER JOIN tweets t ON tr.tweet_id = t.tweet_id
+        INNER JOIN "user" u ON t.user_id = u.id
     `,
 })
 export class UserPostsView {
@@ -107,6 +125,30 @@ export class UserPostsView {
 
     @ViewColumn()
     updated_at: Date;
+
+    @ViewColumn()
+    username: string;
+
+    @ViewColumn()
+    name: string;
+
+    @ViewColumn()
+    followers: number;
+
+    @ViewColumn()
+    following: number;
+
+    @ViewColumn()
+    avatar_url: string;
+
+    @ViewColumn()
+    cover_url: string;
+
+    @ViewColumn()
+    verified: boolean;
+
+    @ViewColumn()
+    bio: string;
 
     // Virtual relations for joins (tweet author)
     @ManyToOne(() => User)
