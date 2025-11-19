@@ -69,13 +69,16 @@ export class TweetResponseDTO {
     parent_tweet?: TweetResponseDTO;
 
     @Expose()
-    @Type(() => TweetResponseDTO)
     @ApiProperty({
-        description: 'Limited number of replies to this tweet',
-        type: [TweetResponseDTO],
+        description: 'Replies to this tweet with pagination',
         required: false,
     })
-    replies?: TweetResponseDTO[];
+    replies?: {
+        data: TweetResponseDTO[];
+        count: number;
+        next_cursor: string | null;
+        has_more: boolean;
+    };
 
     @Expose()
     @Transform(({ obj }) => obj.num_likes)

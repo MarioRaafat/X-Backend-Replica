@@ -140,7 +140,7 @@ export class TweetsRepository {
             )`
             )
             .orderBy('COALESCE(repost.created_at, tweet.created_at)', 'DESC')
-            .limit(pagination.limit)
+            .limit((pagination.limit ?? 20) + 1)
             .setParameters({ user_id });
 
         // This will be delegated to a pagination service
@@ -156,12 +156,15 @@ export class TweetsRepository {
         }
 
         const raw_results = await query_builder.getRawMany();
-        const tweets = this.mapRawTweetsToDTOs(raw_results);
+        const all_tweets = this.mapRawTweetsToDTOs(raw_results);
 
-        const next_cursor =
-            tweets.length > 0 && tweets.length === pagination.limit
-                ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
-                : null;
+        const limit = pagination.limit ?? 20;
+        const has_more = all_tweets.length > limit;
+        const tweets = has_more ? all_tweets.slice(0, limit) : all_tweets;
+
+        const next_cursor = has_more
+            ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
+            : null;
 
         return { tweets, next_cursor };
     }
@@ -223,7 +226,7 @@ export class TweetsRepository {
                 'is_following'
             )
             .orderBy('RANDOM()')
-            .limit(pagination.limit)
+            .limit((pagination.limit ?? 20) + 1)
             .setParameters({ user_id });
 
         // This will be delegated to a pagination service
@@ -238,12 +241,15 @@ export class TweetsRepository {
             }
         }
         const raw_results = await query_builder.getRawMany();
-        const tweets = this.mapRawTweetsToDTOs(raw_results);
+        const all_tweets = this.mapRawTweetsToDTOs(raw_results);
 
-        const next_cursor =
-            tweets.length > 0 && tweets.length === pagination.limit
-                ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
-                : null;
+        const limit = pagination.limit ?? 20;
+        const has_more = all_tweets.length > limit;
+        const tweets = has_more ? all_tweets.slice(0, limit) : all_tweets;
+
+        const next_cursor = has_more
+            ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
+            : null;
 
         return { tweets, next_cursor };
     }
@@ -386,7 +392,8 @@ export class TweetsRepository {
     async getReplies(
         tweet_id: string,
         user_id: string,
-        pagination: TimelinePaginationDto
+        pagination: TimelinePaginationDto,
+        original_tweet_owner_id?: string
     ): Promise<{ tweets: TweetResponseDTO[]; next_cursor: string | null }> {
         // Note: I will skip parent object data for replies to keep response clean as the front will have that info already
         const query_builder = this.tweet_repository
@@ -440,7 +447,7 @@ export class TweetsRepository {
             )
             .addSelect(
                 `EXISTS(
-                SELECT 1 FROM tweet_reposts 
+                SELECT 1 FROM tweet_reposts
                 WHERE tweet_reposts.tweet_id = tweet.tweet_id 
                 AND tweet_reposts.user_id = :user_id
             )`,
@@ -463,7 +470,7 @@ export class TweetsRepository {
             )`
             )
             .orderBy('tweet.created_at', 'DESC')
-            .limit(pagination.limit)
+            .limit((pagination.limit ?? 20) + 1)
             .setParameters({ user_id, tweet_id });
 
         if (pagination.cursor) {
@@ -477,12 +484,56 @@ export class TweetsRepository {
         }
 
         const raw_results = await query_builder.getRawMany();
-        const tweets = this.mapRawTweetsToRepliesDTOs(raw_results);
+        const all_tweets = this.mapRawTweetsToRepliesDTOs(raw_results);
 
-        const next_cursor =
-            tweets.length > 0 && tweets.length === pagination.limit
-                ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
+        const limit = pagination.limit ?? 20;
+        const has_more = all_tweets.length > limit;
+        const tweets = has_more ? all_tweets.slice(0, limit) : all_tweets;
+
+        // If original_tweet_owner_id is provided, fetch nested replies from the owner for each reply
+        if (original_tweet_owner_id) {
+            const tweets_with_nested = await Promise.all(
+                tweets.map(async (reply) => {
+                    if (reply.replies_count > 0) {
+                        // Fetch nested replies to this reply
+                        const nested_replies_result = await this.getReplies(
+                            reply.tweet_id,
+                            user_id,
+                            { limit: 1 }
+                        );
+
+                        // Find first reply from original tweet owner
+                        const owner_reply = nested_replies_result.tweets.find(
+                            (nested_reply) => nested_reply.user.id === original_tweet_owner_id
+                        );
+
+                        if (owner_reply) {
+                            reply.replies = {
+                                data: [owner_reply],
+                                count: 1,
+                                next_cursor: null,
+                                has_more: reply.replies_count > 1,
+                            };
+                        }
+                    }
+                    return reply;
+                })
+            );
+
+            const next_cursor = has_more
+                ? this.paginate_service.generateNextCursor(
+                      tweets_with_nested,
+                      'created_at',
+                      'tweet_id'
+                  )
                 : null;
+
+            return { tweets: tweets_with_nested, next_cursor };
+        }
+
+        const next_cursor = has_more
+            ? this.paginate_service.generateNextCursor(tweets, 'created_at', 'tweet_id')
+            : null;
 
         return { tweets, next_cursor };
     }

@@ -247,7 +247,15 @@ export const get_tweet_by_id_swagger = {
             '**Response Structure:**\n' +
             '- `type`: Can be "tweet", "reply", "quote", or "repost"\n' +
             '- `parent_tweet_id`: Optional - only present for replies, quotes, and reposts\n' +
-            '- `conversation_id`: Optional - only present for replies',
+            '- `conversation_id`: Optional - only present for replies\n' +
+            '- `replies`: Optional - nested object containing paginated replies with:\n' +
+            '  - `data`: Array of reply tweets\n' +
+            '  - `count`: Number of replies in current response\n' +
+            '  - `next_cursor`: Cursor for fetching next page of replies\n' +
+            '  - `has_more`: Boolean indicating if more replies exist\n\n' +
+            '**Pagination:**\n' +
+            '- Default limit for replies: 20\n' +
+            '- Nested replies (replies to replies) are included if from original tweet author',
     },
 
     param: {
@@ -260,14 +268,12 @@ export const get_tweet_by_id_swagger = {
     responses: {
         success: {
             description:
-                'Tweet retrieved successfully. Example shows a regular tweet. For replies, parent_tweet_id and conversation_id will be included.',
+                'Tweet retrieved successfully with paginated replies. Example shows a tweet with nested reply structure.',
             schema: {
                 example: {
                     data: {
                         tweet_id: '550e8400-e29b-41d4-a716-446655440000',
                         type: 'tweet',
-                        parent_tweet_id: '4a85c7dd-1559-480c-80f4-5e8a03434b3b',
-                        conversation_id: '87911054-0f61-452c-ad69-f896e45e82a8',
                         content: 'This is my first tweet!',
                         images: [
                             'https://example.com/image1.jpg',
@@ -292,6 +298,61 @@ export const get_tweet_by_id_swagger = {
                             avatar_url:
                                 'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
                             verified: true,
+                        },
+                        replies: {
+                            data: [
+                                {
+                                    tweet_id: '550e8400-e29b-41d4-a716-446655440001',
+                                    type: 'reply',
+                                    content: 'Great tweet!',
+                                    parent_tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                                    images: [],
+                                    videos: [],
+                                    likes_count: 5,
+                                    reposts_count: 1,
+                                    views_count: 50,
+                                    quotes_count: 0,
+                                    replies_count: 1,
+                                    bookmarks_count: 2,
+                                    is_liked: false,
+                                    is_reposted: false,
+                                    is_bookmarked: false,
+                                    created_at: '2025-10-31T12:05:00.000Z',
+                                    updated_at: '2025-10-31T12:05:00.000Z',
+                                    user: {
+                                        id: '16945dc1-7853-46db-93b9-3f4201cfb77f',
+                                        username: 'janedoe',
+                                        name: 'Jane Doe',
+                                        avatar_url: 'https://example.com/avatar.jpg',
+                                        verified: false,
+                                    },
+                                    replies: {
+                                        data: [
+                                            {
+                                                tweet_id: '550e8400-e29b-41d4-a716-446655440002',
+                                                type: 'reply',
+                                                content: 'Thank you!',
+                                                parent_tweet_id:
+                                                    '550e8400-e29b-41d4-a716-446655440001',
+                                                user: {
+                                                    id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                                                    username: 'johndoe',
+                                                    name: 'John Doe',
+                                                },
+                                                likes_count: 2,
+                                                created_at: '2025-10-31T12:06:00.000Z',
+                                            },
+                                        ],
+                                        count: 1,
+                                        next_cursor: null,
+                                        has_more: false,
+                                    },
+                                },
+                            ],
+                            count: 20,
+                            next_cursor:
+                                '2025-10-31T12:30:00.000Z_550e8400-e29b-41d4-a716-446655440020',
+                            has_more: true,
                         },
                     },
                     count: 1,
@@ -1165,10 +1226,14 @@ export const get_tweet_replies_swagger = {
             '- `next_cursor` in response contains cursor for next page\n' +
             '- `has_more` indicates if there are more replies available\n\n' +
             '**Response Structure:**\n' +
-            '- `data`: Array of reply tweets (parent_tweet object omitted for simplicity)\n' +
+            '- `data`: Array of reply tweets with nested replies object\n' +
             '- `count`: Number of replies in current response\n' +
             '- `next_cursor`: Cursor for next page (null if no more replies)\n' +
-            '- `has_more`: Boolean indicating if more replies exist',
+            '- `has_more`: Boolean indicating if more replies exist\n\n' +
+            '**Nested Replies:**\n' +
+            '- Each reply may contain a `replies` object with the same structure\n' +
+            '- Nested replies are only included if they are from the original tweet author\n' +
+            "- Maximum nesting level: 2 (reply -> author's reply to that reply)",
     },
 
     params: {
@@ -1191,15 +1256,13 @@ export const get_tweet_replies_swagger = {
                             tweet_id: '550e8400-e29b-41d4-a716-446655440001',
                             type: 'reply',
                             content: 'This is a reply to the original tweet!',
-                            conversation_id: '550e8400-e29b-41d4-a716-446655440000',
-                            parent_tweet_id: '550e8400-e29b-41d4-a716-446655440000',
                             images: [],
                             videos: [],
                             likes_count: 5,
                             reposts_count: 2,
                             views_count: 50,
                             quotes_count: 0,
-                            replies_count: 0,
+                            replies_count: 1,
                             bookmarks_count: 1,
                             is_liked: false,
                             is_reposted: false,
@@ -1213,17 +1276,70 @@ export const get_tweet_replies_swagger = {
                                 avatar_url:
                                     'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
                                 verified: false,
-                                bio: 'Software engineer and tech enthusiast',
-                                cover_url: 'https://example.com/jane_cover.jpg',
-                                followers: 150,
-                                following: 89,
                             },
-                            // Note: parent_tweet object is intentionally omitted to keep replies response simple
-                            // Only parent_tweet_id is included for reference
+                            replies: {
+                                data: [
+                                    {
+                                        tweet_id: '550e8400-e29b-41d4-a716-446655440002',
+                                        type: 'reply',
+                                        content: 'Thanks for your reply!',
+                                        images: [],
+                                        videos: [],
+                                        likes_count: 2,
+                                        reposts_count: 0,
+                                        views_count: 25,
+                                        quotes_count: 0,
+                                        replies_count: 0,
+                                        bookmarks_count: 0,
+                                        is_liked: false,
+                                        is_reposted: false,
+                                        is_bookmarked: false,
+                                        created_at: '2025-10-31T11:32:00.000Z',
+                                        updated_at: '2025-10-31T11:32:00.000Z',
+                                        user: {
+                                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                                            username: 'johndoe',
+                                            name: 'John Doe',
+                                            avatar_url:
+                                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                                            verified: true,
+                                        },
+                                    },
+                                ],
+                                count: 1,
+                                next_cursor: null,
+                                has_more: false,
+                            },
+                        },
+                        {
+                            tweet_id: '550e8400-e29b-41d4-a716-446655440003',
+                            type: 'reply',
+                            content: 'Great tweet!',
+                            images: [],
+                            videos: [],
+                            likes_count: 3,
+                            reposts_count: 1,
+                            views_count: 40,
+                            quotes_count: 0,
+                            replies_count: 0,
+                            bookmarks_count: 0,
+                            is_liked: true,
+                            is_reposted: false,
+                            is_bookmarked: false,
+                            created_at: '2025-10-31T11:35:00.000Z',
+                            updated_at: '2025-10-31T11:35:00.000Z',
+                            user: {
+                                id: '16945dc1-7853-46db-93b9-3f4201cfb880',
+                                username: 'bobsmith',
+                                name: 'Bob Smith',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                                verified: false,
+                            },
                         },
                     ],
-                    count: 1,
-                    next_cursor: '2025-10-31T11:30:00.000Z_550e8400-e29b-41d4-a716-446655440001',
+                    count: 2,
+                    next_cursor: '2025-10-31T11:35:00.000Z_550e8400-e29b-41d4-a716-446655440003',
                     has_more: true,
                     message: 'Tweet replies retrieved successfully',
                 },

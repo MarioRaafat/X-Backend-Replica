@@ -827,12 +827,37 @@ export class TweetsService {
     }
 
     /***************************************Helper Methods***************************************/
+    private async fetchRepliesWithPagination(
+        tweet_id: string,
+        current_user_id: string,
+        original_tweet_owner_id: string,
+        limit: number = 20,
+        cursor?: string
+    ): Promise<{
+        tweets: TweetResponseDTO[];
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        const { tweets, next_cursor } = await this.tweets_repository.getReplies(
+            tweet_id,
+            current_user_id,
+            { limit, cursor },
+            original_tweet_owner_id
+        );
+
+        return {
+            tweets,
+            next_cursor,
+            has_more: next_cursor !== null,
+        };
+    }
+
     private async getTweetWithUserById(
         tweet_id: string,
         current_user_id?: string,
         flag: boolean = true,
         include_replies: boolean = true,
-        replies_limit: number = 3
+        replies_limit: number = 20
     ): Promise<TweetResponseDTO> {
         try {
             let query = this.tweet_repository
@@ -864,12 +889,18 @@ export class TweetsService {
 
             // Fetch limited replies if requested and tweet has replies
             if (include_replies && tweet.num_replies > 0) {
-                const replies_result = await this.tweets_repository.getReplies(
+                const replies_result = await this.fetchRepliesWithPagination(
                     tweet_id,
                     current_user_id || '',
-                    { limit: replies_limit }
+                    tweet.user_id,
+                    replies_limit
                 );
-                tweet_dto.replies = replies_result.tweets;
+                tweet_dto.replies = {
+                    data: replies_result.tweets,
+                    count: replies_result.tweets.length,
+                    next_cursor: replies_result.next_cursor,
+                    has_more: replies_result.has_more,
+                };
             }
 
             return tweet_dto;
@@ -1052,22 +1083,19 @@ export class TweetsService {
             throw new NotFoundException('Tweet not found');
         }
 
-        const pagination: TimelinePaginationDto = {
-            limit: query_dto.limit ?? 20,
-            cursor: query_dto.cursor,
-        };
-
-        const { tweets, next_cursor } = await this.tweets_repository.getReplies(
+        const { tweets, next_cursor, has_more } = await this.fetchRepliesWithPagination(
             tweet_id,
             current_user_id,
-            pagination
+            tweet.user_id,
+            query_dto.limit ?? 20,
+            query_dto.cursor
         );
 
         return {
             data: tweets,
             count: tweets.length,
             next_cursor,
-            has_more: next_cursor !== null,
+            has_more,
         };
     }
 }
