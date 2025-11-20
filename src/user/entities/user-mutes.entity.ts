@@ -9,7 +9,7 @@ export class UserMutes {
     @PrimaryColumn({ type: 'uuid' })
     muted_id: string;
 
-    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
 
     @ManyToMany(() => User, { onDelete: 'CASCADE' })
