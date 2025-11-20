@@ -573,6 +573,34 @@ export class UserService {
         }
 
         await this.user_repository.delete(current_user_id);
+
+        if (user.avatar_url) {
+            const file_name = this.azure_storage_service.extractFileName(user.avatar_url);
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
+            );
+
+            try {
+                await this.azure_storage_service.deleteFile(file_name, container_name);
+            } catch (error) {
+                console.warn('Failed to delete avatar file:', error.message);
+            }
+        }
+
+        if (user.cover_url) {
+            const file_name = this.azure_storage_service.extractFileName(user.cover_url);
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
+            );
+
+            try {
+                await this.azure_storage_service.deleteFile(file_name, container_name);
+            } catch (error) {
+                console.warn('Failed to delete cover file:', error.message);
+            }
+        }
     }
 
     async uploadAvatar(
