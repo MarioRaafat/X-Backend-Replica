@@ -912,7 +912,21 @@ export class TweetsRepository {
             WHERE tr2.reply_tweet_id = tweet.tweet_id
             LIMIT 1
         ) AS conversation_tweet
-    `);
+    `).addSelect(`
+       (
+    SELECT COALESCE(
+        (
+            SELECT tr_parent.original_tweet_id <> tr_parent.conversation_id
+            FROM tweet_replies tr_child
+            JOIN tweet_replies tr_parent
+                ON tr_parent.reply_tweet_id = tr_child.original_tweet_id
+            WHERE tr_child.reply_tweet_id = tweet.tweet_id
+            LIMIT 1
+        ),
+        FALSE
+    )
+) AS show_more_replies
+        `);
 
         return query;
     }

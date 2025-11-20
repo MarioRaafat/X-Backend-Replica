@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Type } from 'class-transformer';
 import { IsBoolean, IsInt, IsOptional, IsString, Max, MaxLength, Min, MIN } from 'class-validator';
 import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
@@ -14,6 +15,7 @@ export class TimelinePaginationDto {
     @IsOptional()
     @IsInt()
     @Min(1)
+    @Type(() => Number)
     @Max(100)
     limit?: number = 20;
 
