@@ -134,6 +134,7 @@ export const SUCCESS_MESSAGES = {
     USERNAME_UPDATED: 'Username updated successfully',
     EMAIL_UPDATE_INITIATED: 'Email update process initiated. Check your new email for verification',
     EMAIL_UPDATED: 'Email updated successfully',
+    PASSWORD_CONFIRMED: 'Password confirmed successfully',
 
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',
@@ -182,6 +183,7 @@ export const SUCCESS_MESSAGES = {
     COVER_DELETED: 'Cover deleted successfully',
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
     LANGUAGE_CHANGED: 'Language changed successfully',
+    USERNAME_RECOMMENDATIONS_RETRIEVED: 'Username recommendations retrieved successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',

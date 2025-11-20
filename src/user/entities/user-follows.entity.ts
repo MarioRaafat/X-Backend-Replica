@@ -1,4 +1,4 @@
-import { Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('user_follows')
@@ -8,6 +8,9 @@ export class UserFollows {
 
     @PrimaryColumn({ type: 'uuid' })
     followed_id: string;
+
+    @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+    created_at: Date;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'follower_id' })
