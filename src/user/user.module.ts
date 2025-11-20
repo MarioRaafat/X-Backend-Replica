@@ -11,6 +11,7 @@ import { AzureStorageModule } from 'src/azure-storage/azure-storage.module';
 import { CategoryModule } from 'src/category/category.module';
 import { TweetsModule } from 'src/tweets/tweets.module';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { UsernameService } from 'src/auth/username.service';
 
 @Module({
     imports: [
@@ -21,6 +22,6 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
         TweetsModule,
     ],
     controllers: [UserController],
-    providers: [UserService, UserRepository, PaginationService],
+    providers: [UserService, UserRepository, PaginationService, UsernameService],
 })
 export class UserModule {}

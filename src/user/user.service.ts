@@ -42,6 +42,8 @@ import { CursorPaginationDto } from './dto/cursor-pagination-params.dto';
 import { TweetResponseDTO } from 'src/tweets/dto';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { UserListResponseDto } from './dto/user-list-response.dto';
+import { UsernameService } from 'src/auth/username.service';
+import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
 
 @Injectable()
 export class UserService {
@@ -52,7 +54,8 @@ export class UserService {
         @InjectRepository(Category)
         private readonly category_repository: Repository<Category>,
         private readonly tweets_repository: TweetsRepository,
-        private readonly pagination_service: PaginationService
+        private readonly pagination_service: PaginationService,
+        private readonly username_service: UsernameService
     ) {}
 
     async getUsersByIds(
@@ -736,5 +739,16 @@ export class UserService {
         await this.user_repository.save(user);
 
         return { language: user.language };
+    }
+
+    async getUsernameRecommendations(user_id: string): Promise<UsernameRecommendationsResponseDto> {
+        const user = await this.user_repository.findOne({ where: { id: user_id } });
+
+        if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(user.name);
+
+        return { recommendations };
     }
 }

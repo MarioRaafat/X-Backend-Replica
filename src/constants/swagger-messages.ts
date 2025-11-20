@@ -182,6 +182,7 @@ export const SUCCESS_MESSAGES = {
     COVER_DELETED: 'Cover deleted successfully',
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
     LANGUAGE_CHANGED: 'Language changed successfully',
+    USERNAME_RECOMMENDATIONS_RETRIEVED: 'Username recommendations retrieved successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',

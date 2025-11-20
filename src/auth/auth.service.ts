@@ -92,19 +92,6 @@ export class AuthService {
         };
     }
 
-    async getRecommendedUsernames(name: string): Promise<string[]> {
-        const name_parts = name.split(' ');
-        const first_name = name_parts[0];
-        const last_name = name_parts.length > 1 ? name_parts.slice(1).join(' ') : '';
-
-        const recommendations = await this.username_service.generateUsernameRecommendations(
-            first_name,
-            last_name
-        );
-
-        return recommendations;
-    }
-
     async validateUser(identifier: string, password: string, type: string): Promise<string> {
         const user =
             type === 'email'
@@ -207,7 +194,10 @@ export class AuthService {
         );
 
         // generate username recommendations for step 3
-        const recommendations = await this.getRecommendedUsernames(signup_session.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(
+                signup_session.name
+            );
 
         return {
             isVerified: true,
@@ -978,7 +968,8 @@ export class AuthService {
             updated_session_data.ttl
         );
 
-        const recommendations = await this.getRecommendedUsernames(user_data.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(user_data.name);
 
         return {
             usernames: recommendations,

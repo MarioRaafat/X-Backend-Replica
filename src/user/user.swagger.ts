@@ -1273,3 +1273,27 @@ export const change_language = {
         },
     },
 };
+
+export const get_username_recommendations = {
+    operation: {
+        summary: 'Get username recommendations',
+        description: `
+        Get a list of username recommendations
+    `,
+    },
+
+    responses: {
+        success: {
+            description: 'Username recommendations retrieved successfully',
+            schema: {
+                example: {
+                    data: {
+                        recommendations: ['alyaa242', 'alyaali242', 'alyaali'],
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.USERNAME_RECOMMENDATIONS_RETRIEVED,
+                },
+            },
+        },
+    },
+};
