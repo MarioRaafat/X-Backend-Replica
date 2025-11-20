@@ -110,6 +110,7 @@ export class TweetsRepository {
             );
 
             query = this.attachRepostInfo(query);
+            query = this.attachRepliedTweetQuery(query);
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
@@ -771,6 +772,8 @@ export class TweetsRepository {
                         'type', quoted_tweet.type,
                         'images', quoted_tweet.images,
                         'videos', quoted_tweet.videos,
+
+
                         'user', json_build_object(
                             'id', quoted_tweet.tweet_author_id,
                             'username', quoted_tweet.username,
@@ -807,6 +810,79 @@ export class TweetsRepository {
 
     // get replies
     attachRepliedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
+        query
+            .leftJoin('tweet_replies', 'tr', 'tr.reply_tweet_id = tweet.tweet_id')
+
+            // Join parent tweet
+            .leftJoin(
+                'user_posts_view',
+                'replied_tweet',
+                'replied_tweet.tweet_id = tr.original_tweet_id'
+            )
+
+            // Join conversation root tweet
+            .leftJoin(
+                'user_posts_view',
+                'conversation_tweet',
+                'conversation_tweet.tweet_id = tr.conversation_id'
+            )
+            .addSelect(
+                `CASE WHEN 
+            tweet.type='reply' THEN
+            json_build_object(
+                        'tweet_id', replied_tweet.tweet_id,
+                        'content', replied_tweet.content,
+                        'created_at', replied_tweet.post_date,
+                        'type', replied_tweet.type,
+                        'images', replied_tweet.images,
+                        'videos', replied_tweet.videos,
+                        'num_likes',replied_tweet.num_likes,
+                        'num_reposts',replied_tweet.num_reposts,
+                        'num_views',replied_tweet.num_views,
+                        'num_replies',replied_tweet.num_replies,
+                        'num_quotes',replied_tweet.num_quotes,
+                        'user', json_build_object(
+                            'id', replied_tweet.tweet_author_id,
+                            'username', replied_tweet.username,
+                            'name', replied_tweet.name,
+                            'avatar_url', replied_tweet.avatar_url,
+                            'verified', replied_tweet.verified,
+                            'bio', replied_tweet.bio,
+                            'cover_url', replied_tweet.cover_url,
+                            'followers', replied_tweet.followers,
+                            'following', replied_tweet.following
+                        )
+                    )
+                    ELSE NULL
+                    END AS parent_tweet,
+            CASE WHEN tr.conversation_id IS NOT NULL THEN
+                    json_build_object(
+                        'tweet_id', conversation_tweet.tweet_id,
+                        'content', conversation_tweet.content,
+                        'created_at', conversation_tweet.post_date,
+                        'type', conversation_tweet.type,
+                        'images', conversation_tweet.images,
+                        'videos', conversation_tweet.videos,
+                        'num_likes',conversation_tweet.num_likes,
+                        'num_reposts',conversation_tweet.num_reposts,
+                        'num_views',conversation_tweet.num_views,
+                        'num_replies',conversation_tweet.num_replies,
+                        'num_quotes',conversation_tweet.num_quotes,
+                        'user', json_build_object(
+                            'id', conversation_tweet.tweet_author_id,
+                            'username', conversation_tweet.username,
+                            'name', conversation_tweet.name,
+                            'avatar_url', conversation_tweet.avatar_url,
+                            'verified', conversation_tweet.verified,
+                            'bio', conversation_tweet.bio,
+                            'cover_url', conversation_tweet.cover_url,
+                            'followers', conversation_tweet.followers,
+                            'following', conversation_tweet.following
+                        )
+                    )
+                    ELSE NULL
+                    END AS conversation_tweet`
+            );
         return query;
     }
 

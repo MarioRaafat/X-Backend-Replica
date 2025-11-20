@@ -71,6 +71,15 @@ export class TweetResponseDTO {
     @Expose()
     @Type(() => TweetResponseDTO)
     @ApiProperty({
+        description: 'Main Conversation tweet (if this is a reply)',
+        type: () => TweetResponseDTO,
+        required: false,
+    })
+    conversation_tweet?: TweetResponseDTO;
+
+    @Expose()
+    @Type(() => TweetResponseDTO)
+    @ApiProperty({
         description: 'Limited number of replies to this tweet',
         type: [TweetResponseDTO],
         required: false,
