@@ -46,6 +46,7 @@ import { StringValue } from 'ms'; // Add this import
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { UserRepository } from 'src/user/user.repository';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -1019,5 +1020,23 @@ export class AuthService {
             access_token,
             refresh_token,
         };
+    }
+
+    async confirmPassword(confirm_password_dto: ConfirmPasswordDto, user_id: string) {
+        const user = await this.user_repository.findById(user_id);
+
+        if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+        if (user.password) {
+            const is_password_valid = await bcrypt.compare(
+                confirm_password_dto.password,
+                user.password
+            );
+            if (!is_password_valid) throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
+        } else {
+            throw new UnauthorizedException(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED);
+        }
+
+        return { valid: true };
     }
 }
