@@ -1140,3 +1140,25 @@ export const verify_update_email_swagger = {
         },
     },
 };
+
+export const confirm_password_swagger = {
+    operation: {
+        summary: 'Confirm password',
+        description: 'Confirm that the password is valid',
+    },
+
+    responses: {
+        success: {
+            description: 'Password confirmed successfully',
+            schema: {
+                example: {
+                    data: {
+                        valid: true,
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.PASSWORD_CONFIRMED,
+                },
+            },
+        },
+    },
+};

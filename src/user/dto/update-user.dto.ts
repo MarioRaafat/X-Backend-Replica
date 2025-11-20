@@ -45,14 +45,14 @@ export class UpdateUserDto {
     cover_url?: string | null;
 
     @ApiProperty({
-        example: 'Cairo, Egypt',
-        description: 'The user’s location',
+        example: 'Egypt',
+        description: 'The user’s country',
         required: false,
     })
     @IsOptional()
     @IsString()
     @MaxLength(STRING_MAX_LENGTH)
-    location?: string;
+    country?: string;
 
     @ApiProperty({
         example: '2003-05-14',

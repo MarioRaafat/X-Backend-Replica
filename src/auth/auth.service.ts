@@ -46,6 +46,7 @@ import { StringValue } from 'ms'; // Add this import
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { UserRepository } from 'src/user/user.repository';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -90,19 +91,6 @@ export class AuthService {
             access_token: access_token,
             refresh_token: refresh_token,
         };
-    }
-
-    async getRecommendedUsernames(name: string): Promise<string[]> {
-        const name_parts = name.split(' ');
-        const first_name = name_parts[0];
-        const last_name = name_parts.length > 1 ? name_parts.slice(1).join(' ') : '';
-
-        const recommendations = await this.username_service.generateUsernameRecommendations(
-            first_name,
-            last_name
-        );
-
-        return recommendations;
     }
 
     async validateUser(identifier: string, password: string, type: string): Promise<string> {
@@ -207,7 +195,10 @@ export class AuthService {
         );
 
         // generate username recommendations for step 3
-        const recommendations = await this.getRecommendedUsernames(signup_session.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(
+                signup_session.name
+            );
 
         return {
             isVerified: true,
@@ -978,7 +969,8 @@ export class AuthService {
             updated_session_data.ttl
         );
 
-        const recommendations = await this.getRecommendedUsernames(user_data.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(user_data.name);
 
         return {
             usernames: recommendations,
@@ -1028,5 +1020,23 @@ export class AuthService {
             access_token,
             refresh_token,
         };
+    }
+
+    async confirmPassword(confirm_password_dto: ConfirmPasswordDto, user_id: string) {
+        const user = await this.user_repository.findById(user_id);
+
+        if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+        if (user.password) {
+            const is_password_valid = await bcrypt.compare(
+                confirm_password_dto.password,
+                user.password
+            );
+            if (!is_password_valid) throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
+        } else {
+            throw new UnauthorizedException(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED);
+        }
+
+        return { valid: true };
     }
 }

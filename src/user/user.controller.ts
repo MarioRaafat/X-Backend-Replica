@@ -48,6 +48,7 @@ import {
     get_user_media,
     get_user_posts,
     get_user_replies,
+    get_username_recommendations,
     get_users_by_ids,
     get_users_by_username,
     mute_user,
@@ -190,7 +191,7 @@ export class UserController {
     async getFollowing(
         @GetUserId() current_user_id: string,
         @Param('user_id') target_user_id: string,
-        @Query() query_dto: PaginationParamsDto
+        @Query() query_dto: CursorPaginationDto
     ) {
         return await this.user_service.getFollowing(current_user_id, target_user_id, query_dto);
     }
@@ -236,7 +237,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.MUTED_LIST_RETRIEVED)
     @Get('me/muted')
-    async getMutedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
+    async getMutedList(@GetUserId() user_id: string, @Query() query_dto: CursorPaginationDto) {
         return await this.user_service.getMutedList(user_id, query_dto);
     }
 
@@ -279,7 +280,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.BLOCKED_LIST_RETRIEVED)
     @Get('me/blocked')
-    async getBlockedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
+    async getBlockedList(@GetUserId() user_id: string, @Query() query_dto: CursorPaginationDto) {
         return await this.user_service.getBlockedList(user_id, query_dto);
     }
 
@@ -494,5 +495,17 @@ export class UserController {
         @Body() change_language_dto: ChangeLanguageDto
     ) {
         return this.user_service.changeLanguage(current_user_id, change_language_dto);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(get_username_recommendations.operation)
+    @ApiCreatedResponse(get_username_recommendations.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.USERNAME_RECOMMENDATIONS_RETRIEVED)
+    @Get('me/username-recommendations')
+    async getUsernameRecommendations(@GetUserId() current_user_id: string) {
+        return await this.user_service.getUsernameRecommendations(current_user_id);
     }
 }

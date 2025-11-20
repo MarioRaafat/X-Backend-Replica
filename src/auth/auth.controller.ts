@@ -62,6 +62,7 @@ import {
     captcha_swagger,
     change_password_swagger,
     check_identifier_swagger,
+    confirm_password_swagger,
     facebook_callback_swagger,
     facebook_oauth_swagger,
     forget_password_swagger,
@@ -89,6 +90,7 @@ import {
     verify_reset_otp_swagger,
     verify_update_email_swagger,
 } from './auth.swagger';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -100,7 +102,7 @@ export class AuthController {
 
         response.cookie('refresh_token', refresh, {
             httpOnly: true,
-            secure: is_production,
+            secure: true,
             sameSite: is_production ? 'strict' : 'none',
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
@@ -263,7 +265,6 @@ export class AuthController {
         return await this.auth_service.logoutAll(refresh_token, response);
     }
 
-    @ApiCookieAuth('refresh_token')
     @ApiOperation(refresh_token_swagger.operation)
     @ApiOkResponse(refresh_token_swagger.responses.success)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED)
@@ -608,5 +609,22 @@ export class AuthController {
 
         this.httpOnlyRefreshToken(response, refresh_token);
         return { access_token, user };
+    }
+
+    @ApiBearerAuth('JWT-auth')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation(confirm_password_swagger.operation)
+    @ApiBody({ type: ConfirmPasswordDto })
+    @ApiOkResponse(confirm_password_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.WRONG_PASSWORD)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_CONFIRMED)
+    @Post('confirm-password')
+    async confirmPassword(
+        @Body() confirm_password_dto: ConfirmPasswordDto,
+        @GetUserId() user_id: string
+    ) {
+        return this.auth_service.confirmPassword(confirm_password_dto, user_id);
     }
 }

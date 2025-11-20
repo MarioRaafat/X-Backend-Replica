@@ -8,10 +8,14 @@ import { RelationshipType } from './enums/relationship-type.enum';
 import { UserInterests } from './entities/user-interests.entity';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
-    constructor(private data_source: DataSource) {
+    constructor(
+        private data_source: DataSource,
+        private readonly paginate_service: PaginationService
+    ) {
         super(User, data_source.createEntityManager());
     }
 
@@ -303,19 +307,23 @@ export class UserRepository extends Repository<User> {
     async getFollowersList(
         current_user_id: string,
         target_user_id: string,
-        page_offset: number,
-        page_size: number,
+        cursor?: string,
+        limit: number = 20,
         following?: boolean
     ): Promise<UserListItemDto[]> {
-        const query = this.buildUserListQuery(current_user_id);
+        let query = this.buildUserListQuery(current_user_id);
 
         query
+            .addSelect('target_followers.created_at', 'created_at')
             .innerJoin(
                 'user_follows',
                 'target_followers',
                 'target_followers.follower_id = "user"."id" AND target_followers.followed_id = :target_user_id'
             )
-            .setParameter('target_user_id', target_user_id);
+            .setParameter('target_user_id', target_user_id)
+            .orderBy('target_followers.created_at', 'DESC')
+            .addOrderBy('target_followers.follower_id', 'DESC')
+            .limit(limit);
 
         if (following === true) {
             query.innerJoin(
@@ -325,65 +333,105 @@ export class UserRepository extends Repository<User> {
             );
         }
 
-        return await query.limit(page_size).offset(page_offset).getRawMany();
+        query = this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'target_followers',
+            'created_at',
+            'follower_id'
+        );
+
+        return await query.getRawMany();
     }
 
     async getFollowingList(
         current_user_id: string,
         target_user_id: string,
-        page_offset: number,
-        page_size: number
+        cursor?: string,
+        limit: number = 20
     ): Promise<UserListItemDto[]> {
-        const query = this.buildUserListQuery(current_user_id);
+        let query = this.buildUserListQuery(current_user_id);
 
-        return await query
+        query
+            .addSelect('target_following.created_at', 'created_at')
             .innerJoin(
                 'user_follows',
                 'target_following',
                 'target_following.follower_id = :target_user_id AND target_following.followed_id = "user"."id"'
             )
             .setParameter('target_user_id', target_user_id)
-            .limit(page_size)
-            .offset(page_offset)
-            .getRawMany();
+            .orderBy('target_following.created_at', 'DESC')
+            .addOrderBy('target_following.followed_id', 'DESC')
+            .limit(limit);
+
+        query = this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'target_following',
+            'created_at',
+            'followed_id'
+        );
+
+        return await query.getRawMany();
     }
 
     async getMutedUsersList(
         current_user_id: string,
-        page_offset: number,
-        page_size: number
+        cursor?: string,
+        limit: number = 20
     ): Promise<UserListItemDto[]> {
-        const query = this.buildUserListQuery(current_user_id);
+        let query = this.buildUserListQuery(current_user_id);
 
-        return await query
+        query
+            .addSelect('target_muted.created_at', 'created_at')
             .innerJoin(
                 'user_mutes',
                 'target_muted',
                 'target_muted.muter_id = :current_user_id AND target_muted.muted_id = "user"."id"'
             )
             .setParameter('current_user_id', current_user_id)
-            .limit(page_size)
-            .offset(page_offset)
-            .getRawMany();
+            .orderBy('target_muted.created_at', 'DESC')
+            .addOrderBy('target_muted.muted_id', 'DESC')
+            .limit(limit);
+
+        query = this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'target_muted',
+            'created_at',
+            'muted_id'
+        );
+        return await query.getRawMany();
     }
 
     async getBlockedUsersList(
         current_user_id: string,
-        page_offset: number,
-        page_size: number
+        cursor?: string,
+        limit: number = 20
     ): Promise<UserListItemDto[]> {
-        const query = this.buildUserListQuery(current_user_id);
+        let query = this.buildUserListQuery(current_user_id);
 
-        return await query
+        query
+            .addSelect('target_blocked.created_at', 'created_at')
             .innerJoin(
                 'user_blocks',
                 'target_blocked',
                 'target_blocked.blocker_id = :current_user_id AND target_blocked.blocked_id = "user"."id"'
             )
             .setParameter('current_user_id', current_user_id)
-            .limit(page_size)
-            .offset(page_offset)
-            .getRawMany();
+            .orderBy('target_blocked.created_at', 'DESC')
+            .addOrderBy('target_blocked.blocked_id', 'DESC')
+            .limit(limit);
+
+        query = this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'target_blocked',
+            'created_at',
+            'blocked_id'
+        );
+
+        return await query.getRawMany();
     }
 
     async insertFollowRelationship(

@@ -498,8 +498,10 @@ export class TweetsRepository {
         limit: number = 10
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         try {
             let query = this.user_posts_view_repository
@@ -574,8 +576,10 @@ export class TweetsRepository {
 
             return {
                 data: tweet_dtos,
-                next_cursor,
-                has_more: tweets.length === limit,
+                pagination: {
+                    next_cursor,
+                    has_more: tweets.length === limit,
+                },
             };
         } catch (error) {
             console.error(error);
@@ -590,8 +594,10 @@ export class TweetsRepository {
         limit: number = 10
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         try {
             // Build query for replies by user
@@ -635,8 +641,10 @@ export class TweetsRepository {
 
             return {
                 data: reply_dtos,
-                next_cursor,
-                has_more: replies.length === limit,
+                pagination: {
+                    next_cursor,
+                    has_more: replies.length === limit,
+                },
             };
         } catch (error) {
             console.error(error);
@@ -651,127 +659,92 @@ export class TweetsRepository {
         limit: number = 10
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
-        const query_runner = this.data_source.createQueryRunner();
-        await query_runner.connect();
-
         try {
-            // Parse cursor if provided
-            let cursor_condition = '';
-            let cursor_params: any[] = [];
+            let query = this.user_posts_view_repository
+                .createQueryBuilder('tweet')
+                .select([
+                    'tweet.tweet_id AS tweet_id',
+                    'tweet.profile_user_id AS profile_user_id',
+                    'tweet.tweet_author_id AS tweet_author_id',
+                    'tweet.repost_id AS repost_id',
+                    'tweet.post_type AS post_type',
+                    'tweet.type AS type',
+                    'tweet.content AS content',
+                    'tweet.type AS type',
+                    'tweet.post_date AS post_date',
+                    'tweet.images AS images',
+                    'tweet.videos AS videos',
+                    'tweet.num_likes AS num_likes',
+                    'tweet.num_reposts AS num_reposts',
+                    'tweet.num_views AS num_views',
+                    'tweet.num_quotes AS num_quotes',
+                    'tweet.num_replies AS num_replies',
+                    'tweet.created_at AS created_at',
+                    'tweet.updated_at AS updated_at',
+                    `json_build_object(
+                        'id', tweet.tweet_author_id,
+                        'username', tweet.username,
+                        'name', tweet.name,
+                        'avatar_url', tweet.avatar_url,
+                        'cover_url', tweet.cover_url,
+                        'verified', tweet.verified,
+                        'bio', tweet.bio,
+                        'followers', tweet.followers,
+                        'following', tweet.following
+                    ) AS user`,
+                ])
+                .where('tweet.profile_user_id = :user_id', { user_id })
+                .andWhere(
+                    '(array_length(tweet.images, 1) > 0 OR array_length(tweet.videos, 1) > 0)'
+                )
+                .orderBy('tweet.created_at', 'DESC')
+                .addOrderBy('tweet.tweet_id', 'DESC')
+                .limit(limit);
 
-            if (cursor) {
-                const [cursor_date_str, cursor_id] = cursor.split('_');
-                const cursor_date = new Date(cursor_date_str);
+            query = this.attachUserInteractionBooleanFlags(
+                query,
+                current_user_id,
+                'tweet.tweet_author_id',
+                'tweet.tweet_id'
+            );
 
-                cursor_condition = `AND (t.created_at < $${current_user_id ? '3' : '2'} OR (t.created_at = $${current_user_id ? '3' : '2'} AND t.tweet_id < $${current_user_id ? '4' : '3'}))`;
-                cursor_params = [cursor_date, cursor_id];
-            }
+            query = this.paginate_service.applyCursorPagination(
+                query,
+                cursor,
+                'tweet',
+                'created_at',
+                'tweet_id'
+            );
 
-            // Build query for tweets with media (images or videos)
-            const query_string = `
-                SELECT 
-                    t.*,
-                    json_build_object(
-                        'id', u.id,
-                        'username', u.username,
-                        'name', u.name,
-                        'avatar_url', u.avatar_url,
-                        'verified', u.verified,
-                        'bio', u.bio,
-                        'cover_url', u.cover_url,
-                        'followers', u.followers,
-                        'following', u.following
-                    ) as user
-                    ${
-                        current_user_id
-                            ? `,
-                        CASE WHEN likes.user_id IS NOT NULL THEN TRUE ELSE FALSE END as is_liked,
-                        CASE WHEN reposts.user_id IS NOT NULL THEN TRUE ELSE FALSE END as is_reposted,
-                        CASE WHEN follows.follower_id IS NOT NULL THEN TRUE ELSE FALSE END as is_following
-                    `
-                            : ''
-                    }
-                FROM tweets t
-                LEFT JOIN "user" u ON u.id = t.user_id
-                ${
-                    current_user_id
-                        ? `
-                    LEFT JOIN tweet_likes likes ON likes.tweet_id = t.tweet_id AND likes.user_id = $2
-                    LEFT JOIN tweet_reposts reposts ON reposts.tweet_id = t.tweet_id AND reposts.user_id = $2
-                    LEFT JOIN user_follows follows ON follows.follower_id = $2 AND follows.followed_id = u.id
-                `
-                        : ''
-                }
-                WHERE t.user_id = $1 
-                    AND (array_length(t.images, 1) > 0 OR array_length(t.videos, 1) > 0)
-                ${cursor_condition}
-                ORDER BY t.created_at DESC, t.tweet_id DESC
-                LIMIT ${limit}
-            `;
+            const tweets = await query.getRawMany();
 
-            // Build params array
-            let params: any[];
-            if (current_user_id) {
-                params = [user_id, current_user_id, ...cursor_params];
-            } else {
-                params = [user_id, ...cursor_params];
-            }
+            const tweet_dtos = tweets.map((reply) =>
+                plainToInstance(TweetResponseDTO, reply, {
+                    excludeExtraneousValues: true,
+                })
+            );
 
-            // Execute query
-            const media_tweets = await query_runner.query(query_string, params);
-
-            // Transform to DTOs
-            const tweet_dtos = media_tweets.map((tweet: any) => {
-                return plainToInstance(
-                    TweetResponseDTO,
-                    {
-                        tweet_id: tweet.tweet_id,
-                        user_id: tweet.user_id,
-                        type: tweet.type || 'tweet',
-                        content: tweet.content,
-                        images: tweet.images,
-                        videos: tweet.videos,
-                        num_likes: tweet.num_likes,
-                        num_reposts: tweet.num_reposts,
-                        num_views: tweet.num_views,
-                        num_quotes: tweet.num_quotes,
-                        num_replies: tweet.num_replies,
-                        created_at: tweet.created_at,
-                        updated_at: tweet.updated_at,
-                        current_user_like:
-                            current_user_id && tweet.is_liked ? { user_id: current_user_id } : null,
-                        current_user_repost:
-                            current_user_id && tweet.is_reposted
-                                ? { user_id: current_user_id }
-                                : null,
-                        user: tweet.user,
-                    },
-                    {
-                        excludeExtraneousValues: true,
-                    }
-                );
-            });
-
-            // Generate next cursor
             const next_cursor = this.paginate_service.generateNextCursor(
-                media_tweets,
+                tweets,
                 'created_at',
                 'tweet_id'
             );
 
             return {
                 data: tweet_dtos,
-                next_cursor,
-                has_more: media_tweets.length === limit,
+                pagination: {
+                    next_cursor,
+                    has_more: tweets.length === limit,
+                },
             };
         } catch (error) {
             console.error(error);
             throw error;
-        } finally {
-            await query_runner.release();
         }
     }
 
@@ -781,58 +754,93 @@ export class TweetsRepository {
         limit: number = 10
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         try {
-            // Build query for liked posts
-            const query = this.tweet_like_repository
-                .createQueryBuilder('like')
-                .innerJoinAndSelect('like.tweet', 'tweet')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .where('like.user_id = :user_id', { user_id })
-                .orderBy('like.created_at', 'DESC')
+            let query = this.user_posts_view_repository
+                .createQueryBuilder('tweet')
+                .innerJoin(
+                    'tweet_likes',
+                    'like',
+                    'like.tweet_id = tweet.tweet_id AND like.user_id = :user_id',
+                    { user_id }
+                )
+                .select([
+                    'tweet.tweet_id AS tweet_id',
+                    'tweet.profile_user_id AS profile_user_id',
+                    'tweet.tweet_author_id AS tweet_author_id',
+                    'tweet.repost_id AS repost_id',
+                    'tweet.post_type AS post_type',
+                    'tweet.type AS type',
+                    'tweet.content AS content',
+                    'tweet.type AS type',
+                    'tweet.post_date AS post_date',
+                    'tweet.images AS images',
+                    'tweet.videos AS videos',
+                    'tweet.num_likes AS num_likes',
+                    'tweet.num_reposts AS num_reposts',
+                    'tweet.num_views AS num_views',
+                    'tweet.num_quotes AS num_quotes',
+                    'tweet.num_replies AS num_replies',
+                    'tweet.created_at AS created_at',
+                    'tweet.updated_at AS updated_at',
+                    `json_build_object(
+                        'id', tweet.tweet_author_id,
+                        'username', tweet.username,
+                        'name', tweet.name,
+                        'avatar_url', tweet.avatar_url,
+                        'cover_url', tweet.cover_url,
+                        'verified', tweet.verified,
+                        'bio', tweet.bio,
+                        'followers', tweet.followers,
+                        'following', tweet.following
+                    ) AS user`,
+                ])
+                .where('tweet.type != :type', { type: 'repost' })
+                .orderBy('tweet.created_at', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
-                .take(limit);
+                .limit(limit);
 
-            // Apply cursor pagination using like.created_at for ordering
-            this.paginate_service.applyCursorPagination(
+            query = this.attachQuotedTweetQuery(query);
+
+            query = this.attachUserInteractionBooleanFlags(
+                query,
+                user_id,
+                'tweet.tweet_author_id',
+                'tweet.tweet_id'
+            );
+
+            query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
-                'like',
+                'tweet',
                 'created_at',
                 'tweet_id'
             );
 
-            const liked_posts = await query.getMany();
+            const tweets = await query.getRawMany();
 
-            // Extract tweets from the likes
-            const tweets = liked_posts.map((like) => like.tweet);
-
-            // Transform to DTOs
-            const tweet_dtos = tweets.map((tweet) =>
-                plainToInstance(TweetResponseDTO, tweet, {
+            const tweet_dtos = tweets.map((reply) =>
+                plainToInstance(TweetResponseDTO, reply, {
                     excludeExtraneousValues: true,
                 })
             );
 
-            // Generate next cursor using liked posts (which have like.created_at)
-            const next_cursor =
-                liked_posts.length > 0
-                    ? this.paginate_service.generateNextCursor(
-                          liked_posts.map((lp) => ({
-                              created_at: lp.created_at,
-                              tweet_id: lp.tweet.tweet_id,
-                          })),
-                          'created_at',
-                          'tweet_id'
-                      )
-                    : null;
+            const next_cursor = this.paginate_service.generateNextCursor(
+                tweets,
+                'created_at',
+                'tweet_id'
+            );
 
             return {
                 data: tweet_dtos,
-                next_cursor,
-                has_more: liked_posts.length === limit,
+                pagination: {
+                    next_cursor,
+                    has_more: tweets.length === limit,
+                },
             };
         } catch (error) {
             console.error(error);
@@ -841,43 +849,38 @@ export class TweetsRepository {
     }
 
     attachQuotedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
-        query
-            .leftJoin(
-                'tweet_quotes',
-                'quote_rel',
-                `quote_rel.quote_tweet_id = tweet.tweet_id AND tweet.type = 'quote'`
-            )
-            .leftJoin(
-                'user_posts_view',
-                'quoted_tweet',
-                'quoted_tweet.tweet_id = quote_rel.original_tweet_id'
-            )
-            .addSelect(
-                `CASE
-                    WHEN tweet.type = 'quote' AND quoted_tweet.tweet_id IS NOT NULL THEN
-                    json_build_object(
-                        'tweet_id', quoted_tweet.tweet_id,
-                        'content', quoted_tweet.content,
-                        'created_at', quoted_tweet.post_date,
-                        'type', quoted_tweet.type,
-                        'images', quoted_tweet.images,
-                        'videos', quoted_tweet.videos,
-                        'user', json_build_object(
-                            'id', quoted_tweet.tweet_author_id,
-                            'username', quoted_tweet.username,
-                            'name', quoted_tweet.name,
-                            'avatar_url', quoted_tweet.avatar_url,
-                            'verified', quoted_tweet.verified,
-                            'bio', quoted_tweet.bio,
-                            'cover_url', quoted_tweet.cover_url,
-                            'followers', quoted_tweet.followers,
-                            'following', quoted_tweet.following
-                        )
+        query.addSelect(
+            `(SELECT 
+            CASE
+                WHEN tweet.type = 'quote' OR (tweet.type = 'repost' AND tweet.post_type = 'quote') THEN
+                json_build_object(
+                    'tweet_id', quoted_tweet.tweet_id,
+                    'content', quoted_tweet.content,
+                    'created_at', quoted_tweet.post_date,
+                    'type', quoted_tweet.type,
+                    'images', quoted_tweet.images,
+                    'videos', quoted_tweet.videos,
+                    'user', json_build_object(
+                        'id', quoted_tweet.tweet_author_id,
+                        'username', quoted_tweet.username,
+                        'name', quoted_tweet.name,
+                        'avatar_url', quoted_tweet.avatar_url,
+                        'verified', quoted_tweet.verified,
+                        'bio', quoted_tweet.bio,
+                        'cover_url', quoted_tweet.cover_url,
+                        'followers', quoted_tweet.followers,
+                        'following', quoted_tweet.following
                     )
-                    ELSE NULL
-                    END`,
-                'parent_tweet'
-            );
+                )
+                ELSE NULL
+            END
+         FROM tweet_quotes quote_rel
+         LEFT JOIN user_posts_view quoted_tweet ON quoted_tweet.tweet_id = quote_rel.original_tweet_id
+         WHERE quote_rel.quote_tweet_id = tweet.tweet_id
+         LIMIT 1
+        )`,
+            'parent_tweet'
+        );
         return query;
     }
 
