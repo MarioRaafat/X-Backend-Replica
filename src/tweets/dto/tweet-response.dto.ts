@@ -78,13 +78,6 @@ export class TweetResponseDTO {
     conversation_tweet?: TweetResponseDTO;
 
     @Expose()
-    @Transform(({ obj }) => obj.show_more_replies)
-    @ApiProperty({
-        description: 'Whether this reply has more replies in the chain or not',
-        example: false,
-    })
-    show_more_replies?: boolean;
-    @Expose()
     @Type(() => TweetResponseDTO)
     @ApiProperty({
         description: 'Limited number of replies to this tweet',
