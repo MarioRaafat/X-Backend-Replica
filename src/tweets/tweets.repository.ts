@@ -751,45 +751,81 @@ export class TweetsRepository {
     }
 
     attachQuotedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
-        query
-            .leftJoin(
-                'tweet_quotes',
-                'quote_rel',
-                `quote_rel.quote_tweet_id = tweet.tweet_id AND tweet.type = 'quote'`
-            )
-            .leftJoin(
-                'user_posts_view',
-                'quoted_tweet',
-                'quoted_tweet.tweet_id = quote_rel.original_tweet_id'
-            )
-            .addSelect(
-                `CASE
-                    WHEN tweet.type = 'quote' AND quoted_tweet.tweet_id IS NOT NULL THEN
-                    json_build_object(
-                        'tweet_id', quoted_tweet.tweet_id,
-                        'content', quoted_tweet.content,
-                        'created_at', quoted_tweet.post_date,
-                        'type', quoted_tweet.type,
-                        'images', quoted_tweet.images,
-                        'videos', quoted_tweet.videos,
+        // query
+        //     .leftJoin(
+        //         'tweet_quotes',
+        //         'quote_rel',
+        //         `quote_rel.quote_tweet_id = tweet.tweet_id AND tweet.type = 'quote'`
+        //     )
+        //     .leftJoin(
+        //         'user_posts_view',
+        //         'quoted_tweet',
+        //         'quoted_tweet.tweet_id = quote_rel.original_tweet_id'
+        //     )
+        //     .addSelect(
+        //         `CASE
+        //             WHEN tweet.type = 'quote' AND quoted_tweet.tweet_id IS NOT NULL THEN
+        //             json_build_object(
+        //                 'tweet_id', quoted_tweet.tweet_id,
+        //                 'content', quoted_tweet.content,
+        //                 'created_at', quoted_tweet.post_date,
+        //                 'type', quoted_tweet.type,
+        //                 'images', quoted_tweet.images,
+        //                 'videos', quoted_tweet.videos,
 
+        //                 'user', json_build_object(
+        //                     'id', quoted_tweet.tweet_author_id,
+        //                     'username', quoted_tweet.username,
+        //                     'name', quoted_tweet.name,
+        //                     'avatar_url', quoted_tweet.avatar_url,
+        //                     'verified', quoted_tweet.verified,
+        //                     'bio', quoted_tweet.bio,
+        //                     'cover_url', quoted_tweet.cover_url,
+        //                     'followers', quoted_tweet.followers,
+        //                     'following', quoted_tweet.following
+        //                 )
+        //             )
+        //             ELSE NULL
+        //             END`,
+        //         'parent_tweet'
+        //     );
+        // return query;
+        query.addSelect(
+            `
+        (
+            SELECT json_build_object(
+                'tweet_id', quoted_tweet.tweet_id,
+                'content', quoted_tweet.content,
+                'created_at', quoted_tweet.post_date,
+                'type', quoted_tweet.type,
+                'images', quoted_tweet.images,
+                'videos', quoted_tweet.videos,
+                'num_likes', quoted_tweet.num_likes,
+                'num_reposts', quoted_tweet.num_reposts,
+                'num_views', quoted_tweet.num_views,
+                'num_replies', quoted_tweet.num_replies,
+                'num_quotes', quoted_tweet.num_quotes,
+                'user', json_build_object(
+                    'id', quoted_tweet.tweet_author_id,
+                    'username', quoted_tweet.username,
+                    'name', quoted_tweet.name,
+                    'avatar_url', quoted_tweet.avatar_url,
+                    'verified', quoted_tweet.verified,
+                    'bio', quoted_tweet.bio,
+                    'cover_url', quoted_tweet.cover_url,
+                    'followers', quoted_tweet.followers,
+                    'following', quoted_tweet.following
+                )
+            )
+            FROM tweet_quotes quote_rel
+            JOIN user_posts_view quoted_tweet
+                ON quoted_tweet.tweet_id = quote_rel.original_tweet_id
+            WHERE quote_rel.quote_tweet_id = tweet.tweet_id
+            LIMIT 1
+        ) AS parent_tweet
+        `
+        );
 
-                        'user', json_build_object(
-                            'id', quoted_tweet.tweet_author_id,
-                            'username', quoted_tweet.username,
-                            'name', quoted_tweet.name,
-                            'avatar_url', quoted_tweet.avatar_url,
-                            'verified', quoted_tweet.verified,
-                            'bio', quoted_tweet.bio,
-                            'cover_url', quoted_tweet.cover_url,
-                            'followers', quoted_tweet.followers,
-                            'following', quoted_tweet.following
-                        )
-                    )
-                    ELSE NULL
-                    END`,
-                'parent_tweet'
-            );
         return query;
     }
 
@@ -810,79 +846,74 @@ export class TweetsRepository {
 
     // get replies
     attachRepliedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
-        query
-            .leftJoin('tweet_replies', 'tr', 'tr.reply_tweet_id = tweet.tweet_id')
-
-            // Join parent tweet
-            .leftJoin(
-                'user_posts_view',
-                'replied_tweet',
-                'replied_tweet.tweet_id = tr.original_tweet_id'
+        // Parent tweet (original tweet)
+        query.addSelect(`
+        (
+            SELECT json_build_object(
+                'tweet_id', rt.tweet_id,
+                'content', rt.content,
+                'created_at', rt.post_date,
+                'type', rt.type,
+                'images', rt.images,
+                'videos', rt.videos,
+                'num_likes', rt.num_likes,
+                'num_reposts', rt.num_reposts,
+                'num_views', rt.num_views,
+                'num_replies', rt.num_replies,
+                'num_quotes', rt.num_quotes,
+                'user', json_build_object(
+                    'id', rt.tweet_author_id,
+                    'username', rt.username,
+                    'name', rt.name,
+                    'avatar_url', rt.avatar_url,
+                    'verified', rt.verified,
+                    'bio', rt.bio,
+                    'cover_url', rt.cover_url,
+                    'followers', rt.followers,
+                    'following', rt.following
+                )
             )
+            FROM tweet_replies tr
+            JOIN user_posts_view rt ON rt.tweet_id = tr.original_tweet_id
+            WHERE tr.reply_tweet_id = tweet.tweet_id
+            LIMIT 1
+        ) AS parent_tweet
+    `);
 
-            // Join conversation root tweet
-            .leftJoin(
-                'user_posts_view',
-                'conversation_tweet',
-                'conversation_tweet.tweet_id = tr.conversation_id'
+        // Conversation root tweet
+        query.addSelect(`
+        (
+            SELECT json_build_object(
+                'tweet_id', ct.tweet_id,
+                'content', ct.content,
+                'created_at', ct.post_date,
+                'type', ct.type,
+                'images', ct.images,
+                'videos', ct.videos,
+                'num_likes', ct.num_likes,
+                'num_reposts', ct.num_reposts,
+                'num_views', ct.num_views,
+                'num_replies', ct.num_replies,
+                'num_quotes', ct.num_quotes,
+                'user', json_build_object(
+                    'id', ct.tweet_author_id,
+                    'username', ct.username,
+                    'name', ct.name,
+                    'avatar_url', ct.avatar_url,
+                    'verified', ct.verified,
+                    'bio', ct.bio,
+                    'cover_url', ct.cover_url,
+                    'followers', ct.followers,
+                    'following', ct.following
+                )
             )
-            .addSelect(
-                `CASE WHEN 
-            tweet.type='reply' THEN
-            json_build_object(
-                        'tweet_id', replied_tweet.tweet_id,
-                        'content', replied_tweet.content,
-                        'created_at', replied_tweet.post_date,
-                        'type', replied_tweet.type,
-                        'images', replied_tweet.images,
-                        'videos', replied_tweet.videos,
-                        'num_likes',replied_tweet.num_likes,
-                        'num_reposts',replied_tweet.num_reposts,
-                        'num_views',replied_tweet.num_views,
-                        'num_replies',replied_tweet.num_replies,
-                        'num_quotes',replied_tweet.num_quotes,
-                        'user', json_build_object(
-                            'id', replied_tweet.tweet_author_id,
-                            'username', replied_tweet.username,
-                            'name', replied_tweet.name,
-                            'avatar_url', replied_tweet.avatar_url,
-                            'verified', replied_tweet.verified,
-                            'bio', replied_tweet.bio,
-                            'cover_url', replied_tweet.cover_url,
-                            'followers', replied_tweet.followers,
-                            'following', replied_tweet.following
-                        )
-                    )
-                    ELSE NULL
-                    END AS parent_tweet,
-            CASE WHEN tr.conversation_id IS NOT NULL THEN
-                    json_build_object(
-                        'tweet_id', conversation_tweet.tweet_id,
-                        'content', conversation_tweet.content,
-                        'created_at', conversation_tweet.post_date,
-                        'type', conversation_tweet.type,
-                        'images', conversation_tweet.images,
-                        'videos', conversation_tweet.videos,
-                        'num_likes',conversation_tweet.num_likes,
-                        'num_reposts',conversation_tweet.num_reposts,
-                        'num_views',conversation_tweet.num_views,
-                        'num_replies',conversation_tweet.num_replies,
-                        'num_quotes',conversation_tweet.num_quotes,
-                        'user', json_build_object(
-                            'id', conversation_tweet.tweet_author_id,
-                            'username', conversation_tweet.username,
-                            'name', conversation_tweet.name,
-                            'avatar_url', conversation_tweet.avatar_url,
-                            'verified', conversation_tweet.verified,
-                            'bio', conversation_tweet.bio,
-                            'cover_url', conversation_tweet.cover_url,
-                            'followers', conversation_tweet.followers,
-                            'following', conversation_tweet.following
-                        )
-                    )
-                    ELSE NULL
-                    END AS conversation_tweet`
-            );
+            FROM tweet_replies tr2
+            JOIN user_posts_view ct ON ct.tweet_id = tr2.conversation_id
+            WHERE tr2.reply_tweet_id = tweet.tweet_id
+            LIMIT 1
+        ) AS conversation_tweet
+    `);
+
         return query;
     }
 
