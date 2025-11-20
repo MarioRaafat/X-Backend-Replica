@@ -533,7 +533,9 @@ export class TweetsService {
                     where: { tweet_id: original_tweet_id },
                     select: ['tweet_id'],
                 }),
-                query_runner.manager.findOne(TweetReply, { where: { original_tweet_id } }),
+                query_runner.manager.findOne(TweetReply, {
+                    where: { reply_tweet_id: original_tweet_id },
+                }),
             ]);
 
             if (!original_tweet) throw new NotFoundException('Original tweet not found');
