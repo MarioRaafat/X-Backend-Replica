@@ -469,8 +469,10 @@ export class TweetsRepository {
         limit: number = 10
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         try {
             let query = this.user_posts_view_repository
@@ -545,8 +547,10 @@ export class TweetsRepository {
 
             return {
                 data: tweet_dtos,
-                next_cursor,
-                has_more: tweets.length === limit,
+                pagination: {
+                    next_cursor,
+                    has_more: tweets.length === limit,
+                },
             };
         } catch (error) {
             console.error(error);
@@ -561,8 +565,10 @@ export class TweetsRepository {
         limit: number = 10
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         try {
             // Build query for replies by user
@@ -606,8 +612,10 @@ export class TweetsRepository {
 
             return {
                 data: reply_dtos,
-                next_cursor,
-                has_more: replies.length === limit,
+                pagination: {
+                    next_cursor,
+                    has_more: replies.length === limit,
+                },
             };
         } catch (error) {
             console.error(error);
@@ -622,8 +630,10 @@ export class TweetsRepository {
         limit: number = 10
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         try {
             let query = this.user_posts_view_repository
@@ -698,8 +708,10 @@ export class TweetsRepository {
 
             return {
                 data: tweet_dtos,
-                next_cursor,
-                has_more: tweets.length === limit,
+                pagination: {
+                    next_cursor,
+                    has_more: tweets.length === limit,
+                },
             };
         } catch (error) {
             console.error(error);
@@ -713,8 +725,10 @@ export class TweetsRepository {
         limit: number = 10
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         try {
             let query = this.user_posts_view_repository
@@ -794,8 +808,10 @@ export class TweetsRepository {
 
             return {
                 data: tweet_dtos,
-                next_cursor,
-                has_more: tweets.length === limit,
+                pagination: {
+                    next_cursor,
+                    has_more: tweets.length === limit,
+                },
             };
         } catch (error) {
             console.error(error);

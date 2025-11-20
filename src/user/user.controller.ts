@@ -161,7 +161,6 @@ export class UserController {
         @Param('user_id') target_user_id: string,
         @Query() query_dto: GetFollowersDto
     ) {
-        console.log(query_dto);
         return await this.user_service.getFollowers(current_user_id, target_user_id, query_dto);
     }
 

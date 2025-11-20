@@ -188,8 +188,10 @@ export class UserService {
 
         return {
             data: users,
-            next_cursor,
-            has_more: users.length === limit,
+            pagination: {
+                next_cursor,
+                has_more: users.length === limit,
+            },
         };
     }
 
@@ -226,8 +228,10 @@ export class UserService {
 
         return {
             data: users,
-            next_cursor,
-            has_more: users.length === limit,
+            pagination: {
+                next_cursor,
+                has_more: users.length === limit,
+            },
         };
     }
 
@@ -257,8 +261,10 @@ export class UserService {
 
         return {
             data: users,
-            next_cursor,
-            has_more: users.length === limit,
+            pagination: {
+                next_cursor,
+                has_more: users.length === limit,
+            },
         };
     }
 
@@ -288,8 +294,10 @@ export class UserService {
 
         return {
             data: users,
-            next_cursor,
-            has_more: users.length === limit,
+            pagination: {
+                next_cursor,
+                has_more: users.length === limit,
+            },
         };
     }
 
@@ -434,8 +442,10 @@ export class UserService {
         query_dto: CursorPaginationDto
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         const { cursor, limit } = query_dto;
         return await this.tweets_repository.getLikedPostsByUserId(current_user_id, cursor, limit);
@@ -445,7 +455,13 @@ export class UserService {
         current_user_id: string | null,
         target_user_id: string,
         query_dto: CursorPaginationDto
-    ) {
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+    }> {
         const { cursor, limit } = query_dto;
         return await this.tweets_repository.getPostsByUserId(
             target_user_id,
@@ -461,8 +477,10 @@ export class UserService {
         query_dto: CursorPaginationDto
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         const { cursor, limit } = query_dto;
         return await this.tweets_repository.getRepliesByUserId(
@@ -479,8 +497,10 @@ export class UserService {
         query_dto: CursorPaginationDto
     ): Promise<{
         data: TweetResponseDTO[];
-        next_cursor: string | null;
-        has_more: boolean;
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
     }> {
         const { cursor, limit } = query_dto;
         return await this.tweets_repository.getMediaByUserId(
