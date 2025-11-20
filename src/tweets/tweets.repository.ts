@@ -119,13 +119,15 @@ export class TweetsRepository {
                 'tweet_id'
             );
 
-            const tweets = await query.getRawMany();
+            let tweets = await query.getRawMany();
+            tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
                 plainToInstance(TweetResponseDTO, reply, {
                     excludeExtraneousValues: true,
                 })
             );
+            console.log(tweets);
             // generate next cursor
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
@@ -1129,5 +1131,20 @@ export class TweetsRepository {
             console.log(error);
             throw error;
         }
+    }
+
+    //TODO: Attach user likes
+
+    attachUserFollowFlags(tweets: any[]) {
+        return tweets.map((t) => {
+            if (t.user) {
+                t.user = {
+                    ...t.user,
+                    is_following: t.is_following ?? false,
+                    is_follower: t.is_follower ?? false,
+                };
+            }
+            return t;
+        });
     }
 }
