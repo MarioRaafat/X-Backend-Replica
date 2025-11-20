@@ -48,6 +48,7 @@ import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 import { categorize_prompt, TOPICS } from './constants';
+import { ReplyRestrictionService } from './services/reply-restriction.service';
 
 @Injectable()
 export class TweetsService {
@@ -71,7 +72,8 @@ export class TweetsService {
         private data_source: DataSource,
         private readonly paginate_service: PaginationService,
         private readonly tweets_repository: TweetsRepository,
-        private readonly azure_storage_service: AzureStorageService
+        private readonly azure_storage_service: AzureStorageService,
+        private readonly reply_restriction_service: ReplyRestrictionService
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
@@ -225,9 +227,16 @@ export class TweetsService {
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
             await query_runner.commitTransaction();
 
-            return plainToInstance(TweetResponseDTO, saved_tweet, {
+            const tweet_dto = plainToInstance(TweetResponseDTO, saved_tweet, {
                 excludeExtraneousValues: true,
             });
+
+            tweet_dto.can_reply = await this.reply_restriction_service.canReply(
+                saved_tweet.tweet_id,
+                user_id
+            );
+
+            return tweet_dto;
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -263,10 +272,13 @@ export class TweetsService {
             const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
             await query_runner.commitTransaction();
 
-            // return TweetMapper.toDTO(tweet_with_type_info);
-            return plainToInstance(TweetResponseDTO, updated_tweet, {
+            const tweet_dto = plainToInstance(TweetResponseDTO, updated_tweet, {
                 excludeExtraneousValues: true,
             });
+
+            tweet_dto.can_reply = await this.reply_restriction_service.canReply(tweet_id, user_id);
+
+            return tweet_dto;
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -523,6 +535,8 @@ export class TweetsService {
         user_id: string,
         reply_dto: CreateTweetDTO
     ): Promise<TweetResponseDTO> {
+        await this.reply_restriction_service.validateReplyPermission(original_tweet_id, user_id);
+
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
         await query_runner.startTransaction();
@@ -883,6 +897,11 @@ export class TweetsService {
                 excludeExtraneousValues: true,
             });
 
+            tweet_dto.can_reply = await this.reply_restriction_service.canReply(
+                tweet_id,
+                current_user_id || null
+            );
+
             // If this is a reply, delegate to getReplyWithUserById to get the cascaded parent tweets
             if (flag && tweet.type === TweetType.REPLY) {
                 const parent_tweet_dto = await this.getReplyWithUserById(tweet_id, current_user_id);
@@ -946,6 +965,11 @@ export class TweetsService {
                 const tweet_dto = plainToInstance(TweetResponseDTO, raw_tweet, {
                     excludeExtraneousValues: true,
                 });
+
+                tweet_dto.can_reply = await this.reply_restriction_service.canReply(
+                    raw_tweet.tweet_id,
+                    current_user_id || null
+                );
 
                 // Attach parent from previous iteration
                 if (parent_tweet_dto) tweet_dto.parent_tweet = parent_tweet_dto;

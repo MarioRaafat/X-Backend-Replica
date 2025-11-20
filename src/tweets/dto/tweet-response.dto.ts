@@ -154,6 +154,13 @@ export class TweetResponseDTO {
 
     @Expose()
     @ApiProperty({
+        description: 'Whether the current user can reply to this tweet based on reply restrictions',
+        example: true,
+    })
+    can_reply: boolean;
+
+    @Expose()
+    @ApiProperty({
         description:
             'User who reposted this tweet (only present when this appears in timeline as a repost)',
         type: RepostedByUserDTO,

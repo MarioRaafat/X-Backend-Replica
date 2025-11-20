@@ -17,6 +17,7 @@ import { TweetReply } from './tweet-reply.entity';
 import { TweetBookmark } from './tweet-bookmark.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
 import { TweetType } from '../../shared/enums/tweet-types.enum';
+import { ReplyRestriction } from '../../shared/enums/reply-restriction.enum';
 
 // removed conversation_id
 @Entity('tweets')
@@ -30,6 +31,16 @@ export class Tweet {
     // nullable should be true
     @Column({ type: 'enum', enum: TweetType, nullable: true })
     type: TweetType;
+
+    @Column({
+        type: 'enum',
+        enum: ReplyRestriction,
+        default: ReplyRestriction.EVERYONE,
+    })
+    reply_restriction: ReplyRestriction;
+
+    @Column({ type: 'uuid', array: true, default: '{}' })
+    mentions: string[];
 
     @Column({ type: 'text', nullable: true })
     content: string;

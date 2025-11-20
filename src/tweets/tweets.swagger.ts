@@ -243,17 +243,60 @@ export const get_tweet_by_id_swagger = {
     operation: {
         summary: 'Get a tweet by ID',
         description:
-            'Retrieves a specific tweet by its unique identifier.\n\n' +
-            '**Response Structure:**\n' +
-            '- `type`: Can be "tweet", "reply", "quote", or "repost"\n' +
-            '- `parent_tweet_id`: Optional - only present for replies, quotes, and reposts\n' +
-            '- `conversation_id`: Optional - only present for replies\n' +
-            '- `replies`: Optional - nested object containing paginated replies with:\n' +
-            '  - `data`: Array of reply tweets\n' +
-            '  - `count`: Number of replies in current response\n' +
-            '  - `next_cursor`: Cursor for fetching next page of replies\n' +
-            '  - `has_more`: Boolean indicating if more replies exist\n\n' +
-            '**Pagination:**\n' +
+            'Retrieves a single tweet by its ID with comprehensive details about all fields.\n\n' +
+            '**AUTHENTICATION:**\n' +
+            '- Works for both authenticated and anonymous users\n' +
+            '- Authenticated users see personalized data (is_liked, is_reposted, is_bookmarked, can_reply)\n' +
+            '- Anonymous users receive default values (false) for all interaction states\n\n' +
+            '**TWEET TYPES:**\n' +
+            'The `type` field indicates the tweet variety:\n' +
+            '- `tweet`: Original standalone tweet\n' +
+            '- `reply`: Reply to another tweet (includes parent_tweet_id and parent_tweet with full chain)\n' +
+            '- `quote`: Quote tweet referencing another tweet\n' +
+            '- `repost`: Repost of another tweet\n\n' +
+            '**CORE FIELDS (Always Present):**\n' +
+            '- `tweet_id`: Unique tweet identifier (UUID)\n' +
+            '- `type`: Tweet type (tweet/reply/quote/repost)\n' +
+            '- `content`: Tweet text content (null for pure media tweets)\n' +
+            '- `images`: Array of image URLs (empty array if none)\n' +
+            '- `videos`: Array of video URLs (empty array if none)\n' +
+            '- `user`: Complete author profile information\n' +
+            '- `created_at`: Tweet creation timestamp (ISO 8601)\n' +
+            '- `updated_at`: Last update timestamp (ISO 8601)\n\n' +
+            '**ENGAGEMENT METRICS (Always Present):**\n' +
+            '- `likes_count`: Number of likes\n' +
+            '- `reposts_count`: Number of reposts\n' +
+            '- `views_count`: Number of views\n' +
+            '- `quotes_count`: Number of quote tweets\n' +
+            '- `replies_count`: Number of direct replies\n' +
+            '- `bookmarks_count`: Number of bookmarks\n\n' +
+            '**USER INTERACTION STATES (Always Present):**\n' +
+            '- `is_liked`: Whether current user liked this tweet (false for anonymous)\n' +
+            '- `is_reposted`: Whether current user reposted this tweet (false for anonymous)\n' +
+            '- `is_bookmarked`: Whether current user bookmarked this tweet (false for anonymous)\n' +
+            '- `can_reply`: Whether current user can reply based on reply restrictions (false for anonymous or blocked users)\n\n' +
+            '**REPLY RESTRICTION FIELDS:**\n' +
+            '- `reply_restriction`: Who can reply - EVERYONE (default), FOLLOWED, MENTIONED, or VERIFIED (only present if explicitly set)\n' +
+            '- `mentions`: Array of mentioned user IDs (UUID[]) - only present if users are mentioned\n\n' +
+            '**CONDITIONAL FIELDS:**\n' +
+            '- `parent_tweet_id`: UUID of parent tweet (only for replies and quotes)\n' +
+            '- `parent_tweet`: Full parent tweet object with recursive chain (only for replies, includes nested parent tweets up to root)\n' +
+            '- `replies`: Paginated direct replies object (only present if tweet has replies)\n' +
+            '  - `data`: Array of reply tweet objects\n' +
+            '  - `count`: Total number of replies\n' +
+            '  - `next_cursor`: Cursor for next page (format: "timestamp_tweetid")\n' +
+            '  - `has_more`: Boolean indicating more replies exist\n' +
+            '- `reposted_by`: User who reposted (only in timeline contexts, not direct fetches)\n\n' +
+            '**REPLY RESTRICTIONS INHERITANCE:**\n' +
+            'Reply restrictions are inherited from the conversation root tweet. When checking `can_reply`:\n' +
+            '- For replies: The restriction of the original/root tweet applies to entire conversation\n' +
+            '- Checks consider: user authentication, blocks, follow status, mentions, verification\n' +
+            '- Returns false if user is blocked by tweet author or conversation root author\n\n' +
+            '**PAGINATION:**\n' +
+            '- Replies use cursor-based pagination with format: `{timestamp}_{tweet_id}`\n' +
+            '- Ordered by creation time (newest first)\n' +
+            '- Use `next_cursor` from response to fetch next page\n' +
+            '- `has_more` indicates if additional pages exist\n' +
             '- Default limit for replies: 20\n' +
             '- Nested replies (replies to replies) are included if from original tweet author',
     },
@@ -268,31 +311,38 @@ export const get_tweet_by_id_swagger = {
     responses: {
         success: {
             description:
-                'Tweet retrieved successfully with paginated replies. Example shows a tweet with nested reply structure.',
+                'Original tweet with reply restrictions and paginated replies. Shows all possible fields for authenticated user.',
             schema: {
                 example: {
                     data: {
                         tweet_id: '550e8400-e29b-41d4-a716-446655440000',
                         type: 'tweet',
-                        content: 'This is my first tweet!',
+                        content:
+                            'Important announcement! Only people I follow can reply to this thread.',
                         images: [
                             'https://example.com/image1.jpg',
                             'https://example.com/image2.jpg',
                         ],
-                        videos: ['https://example.com/video1.mp4'],
+                        videos: [],
+                        reply_restriction: 'FOLLOWED',
+                        mentions: [
+                            '770e8400-e29b-41d4-a716-446655440005',
+                            '770e8400-e29b-41d4-a716-446655440006',
+                        ],
                         likes_count: 42,
                         reposts_count: 15,
                         views_count: 1250,
                         quotes_count: 8,
                         replies_count: 23,
-                        bookmarks_count: 10,
+                        bookmarks_count: 12,
                         is_liked: true,
                         is_reposted: false,
                         is_bookmarked: true,
-                        created_at: '2025-10-31T12:00:00.000Z',
-                        updated_at: '2025-10-31T12:00:00.000Z',
+                        can_reply: true,
+                        created_at: '2024-10-18T12:00:00.000Z',
+                        updated_at: '2024-10-18T12:30:00.000Z',
                         user: {
-                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                            id: '660e8400-e29b-41d4-a716-446655440000',
                             username: 'johndoe',
                             name: 'John Doe',
                             avatar_url:
@@ -304,54 +354,35 @@ export const get_tweet_by_id_swagger = {
                                 {
                                     tweet_id: '550e8400-e29b-41d4-a716-446655440001',
                                     type: 'reply',
-                                    content: 'Great tweet!',
-                                    parent_tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                                    content:
+                                        'Great announcement! Totally agree with this approach.',
                                     images: [],
                                     videos: [],
+                                    parent_tweet_id: '550e8400-e29b-41d4-a716-446655440000',
                                     likes_count: 5,
-                                    reposts_count: 1,
-                                    views_count: 50,
+                                    reposts_count: 0,
+                                    views_count: 120,
                                     quotes_count: 0,
-                                    replies_count: 1,
-                                    bookmarks_count: 2,
+                                    replies_count: 2,
+                                    bookmarks_count: 1,
                                     is_liked: false,
                                     is_reposted: false,
                                     is_bookmarked: false,
-                                    created_at: '2025-10-31T12:05:00.000Z',
-                                    updated_at: '2025-10-31T12:05:00.000Z',
+                                    can_reply: true,
+                                    created_at: '2024-10-18T12:15:00.000Z',
+                                    updated_at: '2024-10-18T12:15:00.000Z',
                                     user: {
-                                        id: '16945dc1-7853-46db-93b9-3f4201cfb77f',
+                                        id: '660e8400-e29b-41d4-a716-446655440001',
                                         username: 'janedoe',
                                         name: 'Jane Doe',
                                         avatar_url: 'https://example.com/avatar.jpg',
                                         verified: false,
                                     },
-                                    replies: {
-                                        data: [
-                                            {
-                                                tweet_id: '550e8400-e29b-41d4-a716-446655440002',
-                                                type: 'reply',
-                                                content: 'Thank you!',
-                                                parent_tweet_id:
-                                                    '550e8400-e29b-41d4-a716-446655440001',
-                                                user: {
-                                                    id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
-                                                    username: 'johndoe',
-                                                    name: 'John Doe',
-                                                },
-                                                likes_count: 2,
-                                                created_at: '2025-10-31T12:06:00.000Z',
-                                            },
-                                        ],
-                                        count: 1,
-                                        next_cursor: null,
-                                        has_more: false,
-                                    },
                                 },
                             ],
                             count: 20,
                             next_cursor:
-                                '2025-10-31T12:30:00.000Z_550e8400-e29b-41d4-a716-446655440020',
+                                '2024-10-18T12:15:00.000Z_550e8400-e29b-41d4-a716-446655440001',
                             has_more: true,
                         },
                     },
@@ -362,35 +393,166 @@ export const get_tweet_by_id_swagger = {
         },
         successReply: {
             description:
-                'Reply tweet retrieved successfully. Note the presence of parent_tweet_id and conversation_id.',
+                'Reply tweet with full parent chain and inherited reply restrictions. Shows how restrictions apply to entire conversation.',
             schema: {
                 example: {
                     data: {
-                        tweet_id: '7a4ff9f3-fcb2-4583-b7ca-b7aa88339ae8',
+                        tweet_id: '550e8400-e29b-41d4-a716-446655440002',
                         type: 'reply',
-                        parent_tweet_id: '4a85c7dd-1559-480c-80f4-5e8a03434b3b',
-                        conversation_id: '87911054-0f61-452c-ad69-f896e45e82a8',
-                        content: 'This is a reply tweet!',
-                        images: ['https://example.com/image1.jpg'],
-                        videos: [],
-                        likes_count: 5,
-                        reposts_count: 1,
-                        views_count: 120,
-                        quotes_count: 0,
-                        replies_count: 2,
-                        bookmarks_count: 2,
+                        content: 'This is a nested reply in the conversation',
+                        images: [],
+                        videos: ['https://example.com/response-video.mp4'],
+                        parent_tweet_id: '550e8400-e29b-41d4-a716-446655440001',
+                        parent_tweet: {
+                            tweet_id: '550e8400-e29b-41d4-a716-446655440001',
+                            type: 'reply',
+                            content: 'First reply to the original tweet',
+                            images: [],
+                            videos: [],
+                            parent_tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                            parent_tweet: {
+                                tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                                type: 'tweet',
+                                content: 'Original root tweet with VERIFIED reply restriction',
+                                images: ['https://example.com/original-image.jpg'],
+                                videos: [],
+                                reply_restriction: 'VERIFIED',
+                                likes_count: 42,
+                                reposts_count: 15,
+                                views_count: 1250,
+                                quotes_count: 8,
+                                replies_count: 23,
+                                bookmarks_count: 12,
+                                is_liked: false,
+                                is_reposted: false,
+                                is_bookmarked: false,
+                                can_reply: false,
+                                created_at: '2024-10-18T10:00:00.000Z',
+                                updated_at: '2024-10-18T10:00:00.000Z',
+                                user: {
+                                    id: '660e8400-e29b-41d4-a716-446655440002',
+                                    username: 'originalauthor',
+                                    name: 'Original Author',
+                                    avatar_url:
+                                        'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                                    verified: true,
+                                },
+                            },
+                            likes_count: 12,
+                            reposts_count: 3,
+                            views_count: 450,
+                            quotes_count: 1,
+                            replies_count: 8,
+                            bookmarks_count: 5,
+                            is_liked: true,
+                            is_reposted: false,
+                            is_bookmarked: false,
+                            can_reply: false,
+                            created_at: '2024-10-18T10:30:00.000Z',
+                            updated_at: '2024-10-18T10:30:00.000Z',
+                            user: {
+                                id: '660e8400-e29b-41d4-a716-446655440003',
+                                username: 'verifieduser',
+                                name: 'Verified User',
+                                avatar_url: 'https://example.com/verified-profile.jpg',
+                                verified: true,
+                            },
+                        },
+                        likes_count: 8,
+                        reposts_count: 2,
+                        views_count: 350,
+                        quotes_count: 1,
+                        replies_count: 5,
+                        bookmarks_count: 3,
                         is_liked: true,
                         is_reposted: false,
                         is_bookmarked: false,
-                        created_at: '2025-10-31T05:04:29.187Z',
-                        updated_at: '2025-10-31T05:04:29.187Z',
+                        can_reply: false,
+                        created_at: '2024-10-18T11:30:00.000Z',
+                        updated_at: '2024-10-18T11:30:00.000Z',
                         user: {
-                            id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
-                            username: 'mreazi',
-                            name: 'Don Eazi',
-                            avatar_url:
-                                'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                            id: '660e8400-e29b-41d4-a716-446655440001',
+                            username: 'replier',
+                            name: 'Reply User',
+                            avatar_url: 'https://example.com/replier-profile.jpg',
+                            verified: false,
+                        },
+                    },
+                    count: 1,
+                    message: 'Tweet retrieved successfully',
+                },
+            },
+        },
+        successAnonymous: {
+            description:
+                'Response for anonymous (unauthenticated) user - all interaction states (is_liked, is_reposted, is_bookmarked, can_reply) are false',
+            schema: {
+                example: {
+                    data: {
+                        tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                        type: 'tweet',
+                        content: 'Public tweet visible to everyone',
+                        images: [],
+                        videos: [],
+                        likes_count: 100,
+                        reposts_count: 25,
+                        views_count: 5000,
+                        quotes_count: 10,
+                        replies_count: 50,
+                        bookmarks_count: 30,
+                        is_liked: false,
+                        is_reposted: false,
+                        is_bookmarked: false,
+                        can_reply: false,
+                        created_at: '2024-10-18T12:00:00.000Z',
+                        updated_at: '2024-10-18T12:00:00.000Z',
+                        user: {
+                            id: '660e8400-e29b-41d4-a716-446655440000',
+                            username: 'publicuser',
+                            name: 'Public User',
+                            avatar_url: 'https://example.com/public-profile.jpg',
                             verified: true,
+                        },
+                    },
+                    count: 1,
+                    message: 'Tweet retrieved successfully',
+                },
+            },
+        },
+        successMentioned: {
+            description:
+                'Tweet with MENTIONED reply restriction - only mentioned users can reply. Shows mentions array with user IDs.',
+            schema: {
+                example: {
+                    data: {
+                        tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                        type: 'tweet',
+                        content: 'Hey @alice @bob, what do you think about this?',
+                        images: [],
+                        videos: [],
+                        reply_restriction: 'MENTIONED',
+                        mentions: [
+                            '770e8400-e29b-41d4-a716-446655440010',
+                            '770e8400-e29b-41d4-a716-446655440011',
+                        ],
+                        likes_count: 20,
+                        reposts_count: 5,
+                        views_count: 500,
+                        quotes_count: 2,
+                        replies_count: 4,
+                        bookmarks_count: 8,
+                        is_liked: false,
+                        is_reposted: false,
+                        is_bookmarked: false,
+                        can_reply: true,
+                        created_at: '2024-10-18T15:00:00.000Z',
+                        updated_at: '2024-10-18T15:00:00.000Z',
+                        user: {
+                            id: '660e8400-e29b-41d4-a716-446655440000',
+                            username: 'restricteduser',
+                            name: 'Restricted User',
+                            avatar_url: 'https://example.com/restricted-profile.jpg',
+                            verified: false,
                         },
                     },
                     count: 1,

@@ -2,7 +2,7 @@ import { DataSource, Repository } from 'typeorm';
 import { Tweet, TweetLike, TweetReply, TweetRepost } from './entities';
 import { TweetBookmark } from './entities/tweet-bookmark.entity';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Injectable } from '@nestjs/common';
+import { Injectable, forwardRef, Inject } from '@nestjs/common';
 import { TimelineResponseDto } from 'src/timeline/dto/timeline-response.dto';
 import { TimelinePaginationDto } from 'src/timeline/dto/timeline-pagination.dto';
 import { TweetResponseDTO } from './dto';
@@ -13,6 +13,7 @@ import { UserFollows } from 'src/user/entities';
 import { getReplyWithParentChainQuery } from './queries/reply-parent-chain.query';
 import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
 import { SelectQueryBuilder } from 'typeorm/browser';
+import { ReplyRestrictionService } from './services/reply-restriction.service';
 
 @Injectable()
 export class TweetsRepository {
@@ -24,7 +25,9 @@ export class TweetsRepository {
         @InjectRepository(TweetRepost)
         private readonly tweet_repost_repository: Repository<TweetRepost>,
         private readonly paginate_service: PaginationService,
-        private data_source: DataSource
+        private data_source: DataSource,
+        @Inject(forwardRef(() => ReplyRestrictionService))
+        private readonly reply_restriction_service: ReplyRestrictionService
     ) {}
 
     async getFollowingTweets(
@@ -162,6 +165,8 @@ export class TweetsRepository {
         const has_more = all_tweets.length > limit;
         const tweets = has_more ? all_tweets.slice(0, limit) : all_tweets;
 
+        await this.populateCanReply(tweets, user_id);
+
         const next_cursor = has_more
             ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
             : null;
@@ -247,6 +252,8 @@ export class TweetsRepository {
         const has_more = all_tweets.length > limit;
         const tweets = has_more ? all_tweets.slice(0, limit) : all_tweets;
 
+        await this.populateCanReply(tweets, user_id);
+
         const next_cursor = has_more
             ? `${tweets[tweets.length - 1].created_at.toISOString()}_${tweets[tweets.length - 1].tweet_id}`
             : null;
@@ -285,6 +292,7 @@ export class TweetsRepository {
                 is_liked: row.is_liked === true,
                 is_reposted: row.is_reposted === true,
                 is_bookmarked: row.is_bookmarked === true,
+                can_reply: false,
                 created_at: row.tweet_created_at,
                 updated_at: row.tweet_updated_at,
             };
@@ -364,6 +372,7 @@ export class TweetsRepository {
                 is_liked: row.is_liked === true,
                 is_reposted: row.is_reposted === true,
                 is_bookmarked: row.is_bookmarked === true,
+                can_reply: false,
                 created_at: row.tweet_created_at,
                 updated_at: row.tweet_updated_at,
             };
@@ -520,6 +529,8 @@ export class TweetsRepository {
                 })
             );
 
+            await this.populateCanReply(tweets_with_nested, user_id);
+
             const next_cursor = has_more
                 ? this.paginate_service.generateNextCursor(
                       tweets_with_nested,
@@ -530,6 +541,8 @@ export class TweetsRepository {
 
             return { tweets: tweets_with_nested, next_cursor };
         }
+
+        await this.populateCanReply(tweets, user_id);
 
         const next_cursor = has_more
             ? this.paginate_service.generateNextCursor(tweets, 'created_at', 'tweet_id')
@@ -623,6 +636,8 @@ export class TweetsRepository {
             // Generate next cursor using pagination service
             const next_cursor = this.paginate_service.generateNextCursor(posts, 'post_date', 'id');
 
+            await this.populateCanReply(tweet_dtos, current_user_id || null);
+
             return {
                 data: tweet_dtos,
                 next_cursor,
@@ -685,6 +700,8 @@ export class TweetsRepository {
                 'created_at',
                 'tweet_id'
             );
+
+            await this.populateCanReply(reply_dtos, current_user_id || null);
 
             return {
                 data: reply_dtos,
@@ -815,6 +832,8 @@ export class TweetsRepository {
                 'tweet_id'
             );
 
+            await this.populateCanReply(tweet_dtos, current_user_id || null);
+
             return {
                 data: tweet_dtos,
                 next_cursor,
@@ -916,6 +935,8 @@ export class TweetsRepository {
                       )
                     : null;
 
+            await this.populateCanReply(tweet_dtos, current_user_id || null);
+
             return {
                 data: tweet_dtos,
                 next_cursor,
@@ -994,5 +1015,41 @@ export class TweetsRepository {
         } finally {
             await query_runner.release();
         }
+    }
+
+    /**
+     * @param tweets - Array of tweet DTOs to populate with can_reply field
+     * @param current_user_id - The authenticated user's ID checking permissions (null for anonymous)
+     * @returns {Promise<void>} Modifies tweets in-place, setting can_reply to true/false
+     */
+    async populateCanReply(
+        tweets: TweetResponseDTO[],
+        current_user_id: string | null
+    ): Promise<void> {
+        if (!tweets || tweets.length === 0) {
+            return;
+        }
+
+        await Promise.all(
+            tweets.map(async (tweet) => {
+                tweet.can_reply = await this.reply_restriction_service.canReply(
+                    tweet.tweet_id,
+                    current_user_id
+                );
+
+                // Recursively populate for nested replies
+                if (tweet.replies?.data && tweet.replies.data.length > 0) {
+                    await this.populateCanReply(tweet.replies.data, current_user_id);
+                }
+
+                // Recursively populate for parent tweet
+                if (tweet.parent_tweet) {
+                    tweet.parent_tweet.can_reply = await this.reply_restriction_service.canReply(
+                        tweet.parent_tweet.tweet_id,
+                        current_user_id
+                    );
+                }
+            })
+        );
     }
 }
