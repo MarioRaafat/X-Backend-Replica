@@ -38,8 +38,10 @@ export const create_tweet_swagger = {
                         views_count: 0,
                         quotes_count: 0,
                         replies_count: 0,
+                        bookmarks_count: 0,
                         is_liked: false,
                         is_reposted: false,
+                        is_bookmarked: false,
                         created_at: '2025-10-31T12:00:00.000Z',
                         updated_at: '2025-10-31T12:00:00.000Z',
                         user: {
@@ -147,8 +149,10 @@ export const get_all_tweets_swagger = {
                             views_count: 1250,
                             quotes_count: 8,
                             replies_count: 23,
+                            bookmarks_count: 10,
                             is_liked: false,
                             is_reposted: false,
+                            is_bookmarked: false,
                             created_at: '2025-10-31T12:00:00.000Z',
                             updated_at: '2025-10-31T12:00:00.000Z',
                             user: {
@@ -174,8 +178,10 @@ export const get_all_tweets_swagger = {
                             views_count: 120,
                             quotes_count: 0,
                             replies_count: 2,
+                            bookmarks_count: 3,
                             is_liked: true,
                             is_reposted: false,
+                            is_bookmarked: false,
                             created_at: '2025-10-31T05:04:29.187Z',
                             updated_at: '2025-10-31T05:04:29.187Z',
                             user: {
@@ -200,8 +206,10 @@ export const get_all_tweets_swagger = {
                             views_count: 5000,
                             quotes_count: 12,
                             replies_count: 30,
+                            bookmarks_count: 25,
                             is_liked: false,
                             is_reposted: true,
+                            is_bookmarked: true,
                             created_at: '2025-10-30T14:30:00.000Z',
                             updated_at: '2025-10-30T14:30:00.000Z',
                             user: {
@@ -271,8 +279,10 @@ export const get_tweet_by_id_swagger = {
                         views_count: 1250,
                         quotes_count: 8,
                         replies_count: 23,
+                        bookmarks_count: 10,
                         is_liked: true,
                         is_reposted: false,
+                        is_bookmarked: true,
                         created_at: '2025-10-31T12:00:00.000Z',
                         updated_at: '2025-10-31T12:00:00.000Z',
                         user: {
@@ -307,8 +317,10 @@ export const get_tweet_by_id_swagger = {
                         views_count: 120,
                         quotes_count: 0,
                         replies_count: 2,
+                        bookmarks_count: 2,
                         is_liked: true,
                         is_reposted: false,
+                        is_bookmarked: false,
                         created_at: '2025-10-31T05:04:29.187Z',
                         updated_at: '2025-10-31T05:04:29.187Z',
                         user: {
@@ -364,8 +376,10 @@ export const update_tweet_swagger = {
                         views_count: 1250,
                         quotes_count: 8,
                         replies_count: 23,
+                        bookmarks_count: 10,
                         is_liked: true,
                         is_reposted: false,
+                        is_bookmarked: true,
                         created_at: '2025-10-31T12:00:00.000Z',
                         updated_at: '2025-10-31T15:30:00.000Z',
                         user: {
@@ -523,8 +537,10 @@ export const quote_tweet_swagger = {
                         views_count: 0,
                         quotes_count: 0,
                         replies_count: 0,
+                        bookmarks_count: 0,
                         is_liked: false,
                         is_reposted: false,
+                        is_bookmarked: false,
                         created_at: '2025-10-31T12:15:00.000Z',
                         updated_at: '2025-10-31T12:15:00.000Z',
                         user: {
@@ -590,8 +606,10 @@ export const reply_to_tweet_swagger = {
                         views_count: 0,
                         quotes_count: 0,
                         replies_count: 0,
+                        bookmarks_count: 0,
                         is_liked: false,
                         is_reposted: false,
+                        is_bookmarked: false,
                         created_at: '2025-10-31T05:04:29.187Z',
                         updated_at: '2025-10-31T05:04:29.187Z',
                         user: {
@@ -656,6 +674,57 @@ export const unlike_tweet_swagger = {
             schema: {
                 example: {
                     message: 'Tweet unliked successfully',
+                },
+            },
+        },
+    },
+};
+
+export const bookmark_tweet_swagger = {
+    operation: {
+        summary: 'Bookmark a tweet',
+        description:
+            'Adds a bookmark to a tweet. A user can only bookmark a tweet once. User ID is from JWT token.',
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'Tweet ID to bookmark (UUID format)',
+        example: UUID_EXAMPLE,
+    },
+
+    responses: {
+        noContent: {
+            description: 'Tweet bookmarked successfully',
+            schema: {
+                example: {
+                    message: 'Tweet bookmarked successfully',
+                },
+            },
+        },
+    },
+};
+
+export const unbookmark_tweet_swagger = {
+    operation: {
+        summary: 'Unbookmark a tweet',
+        description: 'Removes a bookmark from a tweet. User ID is from JWT token.',
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'Tweet ID to unbookmark (UUID format)',
+        example: UUID_EXAMPLE,
+    },
+
+    responses: {
+        noContent: {
+            description: 'Tweet unbookmarked successfully',
+            schema: {
+                example: {
+                    message: 'Tweet unbookmarked successfully',
                 },
             },
         },
@@ -1060,8 +1129,10 @@ Returns full tweet objects for each quote tweet:
                             views_count: 156,
                             quotes_count: 1,
                             replies_count: 4,
+                            bookmarks_count: 5,
                             is_liked: false,
                             is_reposted: false,
+                            is_bookmarked: false,
                             created_at: '2025-10-31T14:30:00.000Z',
                             updated_at: '2025-10-31T14:30:00.000Z',
                             user: {
@@ -1129,8 +1200,10 @@ export const get_tweet_replies_swagger = {
                             views_count: 50,
                             quotes_count: 0,
                             replies_count: 0,
+                            bookmarks_count: 1,
                             is_liked: false,
                             is_reposted: false,
+                            is_bookmarked: false,
                             created_at: '2025-10-31T11:30:00.000Z',
                             updated_at: '2025-10-31T11:30:00.000Z',
                             user: {

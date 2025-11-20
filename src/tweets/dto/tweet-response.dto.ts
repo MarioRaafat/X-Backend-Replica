@@ -118,6 +118,14 @@ export class TweetResponseDTO {
     replies_count: number;
 
     @Expose()
+    @Transform(({ obj }) => obj.num_bookmarks)
+    @ApiProperty({
+        description: 'Number of bookmarks',
+        example: 15,
+    })
+    bookmarks_count: number;
+
+    @Expose()
     @Transform(({ obj }) => !!obj.current_user_like || obj.is_liked)
     @ApiProperty({
         description: 'Whether the current user has liked this tweet',
@@ -132,6 +140,14 @@ export class TweetResponseDTO {
         example: false,
     })
     is_reposted: boolean;
+
+    @Expose()
+    @Transform(({ obj }) => !!obj.current_user_bookmark)
+    @ApiProperty({
+        description: 'Whether the current user has bookmarked this tweet',
+        example: false,
+    })
+    is_bookmarked: boolean;
 
     @Expose()
     @ApiProperty({
