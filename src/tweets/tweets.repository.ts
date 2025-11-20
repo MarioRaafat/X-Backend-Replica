@@ -112,7 +112,7 @@ export class TweetsRepository {
             query = this.attachRepostInfo(query);
 
             console.log('===================================');
-            query = this.attachRepliedTweetQuery(query);
+            query = this.attachRepliedTweetQuery(query, user_id);
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
@@ -121,8 +121,12 @@ export class TweetsRepository {
                 'tweet_id'
             );
 
+            console.log('=== FINAL QUERY ===');
+            console.log(query.getQuery());
+            console.log('=== PARAMETERS ===');
+            console.log(query.getParameters());
+
             let tweets = await query.getRawMany();
-            console.log(tweets);
             tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
@@ -857,97 +861,38 @@ export class TweetsRepository {
         return query;
     }
 
-    // get replies
-    //     attachRepliedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
-    //         // Parent tweet (original tweet)
-    //         query.addSelect(`
-    //         (
-    //             SELECT json_build_object(
-    //                 'tweet_id', rt.tweet_id,
-    //                 'content', rt.content,
-    //                 'created_at', rt.post_date,
-    //                 'type', rt.type,
-    //                 'images', rt.images,
-    //                 'videos', rt.videos,
-    //                 'num_likes', rt.num_likes,
-    //                 'num_reposts', rt.num_reposts,
-    //                 'num_views', rt.num_views,
-    //                 'num_replies', rt.num_replies,
-    //                 'num_quotes', rt.num_quotes,
-    //                 'user', json_build_object(
-    //                     'id', rt.tweet_author_id,
-    //                     'username', rt.username,
-    //                     'name', rt.name,
-    //                     'avatar_url', rt.avatar_url,
-    //                     'verified', rt.verified,
-    //                     'bio', rt.bio,
-    //                     'cover_url', rt.cover_url,
-    //                     'followers', rt.followers,
-    //                     'following', rt.following
-    //                 )
-    //             )
-    //             FROM tweet_replies tr
-    //             JOIN user_posts_view rt ON rt.tweet_id = tr.original_tweet_id
-    //             WHERE tr.reply_tweet_id = tweet.tweet_id
-    //             LIMIT 1
-    //         ) AS parent_tweet
-    //     `);
-
-    //         // Conversation root tweet
-    //         query.addSelect(`
-    //         (
-    //             SELECT json_build_object(
-    //                 'tweet_id', ct.tweet_id,
-    //                 'content', ct.content,
-    //                 'created_at', ct.post_date,
-    //                 'type', ct.type,
-    //                 'images', ct.images,
-    //                 'videos', ct.videos,
-    //                 'num_likes', ct.num_likes,
-    //                 'num_reposts', ct.num_reposts,
-    //                 'num_views', ct.num_views,
-    //                 'num_replies', ct.num_replies,
-    //                 'num_quotes', ct.num_quotes,
-    //                 'user', json_build_object(
-    //                     'id', ct.tweet_author_id,
-    //                     'username', ct.username,
-    //                     'name', ct.name,
-    //                     'avatar_url', ct.avatar_url,
-    //                     'verified', ct.verified,
-    //                     'bio', ct.bio,
-    //                     'cover_url', ct.cover_url,
-    //                     'followers', ct.followers,
-    //                     'following', ct.following
-    //                 )
-    //             )
-    //             FROM tweet_replies tr2
-    //             JOIN user_posts_view ct ON ct.tweet_id = tr2.conversation_id
-    //             WHERE tr2.reply_tweet_id = tweet.tweet_id
-    //             LIMIT 1
-    //         ) AS conversation_tweet
-    //     `).addSelect(`
-    //        (
-    //     SELECT COALESCE(
-    //         (
-    //             SELECT tr_parent.original_tweet_id <> tr_parent.conversation_id
-    //             FROM tweet_replies tr_child
-    //             JOIN tweet_replies tr_parent
-    //                 ON tr_parent.reply_tweet_id = tr_child.original_tweet_id
-    //             WHERE tr_child.reply_tweet_id = tweet.tweet_id
-    //             LIMIT 1
-    //         ),
-    //         FALSE
-    //     )
-    // ) AS show_more_replies
-    //         `);
-
-    //         return query;
-    //     }
     attachRepliedTweetQuery(
         query: SelectQueryBuilder<UserPostsView>,
         user_id?: string
     ): SelectQueryBuilder<any> {
-        let parent_sub_query = this.data_source
+        // Helper function to generate interaction SQL
+        const get_interactions = (alias: string) => {
+            if (!user_id) return '';
+
+            return `
+        'is_liked', EXISTS(
+            SELECT 1 FROM tweet_likes 
+            WHERE tweet_likes.tweet_id = ${alias}.tweet_id 
+            AND tweet_likes.user_id = :current_user_id
+        ),
+        'is_reposted', EXISTS(
+            SELECT 1 FROM tweet_reposts 
+            WHERE tweet_reposts.tweet_id = ${alias}.tweet_id 
+            AND tweet_reposts.user_id = :current_user_id
+        ),
+        'is_following', EXISTS(
+            SELECT 1 FROM user_follows 
+            WHERE user_follows.follower_id = :current_user_id 
+            AND user_follows.followed_id = ${alias}.tweet_author_id
+        ),
+        'is_follower', EXISTS(
+            SELECT 1 FROM user_follows 
+            WHERE user_follows.follower_id = ${alias}.tweet_author_id
+            AND user_follows.followed_id = :current_user_id
+        ),`;
+        };
+
+        const parent_sub_query = this.data_source
             .createQueryBuilder()
             .select(
                 `
@@ -963,7 +908,7 @@ export class TweetsRepository {
         'num_views',     p.num_views,
         'num_replies',   p.num_replies,
         'num_quotes',    p.num_quotes,
-        
+        ${get_interactions('p')}
         'user', json_build_object(
           'id',         p.tweet_author_id,
           'username',   p.username,
@@ -983,16 +928,7 @@ export class TweetsRepository {
             .where('tr.reply_tweet_id = tweet.tweet_id')
             .limit(1);
 
-        // Attach interactions to parent subquery
-        parent_sub_query = this.attachUserInteractionBooleanFlags(
-            parent_sub_query,
-            user_id,
-            'p.tweet_author_id',
-            'p.tweet_id'
-        );
-
-        // 2. Conversation Root Subquery — same thing
-        let conversation_sub_query = this.data_source
+        const conversation_sub_query = this.data_source
             .createQueryBuilder()
             .select(
                 `
@@ -1008,7 +944,7 @@ export class TweetsRepository {
         'num_views',     c.num_views,
         'num_replies',   c.num_replies,
         'num_quotes',    c.num_quotes,
-        
+        ${get_interactions('c')}
         'user', json_build_object(
           'id',         c.tweet_author_id,
           'username',   c.username,
@@ -1028,22 +964,17 @@ export class TweetsRepository {
             .where('tr2.reply_tweet_id = tweet.tweet_id')
             .limit(1);
 
-        // Attach interactions to conversation subquery
-        conversation_sub_query = this.attachUserInteractionBooleanFlags(
-            conversation_sub_query,
-            user_id,
-            'c.tweet_author_id',
-            'c.tweet_id'
-        );
-
-        // //Attach final subqueries to main query
+        // Attach subqueries to main query
         query
             .addSelect(`(${parent_sub_query.getQuery()})`, 'parent_tweet')
             .addSelect(`(${conversation_sub_query.getQuery()})`, 'conversation_tweet');
 
+        if (user_id) {
+            query.setParameter('current_user_id', user_id);
+        }
+
         return query;
     }
-
     attachUserInteractionBooleanFlags(
         query: SelectQueryBuilder<any>,
         current_user_id?: string,
@@ -1246,6 +1177,25 @@ export class TweetsRepository {
                     is_following: t.is_following ?? false,
                     is_follower: t.is_follower ?? false,
                 };
+            }
+
+            if (t.parent_tweet) {
+                if (t.parent_tweet.user) {
+                    t.parent_tweet.user = {
+                        ...t.parent_tweet.user,
+                        is_following: t.parent_tweet.is_following ?? false,
+                        is_follower: t.parent_tweet.is_follower ?? false,
+                    };
+                }
+            }
+            if (t.conversation_tweet) {
+                if (t.conversation_tweet.user) {
+                    t.conversation_tweet.user = {
+                        ...t.conversation_tweet.user,
+                        is_following: t.conversation_tweet.is_following ?? false,
+                        is_follower: t.conversation_tweet.is_follower ?? false,
+                    };
+                }
             }
             return t;
         });
