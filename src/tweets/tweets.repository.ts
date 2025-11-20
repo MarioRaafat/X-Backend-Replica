@@ -146,6 +146,8 @@ export class TweetsRepository {
             throw error;
         }
     }
+
+    //TODO: This will be changed in next pushes, just template response for front
     async getForyouTweets(
         user_id: string,
         cursor?: string,
@@ -154,90 +156,96 @@ export class TweetsRepository {
         data: TweetResponseDTO[];
         pagination: { next_cursor: string | null; has_more: boolean };
     }> {
-        const query_runner = this.data_source.createQueryRunner();
-
-        await query_runner.connect();
-
         try {
-            // extract pagination params
+            let query = this.user_posts_view_repository
+                .createQueryBuilder('tweet')
+                .select([
+                    'tweet.tweet_id AS tweet_id',
+                    'tweet.profile_user_id AS profile_user_id',
+                    'tweet.tweet_author_id AS tweet_author_id',
+                    'tweet.repost_id AS repost_id',
+                    'tweet.post_type AS post_type',
+                    'tweet.type AS type',
+                    'tweet.content AS content',
+                    'tweet.images AS images',
+                    'tweet.videos AS videos',
+                    'tweet.post_date AS post_date',
+                    'tweet.num_likes AS num_likes',
+                    'tweet.num_reposts AS num_reposts',
+                    'tweet.num_views AS num_views',
+                    'tweet.num_quotes AS num_quotes',
+                    'tweet.num_replies AS num_replies',
+                    'tweet.created_at AS created_at',
+                    'tweet.updated_at AS updated_at',
 
-            let cursor_condition = '';
-            let cursor_params: any[] = [];
+                    `json_build_object(
+                    'id', tweet.tweet_author_id,
+                    'username', tweet.username,
+                    'name', tweet.name,
+                    'avatar_url', tweet.avatar_url,
+                    'cover_url', tweet.cover_url,
+                    'verified', tweet.verified,
+                    'bio', tweet.bio,
+                    'followers', tweet.followers,
+                    'following', tweet.following
+                ) AS user`,
+                ])
+                .where(`tweet.type='tweet'`)
 
-            if (cursor) {
-                const [cursor_date_str, cursor_id] = cursor.split('_');
-                const cursor_date = new Date(cursor_date_str);
-                cursor_condition = `AND (post.post_date < $2 OR (post.post_date = $2 AND post.id < $3))`;
-                cursor_params = [cursor_date, cursor_id];
-            }
-            const query_string = getForyouTweetsQuery(cursor_condition, limit);
+                // EXCLUDE MUTED USERS
+                .andWhere(
+                    'tweet.profile_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
+                    { user_id }
+                )
 
-            // execute query
+                // FAST RANDOM ORDERING
+                .orderBy('RANDOM()')
 
-            const tweets = await query_runner.query(query_string, [user_id, ...cursor_params]);
+                .limit(limit);
 
-            // mapping to tweet response dto
+            // Reuse same attach methods
+            // query = this.attachQuotedTweetQuery(query);
+            query = this.attachUserInteractionBooleanFlags(
+                query,
+                user_id,
+                'tweet.tweet_author_id',
+                'tweet.tweet_id'
+            );
+            query = this.attachRepostInfo(query);
+            // query = this.attachRepliedTweetQuery(query);
 
-            const tweet_dtos = tweets.map((post: any) => {
-                const dto = plainToInstance(
-                    TweetResponseDTO,
-                    {
-                        tweet_id: post.tweet_id,
-                        user_id: post.tweet_author_id,
-                        type: post.post_type === 'tweet' ? post.type : post.post_type,
-                        content: post.content,
-                        images: post.images,
-                        videos: post.videos,
-                        num_likes: post.num_likes,
-                        num_reposts: post.num_reposts,
-                        num_views: post.num_views,
-                        num_quotes: post.num_quotes,
-                        num_replies: post.num_replies,
-                        created_at: post.created_at,
-                        updated_at: post.updated_at,
-                        is_liked: post.is_liked,
-                        is_reposted: post.is_reposted,
-                        // attach is following
+            query = this.paginate_service.applyCursorPagination(
+                query,
+                cursor,
+                'tweet',
+                'created_at',
+                'tweet_id'
+            );
 
-                        user: { ...post.user, is_following: post.is_following },
-                    },
-                    {
-                        excludeExtraneousValues: true,
-                    }
-                );
+            const tweets = await query.getRawMany();
 
-                // add repost info
-                if (post.post_type === 'repost' && post.reposted_by_user) {
-                    dto.reposted_by = {
-                        repost_id: post.id,
-                        id: post.reposted_by_user.id,
-                        name: post.reposted_by_user.name,
-                        reposted_at: post.post_date,
-                    };
-                }
+            const tweet_dtos = tweets.map((t) =>
+                plainToInstance(TweetResponseDTO, t, {
+                    excludeExtraneousValues: true,
+                })
+            );
 
-                // add quote info
-                // add reply info
-
-                return dto;
-            });
-
-            // generate next cursor
-            const next_cursor = this.paginate_service.generateNextCursor(tweets, 'post_date', 'id');
-            // return data + pagination
+            const next_cursor = this.paginate_service.generateNextCursor(
+                tweets,
+                'created_at',
+                'tweet_id'
+            );
 
             return {
                 data: tweet_dtos,
                 pagination: {
                     next_cursor,
-                    has_more: tweets.length === limit,
+                    has_more: tweet_dtos.length === limit,
                 },
             };
         } catch (error) {
             console.error(error);
             throw error;
-        } finally {
-            await query_runner.release();
         }
     }
 
