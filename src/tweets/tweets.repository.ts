@@ -49,13 +49,6 @@ export class TweetsRepository {
         pagination: { next_cursor: string | null; has_more: boolean };
     }> {
         try {
-            let q2 = this.user_posts_view_repository.createQueryBuilder('tweet');
-
-            q2 = this.attachRepliedTweetQuery(q2, user_id);
-
-            const re = await q2.getOne();
-            console.log(re);
-
             let query = this.user_posts_view_repository
                 .createQueryBuilder('tweet')
                 .select([
@@ -117,7 +110,9 @@ export class TweetsRepository {
             );
 
             query = this.attachRepostInfo(query);
-            // query = this.attachRepliedTweetQuery(query);
+
+            console.log('===================================');
+            query = this.attachRepliedTweetQuery(query);
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
@@ -127,6 +122,7 @@ export class TweetsRepository {
             );
 
             let tweets = await query.getRawMany();
+            console.log(tweets);
             tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
@@ -947,9 +943,12 @@ export class TweetsRepository {
 
     //         return query;
     //     }
-    attachRepliedTweetQuery(query: SelectQueryBuilder<UserPostsView>, user_id?: string): any {
-        let parent_sub_query = query
-            .subQuery()
+    attachRepliedTweetQuery(
+        query: SelectQueryBuilder<UserPostsView>,
+        user_id?: string
+    ): SelectQueryBuilder<any> {
+        let parent_sub_query = this.data_source
+            .createQueryBuilder()
             .select(
                 `
       json_build_object(
@@ -993,8 +992,8 @@ export class TweetsRepository {
         );
 
         // 2. Conversation Root Subquery — same thing
-        let conversation_sub_query = query
-            .subQuery()
+        let conversation_sub_query = this.data_source
+            .createQueryBuilder()
             .select(
                 `
       json_build_object(
@@ -1037,7 +1036,7 @@ export class TweetsRepository {
             'c.tweet_id'
         );
 
-        // Attach final subqueries to main query
+        // //Attach final subqueries to main query
         query
             .addSelect(`(${parent_sub_query.getQuery()})`, 'parent_tweet')
             .addSelect(`(${conversation_sub_query.getQuery()})`, 'conversation_tweet');
