@@ -567,8 +567,6 @@ export class TweetsRepository {
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
-            query = this.attachQuotedTweetQuery(query);
-
             query = this.attachUserInteractionBooleanFlags(
                 query,
                 current_user_id,
@@ -576,7 +574,7 @@ export class TweetsRepository {
                 'tweet.tweet_id'
             );
 
-            query = this.attachRepliedTweetQuery(query, user_id);
+            query = this.attachRepliedTweetQuery(query, current_user_id);
 
             query = this.paginate_service.applyCursorPagination(
                 query,
