@@ -144,6 +144,15 @@ export class TweetsRepository {
             let tweets = await query.getRawMany();
             tweets = this.attachUserFollowFlags(tweets);
 
+            // Additional Sorting
+            tweets = tweets.sort((a, b) => {
+                const data_compare =
+                    new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+                if (data_compare !== 0) return data_compare;
+                // Secondary sort by tweet_id DESC if created_at is the same
+                return b.tweet_id - a.tweet_id;
+            });
+
             const tweet_dtos = tweets.map((reply) =>
                 plainToInstance(TweetResponseDTO, reply, {
                     excludeExtraneousValues: true,
