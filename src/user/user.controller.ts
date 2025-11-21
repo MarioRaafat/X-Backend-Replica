@@ -48,6 +48,7 @@ import {
     get_user_media,
     get_user_posts,
     get_user_replies,
+    get_username_recommendations,
     get_users_by_ids,
     get_users_by_username,
     mute_user,
@@ -73,6 +74,7 @@ import { DeleteFileDto } from './dto/delete-file.dto';
 import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
 import { ChangeLanguageDto } from './dto/change-language.dto';
+import { CursorPaginationDto } from './dto/cursor-pagination-params.dto';
 
 @ApiTags('Users')
 @ApiBearerAuth('JWT-auth')
@@ -189,7 +191,7 @@ export class UserController {
     async getFollowing(
         @GetUserId() current_user_id: string,
         @Param('user_id') target_user_id: string,
-        @Query() query_dto: PaginationParamsDto
+        @Query() query_dto: CursorPaginationDto
     ) {
         return await this.user_service.getFollowing(current_user_id, target_user_id, query_dto);
     }
@@ -235,7 +237,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.MUTED_LIST_RETRIEVED)
     @Get('me/muted')
-    async getMutedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
+    async getMutedList(@GetUserId() user_id: string, @Query() query_dto: CursorPaginationDto) {
         return await this.user_service.getMutedList(user_id, query_dto);
     }
 
@@ -278,7 +280,7 @@ export class UserController {
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.BLOCKED_LIST_RETRIEVED)
     @Get('me/blocked')
-    async getBlockedList(@GetUserId() user_id: string, @Query() query_dto: PaginationParamsDto) {
+    async getBlockedList(@GetUserId() user_id: string, @Query() query_dto: CursorPaginationDto) {
         return await this.user_service.getBlockedList(user_id, query_dto);
     }
 
@@ -323,49 +325,49 @@ export class UserController {
     @Get('me/liked-posts')
     async getLikedPosts(
         @GetUserId() current_user_id: string,
-        @Query() query_dto: PaginationParamsDto
+        @Query() query_dto: CursorPaginationDto
     ) {
         return await this.user_service.getLikedPosts(current_user_id, query_dto);
     }
 
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_user_posts.operation)
     @ApiOkResponse(get_user_posts.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.POSTS_RETRIEVED)
     @Get(':target_user_id/posts')
     async getPosts(
-        @GetUserId() current_user_id: string,
+        @GetUserId() current_user_id: string | null,
         @Param('target_user_id') target_user_id: string,
-        @Query() query_dto: PaginationParamsDto
+        @Query() query_dto: CursorPaginationDto
     ) {
         return await this.user_service.getPosts(current_user_id, target_user_id, query_dto);
     }
 
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_user_replies.operation)
     @ApiOkResponse(get_user_replies.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.REPLIES_RETRIEVED)
     @Get(':target_user_id/replies')
     async getReplies(
-        @GetUserId() current_user_id: string,
+        @GetUserId() current_user_id: string | null,
         @Param('target_user_id') target_user_id: string,
-        @Query() query_dto: PaginationParamsDto
+        @Query() query_dto: CursorPaginationDto
     ) {
         return await this.user_service.getReplies(current_user_id, target_user_id, query_dto);
     }
 
-    @UseGuards(JwtAuthGuard)
+    @UseGuards(OptionalJwtAuthGuard)
     @ApiOperation(get_user_media.operation)
     @ApiOkResponse(get_user_media.responses.success)
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.MEDIA_RETRIEVED)
     @Get(':target_user_id/media')
     async getMedia(
-        @GetUserId() current_user_id: string,
+        @GetUserId() current_user_id: string | null,
         @Param('target_user_id') target_user_id: string,
-        @Query() query_dto: PaginationParamsDto
+        @Query() query_dto: CursorPaginationDto
     ) {
         return await this.user_service.getMedia(current_user_id, target_user_id, query_dto);
     }
@@ -493,5 +495,17 @@ export class UserController {
         @Body() change_language_dto: ChangeLanguageDto
     ) {
         return this.user_service.changeLanguage(current_user_id, change_language_dto);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(get_username_recommendations.operation)
+    @ApiCreatedResponse(get_username_recommendations.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.USERNAME_RECOMMENDATIONS_RETRIEVED)
+    @Get('me/username-recommendations')
+    async getUsernameRecommendations(@GetUserId() current_user_id: string) {
+        return await this.user_service.getUsernameRecommendations(current_user_id);
     }
 }

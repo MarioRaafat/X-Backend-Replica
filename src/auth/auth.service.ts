@@ -31,6 +31,8 @@ import { ConfigService } from '@nestjs/config';
 import { instanceToPlain } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import {
+    OAUTH_EXCHANGE_TOKEN_KEY,
+    OAUTH_EXCHANGE_TOKEN_OBJECT,
     OAUTH_SESSION_KEY,
     OAUTH_SESSION_OBJECT,
     OTP_KEY,
@@ -46,6 +48,7 @@ import { StringValue } from 'ms'; // Add this import
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { UserRepository } from 'src/user/user.repository';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
 
 @Injectable()
 export class AuthService {
@@ -90,19 +93,6 @@ export class AuthService {
             access_token: access_token,
             refresh_token: refresh_token,
         };
-    }
-
-    async getRecommendedUsernames(name: string): Promise<string[]> {
-        const name_parts = name.split(' ');
-        const first_name = name_parts[0];
-        const last_name = name_parts.length > 1 ? name_parts.slice(1).join(' ') : '';
-
-        const recommendations = await this.username_service.generateUsernameRecommendations(
-            first_name,
-            last_name
-        );
-
-        return recommendations;
     }
 
     async validateUser(identifier: string, password: string, type: string): Promise<string> {
@@ -207,7 +197,10 @@ export class AuthService {
         );
 
         // generate username recommendations for step 3
-        const recommendations = await this.getRecommendedUsernames(signup_session.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(
+                signup_session.name
+            );
 
         return {
             isVerified: true,
@@ -978,7 +971,8 @@ export class AuthService {
             updated_session_data.ttl
         );
 
-        const recommendations = await this.getRecommendedUsernames(user_data.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(user_data.name);
 
         return {
             usernames: recommendations,
@@ -1028,5 +1022,70 @@ export class AuthService {
             access_token,
             refresh_token,
         };
+    }
+
+    async createExchangeToken(payload: {
+        user_id?: string;
+        session_token?: string;
+        type: 'auth' | 'completion';
+    }): Promise<string> {
+        const token_id = crypto.randomUUID();
+        const exchange_token = this.jwt_service.sign(
+            { token_id, type: payload.type },
+            {
+                secret:
+                    process.env.OAUTH_EXCHANGE_TOKEN_SECRET ?? 'fallback-exchange-secret-change-me',
+                expiresIn: '5m',
+            }
+        );
+
+        const redis_object = OAUTH_EXCHANGE_TOKEN_OBJECT(token_id, payload);
+        await this.redis_service.set(redis_object.key, redis_object.value, redis_object.ttl);
+
+        return exchange_token;
+    }
+
+    async validateExchangeToken(exchange_token: string): Promise<{
+        user_id?: string;
+        session_token?: string;
+        type: 'auth' | 'completion';
+    }> {
+        try {
+            const decoded = this.jwt_service.verify(exchange_token, {
+                secret:
+                    process.env.OAUTH_EXCHANGE_TOKEN_SECRET ?? 'fallback-exchange-secret-change-me',
+            });
+
+            const { token_id, type } = decoded;
+            const redis_key = OAUTH_EXCHANGE_TOKEN_KEY(token_id);
+            const stored_data = await this.redis_service.get(redis_key);
+
+            if (!stored_data) {
+                throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+            }
+
+            await this.redis_service.del(redis_key);
+            const payload = JSON.parse(stored_data);
+            return { ...payload, type };
+        } catch (error) {
+            throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
+    }
+    async confirmPassword(confirm_password_dto: ConfirmPasswordDto, user_id: string) {
+        const user = await this.user_repository.findById(user_id);
+
+        if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+        if (user.password) {
+            const is_password_valid = await bcrypt.compare(
+                confirm_password_dto.password,
+                user.password
+            );
+            if (!is_password_valid) throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
+        } else {
+            throw new UnauthorizedException(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED);
+        }
+
+        return { valid: true };
     }
 }

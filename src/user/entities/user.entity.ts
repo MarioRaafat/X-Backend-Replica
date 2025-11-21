@@ -41,10 +41,10 @@ export class User {
     google_id?: string;
 
     @Column({ type: 'varchar', nullable: true })
-    avatar_url?: string;
+    avatar_url?: string | null;
 
     @Column({ type: 'text', nullable: true })
-    cover_url?: string;
+    cover_url?: string | null;
 
     @Column({ type: 'date' })
     birth_date: Date;

@@ -58,6 +58,7 @@ export const ERROR_MESSAGES = {
     // database
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
+    FAILED_TO_FETCH_FROM_DB: 'Failed to fetch data from database',
 
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
@@ -101,6 +102,8 @@ export const ERROR_MESSAGES = {
     TWEET_NOT_FOUND: 'Tweet not found',
     TWEET_ALREADY_LIKED: 'Tweet already liked',
     TWEET_NOT_LIKED: 'Tweet not liked yet',
+    TWEET_ALREADY_BOOKMARKED: 'Tweet already bookmarked',
+    TWEET_NOT_BOOKMARKED: 'Tweet not bookmarked yet',
     UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
     TWEET_REPLIES_RETRIEVED_SUCCESSFULLY: 'Tweet replies retrieved successfully',
 
@@ -132,10 +135,12 @@ export const SUCCESS_MESSAGES = {
     USERNAME_UPDATED: 'Username updated successfully',
     EMAIL_UPDATE_INITIATED: 'Email update process initiated. Check your new email for verification',
     EMAIL_UPDATED: 'Email updated successfully',
+    PASSWORD_CONFIRMED: 'Password confirmed successfully',
 
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',
     OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
+    TOKEN_EXCHANGE_SUCCESS: 'Token exchanged successfully',
 
     // chat
     CHAT_CREATED: 'Chat created successfully',
@@ -180,6 +185,7 @@ export const SUCCESS_MESSAGES = {
     COVER_DELETED: 'Cover deleted successfully',
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
     LANGUAGE_CHANGED: 'Language changed successfully',
+    USERNAME_RECOMMENDATIONS_RETRIEVED: 'Username recommendations retrieved successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
@@ -213,6 +219,11 @@ export const SUCCESS_MESSAGES = {
     TWEET_LIKED: 'Tweet liked successfully',
     TWEET_UNLIKED: 'Tweet unliked successfully',
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
+    TWEET_BOOKMARKED: 'Tweet bookmarked successfully',
+    TWEET_UNBOOKMARKED: 'Tweet unbookmarked successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
     TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
+
+    // category
+    CATEGORIES_RETRIEVED: 'Categories retrieved successfully',
 } as const;
