@@ -11,7 +11,7 @@ import { In, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserProfileDto } from './dto/user-profile.dto';
-import { plainToInstance } from 'class-transformer';
+import { instanceToInstance, plainToInstance } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { SelectQueryBuilder } from 'typeorm/browser';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
