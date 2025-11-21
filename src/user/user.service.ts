@@ -114,7 +114,7 @@ export class UserService {
         });
     }
 
-    async getMe(user_id: string) {
+    async getMe(user_id: string): Promise<UserProfileDto> {
         const result = await this.user_repository.getMyProfile(user_id);
 
         return plainToInstance(UserProfileDto, result, {
