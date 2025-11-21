@@ -115,12 +115,11 @@ export class UserService {
     }
 
     async getMe(user_id: string) {
-        const user = await this.user_repository.findById(user_id);
+        const result = await this.user_repository.getMyProfile(user_id);
 
-        if (!user) {
-            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
-        }
-        return instanceToInstance(user);
+        return plainToInstance(UserProfileDto, result, {
+            enableImplicitConversion: true,
+        });
     }
 
     async getUserById(
