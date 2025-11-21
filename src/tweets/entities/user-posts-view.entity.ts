@@ -25,8 +25,17 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_quotes,
             t.num_replies,
             t.created_at,
-            t.updated_at
+            t.updated_at,
+            u.username,
+            u.name,
+            u.followers,
+            u.following,
+            u.avatar_url,
+            u.cover_url,
+            u.verified,
+            u.bio
         FROM tweets t
+        INNER JOIN "user" u ON t.user_id = u.id
         
         UNION ALL
         
@@ -36,9 +45,9 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.user_id AS tweet_author_id,
             tr.tweet_id,
             tr.tweet_id AS repost_id,
-            'repost' AS post_type,
+            t.type::text AS post_type,
             tr.created_at AS post_date,
-            t.type::text AS type,
+            'repost' AS type,
             t.content,
             t.images,
             t.videos,
@@ -48,9 +57,18 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_quotes,
             t.num_replies,
             t.created_at,
-            t.updated_at
+            t.updated_at,
+            u.username,
+            u.name,
+            u.followers,
+            u.following,
+            u.avatar_url,
+            u.cover_url,
+            u.verified,
+            u.bio
         FROM tweet_reposts tr
         INNER JOIN tweets t ON tr.tweet_id = t.tweet_id
+        INNER JOIN "user" u ON t.user_id = u.id
     `,
 })
 export class UserPostsView {
@@ -108,6 +126,30 @@ export class UserPostsView {
     @ViewColumn()
     updated_at: Date;
 
+    @ViewColumn()
+    username: string;
+
+    @ViewColumn()
+    name: string;
+
+    @ViewColumn()
+    followers: number;
+
+    @ViewColumn()
+    following: number;
+
+    @ViewColumn()
+    avatar_url: string;
+
+    @ViewColumn()
+    cover_url: string;
+
+    @ViewColumn()
+    verified: boolean;
+
+    @ViewColumn()
+    bio: string;
+
     // Virtual relations for joins (tweet author)
     @ManyToOne(() => User)
     @JoinColumn({ name: 'tweet_author_id' })
@@ -120,4 +162,9 @@ export class UserPostsView {
     current_user_like?: TweetLike | null;
     current_user_repost?: TweetRepost | null;
     current_user_follows?: UserFollows | null;
+
+    is_liked?: boolean;
+    is_reposted?: boolean;
+    is_following?: boolean;
+    is_follower?: boolean;
 }

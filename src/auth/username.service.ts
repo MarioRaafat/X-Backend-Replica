@@ -5,6 +5,16 @@ import { UserRepository } from 'src/user/user.repository';
 export class UsernameService {
     constructor(private readonly user_repository: UserRepository) {}
 
+    async generateUsernameRecommendationsSingleName(name: string): Promise<string[]> {
+        const name_parts = name.split(' ');
+        const first_name = name_parts[0];
+        const last_name = name_parts.length > 1 ? name_parts.slice(1).join(' ') : '';
+
+        const recommendations = await this.generateUsernameRecommendations(first_name, last_name);
+
+        return recommendations;
+    }
+
     async generateUsernameRecommendations(
         first_name: string,
         last_name: string

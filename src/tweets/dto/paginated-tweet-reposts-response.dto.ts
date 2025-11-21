@@ -1,51 +1,28 @@
 import { ApiProperty } from '@nestjs/swagger';
-
-class UserDto {
-    @ApiProperty({ example: '550e8400-e29b-41d4-a716-446655440000' })
-    id: string;
-
-    @ApiProperty({ example: 'johndoe' })
-    username: string;
-
-    @ApiProperty({ example: 'John Doe' })
-    name: string;
-
-    @ApiProperty({ example: 'https://example.com/avatar.jpg' })
-    avatar_url: string;
-
-    @ApiProperty({ example: true })
-    verified: boolean;
-}
+import { UserResponseDTO } from './user-response.dto';
+import { Expose, Type } from 'class-transformer';
 
 export class PaginatedTweetRepostsResponseDTO {
+    @Expose()
     @ApiProperty({
-        type: [UserDto],
+        type: [UserResponseDTO],
         description: 'Array of users who reposted the tweet',
     })
-    data: UserDto[];
+    @Type(() => UserResponseDTO)
+    data: UserResponseDTO[];
 
-    @ApiProperty({
-        example: 150,
-        description: 'Total number of reposts for this tweet',
-    })
-    count: number;
-
-    @ApiProperty({
-        example: '550e8400-e29b-41d4-a716-446655440000',
-        description: 'Cursor for the next page (user_id of the last user in this page)',
-        nullable: true,
-    })
-    next_cursor: string | null;
-
+    @Expose()
     @ApiProperty({
         example: true,
         description: 'Whether there are more results available',
     })
     has_more: boolean;
 
+    @Expose()
     @ApiProperty({
-        example: 'Users who reposted the tweet retrieved successfully',
-        description: 'Response message',
+        example: '550e8400-e29b-41d4-a716-446655440000',
+        description: 'Cursor for the next page (user_id of the last user in this page)',
+        nullable: true,
     })
-    message: string;
+    next_cursor: string | null;
 }
