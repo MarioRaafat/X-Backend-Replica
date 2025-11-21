@@ -803,11 +803,13 @@ export class TweetsService {
         const quotes = await query.getMany();
 
         // Map to DTOs
-        const quote_dtos = quotes.map((quote) =>
-            plainToInstance(TweetQuoteResponseDTO, quote.quote_tweet, {
+        const quote_dtos = quotes.map((quote) => {
+            const quote_temp = plainToInstance(TweetQuoteResponseDTO, quote.quote_tweet, {
                 excludeExtraneousValues: true,
-            })
-        );
+            });
+            quote_temp.parent_tweet_id = tweet_id;
+            return quote_temp;
+        });
 
         // Generate next_cursor using pagination service
         const quote_tweets = quotes.map((q) => q.quote_tweet);
