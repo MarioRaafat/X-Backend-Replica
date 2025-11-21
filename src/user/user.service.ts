@@ -465,6 +465,12 @@ export class UserService {
             has_more: boolean;
         };
     }> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const { cursor, limit } = query_dto;
         return await this.tweets_repository.getPostsByUserId(
             target_user_id,
@@ -485,6 +491,12 @@ export class UserService {
             has_more: boolean;
         };
     }> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const { cursor, limit } = query_dto;
         return await this.tweets_repository.getRepliesByUserId(
             target_user_id,
@@ -505,6 +517,12 @@ export class UserService {
             has_more: boolean;
         };
     }> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const { cursor, limit } = query_dto;
         return await this.tweets_repository.getMediaByUserId(
             target_user_id,
