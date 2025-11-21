@@ -10,41 +10,33 @@ export class TimelineService {
     async getFollowingTimeline(
         user_id: string,
         pagination: TimelinePaginationDto
-    ): Promise<TimelineResponseDto> {
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: { next_cursor: string | null; has_more: boolean };
+    }> {
         // tweets
         // quotes
         // reposts
         // replies
         //get my tweets
 
-        const { tweets, next_cursor } = await this.tweet_repository.getFollowingTweets(
+        return await this.tweet_repository.getFollowingTweets(
             user_id,
-            pagination
+            pagination.cursor,
+            pagination.limit
         );
-
-        return {
-            tweets,
-            next_cursor,
-            has_more: tweets.length === pagination.limit,
-            timestamp: new Date().toISOString(),
-            count: tweets.length,
-        };
     }
     async getForyouTimeline(
         user_id: string,
         pagination: TimelinePaginationDto
-    ): Promise<TimelineResponseDto> {
-        const { tweets, next_cursor } = await this.tweet_repository.getForyouTweets(
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: { next_cursor: string | null; has_more: boolean };
+    }> {
+        return await this.tweet_repository.getForyouTweets(
             user_id,
-            pagination
+            pagination.cursor,
+            pagination.limit
         );
-
-        return {
-            tweets,
-            next_cursor,
-            has_more: tweets.length === pagination.limit,
-            timestamp: new Date().toISOString(),
-            count: tweets.length,
-        };
     }
 }

@@ -10,6 +10,7 @@ import { UserFollows } from 'src/user/entities/user-follows.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { UserPostsView } from './entities/user-posts-view.entity';
+import { TweetCategory } from './entities/tweet-category.entity';
 
 @Module({
     imports: [
@@ -23,6 +24,7 @@ import { UserPostsView } from './entities/user-posts-view.entity';
             Hashtag,
             UserFollows,
             UserPostsView,
+            TweetCategory,
         ]),
     ],
     controllers: [TweetsController],
