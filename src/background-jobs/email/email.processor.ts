@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
 import { EmailService } from '../../communication/email.service';
 import { JOB_NAMES, QUEUE_NAMES } from '../constants/queue.constants';
-import type { OtpEmailJobDto } from '../dto/email-job.dto';
+import type { OtpEmailJobDto } from './email-job.dto';
 import { generateOtpEmailHtml } from '../../templates/otp-email';
 import { reset_password_email_object, verification_email_object } from 'src/constants/variables';
 

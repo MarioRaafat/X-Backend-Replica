@@ -1,11 +1,11 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BackgroundJobsService } from './background-jobs.service';
 import { getQueueToken } from '@nestjs/bull';
-import { QUEUE_NAMES } from './constants/queue.constants';
-import { OtpEmailJobDto } from './dto/email-job.dto';
+import { QUEUE_NAMES } from '../constants/queue.constants';
+import { OtpEmailJobDto } from './email-job.dto';
+import { EmailJobsService } from './email.service';
 
-describe('BackgroundJobsService', () => {
-    let service: BackgroundJobsService;
+describe('EmailJobsService', () => {
+    let service: EmailJobsService;
     let mock_email_queue: any;
 
     beforeEach(async () => {
@@ -22,7 +22,7 @@ describe('BackgroundJobsService', () => {
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
-                BackgroundJobsService,
+                EmailJobsService,
                 {
                     provide: getQueueToken(QUEUE_NAMES.EMAIL),
                     useValue: mock_email_queue,
@@ -30,7 +30,7 @@ describe('BackgroundJobsService', () => {
             ],
         }).compile();
 
-        service = module.get<BackgroundJobsService>(BackgroundJobsService);
+        service = module.get<EmailJobsService>(EmailJobsService);
     });
 
     it('should be defined', () => {

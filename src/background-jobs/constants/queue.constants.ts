@@ -16,7 +16,7 @@ export const JOB_NAMES = {
         INDEX_TWEET: 'index-tweet-to-elastic',
     },
     NOTIFICATION: {
-        SEND_BULK: 'send-bulk-notifications',
+        FOLLOW: 'follow-notification',
     },
 } as const;
 

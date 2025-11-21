@@ -6,46 +6,41 @@ import {
     WebSocketServer,
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
+import { WsAuthMiddleware } from 'src/middlewares/ws.middleware';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 
-@WebSocketGateway({
-    cors: { origin: '*' },
-    transports: ['websocket'],
-})
+@WebSocketGateway()
 export class NotificationsGateway {
     @WebSocketServer()
-    server: Server;
+    server: Server<any, any>; // the first is from client to server, the second is from server to client
 
-    handleConnection(socket: Socket) {
-        const user_id =
-            (socket.handshake.auth as any)?.user_id ||
-            (socket.handshake.query.user_id as string | undefined);
+    constructor(
+        private readonly jwtService: JwtService,
+        private readonly configService: ConfigService
+    ) {}
 
+    afterInit(server: Server) {
+        server.use(WsAuthMiddleware(this.jwtService, this.configService));
+    }
+
+    handleConnection(client: Socket) {
+        const user_id = client.data.user.id;
         if (!user_id) {
-            socket.disconnect();
+            client.disconnect();
             return;
         }
-
-        socket.data.user_id = user_id;
-        socket.join(user_id);
-        console.log(`User ${user_id} connected: ${socket.id}`);
+        client.join(user_id);
+        console.log(`Client connected: ${client.id} for user ${user_id}`);
     }
 
-    handleDisconnect(socket: Socket) {
-        console.log(`Socket disconnected: ${socket.id}`);
+    @SubscribeMessage('message')
+    onMarkSeen(client: any, payload: any) {
+        return 'Hello';
     }
 
-    @SubscribeMessage('mark_seen')
-    onMarkSeen(@MessageBody() data: any, @ConnectedSocket() client: Socket) {
-        const user_id: string | undefined = client.data.user_id;
-        if (user_id) {
-            this.server.to(user_id).emit('mark_seen', { ok: true, data });
-        } else {
-            client.emit('mark_seen', { ok: true, data });
-        }
-        return { ok: true };
-    }
-
-    sendToUser(user_id: string, payload: unknown) {
-        this.server.to(user_id).emit('notification', payload);
+    sendToUser(notified_id: string, payload: any) {
+        console.log('In Gateway');
+        this.server.to(notified_id).emit('notification_follow', payload);
     }
 }
