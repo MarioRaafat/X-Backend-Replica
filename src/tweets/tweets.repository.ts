@@ -487,7 +487,8 @@ export class TweetsRepository {
                 'tweet_id'
             );
 
-            const tweets = await query.getRawMany();
+            let tweets = await query.getRawMany();
+            tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
                 plainToInstance(TweetResponseDTO, reply, {
@@ -527,22 +528,55 @@ export class TweetsRepository {
         };
     }> {
         try {
-            // Build query for replies by user
-            let query = this.tweet_repository
+            let query = this.user_posts_view_repository
                 .createQueryBuilder('tweet')
-                .innerJoin('tweet_replies', 'reply', 'reply.reply_tweet_id = tweet.tweet_id')
-                .leftJoinAndSelect('tweet.user', 'user')
-                .where('tweet.user_id = :user_id', { user_id })
-                .andWhere('tweet.type = :type', { type: TweetType.REPLY })
+                .select([
+                    'tweet.tweet_id AS tweet_id',
+                    'tweet.profile_user_id AS profile_user_id',
+                    'tweet.tweet_author_id AS tweet_author_id',
+                    'tweet.repost_id AS repost_id',
+                    'tweet.post_type AS post_type',
+                    'tweet.type AS type',
+                    'tweet.content AS content',
+                    'tweet.type AS type',
+                    'tweet.post_date AS post_date',
+                    'tweet.images AS images',
+                    'tweet.videos AS videos',
+                    'tweet.num_likes AS num_likes',
+                    'tweet.num_reposts AS num_reposts',
+                    'tweet.num_views AS num_views',
+                    'tweet.num_quotes AS num_quotes',
+                    'tweet.num_replies AS num_replies',
+                    'tweet.created_at AS created_at',
+                    'tweet.updated_at AS updated_at',
+                    `json_build_object(
+                        'id', tweet.tweet_author_id,
+                        'username', tweet.username,
+                        'name', tweet.name,
+                        'avatar_url', tweet.avatar_url,
+                        'cover_url', tweet.cover_url,
+                        'verified', tweet.verified,
+                        'bio', tweet.bio,
+                        'followers', tweet.followers,
+                        'following', tweet.following
+                    ) AS user`,
+                ])
+                .where('tweet.profile_user_id = :user_id', { user_id })
+                .andWhere('tweet.type = :type', { type: 'reply' })
                 .orderBy('tweet.created_at', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
-                .take(limit);
+                .limit(limit);
 
-            // Add interaction flags if current_user_id is provided
-            query = this.attachUserTweetInteractionFlags(query, current_user_id, 'tweet');
+            query = this.attachUserInteractionBooleanFlags(
+                query,
+                current_user_id,
+                'tweet.tweet_author_id',
+                'tweet.tweet_id'
+            );
 
-            // Apply cursor pagination
-            this.paginate_service.applyCursorPagination(
+            query = this.attachRepliedTweetQuery(query, current_user_id);
+
+            query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
                 'tweet',
@@ -550,27 +584,26 @@ export class TweetsRepository {
                 'tweet_id'
             );
 
-            const replies = await query.getMany();
+            let tweets = await query.getRawMany();
+            tweets = this.attachUserFollowFlags(tweets);
 
-            // Transform to DTOs
-            const reply_dtos = replies.map((reply) =>
+            const tweet_dtos = tweets.map((reply) =>
                 plainToInstance(TweetResponseDTO, reply, {
                     excludeExtraneousValues: true,
                 })
             );
 
-            // Generate next cursor
             const next_cursor = this.paginate_service.generateNextCursor(
-                replies,
+                tweets,
                 'created_at',
                 'tweet_id'
             );
 
             return {
-                data: reply_dtos,
+                data: tweet_dtos,
                 pagination: {
                     next_cursor,
-                    has_more: replies.length === limit,
+                    has_more: tweets.length === limit,
                 },
             };
         } catch (error) {
@@ -648,7 +681,8 @@ export class TweetsRepository {
                 'tweet_id'
             );
 
-            const tweets = await query.getRawMany();
+            let tweets = await query.getRawMany();
+            tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
                 plainToInstance(TweetResponseDTO, reply, {
@@ -748,7 +782,8 @@ export class TweetsRepository {
                 'tweet_id'
             );
 
-            const tweets = await query.getRawMany();
+            let tweets = await query.getRawMany();
+            tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
                 plainToInstance(TweetResponseDTO, reply, {
