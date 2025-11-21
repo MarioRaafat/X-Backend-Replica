@@ -12,18 +12,13 @@ export class WsJwtGuard implements CanActivate {
     ) {}
 
     canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-        if (context.getType() !== 'ws') {
-            return true;
-        }
+        if (context.getType() !== 'ws') return true;
 
         const client: Socket = context.switchToWs().getClient();
         const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
 
-        if (!user) {
-            return false;
-        }
+        if (!user) return false;
 
-        // Attach user to client for later use
         client.data.user = user;
         return true;
     }
