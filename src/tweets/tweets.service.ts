@@ -904,8 +904,15 @@ export class TweetsService {
 
             // If this is a reply, delegate to getReplyWithUserById to get the cascaded parent tweets
             if (flag && tweet.type === TweetType.REPLY) {
-                const parent_tweet_dto = await this.getReplyWithUserById(tweet_id, current_user_id);
-                tweet_dto.parent_tweet = parent_tweet_dto as any;
+                const reply_info = await this.getReplyWithUserById(tweet_id, current_user_id);
+                if (reply_info) {
+                    if (reply_info.parent_tweet) {
+                        tweet_dto.parent_tweet = reply_info.parent_tweet;
+                    }
+                    if (reply_info.parent_tweet_id) {
+                        tweet_dto.parent_tweet_id = reply_info.parent_tweet_id;
+                    }
+                }
             }
 
             // Fetch limited replies if requested and tweet has replies
@@ -934,7 +941,7 @@ export class TweetsService {
     private async getReplyWithUserById(
         tweet_id: string,
         current_user_id?: string
-    ): Promise<TweetResponseDTO> {
+    ): Promise<{ parent_tweet: TweetResponseDTO | null; parent_tweet_id: string | null }> {
         try {
             const reply_chain = await this.tweets_repository.getReplyWithParentChain(
                 tweet_id,
@@ -945,10 +952,16 @@ export class TweetsService {
                 throw new NotFoundException('Tweet not found');
             }
 
-            // Build nested structure from deepest parent to starting tweet
+            const starting_tweet = reply_chain[0];
+            const parent_tweet_id = starting_tweet.parent_tweet_id || null;
+
+            if (reply_chain.length === 1) {
+                return { parent_tweet: null, parent_tweet_id };
+            }
+
             let parent_tweet_dto: TweetResponseDTO | null = null;
 
-            for (let i = reply_chain.length - 1; i >= 0; i--) {
+            for (let i = reply_chain.length - 1; i >= 1; i--) {
                 const raw_tweet = reply_chain[i];
 
                 raw_tweet.user = {
@@ -981,7 +994,7 @@ export class TweetsService {
                 parent_tweet_dto = tweet_dto;
             }
 
-            return parent_tweet_dto!;
+            return { parent_tweet: parent_tweet_dto, parent_tweet_id };
         } catch (error) {
             console.error(error);
             throw error;
