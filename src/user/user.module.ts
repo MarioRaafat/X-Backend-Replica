@@ -12,7 +12,7 @@ import { CategoryModule } from 'src/category/category.module';
 import { TweetsModule } from 'src/tweets/tweets.module';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { UsernameService } from 'src/auth/username.service';
-import { FollowJobsService } from 'src/background-jobs/notifications/follow/follow.service';
+import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { CommunicationModule } from 'src/communication/communication.module';
 
@@ -23,10 +23,9 @@ import { CommunicationModule } from 'src/communication/communication.module';
         AzureStorageModule,
         CategoryModule,
         TweetsModule,
-        CommunicationModule,
         BackgroundJobsModule,
     ],
     controllers: [UserController],
-    providers: [UserService, UserRepository, PaginationService, UsernameService, FollowJobsService],
+    providers: [UserService, UserRepository, PaginationService, UsernameService, FollowJobService],
 })
 export class UserModule {}

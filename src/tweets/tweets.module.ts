@@ -11,6 +11,8 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import { TweetCategory } from './entities/tweet-category.entity';
+import { BackgroundJobsModule } from 'src/background-jobs';
+import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 
 @Module({
     imports: [
@@ -26,6 +28,7 @@ import { TweetCategory } from './entities/tweet-category.entity';
             UserPostsView,
             TweetCategory,
         ]),
+        BackgroundJobsModule,
     ],
     controllers: [TweetsController],
     providers: [TweetsService, TweetsRepository, PaginationService, AzureStorageService],

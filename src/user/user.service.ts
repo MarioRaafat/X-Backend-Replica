@@ -44,7 +44,7 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UsernameService } from 'src/auth/username.service';
 import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
-import { FollowJobsService } from 'src/background-jobs/notifications/follow/follow.service';
+import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
 
 @Injectable()
 export class UserService {
@@ -57,7 +57,7 @@ export class UserService {
         private readonly tweets_repository: TweetsRepository,
         private readonly pagination_service: PaginationService,
         private readonly username_service: UsernameService,
-        private readonly follow_job_service: FollowJobsService
+        private readonly follow_job_service: FollowJobService
     ) {}
 
     async getUsersByIds(

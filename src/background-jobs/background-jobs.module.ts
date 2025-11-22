@@ -7,10 +7,16 @@ import { EmailProcessor } from './email/email.processor';
 import { BackgroundJobsService } from './background-jobs';
 import { EmailJobsController } from './email/email.controller';
 import { EmailJobsService } from './email/email.service';
-import { FollowJobsService } from './notifications/follow/follow.service';
+import { FollowJobService } from './notifications/follow/follow.service';
 import { FollowProcessor } from './notifications/follow/follow.processor';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { NotificationsGateway } from 'src/notifications/gateway';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from 'src/user/entities';
+import { ReplyJobService } from './notifications/reply/reply.service';
+import { ReplyProcessor } from './notifications/reply/reply.processor';
+import { LikeJobService } from './notifications/like/like.service';
+import { LikeProcessor } from './notifications/like/like.processor';
 
 @Module({
     imports: [
@@ -50,11 +56,21 @@ import { NotificationsGateway } from 'src/notifications/gateway';
                 },
             },
         }),
+        TypeOrmModule.forFeature([User]),
         CommunicationModule,
         NotificationsModule,
     ],
     controllers: [EmailJobsController],
-    providers: [EmailProcessor, EmailJobsService, FollowProcessor, FollowJobsService],
-    exports: [EmailJobsService, FollowJobsService, BullModule],
+    providers: [
+        EmailProcessor,
+        EmailJobsService,
+        FollowProcessor,
+        FollowJobService,
+        ReplyJobService,
+        ReplyProcessor,
+        LikeJobService,
+        LikeProcessor,
+    ],
+    exports: [EmailJobsService, FollowJobService, BullModule, ReplyJobService, LikeJobService],
 })
 export class BackgroundJobsModule {}

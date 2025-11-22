@@ -11,7 +11,7 @@ import { FollowBackGroundNotificationJobDTO } from './follow.dto';
 import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
 
 @Injectable()
-export class FollowJobsService extends BackgroundJobsService<FollowBackGroundNotificationJobDTO> {
+export class FollowJobService extends BackgroundJobsService<FollowBackGroundNotificationJobDTO> {
     constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private follow_queue: Queue) {
         super(
             follow_queue,

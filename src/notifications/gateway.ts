@@ -9,6 +9,7 @@ import { Server, Socket } from 'socket.io';
 import { WsAuthMiddleware } from 'src/middlewares/ws.middleware';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { NotificationType } from './enums/notification-types';
 
 @WebSocketGateway()
 export class NotificationsGateway {
@@ -39,8 +40,7 @@ export class NotificationsGateway {
         return 'Hello';
     }
 
-    sendToUser(notified_id: string, payload: any) {
-        console.log('In Gateway');
-        this.server.to(notified_id).emit('notification_follow', payload);
+    sendToUser(event: NotificationType, notified_id: string, payload: any) {
+        this.server.to(notified_id).emit(event, payload);
     }
 }

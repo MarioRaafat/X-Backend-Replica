@@ -17,6 +17,8 @@ export const JOB_NAMES = {
     },
     NOTIFICATION: {
         FOLLOW: 'follow-notification',
+        REPLY: 'reply-notification',
+        LIKE: 'like-notification',
     },
 } as const;
 
