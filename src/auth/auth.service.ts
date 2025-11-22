@@ -20,7 +20,7 @@ import { UsernameService } from './username.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
+import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
@@ -49,6 +49,7 @@ import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { UserRepository } from 'src/user/user.repository';
 import { ConfirmPasswordDto } from './dto/confirm-password.dto';
+import { EmailJobsService } from 'src/background-jobs/email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -58,7 +59,7 @@ export class AuthService {
         private readonly username_service: UsernameService,
         private readonly redis_service: RedisService,
         private readonly verification_service: VerificationService,
-        private readonly background_jobs_service: BackgroundJobsService,
+        private readonly background_jobs_service: EmailJobsService,
         private readonly captcha_service: CaptchaService,
         private readonly config_service: ConfigService
     ) {}

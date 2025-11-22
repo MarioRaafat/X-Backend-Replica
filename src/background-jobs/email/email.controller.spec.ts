@@ -1,17 +1,17 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BackgroundJobsController } from './background-jobs.controller';
-import { BackgroundJobsService } from './background-jobs.service';
+import { EmailJobsController } from './email.controller';
+import { EmailJobsService } from './email.service';
 
-describe('BackgroundJobsController', () => {
-    let controller: BackgroundJobsController;
-    let mock_service: jest.Mocked<BackgroundJobsService>;
+describe('EmailJobsController', () => {
+    let controller: EmailJobsController;
+    let mock_service: jest.Mocked<EmailJobsService>;
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
-            controllers: [BackgroundJobsController],
+            controllers: [EmailJobsController],
             providers: [
                 {
-                    provide: BackgroundJobsService,
+                    provide: EmailJobsService,
                     useValue: {
                         getEmailQueueStats: jest.fn(),
                         pauseEmailQueue: jest.fn(),
@@ -22,8 +22,8 @@ describe('BackgroundJobsController', () => {
             ],
         }).compile();
 
-        controller = module.get<BackgroundJobsController>(BackgroundJobsController);
-        mock_service = module.get(BackgroundJobsService);
+        controller = module.get<EmailJobsController>(EmailJobsController);
+        mock_service = module.get(EmailJobsService);
     });
 
     it('should be defined', () => {

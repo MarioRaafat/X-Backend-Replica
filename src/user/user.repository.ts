@@ -521,7 +521,11 @@ export class UserRepository extends Repository<User> {
             this.getRelationshipConfig(relationship_type);
 
         return this.createQueryBuilder('user')
-            .select('user.id', 'user_exists')
+            .select([
+                'user.id AS user_exists',
+                'user.avatar_url AS avatar_url',
+                'user.name AS name',
+            ])
             .addSelect(
                 `EXISTS(
                     SELECT 1 FROM ${table_name} ur
