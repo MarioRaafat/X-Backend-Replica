@@ -20,3 +20,4 @@ export { PaginatedTweetsResponseDTO } from './paginated-tweets-response.dto';
 export { PaginatedTweetLikesResponseDTO } from './paginated-tweet-likes-response.dto';
 export { PaginatedTweetRepostsResponseDTO } from './paginated-tweet-reposts-response.dto';
 export { PaginatedTweetRepliesResponseDTO } from './paginated-tweet-replies-response.dto';
+export { PaginatedBookmarksResponseDTO } from './paginated-bookmarks-response.dto';

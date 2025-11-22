@@ -52,6 +52,20 @@ export const OAUTH_SESSION_OBJECT = (session_token: string, user_data: Record<st
     ttl: OAUTH_SESSION_TTL,
 });
 
+// ------------------ OAUTH EXCHANGE TOKEN (One-time use tokens) ------------------
+export const OAUTH_EXCHANGE_TOKEN_KEY = (exchange_token: string) =>
+    `oauth:exchange:${exchange_token}`;
+export const OAUTH_EXCHANGE_TOKEN_TTL = 5 * 60; // 5 minutes - short-lived for security
+
+export const OAUTH_EXCHANGE_TOKEN_OBJECT = (
+    exchange_token: string,
+    payload: { user_id?: string; session_token?: string; type: 'auth' | 'completion' }
+) => ({
+    key: OAUTH_EXCHANGE_TOKEN_KEY(exchange_token),
+    value: JSON.stringify(payload),
+    ttl: OAUTH_EXCHANGE_TOKEN_TTL,
+});
+
 /* 
     ######################### OTPs Section #########################
 */

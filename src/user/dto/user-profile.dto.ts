@@ -27,6 +27,9 @@ export class UserProfileDto {
     created_at: Date;
 
     @Expose()
+    birth_date: Date;
+
+    @Expose()
     @Transform(({ value, obj }) => {
         const source = value ?? obj.followers ?? 0;
         return Number(source) || 0;

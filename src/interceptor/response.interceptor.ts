@@ -20,11 +20,16 @@ export class ResponseInterceptor<T> implements NestInterceptor<T, IResponse<T>> 
             context.getHandler()
         );
         return next.handle().pipe(
-            map((data: T) => ({
-                data,
-                count: Array.isArray(data) ? data.length : data ? 1 : 0,
-                message: custom_message || 'Success',
-            }))
+            map((response_body) => {
+                const data = response_body?.data ?? response_body;
+
+                return {
+                    data: response_body,
+                    count: Array.isArray(data) ? data.length : data ? 1 : 0,
+
+                    message: custom_message || 'Success',
+                };
+            })
         );
     }
 }

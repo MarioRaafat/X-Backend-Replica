@@ -109,7 +109,7 @@ export class PaginationService {
             if (cursor_timestamp && cursor_id) {
                 const cursor_date = new Date(cursor_timestamp);
                 query_builder.andWhere(
-                    `(${alias}.${timestamp_field} < :cursor_date OR (${alias}.${timestamp_field} = :cursor_date AND ${alias}.${id_field} < :cursor_id))`,
+                    `(date_trunc('milliseconds', ${alias}.${timestamp_field}) < :cursor_date OR (date_trunc('milliseconds', ${alias}.${timestamp_field}) = :cursor_date AND ${alias}.${id_field} < :cursor_id))`,
                     {
                         cursor_date,
                         cursor_id,

@@ -4,11 +4,13 @@ import { TweetsController } from './tweets.controller';
 import { TweetsService } from './tweets.service';
 import { TweetsRepository } from './tweets.repository';
 import { Tweet, TweetLike, TweetQuote, TweetReply, TweetRepost } from './entities';
+import { TweetBookmark } from './entities/tweet-bookmark.entity';
 import { Hashtag } from './entities/hashtags.entity';
 import { UserFollows } from 'src/user/entities/user-follows.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { UserPostsView } from './entities/user-posts-view.entity';
+import { TweetCategory } from './entities/tweet-category.entity';
 
 @Module({
     imports: [
@@ -18,13 +20,15 @@ import { UserPostsView } from './entities/user-posts-view.entity';
             TweetRepost,
             TweetQuote,
             TweetReply,
+            TweetBookmark,
             Hashtag,
             UserFollows,
             UserPostsView,
+            TweetCategory,
         ]),
     ],
     controllers: [TweetsController],
     providers: [TweetsService, TweetsRepository, PaginationService, AzureStorageService],
-    exports: [TweetsService],
+    exports: [TweetsService, TweetsRepository],
 })
 export class TweetsModule {}

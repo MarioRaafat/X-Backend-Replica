@@ -71,6 +71,15 @@ export class TweetResponseDTO {
     @Expose()
     @Type(() => TweetResponseDTO)
     @ApiProperty({
+        description: 'Main Conversation tweet (if this is a reply)',
+        type: () => TweetResponseDTO,
+        required: false,
+    })
+    conversation_tweet?: TweetResponseDTO;
+
+    @Expose()
+    @Type(() => TweetResponseDTO)
+    @ApiProperty({
         description: 'Limited number of replies to this tweet',
         type: [TweetResponseDTO],
         required: false,
@@ -118,7 +127,15 @@ export class TweetResponseDTO {
     replies_count: number;
 
     @Expose()
-    @Transform(({ obj }) => !!obj.current_user_like)
+    @Transform(({ obj }) => obj.num_bookmarks)
+    @ApiProperty({
+        description: 'Number of bookmarks',
+        example: 15,
+    })
+    bookmarks_count: number;
+
+    @Expose()
+    @Transform(({ obj }) => !!obj.current_user_like || obj.is_liked)
     @ApiProperty({
         description: 'Whether the current user has liked this tweet',
         example: true,
@@ -126,12 +143,20 @@ export class TweetResponseDTO {
     is_liked: boolean;
 
     @Expose()
-    @Transform(({ obj }) => !!obj.current_user_repost)
+    @Transform(({ obj }) => !!obj.current_user_repost || obj.is_reposted)
     @ApiProperty({
         description: 'Whether the current user has reposted this tweet',
         example: false,
     })
     is_reposted: boolean;
+
+    @Expose()
+    @Transform(({ obj }) => !!obj.current_user_bookmark)
+    @ApiProperty({
+        description: 'Whether the current user has bookmarked this tweet',
+        example: false,
+    })
+    is_bookmarked: boolean;
 
     @Expose()
     @ApiProperty({
