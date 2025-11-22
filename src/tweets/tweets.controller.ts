@@ -39,6 +39,7 @@ import { PaginatedTweetsResponseDTO } from './dto/paginated-tweets-response.dto'
 import { PaginatedTweetLikesResponseDTO } from './dto/paginated-tweet-likes-response.dto';
 import { PaginatedTweetRepostsResponseDTO } from './dto/paginated-tweet-reposts-response.dto';
 import { PaginatedTweetRepliesResponseDTO } from './dto/paginated-tweet-replies-response.dto';
+import { PaginatedBookmarksResponseDTO } from './dto/paginated-bookmarks-response.dto';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { TweetsService } from './tweets.service';
 import { JwtAuthGuard } from '../auth/guards/jwt.guard';
@@ -63,6 +64,7 @@ import {
     get_tweet_quotes_swagger,
     get_tweet_replies_swagger,
     get_tweet_reposts_swagger,
+    get_user_bookmarks_swagger,
     like_tweet_swagger,
     quote_tweet_swagger,
     reply_to_tweet_swagger,
@@ -111,6 +113,23 @@ export class TweetsController {
     async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id?: string) {
         // return await this.tweets_service.getAllTweets(query, user_id);
         return;
+    }
+
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation(get_user_bookmarks_swagger.operation)
+    @ApiQuery(get_user_bookmarks_swagger.queries.cursor)
+    @ApiQuery(get_user_bookmarks_swagger.queries.limit)
+    @ApiOkResponse({
+        description: 'User bookmarks retrieved successfully with pagination metadata',
+        type: PaginatedBookmarksResponseDTO,
+    })
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage('User bookmarks retrieved successfully')
+    @UseGuards(JwtAuthGuard)
+    @Get('bookmarks')
+    async getUserBookmarks(@Query() query: GetTweetRepliesQueryDto, @GetUserId() user_id: string) {
+        return await this.tweets_service.getUserBookmarks(user_id, query.cursor, query.limit);
     }
 
     @ApiOperation(get_tweet_by_id_swagger.operation)

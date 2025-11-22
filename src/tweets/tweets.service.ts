@@ -533,7 +533,9 @@ export class TweetsService {
                     where: { tweet_id: original_tweet_id },
                     select: ['tweet_id'],
                 }),
-                query_runner.manager.findOne(TweetReply, { where: { original_tweet_id } }),
+                query_runner.manager.findOne(TweetReply, {
+                    where: { reply_tweet_id: original_tweet_id },
+                }),
             ]);
 
             if (!original_tweet) throw new NotFoundException('Original tweet not found');
@@ -859,16 +861,21 @@ export class TweetsService {
             });
 
             // If this is a reply, delegate to getReplyWithUserById to get the cascaded parent tweets
-            if (flag && tweet.type === TweetType.REPLY) {
-                const parent_tweet_dto = await this.getReplyWithUserById(tweet_id, current_user_id);
-                tweet_dto.parent_tweet = parent_tweet_dto as any;
+            const reply_info = await this.getReplyWithUserById(tweet_id, current_user_id);
+            if (reply_info) {
+                if (reply_info.parent_tweet) {
+                    tweet_dto.parent_tweet = reply_info.parent_tweet;
+                }
+                if (reply_info.parent_tweet_id) {
+                    tweet_dto.parent_tweet_id = reply_info.parent_tweet_id;
+                }
             }
 
             // Fetch limited replies if requested and tweet has replies
             if (include_replies && tweet.num_replies > 0) {
                 const replies_result = await this.tweets_repository.getReplies(
                     tweet_id,
-                    current_user_id || '',
+                    current_user_id,
                     { limit: replies_limit }
                 );
                 tweet_dto.replies = replies_result.tweets;
@@ -1070,6 +1077,77 @@ export class TweetsService {
             count: tweets.length,
             next_cursor,
             has_more: next_cursor !== null,
+        };
+    }
+
+    async getUserBookmarks(
+        user_id: string,
+        cursor?: string,
+        limit: number = 20
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: {
+            count: number;
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+    }> {
+        let query = this.tweet_bookmark_repository
+            .createQueryBuilder('bookmark')
+            .leftJoinAndSelect('bookmark.tweet', 'tweet')
+            .leftJoinAndSelect('tweet.user', 'user')
+            .where('bookmark.user_id = :user_id', { user_id })
+            .orderBy('bookmark.created_at', 'DESC')
+            .addOrderBy('bookmark.tweet_id', 'DESC')
+            .take(limit);
+
+        this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'bookmark',
+            'created_at',
+            'tweet_id'
+        );
+
+        const bookmarks = await query.getMany();
+
+        if (bookmarks.length === 0) {
+            return {
+                data: [],
+                pagination: {
+                    count: 0,
+                    next_cursor: null,
+                    has_more: false,
+                },
+            };
+        }
+
+        const tweet_dtos = await Promise.all(
+            bookmarks.map(async (bookmark) => {
+                return await this.getTweetWithUserById(
+                    bookmark.tweet.tweet_id,
+                    user_id,
+                    true, // flag to include parent tweets
+                    false, // don't include replies
+                    0 // replies_limit
+                );
+            })
+        );
+
+        // Generate next_cursor using pagination service
+        const next_cursor = this.paginate_service.generateNextCursor(
+            bookmarks,
+            'created_at',
+            'tweet_id'
+        );
+
+        return {
+            data: tweet_dtos,
+            pagination: {
+                count: tweet_dtos.length,
+                next_cursor,
+                has_more: bookmarks.length === limit,
+            },
         };
     }
 }

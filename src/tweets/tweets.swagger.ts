@@ -1241,3 +1241,117 @@ export const get_tweet_replies_swagger = {
         },
     },
 };
+
+export const get_user_bookmarks_swagger = {
+    operation: {
+        summary: 'Get bookmarked tweets for the authenticated user',
+        description:
+            'Retrieves all tweets bookmarked by the currently authenticated user with cursor-based pagination.\n\n' +
+            '**Access Restriction:**\n' +
+            '- Only the authenticated user can view their own bookmarks\n' +
+            '- Bookmarks are completely private and not visible to other users\n' +
+            '- User ID is automatically extracted from the JWT token\n\n' +
+            '**Pagination Flow:**\n' +
+            '1. First request: GET /tweets/bookmarks?limit=20\n' +
+            '2. Response includes `next_cursor` (timestamp_tweetId format)\n' +
+            '3. Next page: GET /tweets/bookmarks?cursor={next_cursor}&limit=20\n' +
+            '4. Repeat until `has_more` is false\n\n' +
+            '**Response Fields:**\n' +
+            '- `data`: Array of bookmarked tweets (full tweet objects)\n' +
+            '- `count`: Number of bookmarks in current response\n' +
+            '- `next_cursor`: Cursor for next page (null if no more bookmarks)\n' +
+            '- `has_more`: Boolean indicating if more bookmarks are available\n\n' +
+            '**Sorting:**\n' +
+            '- Bookmarks are sorted by bookmark creation time (most recently bookmarked first)\n' +
+            '- Not sorted by the original tweet creation time',
+    },
+
+    queries: {
+        cursor: {
+            name: 'cursor',
+            required: false,
+            type: String,
+            description:
+                'Cursor for pagination (timestamp_tweetId format). Use next_cursor from previous response.',
+            example: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+        },
+        limit: {
+            name: 'limit',
+            required: false,
+            type: Number,
+            description: 'Number of bookmarks to return (default: 20, max: 100)',
+            example: 20,
+        },
+    },
+
+    responses: {
+        success: {
+            description: 'User bookmarks retrieved successfully with pagination metadata',
+            schema: {
+                example: {
+                    data: [
+                        {
+                            tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                            type: 'tweet',
+                            content: 'This is an interesting tweet I bookmarked!',
+                            images: ['https://example.com/image1.jpg'],
+                            videos: [],
+                            likes_count: 42,
+                            reposts_count: 15,
+                            views_count: 1250,
+                            quotes_count: 8,
+                            replies_count: 23,
+                            bookmarks_count: 10,
+                            is_liked: false,
+                            is_reposted: false,
+                            is_bookmarked: true,
+                            created_at: '2025-10-30T12:00:00.000Z',
+                            updated_at: '2025-10-30T12:00:00.000Z',
+                            user: {
+                                id: '26945dc1-7853-46db-93b9-3f4201cfb77e',
+                                username: 'johndoe',
+                                name: 'John Doe',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                                verified: true,
+                            },
+                        },
+                        {
+                            tweet_id: '660e8400-e29b-41d4-a716-446655440001',
+                            type: 'tweet',
+                            content: 'Another great tweet for my collection',
+                            images: [],
+                            videos: ['https://example.com/video1.mp4'],
+                            likes_count: 128,
+                            reposts_count: 45,
+                            views_count: 3200,
+                            quotes_count: 12,
+                            replies_count: 56,
+                            bookmarks_count: 34,
+                            is_liked: true,
+                            is_reposted: false,
+                            is_bookmarked: true,
+                            created_at: '2025-10-29T15:30:00.000Z',
+                            updated_at: '2025-10-29T15:30:00.000Z',
+                            user: {
+                                id: '36945dc1-7853-46db-93b9-3f4201cfb77e',
+                                username: 'janedoe',
+                                name: 'Jane Doe',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1234567890/avatar.jpg',
+                                verified: false,
+                            },
+                        },
+                    ],
+                    pagination: {
+                        count: 2,
+                        next_cursor:
+                            '2025-10-28T18:45:00.000Z_660e8400-e29b-41d4-a716-446655440001',
+                        has_more: true,
+                    },
+                    message: 'User bookmarks retrieved successfully',
+                },
+            },
+        },
+    },
+};

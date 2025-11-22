@@ -315,7 +315,7 @@ export class TweetsRepository {
 
     async getReplies(
         tweet_id: string,
-        user_id: string,
+        user_id: string | undefined,
         pagination: TimelinePaginationDto
     ): Promise<{ tweets: TweetResponseDTO[]; next_cursor: string | null }> {
         // Note: I will skip parent object data for replies to keep response clean as the front will have that info already
@@ -360,41 +360,52 @@ export class TweetsRepository {
             )`,
                 'conversation_root_id'
             )
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM tweet_likes 
-                WHERE tweet_likes.tweet_id = tweet.tweet_id 
-                AND tweet_likes.user_id = :user_id
-            )`,
-                'is_liked'
-            )
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM tweet_reposts 
-                WHERE tweet_reposts.tweet_id = tweet.tweet_id 
-                AND tweet_reposts.user_id = :user_id
-            )`,
-                'is_reposted'
-            )
-            .addSelect(
-                `EXISTS(
-                SELECT 1 FROM tweet_bookmarks 
-                WHERE tweet_bookmarks.tweet_id = tweet.tweet_id 
-                AND tweet_bookmarks.user_id = :user_id
-            )`,
-                'is_bookmarked'
-            )
             .where('reply.original_tweet_id = :tweet_id')
-            .andWhere(
-                `tweet.user_id NOT IN(
-                SELECT muted_id 
-                FROM user_mutes
-                WHERE muter_id = :user_id
-            )`
-            )
+            .setParameter('tweet_id', tweet_id)
             .orderBy('tweet.created_at', 'DESC')
-            .limit(pagination.limit)
-            .setParameters({ user_id, tweet_id });
+            .limit(pagination.limit);
+
+        // Add user-specific queries only if user is authenticated
+        if (user_id) {
+            query_builder
+                .addSelect(
+                    `EXISTS(
+                    SELECT 1 FROM tweet_likes 
+                    WHERE tweet_likes.tweet_id = tweet.tweet_id 
+                    AND tweet_likes.user_id = :user_id
+                )`,
+                    'is_liked'
+                )
+                .addSelect(
+                    `EXISTS(
+                    SELECT 1 FROM tweet_reposts 
+                    WHERE tweet_reposts.tweet_id = tweet.tweet_id 
+                    AND tweet_reposts.user_id = :user_id
+                )`,
+                    'is_reposted'
+                )
+                .addSelect(
+                    `EXISTS(
+                    SELECT 1 FROM tweet_bookmarks 
+                    WHERE tweet_bookmarks.tweet_id = tweet.tweet_id 
+                    AND tweet_bookmarks.user_id = :user_id
+                )`,
+                    'is_bookmarked'
+                )
+                .andWhere(
+                    `tweet.user_id NOT IN(
+                    SELECT muted_id 
+                    FROM user_mutes
+                    WHERE muter_id = :user_id
+                )`
+                )
+                .setParameter('user_id', user_id);
+        } else {
+            query_builder
+                .addSelect('FALSE', 'is_liked')
+                .addSelect('FALSE', 'is_reposted')
+                .addSelect('FALSE', 'is_bookmarked');
+        }
 
         if (pagination.cursor) {
             const [cursor_timestamp, cursor_id] = pagination.cursor.split('_');
