@@ -1,45 +1,42 @@
 services:
-  # api:
-  #   build: .
-  #   container_name: api
-  #   env_file:
-  #     - ../config/local.env
-  #   ports:
-  #     - "3000:3000"
-  #   depends_on:
-  #     - redis
-  #     - relational_db
-  #     - non_relational_db
+  api:
+    build: .
+    container_name: api
+    env_file:
+      - ../config/local.env
+    ports:
+      - "3000:3000"
+    depends_on:
+      - redis
+      - relational_db
+      - non_relational_db
 
-  # redis:
-  #   image: redis
-  #   container_name: redis
-  #   env_file:
-  #     - ../config/local.env
-  #   ports:
-  #     - "${REDIS_PORT}:6379"
+  redis:
+    image: redis
+    container_name: redis
+    env_file:
+      - ../config/local.env
+    ports:
+      - "${REDIS_PORT}:6379"
 
-  # relational_db:
-  #   image: postgres
-  #   container_name: postgres
-  #   env_file:
-  #     - ../config/local.env
-  #   environment:
-  #     POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
-  #     POSTGRES_USER: "${POSTGRES_USERNAME}"
-  #     POSTGRES_DB: "${POSTGRES_DB}"
+  relational_db:
+    image: postgres
+    container_name: postgres
+    env_file:
+      - ../config/local.env
+    environment:
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD}"
+      POSTGRES_USER: "${POSTGRES_USERNAME}"
+      POSTGRES_DB: "${POSTGRES_DB}"
     
-  # non_relational_db:
-  #   image: mongo:7.0
-  #   container_name: mongo
-  #   env_file:
-  #     - ../config/local.env
-
+  non_relational_db:
+    image: mongo:7.0
+    container_name: mongo
+    env_file:
+      - ../config/local.env
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.12.0
     container_name: elasticsearch
-    env_file:
-      - ../config/local.env
     environment:
       node.name: es01
       cluster.name: mycluster
@@ -60,19 +57,23 @@ services:
       - esdata:/usr/share/elasticsearch/data
     networks:
       - elastic
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
 
   kibana:
     image: docker.elastic.co/kibana/kibana:8.12.0
     container_name: kibana
-    env_file:
-      - ../config/local.env
     environment:
       ELASTICSEARCH_HOSTS: http://elasticsearch:9200
       ELASTICSEARCH_SSL_VERIFICATIONMODE: none
     ports:
       - "5601:5601"
     depends_on:
-      - elasticsearch
+      elasticsearch:
+        condition: service_healthy
     networks:
       - elastic
     healthcheck:
