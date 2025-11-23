@@ -199,6 +199,7 @@ export const SUCCESS_MESSAGES = {
     SEARCH_HISTORY_PEOPLE_SAVED: 'People search saved to history successfully',
 
     // explore
+    EXPLORE_DATA_RETRIEVED: 'Explore page data retrieved successfully',
     EXPLORE_TRENDING_RETRIEVED: 'Explore trending items retrieved successfully',
     EXPLORE_WHO_TO_FOLLOW_RETRIEVED: 'Explore who-to-follow suggestions retrieved successfully',
     EXPLORE_FOR_YOU_POSTS_RETRIEVED: 'Explore for-you posts retrieved successfully',
