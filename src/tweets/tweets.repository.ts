@@ -127,12 +127,11 @@ export class TweetsRepository {
 
             query = this.attachRepostInfo(query);
 
-            console.log('===================================');
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -163,7 +162,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -251,7 +250,7 @@ export class TweetsRepository {
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -265,7 +264,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
