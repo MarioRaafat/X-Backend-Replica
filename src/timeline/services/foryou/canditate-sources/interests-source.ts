@@ -11,8 +11,8 @@ import { Repository, SelectQueryBuilder } from 'typeorm';
 @Injectable()
 export class InterestsCandidateSource {
     constructor(
-        @InjectRepository(UserInterests)
-        private user_intersets_repository: Repository<UserInterests>,
+        // @InjectRepository(UserInterests)
+        // private user_intersets_repository: Repository<UserInterests>,
         private readonly tweet_repository: TweetsRepository,
         @InjectRepository(UserPostsView)
         private user_posts_view_repository: Repository<UserPostsView>
@@ -83,18 +83,50 @@ export class InterestsCandidateSource {
                         'bio', tweet.bio,
                         'followers', tweet.followers,
                         'following', tweet.following
-                    ) AS user   SUM(tc.percentage * ui.score) AS relevance_score`,
+                    ) AS user ,  COALESCE(SUM(tc.percentage * ui.score), 0) AS relevance_score
+`,
             ])
             .leftJoin('tweet_categories', 'tc', 'tc.tweet_id = tweet.tweet_id')
             .leftJoin(
                 'user_interests',
                 'ui',
-                'ui.category_id = tc.category_id AND ui.user_id = :userId',
+                'ui.category_id = tc.category_id AND ui.user_id = :user_id',
                 { user_id }
             )
-            .groupBy('tweet.tweet_id')
+            .groupBy(
+                `
+    tweet.tweet_id,
+    tweet.profile_user_id,
+    tweet.tweet_author_id,
+    tweet.repost_id,
+    tweet.post_type,
+    tweet.type,
+    tweet.content,
+    tweet.post_date,
+    tweet.images,
+    tweet.videos,
+    tweet.num_likes,
+    tweet.num_reposts,
+    tweet.num_views,
+    tweet.num_quotes,
+    tweet.num_replies,
+    tweet.created_at,
+    tweet.updated_at,
+    tweet.username,
+    tweet.name,
+    tweet.avatar_url,
+    tweet.cover_url,
+    tweet.verified,
+    tweet.bio,
+    tweet.followers,
+    tweet.following,
+    u.name
+  `
+            )
             .orderBy('relevance_score', 'DESC')
-            .limit(limit);
+            .addOrderBy('tweet.created_at', 'DESC')
+            .limit(limit)
+            .setParameter('user_id', user_id);
 
         query = this.tweet_repository.attachUserInteractionBooleanFlags(
             query,
@@ -107,12 +139,14 @@ export class InterestsCandidateSource {
         interset_tweets = this.tweet_repository.attachUserFollowFlags(interset_tweets);
 
         // apply pagination
-
-        const tweet_dtos = interset_tweets.map((tweet) =>
-            plainToInstance(ScoredCandidateDTO, tweet, {
+        console.log(interset_tweets);
+        const tweet_dtos = interset_tweets.map((row) => {
+            const dto = plainToInstance(ScoredCandidateDTO, row, {
                 excludeExtraneousValues: true,
-            })
-        );
+            });
+
+            return dto;
+        });
 
         return {
             data: tweet_dtos,

@@ -1,7 +1,8 @@
+import { Injectable } from '@nestjs/common';
 import { InterestsCandidateSource } from './canditate-sources/interests-source';
 import { ForYouRanker } from './ranker/for-you-ranker.service';
 import { ScoredCandidateDTO } from 'src/timeline/dto/scored-candidates.dto';
-
+@Injectable()
 export class ForyouService {
     constructor(
         private readonly interest_source: InterestsCandidateSource,
@@ -22,15 +23,15 @@ export class ForyouService {
             limit
         );
 
-        const ranked_tweets = this.ranker.rank(interest_tweets);
+        // const ranked_tweets = this.ranker.rank(interest_tweets);
 
         // apply final combined cursor from each source
 
         return {
-            data: ranked_tweets,
+            data: interest_tweets,
             pagination: {
                 next_cursor: '',
-                has_more: ranked_tweets.length === limit,
+                has_more: false,
             },
         };
     }
