@@ -9,10 +9,10 @@ import { Chat } from 'src/chat/entities/chat.entity';
 @Injectable()
 export class MessageRepository extends Repository<Message> {
     constructor(
-        private dataSource: DataSource,
-        private paginationService: PaginationService
+        private data_source: DataSource,
+        private pagination_service: PaginationService
     ) {
-        super(Message, dataSource.createEntityManager());
+        super(Message, data_source.createEntityManager());
     }
 
     async createMessage(sender_id: string, chat_id: string, dto: SendMessageDto): Promise<Message> {
@@ -28,7 +28,7 @@ export class MessageRepository extends Repository<Message> {
             const saved_message = await this.save(message);
 
             // Update chat's last_message and updated_at
-            await this.dataSource
+            await this.data_source
                 .getRepository(Chat)
                 .update({ id: chat_id }, { last_message_id: saved_message.id });
 
