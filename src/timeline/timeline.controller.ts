@@ -15,6 +15,7 @@ import { TrendsDto } from './dto/trends.dto';
 import { GetUserId } from 'src/decorators/get-userId.decorator';
 import { TimelineResponseDto } from './dto/timeline-response.dto';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
+
 import {
     ApiBadRequestErrorResponse,
     ApiUnauthorizedErrorResponse,
@@ -33,6 +34,7 @@ export class TimelineController {
         private readonly timeline_service: TimelineService,
         private readonly foryou_service: ForyouService
     ) {}
+    // api=/timeline/for-you
 
     @ApiImplementationStatus({
         status: ImplementationStatus.IN_PROGRESS,
