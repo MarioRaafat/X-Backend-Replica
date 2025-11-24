@@ -8,7 +8,7 @@ import {
     UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
-import { Chat } from './chat.entity';
+import { Chat } from '../../chat/entities/chat.entity';
 
 export enum MessageType {
     TEXT = 'text',

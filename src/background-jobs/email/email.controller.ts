@@ -1,11 +1,12 @@
 import { Controller, Get } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { BackgroundJobsService } from './background-jobs.service';
+import { BackgroundJobsService } from '../background-jobs';
+import { EmailJobsService } from './email.service';
 
 @ApiTags('Background Jobs')
 @Controller('background-jobs')
-export class BackgroundJobsController {
-    constructor(private readonly background_jobs_service: BackgroundJobsService) {}
+export class EmailJobsController {
+    constructor(private readonly background_jobs_service: EmailJobsService) {}
 
     @Get('email-queue/stats')
     @ApiOperation({ summary: 'Get email queue statistics' })

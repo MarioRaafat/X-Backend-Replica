@@ -20,7 +20,7 @@ import { VerificationService } from 'src/verification/verification.service';
 import { EmailService } from 'src/communication/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
+import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
 import {
     BadRequestException,
     ConflictException,

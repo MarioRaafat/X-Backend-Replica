@@ -48,6 +48,8 @@ import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 import { categorize_prompt, TOPICS } from './constants';
+import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
+import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
 
 @Injectable()
 export class TweetsService {
@@ -71,7 +73,9 @@ export class TweetsService {
         private data_source: DataSource,
         private readonly paginate_service: PaginationService,
         private readonly tweets_repository: TweetsRepository,
-        private readonly azure_storage_service: AzureStorageService
+        private readonly azure_storage_service: AzureStorageService,
+        private readonly reply_job_service: ReplyJobService,
+        private readonly like_job_service: LikeJobService
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
@@ -311,8 +315,8 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
-            if (!tweet_exists) throw new NotFoundException('Tweet not found');
+            const tweet = await query_runner.manager.findOne(Tweet, { where: { tweet_id } });
+            if (!tweet) throw new NotFoundException('Tweet not found');
 
             const new_like = query_runner.manager.create(TweetLike, {
                 tweet: { tweet_id },
@@ -322,6 +326,12 @@ export class TweetsService {
             await query_runner.manager.insert(TweetLike, new_like);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_likes', 1);
             await query_runner.commitTransaction();
+
+            this.like_job_service.queueLikeNotification({
+                tweet,
+                like_to: tweet.user_id,
+                liked_by: user_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -531,9 +541,9 @@ export class TweetsService {
             const [original_tweet, original_reply] = await Promise.all([
                 query_runner.manager.findOne(Tweet, {
                     where: { tweet_id: original_tweet_id },
-                    select: ['tweet_id'],
+                    select: ['tweet_id', 'user_id'],
                 }),
-               query_runner.manager.findOne(TweetReply, {
+                query_runner.manager.findOne(TweetReply, {
                     where: { reply_tweet_id: original_tweet_id },
                 }),
             ]);
@@ -568,6 +578,16 @@ export class TweetsService {
             );
 
             await query_runner.commitTransaction();
+
+            if (user_id !== original_tweet.user_id)
+                this.reply_job_service.queueReplyNotification({
+                    tweet: saved_reply_tweet,
+                    reply_tweet_id: saved_reply_tweet.tweet_id,
+                    original_tweet_id: original_tweet_id,
+                    replied_by: user_id,
+                    reply_to: original_tweet.user_id,
+                    conversation_id: original_reply?.conversation_id || original_tweet_id,
+                });
 
             const returned_reply = plainToInstance(
                 TweetReplyResponseDTO,
@@ -861,15 +881,15 @@ export class TweetsService {
             });
 
             // If this is a reply, delegate to getReplyWithUserById to get the cascaded parent tweets
-              const reply_info = await this.getReplyWithUserById(tweet_id, current_user_id);
-                if (reply_info) {
-                    if (reply_info.parent_tweet) {
-                        tweet_dto.parent_tweet = reply_info.parent_tweet;
-                    }
-                    if (reply_info.parent_tweet_id) {
-                        tweet_dto.parent_tweet_id = reply_info.parent_tweet_id;
-                    }
+            const reply_info = await this.getReplyWithUserById(tweet_id, current_user_id);
+            if (reply_info) {
+                if (reply_info.parent_tweet) {
+                    tweet_dto.parent_tweet = reply_info.parent_tweet;
                 }
+                if (reply_info.parent_tweet_id) {
+                    tweet_dto.parent_tweet_id = reply_info.parent_tweet_id;
+                }
+            }
 
             // Fetch limited replies if requested and tweet has replies
             if (include_replies && tweet.num_replies > 0) {
@@ -1127,9 +1147,9 @@ export class TweetsService {
                 return await this.getTweetWithUserById(
                     bookmark.tweet.tweet_id,
                     user_id,
-                    true,  // flag to include parent tweets
+                    true, // flag to include parent tweets
                     false, // don't include replies
-                    0      // replies_limit
+                    0 // replies_limit
                 );
             })
         );

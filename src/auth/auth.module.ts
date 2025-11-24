@@ -21,8 +21,8 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
 import { UserRepository } from 'src/user/user.repository';
 import { BackgroundJobsModule } from 'src/background-jobs/background-jobs.module';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { EmailJobsService } from 'src/background-jobs/email/email.service';
 
 @Module({
     imports: [
@@ -53,7 +53,7 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
         RedisService,
         VerificationService,
         EmailService,
-        BackgroundJobsService,
+        EmailJobsService,
         CaptchaService,
         UsernameService,
         GoogleStrategy,
