@@ -35,6 +35,7 @@ import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { UsernameService } from 'src/auth/username.service';
 import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
 
 describe('UserService', () => {
     let service: UserService;
@@ -45,6 +46,7 @@ describe('UserService', () => {
     let azure_storage_service: jest.Mocked<AzureStorageService>;
     let config_service: jest.Mocked<ConfigService>;
     let category_repository: jest.Mocked<Repository<Category>>;
+    let follow_job_service: jest.Mocked<FollowJobService>;
 
     beforeEach(async () => {
         const mock_user_repository = {
@@ -87,6 +89,10 @@ describe('UserService', () => {
             generateNextCursor: jest.fn(),
         };
 
+        const mock_follow_job_service = {
+            queueFollowNotification: jest.fn(),
+        };
+
         const mock_azure_storage_service = {
             uploadFile: jest.fn(),
             deleteFile: jest.fn(),
@@ -115,6 +121,7 @@ describe('UserService', () => {
                 { provide: getRepositoryToken(Category), useValue: mock_category_repository },
                 { provide: UsernameService, useValue: mock_username_service },
                 { provide: PaginationService, useValue: mock_pagination_service },
+                { provide: FollowJobService, useValue: mock_follow_job_service },
             ],
         }).compile();
 
@@ -126,6 +133,7 @@ describe('UserService', () => {
         category_repository = module.get(getRepositoryToken(Category));
         username_service = module.get(UsernameService);
         pagination_service = module.get(PaginationService);
+        follow_job_service = module.get(FollowJobService);
     });
 
     afterEach(() => jest.clearAllMocks());

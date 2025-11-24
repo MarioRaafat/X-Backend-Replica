@@ -41,7 +41,7 @@ describe('NotificationsGateway', () => {
         jwt_service = module.get(JwtService);
         config_service = module.get(ConfigService);
 
-        gateway.server = mock_server as Server;
+        gateway.server = mock_server;
     });
 
     afterEach(() => {
@@ -79,7 +79,7 @@ describe('NotificationsGateway', () => {
 
             const console_spy = jest.spyOn(console, 'log').mockImplementation();
 
-            gateway.handleConnection(mock_client as Socket);
+            gateway.handleConnection(mock_client);
 
             expect(mock_client.join).toHaveBeenCalledWith('user-456');
             expect(console_spy).toHaveBeenCalledWith(
@@ -100,7 +100,7 @@ describe('NotificationsGateway', () => {
                 disconnect: jest.fn(),
             };
 
-            gateway.handleConnection(mock_client as Socket);
+            gateway.handleConnection(mock_client);
 
             expect(mock_client.disconnect).toHaveBeenCalled();
             expect(mock_client.join).not.toHaveBeenCalled();
@@ -114,7 +114,7 @@ describe('NotificationsGateway', () => {
                 disconnect: jest.fn(),
             };
 
-            gateway.handleConnection(mock_client as Socket);
+            gateway.handleConnection(mock_client);
 
             expect(mock_client.disconnect).toHaveBeenCalled();
             expect(mock_client.join).not.toHaveBeenCalled();
