@@ -1,5 +1,6 @@
-export const Y_LOGO_URL = 'https://iili.io/KUhrEyN.png';
-export const Y_LOGO_HOST_URL = 'https://freeimage.host/';
+export const Y_LOGO_URL =
+    'https://yapperdev.blob.core.windows.net/profile-images/25a3ccdd-0437-4e88-9bcb-028f1de2d7c4-1763920269595-Y_Logo.jpg';
+export const Y_LOGO_HOST_URL = 'https://yapperdev.blob.core.windows.net/profile-images/';
 
 export const STRING_MAX_LENGTH = 100;
 export const LARGE_MAX_LENGTH = 3000;

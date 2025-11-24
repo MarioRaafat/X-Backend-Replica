@@ -12,6 +12,8 @@ import { UserPostsView } from '../tweets/entities/user-posts-view.entity';
 import { UserBlocks, UserFollows, UserMutes } from '../user/entities';
 import { UserInterests } from '../user/entities/user-interests.entity';
 import { TweetCategory } from '../tweets/entities/tweet-category.entity';
+import { Chat } from '../chat/entities/chat.entity';
+import { Message } from '../messages/entities/message.entity';
 config({ path: resolve(__dirname, '../../config/.env') });
 const config_service = new ConfigService();
 
@@ -42,6 +44,8 @@ export default new DataSource({
         UserMutes,
         UserPostsView,
         TweetCategory,
+        Chat,
+        Message,
     ],
     migrations: ['src/migrations/*{.ts,.js}'],
     synchronize: false,

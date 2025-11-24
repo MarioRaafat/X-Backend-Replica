@@ -73,13 +73,14 @@ export const ERROR_MESSAGES = {
     MESSAGE_NOT_FOUND: 'Message not found',
     UNAUTHORIZED_ACCESS_TO_CHAT: 'Unauthorized access to chat',
     UNAUTHORIZED_ACCESS_TO_MESSAGE: 'Unauthorized access to message',
+    MESSAGE_DOES_NOT_BELONG_TO_CHAT: 'Message does not belong to this chat',
     RECIPIENT_NOT_FOUND: 'Recipient user not found',
     CANNOT_MESSAGE_YOURSELF: 'Cannot send message to yourself',
     MESSAGE_CONTENT_REQUIRED: 'Message content is required',
     CHAT_ALREADY_EXISTS: 'Chat already exists between these users',
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
-    CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
+    LAST_READ_MESSAGE_NOT_IN_CHAT: 'Last read message does not belong to this chat',
 
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
