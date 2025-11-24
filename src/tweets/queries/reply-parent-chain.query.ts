@@ -1,7 +1,6 @@
 export function getReplyWithParentChainQuery(current_user_id?: string) {
     return `
         WITH RECURSIVE reply_chain AS (
-            -- Base case: Start with the given tweet
             SELECT 
                 t.tweet_id,
                 t.user_id,
@@ -16,15 +15,15 @@ export function getReplyWithParentChainQuery(current_user_id?: string) {
                 t.num_replies,
                 t.created_at,
                 t.updated_at,
-                tr.original_tweet_id as parent_tweet_id,
+                COALESCE(tr.original_tweet_id, tq.original_tweet_id) as parent_tweet_id,
                 0 as depth
             FROM tweets t
             LEFT JOIN tweet_replies tr ON tr.reply_tweet_id = t.tweet_id
+            LEFT JOIN tweet_quotes tq ON tq.quote_tweet_id = t.tweet_id
             WHERE t.tweet_id = $1
             
             UNION ALL
             
-            -- Recursive case: Get parent tweets
             SELECT 
                 t.tweet_id,
                 t.user_id,
@@ -39,11 +38,12 @@ export function getReplyWithParentChainQuery(current_user_id?: string) {
                 t.num_replies,
                 t.created_at,
                 t.updated_at,
-                tr.original_tweet_id as parent_tweet_id,
+                COALESCE(tr.original_tweet_id, tq.original_tweet_id) as parent_tweet_id,
                 rc.depth + 1
             FROM tweets t
             INNER JOIN reply_chain rc ON t.tweet_id = rc.parent_tweet_id
             LEFT JOIN tweet_replies tr ON tr.reply_tweet_id = t.tweet_id
+            LEFT JOIN tweet_quotes tq ON tq.quote_tweet_id = t.tweet_id
             WHERE rc.depth < 100
         )
         SELECT 
