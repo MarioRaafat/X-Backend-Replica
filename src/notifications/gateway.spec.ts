@@ -41,7 +41,7 @@ describe('NotificationsGateway', () => {
         jwt_service = module.get(JwtService);
         config_service = module.get(ConfigService);
 
-        gateway.server = mock_server;
+        gateway.server = mock_server as any;
     });
 
     afterEach(() => {
@@ -69,9 +69,7 @@ describe('NotificationsGateway', () => {
             const mock_client: Partial<Socket> = {
                 id: 'socket-123',
                 data: {
-                    user: {
-                        id: 'user-456',
-                    },
+                    user_id: 'user-456',
                 },
                 join: jest.fn(),
                 disconnect: jest.fn(),
@@ -79,7 +77,7 @@ describe('NotificationsGateway', () => {
 
             const console_spy = jest.spyOn(console, 'log').mockImplementation();
 
-            gateway.handleConnection(mock_client);
+            gateway.handleConnection(mock_client as any);
 
             expect(mock_client.join).toHaveBeenCalledWith('user-456');
             expect(console_spy).toHaveBeenCalledWith(
@@ -100,7 +98,7 @@ describe('NotificationsGateway', () => {
                 disconnect: jest.fn(),
             };
 
-            gateway.handleConnection(mock_client);
+            gateway.handleConnection(mock_client as any);
 
             expect(mock_client.disconnect).toHaveBeenCalled();
             expect(mock_client.join).not.toHaveBeenCalled();
@@ -114,7 +112,7 @@ describe('NotificationsGateway', () => {
                 disconnect: jest.fn(),
             };
 
-            gateway.handleConnection(mock_client);
+            gateway.handleConnection(mock_client as any);
 
             expect(mock_client.disconnect).toHaveBeenCalled();
             expect(mock_client.join).not.toHaveBeenCalled();

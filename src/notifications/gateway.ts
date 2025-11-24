@@ -26,7 +26,7 @@ export class NotificationsGateway {
     }
 
     handleConnection(client: Socket) {
-        const user_id = client.data.user.id;
+        const user_id = client.data.user_id;
         if (!user_id) {
             client.disconnect();
             return;

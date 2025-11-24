@@ -1,3 +1,4 @@
+import { WsException } from '@nestjs/websockets';
 import { UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
@@ -58,7 +59,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_client.data.user).toEqual(mock_user);
+        expect(mock_client.data.user).toEqual({ user_id: mock_user.id });
         expect(mock_next).toHaveBeenCalledWith();
         expect(mock_next).toHaveBeenCalledTimes(1);
     });
@@ -74,7 +75,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+        expect(mock_next).toHaveBeenCalledWith(expect.any(WsException));
         expect(mock_next).toHaveBeenCalledTimes(1);
         expect(mock_client.data.user).toBeUndefined();
     });
@@ -92,7 +93,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+        expect(mock_next).toHaveBeenCalledWith(expect.any(WsException));
         expect(mock_next).toHaveBeenCalledTimes(1);
     });
 
@@ -109,7 +110,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+        expect(mock_next).toHaveBeenCalledWith(expect.any(WsException));
         expect(mock_next).toHaveBeenCalledTimes(1);
     });
 
@@ -126,7 +127,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+        expect(mock_next).toHaveBeenCalledWith(expect.any(WsException));
         expect(mock_next).toHaveBeenCalledTimes(1);
     });
 
@@ -143,7 +144,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+        expect(mock_next).toHaveBeenCalledWith(expect.any(WsException));
         expect(mock_next).toHaveBeenCalledTimes(1);
     });
 
@@ -164,7 +165,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+        expect(mock_next).toHaveBeenCalledWith(expect.any(WsException));
         expect(mock_next).toHaveBeenCalledTimes(1);
         expect(mock_client.data.user).toBeUndefined();
     });
@@ -186,7 +187,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+        expect(mock_next).toHaveBeenCalledWith(expect.any(WsException));
         expect(mock_next).toHaveBeenCalledTimes(1);
     });
 
@@ -207,12 +208,12 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_next).toHaveBeenCalledWith(expect.any(UnauthorizedException));
+        expect(mock_next).toHaveBeenCalledWith(expect.any(WsException));
         expect(mock_next).toHaveBeenCalledTimes(1);
     });
 
-    it('should use WsJwtGuard.validateToken for token validation', () => {
-        const mock_user = { id: '456', username: 'testuser' };
+    it('should authenticate and attach user to client on valid token', () => {
+        const mock_user = { user_id: '456', id: '456', username: 'testuser' };
         mock_client = {
             handshake: {
                 headers: {
@@ -267,7 +268,7 @@ describe('WsAuthMiddleware', () => {
             data: {},
         } as any;
 
-        const custom_error = new UnauthorizedException('Custom error message');
+        const custom_error = new WsException('Custom error message');
         jest.spyOn(WsJwtGuard, 'validateToken').mockImplementation(() => {
             throw custom_error;
         });
@@ -319,7 +320,7 @@ describe('WsAuthMiddleware', () => {
 
         expect(mock_client.data).toEqual({
             otherData: 'preserved',
-            user: mock_user,
+            user: { user_id: mock_user.id },
         });
     });
 });

@@ -1,7 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ExecutionContext, UnauthorizedException } from '@nestjs/common';
+import { ExecutionContext } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import { WsException } from '@nestjs/websockets';
 import { WsJwtGuard } from './ws-jwt.guard';
 import { Socket } from 'socket.io';
 
@@ -100,7 +101,7 @@ describe('WsJwtGuard', () => {
                 }),
             } as any as ExecutionContext;
 
-            jest.spyOn(WsJwtGuard, 'validateToken').mockReturnValue(null);
+            jest.spyOn(WsJwtGuard, 'validateToken').mockReturnValue({ user_id: null });
 
             const result = guard.canActivate(context);
 
@@ -130,7 +131,7 @@ describe('WsJwtGuard', () => {
             expect(config_service.get).toHaveBeenCalledWith('JWT_TOKEN_SECRET');
         });
 
-        it('should throw UnauthorizedException when authorization header is missing', () => {
+        it('should throw WsException when authorization header is missing', () => {
             const mock_client = {
                 handshake: {
                     headers: {},
@@ -139,14 +140,14 @@ describe('WsJwtGuard', () => {
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(UnauthorizedException);
+            }).toThrow(WsException);
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
             }).toThrow('No authorization header');
         });
 
-        it('should throw UnauthorizedException when authorization header is undefined', () => {
+        it('should throw WsException when authorization header is undefined', () => {
             const mock_client = {
                 handshake: {
                     headers: {
@@ -157,14 +158,14 @@ describe('WsJwtGuard', () => {
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(UnauthorizedException);
+            }).toThrow(WsException);
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
             }).toThrow('No authorization header');
         });
 
-        it('should throw UnauthorizedException when token is missing', () => {
+        it('should throw WsException when token is missing', () => {
             const mock_client = {
                 handshake: {
                     headers: {
@@ -175,14 +176,14 @@ describe('WsJwtGuard', () => {
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(UnauthorizedException);
+            }).toThrow(WsException);
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
             }).toThrow('Invalid authorization format');
         });
 
-        it('should throw UnauthorizedException when token after Bearer is empty', () => {
+        it('should throw WsException when token after Bearer is empty', () => {
             const mock_client = {
                 handshake: {
                     headers: {
@@ -193,14 +194,14 @@ describe('WsJwtGuard', () => {
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(UnauthorizedException);
+            }).toThrow(WsException);
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
             }).toThrow('Invalid authorization format');
         });
 
-        it('should throw UnauthorizedException when authorization format is invalid', () => {
+        it('should throw WsException when authorization format is invalid', () => {
             const mock_client = {
                 handshake: {
                     headers: {
@@ -211,14 +212,14 @@ describe('WsJwtGuard', () => {
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(UnauthorizedException);
+            }).toThrow(WsException);
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
             }).toThrow('Invalid authorization format');
         });
 
-        it('should throw UnauthorizedException when JWT verification fails', () => {
+        it('should throw WsException when JWT verification fails', () => {
             const mock_client = {
                 handshake: {
                     headers: {
@@ -233,14 +234,14 @@ describe('WsJwtGuard', () => {
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(UnauthorizedException);
+            }).toThrow(WsException);
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
             }).toThrow('Invalid token');
         });
 
-        it('should throw UnauthorizedException when JWT is expired', () => {
+        it('should throw WsException when JWT is expired', () => {
             const mock_client = {
                 handshake: {
                     headers: {
@@ -255,7 +256,7 @@ describe('WsJwtGuard', () => {
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(UnauthorizedException);
+            }).toThrow(WsException);
         });
 
         it('should handle malformed JWT tokens', () => {
@@ -273,7 +274,7 @@ describe('WsJwtGuard', () => {
 
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(UnauthorizedException);
+            }).toThrow(WsException);
         });
     });
 });

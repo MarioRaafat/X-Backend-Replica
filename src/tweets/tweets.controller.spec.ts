@@ -210,7 +210,7 @@ describe('TweetsController', () => {
         it('should return tweet likes', async () => {
             const tweet_id = 'tweet-123';
             const user_id = 'user-123';
-            const query = { page: 1, limit: 20 };
+            const query = { cursor: undefined, limit: 20 };
             const mock_likes = { data: [], pagination: {} };
 
             mock_tweets_service.getTweetLikes.mockResolvedValue(mock_likes);
@@ -220,7 +220,7 @@ describe('TweetsController', () => {
             expect(service.getTweetLikes).toHaveBeenCalledWith(
                 tweet_id,
                 user_id,
-                query.page,
+                query.cursor,
                 query.limit
             );
             expect(result).toEqual(mock_likes);
@@ -231,7 +231,7 @@ describe('TweetsController', () => {
         it('should return tweet reposts', async () => {
             const tweet_id = 'tweet-123';
             const user_id = 'user-123';
-            const query = { page: 1, limit: 20 };
+            const query = { cursor: undefined, limit: 20 };
             const mock_reposts = { data: [], pagination: {} };
 
             mock_tweets_service.getTweetReposts.mockResolvedValue(mock_reposts);
@@ -241,7 +241,7 @@ describe('TweetsController', () => {
             expect(service.getTweetReposts).toHaveBeenCalledWith(
                 tweet_id,
                 user_id,
-                query.page,
+                query.cursor,
                 query.limit
             );
             expect(result).toEqual(mock_reposts);
