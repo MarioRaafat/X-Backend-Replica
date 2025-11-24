@@ -25,7 +25,9 @@
         "migration:show": "typeorm-ts-node-commonjs migration:show -d src/databases/data-source.ts",
         "schema:log": "typeorm-ts-node-commonjs schema:log -d src/databases/data-source.ts",
         "prepare": "husky",
-        "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts"
+        "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts",
+        "command": "ts-node -r tsconfig-paths/register src/cli.ts",
+        "es:seed": "npm run command es:seed"
     },
     "lint-staged": {
         "*.ts": [
@@ -65,6 +67,8 @@
         "ioredis": "^5.7.0",
         "mongoose": "^8.19.1",
         "multer": "^2.0.2",
+        "nest-commander": "^3.20.1",
+        "nestjs-command": "^3.1.5",
         "nodemailer": "^7.0.6",
         "passport": "^0.7.0",
         "passport-facebook": "^3.0.0",

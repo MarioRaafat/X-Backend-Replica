@@ -12,7 +12,7 @@ export class ElasticsearchSetupService implements OnModuleInit {
         await this.setupIndices();
     }
 
-    private async setupIndices() {
+    async setupIndices() {
         try {
             for (const [index_name, index_config] of Object.entries(INDEX_CONFIGS)) {
                 await this.createIndexIfNotExists(index_name, index_config);
