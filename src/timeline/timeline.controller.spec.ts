@@ -1,19 +1,59 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TimelineController } from './timeline.controller';
 import { TimelineService } from './timeline.service';
+import { ForyouService } from './services/foryou/for-you.service';
 import { TimelinePaginationDto } from './dto/timeline-pagination.dto';
-import { UserResponseDTO } from 'src/tweets/dto/user-response.dto';
-import { TweetType } from 'src/shared/enums/tweet-types.enum';
-import { RepostedByUserDTO, TweetResponseDTO } from 'src/tweets/dto';
-import { TimelineResponseDto } from './dto/timeline-response.dto';
+import { ScoredCandidateDTO } from './dto/scored-candidates.dto';
 
 describe('TimelineController', () => {
     let controller: TimelineController;
-    let service: jest.MockedObject<TimelineService>;
+    let timeline_service: jest.Mocked<TimelineService>;
+    let foryou_service: jest.Mocked<ForyouService>;
 
-    const mock_service = {
-        getFollowingTimeline: jest.fn(),
-        getForyouTimeline: jest.fn(),
+    const mock_user_id = 'user-123';
+    const mock_pagination: TimelinePaginationDto = {
+        cursor: 'cursor-abc',
+        limit: 20,
+        since_id: undefined,
+    };
+
+    const mock_scored_candidate: ScoredCandidateDTO = {
+        tweet_id: 'tweet-1',
+        profile_user_id: 'profile-1',
+        tweet_author_id: 'author-1',
+        repost_id: null,
+        post_type: 'original',
+        type: 'tweet',
+        content: 'Test tweet content',
+        post_date: new Date('2024-01-01'),
+        images: [],
+        videos: [],
+        num_likes: 10,
+        num_reposts: 5,
+        num_views: 100,
+        num_quotes: 2,
+        num_replies: 3,
+        created_at: new Date('2024-01-01'),
+        updated_at: new Date('2024-01-01'),
+        user: {
+            id: 'author-1',
+            username: 'testuser',
+            name: 'Test User',
+            avatar_url: 'http://example.com/avatar.jpg',
+            cover_url: 'http://example.com/cover.jpg',
+            verified: true,
+            bio: 'Test bio',
+            followers: 1000,
+            following: 500,
+        },
+    } as any;
+
+    const mock_timeline_response = {
+        data: [mock_scored_candidate],
+        pagination: {
+            next_cursor: 'next-cursor-123',
+            has_more: true,
+        },
     };
 
     beforeEach(async () => {
@@ -22,249 +62,277 @@ describe('TimelineController', () => {
             providers: [
                 {
                     provide: TimelineService,
-                    useValue: mock_service,
+                    useValue: {
+                        getFollowingTimeline: jest.fn().mockResolvedValue(mock_timeline_response),
+                    },
+                },
+                {
+                    provide: ForyouService,
+                    useValue: {
+                        getForyouTimeline: jest.fn().mockResolvedValue(mock_timeline_response),
+                    },
                 },
             ],
         }).compile();
 
         controller = module.get<TimelineController>(TimelineController);
-        service = module.get(TimelineService);
+        timeline_service = module.get(TimelineService);
+        foryou_service = module.get(ForyouService);
     });
 
     afterEach(() => {
         jest.clearAllMocks();
     });
 
-    describe('GET /following', () => {
-        const user_id = 'user-1';
-        const pagination: TimelinePaginationDto = {
-            limit: 10,
-            cursor: null,
-        };
-        it('should return following timeline successfully', async () => {
-            const user_response: UserResponseDTO = {
-                id: 'user-456',
-                username: 'amira',
-                name: 'Amira',
-                verified: true,
-                avatar_url: 'https://example.com/avatar.jpg',
-                bio: 'Software developer and tech enthusiast',
-                followers: 1250,
-                following: 340,
-                is_following: true,
-                cover_url: 'https://example.com/cover.jpg',
-            };
-
-            const parent_tweet: TweetResponseDTO = {
-                tweet_id: 'tweet-parent-789',
-                content: 'This is the original tweet being replied to',
-                type: TweetType.TWEET,
-                images: ['https://example.com/image1.jpg'],
-                videos: [],
-                user: user_response,
-                likes_count: 245,
-                reposts_count: 67,
-                replies_count: 34,
-                quotes_count: 12,
-                views_count: 5420,
-                is_liked: false,
-                is_reposted: false,
-                created_at: new Date('2024-11-01T10:00:00Z'),
-                updated_at: new Date('2024-11-01T10:00:00Z'),
-            };
-
-            const reposted_by: RepostedByUserDTO = {
-                repost_id: 'repost-999',
-                id: 'user-repost-111',
-                name: 'Nada',
-                reposted_at: new Date('2024-11-02T08:30:00Z'),
-            };
-
-            const mock_tweets: TweetResponseDTO[] = [
-                {
-                    tweet_id: 'tweet-reply-001',
-                    content: 'Great point! I completely agree with this perspective.',
-                    type: TweetType.REPLY,
-                    images: [],
-                    videos: [],
-                    parent_tweet_id: 'tweet-parent-789',
-                    user: {
-                        id: 'user-789',
-                        username: 'techguru',
-                        name: 'Tech Guru',
-                        verified: false,
-                        avatar_url: 'https://example.com/tech-avatar.jpg',
-                        bio: 'Technology analyst',
-                        followers: 3400,
-                        following: 890,
-                        is_following: true,
-                        cover_url: 'https://example.com/tech-cover.jpg',
-                    },
-                    parent_tweet: parent_tweet,
-                    reposted_by: reposted_by,
-                    likes_count: 89,
-                    reposts_count: 23,
-                    replies_count: 12,
-                    quotes_count: 5,
-                    views_count: 1820,
-                    is_liked: true,
-                    is_reposted: false,
-                    created_at: new Date('2024-11-02T09:15:00Z'),
-                    updated_at: new Date('2024-11-02T09:15:00Z'),
-                },
-            ];
-            const mock_response: TimelineResponseDto = {
-                tweets: mock_tweets,
-                next_cursor: 'cursor-following-123',
-                has_more: false,
-                timestamp: new Date().toISOString(),
-                count: 1,
-            };
-
-            service.getFollowingTimeline.mockResolvedValue(mock_response);
-
-            const result = await controller.getFollowingTimeline(user_id, pagination);
-
-            expect(service.getFollowingTimeline).toHaveBeenCalledWith(user_id, pagination);
-            expect(service.getFollowingTimeline).toHaveBeenCalledTimes(1);
-            expect(result.has_more).toBe(false);
-        });
-
-        it('should return empty timeline when user follows no one or did not post anything', async () => {
-            const mock_response: TimelineResponseDto = {
-                tweets: [],
-                next_cursor: null,
-                has_more: false,
-                timestamp: new Date().toISOString(),
-                count: 0,
-            };
-
-            service.getFollowingTimeline.mockResolvedValue(mock_response);
-
-            const result = await controller.getFollowingTimeline(user_id, pagination);
-
-            expect(service.getFollowingTimeline).toHaveBeenCalledWith(user_id, pagination);
-            expect(result.tweets).toHaveLength(0);
-            expect(result.has_more).toBe(false);
-            expect(result.next_cursor).toBeNull();
-        });
-
-        //TODO: More tests to be added
+    it('should be defined', () => {
+        expect(controller).toBeDefined();
     });
-    describe('GET / For-you', () => {
-        const user_id = 'user-1';
-        const pagination: TimelinePaginationDto = {
-            limit: 10,
-            cursor: null,
-        };
-        it('should return for you timeline successfully', async () => {
-            const user_response: UserResponseDTO = {
-                id: 'user-456',
-                username: 'amira',
-                name: 'Amira',
-                verified: true,
-                avatar_url: 'https://example.com/avatar.jpg',
-                bio: 'Software developer and tech enthusiast',
-                followers: 1250,
-                following: 340,
-                is_following: true,
-                cover_url: 'https://example.com/cover.jpg',
+
+    describe('getForyouTimeline', () => {
+        it('should call foryou service with correct parameters', async () => {
+            await controller.getForyouTimeline(mock_user_id, mock_pagination);
+
+            expect(foryou_service.getForyouTimeline).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_pagination.cursor,
+                mock_pagination.limit
+            );
+            expect(foryou_service.getForyouTimeline).toHaveBeenCalledTimes(1);
+        });
+
+        it('should return timeline response from foryou service', async () => {
+            const result = await controller.getForyouTimeline(mock_user_id, mock_pagination);
+
+            expect(result).toEqual(mock_timeline_response);
+            expect(result.data).toEqual(mock_timeline_response.data);
+            expect(result.pagination).toEqual(mock_timeline_response.pagination);
+        });
+
+        it('should pass user_id from decorator', async () => {
+            await controller.getForyouTimeline(mock_user_id, mock_pagination);
+
+            expect(foryou_service.getForyouTimeline).toHaveBeenCalledWith(
+                mock_user_id,
+                expect.any(String),
+                expect.any(Number)
+            );
+        });
+
+        it('should pass pagination cursor correctly', async () => {
+            const custom_pagination: TimelinePaginationDto = {
+                cursor: 'custom-cursor',
+                limit: 30,
+                since_id: undefined,
             };
 
-            const parent_tweet: TweetResponseDTO = {
-                tweet_id: 'tweet-parent-789',
-                content: 'This is the original tweet being replied to',
-                type: TweetType.TWEET,
-                images: ['https://example.com/image1.jpg'],
-                videos: [],
-                user: user_response,
-                likes_count: 245,
-                reposts_count: 67,
-                replies_count: 34,
-                quotes_count: 12,
-                views_count: 5420,
-                is_liked: false,
-                is_reposted: false,
-                created_at: new Date('2024-11-01T10:00:00Z'),
-                updated_at: new Date('2024-11-01T10:00:00Z'),
+            await controller.getForyouTimeline(mock_user_id, custom_pagination);
+
+            expect(foryou_service.getForyouTimeline).toHaveBeenCalledWith(
+                mock_user_id,
+                'custom-cursor',
+                30
+            );
+        });
+
+        it('should handle undefined cursor', async () => {
+            const pagination_without_cursor: TimelinePaginationDto = {
+                cursor: undefined,
+                limit: 20,
+                since_id: undefined,
             };
 
-            const reposted_by: RepostedByUserDTO = {
-                repost_id: 'repost-999',
-                id: 'user-repost-111',
-                name: 'Nada',
-                reposted_at: new Date('2024-11-02T08:30:00Z'),
-            };
+            await controller.getForyouTimeline(mock_user_id, pagination_without_cursor);
 
-            const mock_tweets: TweetResponseDTO[] = [
-                {
-                    tweet_id: 'tweet-reply-001',
-                    content: 'Great point! I completely agree with this perspective.',
-                    type: TweetType.REPLY,
-                    images: [],
-                    videos: [],
-                    parent_tweet_id: 'tweet-parent-789',
-                    user: {
-                        id: 'user-789',
-                        username: 'techguru',
-                        name: 'Tech Guru',
-                        verified: false,
-                        avatar_url: 'https://example.com/tech-avatar.jpg',
-                        bio: 'Technology analyst',
-                        followers: 3400,
-                        following: 890,
-                        is_following: true,
-                        cover_url: 'https://example.com/tech-cover.jpg',
-                    },
-                    parent_tweet: parent_tweet,
-                    reposted_by: reposted_by,
-                    likes_count: 89,
-                    reposts_count: 23,
-                    replies_count: 12,
-                    quotes_count: 5,
-                    views_count: 1820,
-                    is_liked: true,
-                    is_reposted: false,
-                    created_at: new Date('2024-11-02T09:15:00Z'),
-                    updated_at: new Date('2024-11-02T09:15:00Z'),
+            expect(foryou_service.getForyouTimeline).toHaveBeenCalledWith(
+                mock_user_id,
+                undefined,
+                20
+            );
+        });
+
+        it('should return empty data when no tweets available', async () => {
+            const empty_response = {
+                data: [],
+                pagination: {
+                    next_cursor: null,
+                    has_more: false,
                 },
-            ];
-            const mock_response: TimelineResponseDto = {
-                tweets: mock_tweets,
-                next_cursor: 'cursor-following-123',
-                has_more: false,
-                timestamp: new Date().toISOString(),
-                count: 1,
             };
+            foryou_service.getForyouTimeline.mockResolvedValue(empty_response);
 
-            service.getForyouTimeline.mockResolvedValue(mock_response);
+            const result = await controller.getForyouTimeline(mock_user_id, mock_pagination);
 
-            const result = await controller.getForyouTimeline(user_id, pagination);
-
-            expect(service.getForyouTimeline).toHaveBeenCalledWith(user_id, pagination);
-            expect(service.getForyouTimeline).toHaveBeenCalledTimes(1);
-            expect(result.has_more).toBe(false);
+            expect(result.data).toEqual([]);
+            expect(result.pagination.has_more).toBe(false);
         });
 
-        it('should return empty timeline when no tweets exist', async () => {
-            const mock_response: TimelineResponseDto = {
-                tweets: [],
-                next_cursor: null,
-                has_more: false,
-                timestamp: new Date().toISOString(),
-                count: 0,
+        it('should handle multiple tweets in response', async () => {
+            const multiple_tweets_response = {
+                data: [
+                    mock_scored_candidate,
+                    { ...mock_scored_candidate, tweet_id: 'tweet-2' },
+                    { ...mock_scored_candidate, tweet_id: 'tweet-3' },
+                ],
+                pagination: {
+                    next_cursor: 'next-cursor-456',
+                    has_more: true,
+                },
             };
+            foryou_service.getForyouTimeline.mockResolvedValue(multiple_tweets_response);
 
-            service.getForyouTimeline.mockResolvedValue(mock_response);
+            const result = await controller.getForyouTimeline(mock_user_id, mock_pagination);
 
-            const result = await controller.getForyouTimeline(user_id, pagination);
-
-            expect(service.getForyouTimeline).toHaveBeenCalledWith(user_id, pagination);
-            expect(result.tweets).toHaveLength(0);
-            expect(result.has_more).toBe(false);
-            expect(result.next_cursor).toBeNull();
+            expect(result.data.length).toBe(3);
+            expect(result.data[0].tweet_id).toBe('tweet-1');
+            expect(result.data[1].tweet_id).toBe('tweet-2');
+            expect(result.data[2].tweet_id).toBe('tweet-3');
         });
 
-        //TODO: More tests to be added
+        it('should propagate errors from foryou service', async () => {
+            const error = new Error('Service error');
+            foryou_service.getForyouTimeline.mockRejectedValue(error);
+
+            await expect(
+                controller.getForyouTimeline(mock_user_id, mock_pagination)
+            ).rejects.toThrow('Service error');
+        });
+
+        it('should handle pagination with has_more false', async () => {
+            const response_with_no_more = {
+                data: [mock_scored_candidate],
+                pagination: {
+                    next_cursor: null,
+                    has_more: false,
+                },
+            };
+            foryou_service.getForyouTimeline.mockResolvedValue(response_with_no_more);
+
+            const result = await controller.getForyouTimeline(mock_user_id, mock_pagination);
+
+            expect(result.pagination.next_cursor).toBeNull();
+            expect(result.pagination.has_more).toBe(false);
+        });
+    });
+
+    describe('getFollowingTimeline', () => {
+        it('should call timeline service with correct parameters', async () => {
+            await controller.getFollowingTimeline(mock_user_id, mock_pagination);
+
+            expect(timeline_service.getFollowingTimeline).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_pagination
+            );
+            expect(timeline_service.getFollowingTimeline).toHaveBeenCalledTimes(1);
+        });
+
+        it('should return timeline response from timeline service', async () => {
+            const result = await controller.getFollowingTimeline(mock_user_id, mock_pagination);
+
+            expect(result).toEqual(mock_timeline_response);
+            expect(result.data).toEqual(mock_timeline_response.data);
+            expect(result.pagination).toEqual(mock_timeline_response.pagination);
+        });
+
+        it('should pass entire pagination object', async () => {
+            const custom_pagination: TimelinePaginationDto = {
+                cursor: 'custom-cursor',
+                limit: 50,
+                since_id: 'since-123',
+            };
+
+            await controller.getFollowingTimeline(mock_user_id, custom_pagination);
+
+            expect(timeline_service.getFollowingTimeline).toHaveBeenCalledWith(
+                mock_user_id,
+                custom_pagination
+            );
+        });
+
+        it('should pass user_id from decorator', async () => {
+            await controller.getFollowingTimeline(mock_user_id, mock_pagination);
+
+            expect(timeline_service.getFollowingTimeline).toHaveBeenCalledWith(
+                mock_user_id,
+                expect.any(Object)
+            );
+        });
+
+        it('should return empty data when no following tweets available', async () => {
+            const empty_response = {
+                data: [],
+                pagination: {
+                    next_cursor: null,
+                    has_more: false,
+                },
+            };
+            timeline_service.getFollowingTimeline.mockResolvedValue(empty_response);
+
+            const result = await controller.getFollowingTimeline(mock_user_id, mock_pagination);
+
+            expect(result.data).toEqual([]);
+            expect(result.pagination.has_more).toBe(false);
+        });
+
+        it('should handle multiple tweets in response', async () => {
+            const multiple_tweets_response = {
+                data: [
+                    mock_scored_candidate,
+                    { ...mock_scored_candidate, tweet_id: 'tweet-2' },
+                    { ...mock_scored_candidate, tweet_id: 'tweet-3' },
+                ],
+                pagination: {
+                    next_cursor: 'next-cursor-789',
+                    has_more: true,
+                },
+            };
+            timeline_service.getFollowingTimeline.mockResolvedValue(multiple_tweets_response);
+
+            const result = await controller.getFollowingTimeline(mock_user_id, mock_pagination);
+
+            expect(result.data.length).toBe(3);
+            expect(result.data[0].tweet_id).toBe('tweet-1');
+            expect(result.data[1].tweet_id).toBe('tweet-2');
+            expect(result.data[2].tweet_id).toBe('tweet-3');
+        });
+
+        it('should handle minimal pagination object', async () => {
+            const minimal_pagination: TimelinePaginationDto = {
+                cursor: undefined,
+                limit: undefined,
+                since_id: undefined,
+            };
+
+            await controller.getFollowingTimeline(mock_user_id, minimal_pagination);
+
+            expect(timeline_service.getFollowingTimeline).toHaveBeenCalledWith(
+                mock_user_id,
+                minimal_pagination
+            );
+        });
+
+        it('should handle pagination with has_more true', async () => {
+            const response_with_more = {
+                data: Array(20).fill(mock_scored_candidate),
+                pagination: {
+                    next_cursor: 'next-cursor-xyz',
+                    has_more: true,
+                },
+            };
+            timeline_service.getFollowingTimeline.mockResolvedValue(response_with_more);
+
+            const result = await controller.getFollowingTimeline(mock_user_id, mock_pagination);
+
+            expect(result.pagination.next_cursor).toBe('next-cursor-xyz');
+            expect(result.pagination.has_more).toBe(true);
+            expect(result.data.length).toBe(20);
+        });
+
+        it('should not modify pagination object', async () => {
+            const original_pagination = { ...mock_pagination };
+
+            await controller.getFollowingTimeline(mock_user_id, mock_pagination);
+
+            expect(mock_pagination).toEqual(original_pagination);
+        });
     });
 });
