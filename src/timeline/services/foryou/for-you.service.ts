@@ -29,10 +29,7 @@ export class ForyouService {
 
         return {
             data: interest_tweets,
-            pagination: {
-                next_cursor: '',
-                has_more: false,
-            },
+            pagination,
         };
     }
 }
