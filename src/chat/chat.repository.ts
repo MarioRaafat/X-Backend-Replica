@@ -49,6 +49,13 @@ export class ChatRepository extends Repository<Chat> {
         return chat;
     }
 
+    async findChatById(chat_id: string): Promise<Chat | null> {
+        const chat = await this.findOne({
+            where: { id: chat_id },
+        });
+        return chat;
+    }
+
     async getChats(user_id: string, query: GetChatsQueryDto) {
         try {
             const qb = this.createQueryBuilder('chat')

@@ -20,6 +20,9 @@ export class ChatService {
     ) {}
 
     async createChat(user_id: string, dto: CreateChatDto) {
+        if (dto.recipient_id === user_id) {
+            throw new BadRequestException(ERROR_MESSAGES.CANNOT_MESSAGE_YOURSELF);
+        }
         return this.chat_repository.createChat(user_id, dto);
     }
 

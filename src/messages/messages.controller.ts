@@ -43,7 +43,7 @@ export class MessagesController {
     @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.MESSAGE_CONTENT_REQUIRED)
     @ResponseMessage(SUCCESS_MESSAGES.MESSAGE_SENT)
-    @Post('chats/:chat_id/messages')
+    @Post('chats/:chat_id/message')
     async sendMessage(
         @Param('chat_id') chat_id: string,
         @Body() send_message_dto: SendMessageDto,

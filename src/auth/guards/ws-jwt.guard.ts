@@ -1,44 +1,92 @@
 import { CanActivate, ExecutionContext, Injectable, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { Observable } from 'rxjs';
-import { Socket } from 'socket.io';
 import { ConfigService } from '@nestjs/config';
+import { WsException } from '@nestjs/websockets';
+import { Socket } from 'socket.io';
+
+interface IAuthenticatedSocket extends Socket {
+    user?: {
+        user_id: string;
+        username: string;
+    };
+}
 
 @Injectable()
 export class WsJwtGuard implements CanActivate {
-    constructor(
-        private readonly jwt_service: JwtService,
-        private readonly config_service: ConfigService
-    ) {}
+    constructor(private jwt_service: JwtService) {}
 
-    canActivate(context: ExecutionContext): boolean | Promise<boolean> | Observable<boolean> {
-        if (context.getType() !== 'ws') return true;
+    async canActivate(context: ExecutionContext): Promise<boolean> {
+        try {
+            const client: IAuthenticatedSocket = context.switchToWs().getClient();
+            const token = this.extractTokenFromHandshake(client);
 
-        const client: Socket = context.switchToWs().getClient();
-        const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
+            if (!token) {
+                throw new WsException('Unauthorized - No token provided');
+            }
 
-        if (!user) return false;
+            const payload = await this.jwt_service.verifyAsync(token, {
+                secret: process.env.JWT_TOKEN_SECRET,
+            });
 
-        client.data.user = user;
-        return true;
+            client.user = {
+                user_id: payload.id,
+                username: payload.username,
+            };
+
+            return true;
+        } catch (error) {
+            throw new WsException('Unauthorized - Invalid token');
+        }
     }
 
     static validateToken(client: Socket, jwt_service: JwtService, config_service: ConfigService) {
-        const { authorization } = client.handshake.headers;
-
-        if (!authorization) throw new UnauthorizedException('No authorization header');
-
-        const token = authorization.split(' ')[1];
-
-        if (!token) throw new UnauthorizedException('Invalid authorization format');
-
         try {
+            const token = WsJwtGuard.extractTokenFromHandshake(client);
+
+            if (!token) {
+                throw new WsException('Unauthorized - No token provided');
+            }
+
             const payload = jwt_service.verify(token, {
-                secret: config_service.get('JWT_TOKEN_SECRET'),
+                secret:
+                    config_service.get<string>('JWT_TOKEN_SECRET') || process.env.JWT_TOKEN_SECRET,
             });
-            return payload;
+
+            return {
+                user_id: payload.id,
+                // username: payload.username,
+            };
         } catch (error) {
-            throw new UnauthorizedException('Invalid token');
+            throw new WsException('Unauthorized - Invalid token');
         }
+    }
+
+    private extractTokenFromHandshake(client: Socket): string | undefined {
+        return WsJwtGuard.extractTokenFromHandshake(client);
+    }
+
+    private static extractTokenFromHandshake(client: Socket): string | undefined {
+        // Try to get token from handshake auth
+        const token = client.handshake.auth?.token;
+        if (token) {
+            return token;
+        }
+
+        // Try to get token from query params (fallback)
+        const query_token = client.handshake.query?.token;
+        if (query_token && typeof query_token === 'string') {
+            return query_token;
+        }
+
+        // Try to get token from headers (Authorization: Bearer <token>)
+        const auth_header = client.handshake.headers?.authorization;
+        if (auth_header) {
+            const [type, header_token] = auth_header.split(' ');
+            if (type === 'Bearer' && header_token) {
+                return header_token;
+            }
+        }
+
+        return undefined;
     }
 }

@@ -9,21 +9,22 @@ import {
 } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { UseGuards } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
 import { MessagesService } from './messages.service';
 import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
-import { WsJwtGuard } from './guards/ws-jwt.guard';
+import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
 
 interface IAuthenticatedSocket extends Socket {
     user?: {
         user_id: string;
-        username: string;
     };
 }
 
 @WebSocketGateway({
     namespace: '/messages',
     cors: {
-        origin: process.env.FRONTEND_URL || '*',
+        origin: true,
         credentials: true,
     },
 })
@@ -31,23 +32,20 @@ interface IAuthenticatedSocket extends Socket {
 export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
     @WebSocketServer()
     server: Server;
-
     // Store active connections: user_id -> socket_id[]
     private userSockets = new Map<string, Set<string>>();
-
-    constructor(private readonly messages_service: MessagesService) {}
+    constructor(
+        private readonly messages_service: MessagesService,
+        private readonly jwt_service: JwtService,
+        private readonly config_service: ConfigService
+    ) {}
 
     async handleConnection(client: IAuthenticatedSocket) {
         try {
-            // User will be set by WsJwtGuard
-            if (!client.user) {
-                client.disconnect();
-                return;
-            }
-
+            const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
+            client.user = user;
             const user_id = client.user.user_id;
 
-            // Track user's socket connections
             if (!this.userSockets.has(user_id)) {
                 this.userSockets.set(user_id, new Set());
             }
@@ -83,9 +81,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             const user_id = client.user!.user_id;
             const { chat_id } = data;
 
-            // Join the chat room
-            await client.join(chat_id);
+            await this.messages_service.validateChatParticipation(user_id, chat_id);
 
+            await client.join(chat_id);
             return {
                 event: 'joined_chat',
                 data: { chat_id, message: 'Successfully joined chat' },
@@ -105,10 +103,10 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     ) {
         try {
             const { chat_id } = data;
+            const user_id = client.user!.user_id;
+            await this.messages_service.validateChatParticipation(user_id, chat_id);
 
-            // Leave the chat room
             await client.leave(chat_id);
-
             return {
                 event: 'left_chat',
                 data: { chat_id, message: 'Successfully left chat' },
@@ -130,14 +128,22 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             const user_id = client.user!.user_id;
             const { chat_id, message } = data;
 
-            // Send message through service
             const result = await this.messages_service.sendMessage(user_id, chat_id, message);
 
-            // Emit the message to all users in the chat room
+            // Emit to the chat room (for users already in the room)
             this.server.to(chat_id).emit('new_message', {
-                chat_id,
+                chat_id: chat_id,
                 message: result,
             });
+
+            // Also emit directly to the recipient (in case they're not in the room yet)
+            const recipient_id = result.recipient_id;
+            if (recipient_id) {
+                this.emitToUser(recipient_id, 'new_message', {
+                    chat_id,
+                    message: result,
+                });
+            }
 
             return {
                 event: 'message_sent',
@@ -190,13 +196,20 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
                 message_id,
                 update
             );
-
-            // Notify all users in the chat about the update
             this.server.to(chat_id).emit('message_updated', {
                 chat_id,
                 message_id,
                 message: result,
             });
+
+            const recipient_id = result.recipient_id;
+            if (recipient_id) {
+                this.emitToUser(recipient_id, 'message_updated', {
+                    chat_id,
+                    message_id,
+                    message: result,
+                });
+            }
 
             return {
                 event: 'message_updated',
@@ -220,12 +233,19 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             const { chat_id, message_id } = data;
 
             const result = await this.messages_service.deleteMessage(user_id, chat_id, message_id);
-
-            // Notify all users in the chat about the deletion
             this.server.to(chat_id).emit('message_deleted', {
                 chat_id,
                 message_id,
             });
+
+            const recipient_id = result.recipient_id;
+            if (recipient_id) {
+                this.emitToUser(recipient_id, 'message_deleted', {
+                    chat_id,
+                    message_id,
+                    message: result,
+                });
+            }
 
             return {
                 event: 'message_deleted',
@@ -246,14 +266,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     ) {
         try {
             const user_id = client.user!.user_id;
-            const username = client.user!.username;
             const { chat_id } = data;
+            await this.messages_service.validateChatParticipation(user_id, chat_id);
 
-            // Broadcast typing indicator to others in the chat (except sender)
             client.to(chat_id).emit('user_typing', {
                 chat_id,
                 user_id: user_id,
-                username,
             });
 
             return {
@@ -276,8 +294,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         try {
             const user_id = client.user!.user_id;
             const { chat_id } = data;
+            await this.messages_service.validateChatParticipation(user_id, chat_id);
 
-            // Broadcast typing stop to others in the chat (except sender)
             client.to(chat_id).emit('user_stopped_typing', {
                 chat_id,
                 user_id: user_id,

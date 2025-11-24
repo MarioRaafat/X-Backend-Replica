@@ -13,7 +13,7 @@ import { JwtModule } from '@nestjs/jwt';
     imports: [
         TypeOrmModule.forFeature([Message, Chat]),
         JwtModule.register({
-            secret: process.env.JWT_SECRET,
+            secret: process.env.JWT_TOKEN_SECRET,
             signOptions: { expiresIn: '7d' },
         }),
     ],

@@ -57,7 +57,7 @@ export class MessageRepository extends Repository<Message> {
                 .leftJoinAndSelect('message.reply_to', 'reply_to')
                 .leftJoinAndSelect('reply_to.sender', 'reply_sender')
                 .where('message.chat_id = :chat_id', { chat_id })
-                .andWhere('message.is_deleted = :is_deleted', { is_deleted: false })
+                // .andWhere('message.is_deleted = :is_deleted', { is_deleted: false }) // commented until see if we want to hide deleted messages or show "This message was deleted"
                 .orderBy('message.created_at', 'DESC')
                 .take(limit);
 
@@ -116,7 +116,7 @@ export class MessageRepository extends Repository<Message> {
         }
     }
 
-    async softDeleteMessage(message_id: string): Promise<Message> {
+    async deleteMessage(message_id: string): Promise<Message> {
         try {
             await this.update(
                 { id: message_id },

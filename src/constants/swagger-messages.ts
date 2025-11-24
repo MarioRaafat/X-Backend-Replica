@@ -57,7 +57,6 @@ export const ERROR_MESSAGES = {
 
     // database
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
-    FAILED_TO_FETCH_FROM_DB: 'Failed to fetch the data from database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
     FAILED_TO_FETCH_FROM_DB: 'Failed to fetch data from database',
 
@@ -74,6 +73,7 @@ export const ERROR_MESSAGES = {
     MESSAGE_NOT_FOUND: 'Message not found',
     UNAUTHORIZED_ACCESS_TO_CHAT: 'Unauthorized access to chat',
     UNAUTHORIZED_ACCESS_TO_MESSAGE: 'Unauthorized access to message',
+    MESSAGE_DOES_NOT_BELONG_TO_CHAT: 'Message does not belong to this chat',
     RECIPIENT_NOT_FOUND: 'Recipient user not found',
     CANNOT_MESSAGE_YOURSELF: 'Cannot send message to yourself',
     MESSAGE_CONTENT_REQUIRED: 'Message content is required',
