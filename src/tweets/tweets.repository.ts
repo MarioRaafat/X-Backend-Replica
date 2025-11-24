@@ -52,7 +52,7 @@ export class TweetsRepository {
             let query = this.user_posts_view_repository
                 .createQueryBuilder('tweet')
                 .select([
-                    'tweet.tweet_id AS tweet_id',
+                    'DISTINCT ON (tweet.tweet_id) tweet.tweet_id AS tweet_id',
                     'tweet.profile_user_id AS profile_user_id',
                     'tweet.tweet_author_id AS tweet_author_id',
                     'tweet.repost_id AS repost_id',
@@ -96,24 +96,24 @@ export class TweetsRepository {
                     'tweet.profile_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
                     { user_id }
                 )
-                .addSelect(
-                    `
-        COALESCE(
-            (SELECT tr2.conversation_id 
-             FROM tweet_replies tr2 
-             WHERE tr2.reply_tweet_id = tweet.tweet_id 
-             LIMIT 1),
-            tweet.tweet_id
-        )
-    `,
-                    'conversation_group_id'
-                )
+                //             .addSelect(
+                //                 `
+                //     COALESCE(
+                //         (SELECT tr2.conversation_id
+                //          FROM tweet_replies tr2
+                //          WHERE tr2.reply_tweet_id = tweet.tweet_id
+                //          LIMIT 1),
+                //         tweet.tweet_id
+                //     )
+                // `,
+                //                 'conversation_group_id'
+                //             )
 
                 // This is the key: one tweet per conversation, latest first
-                .orderBy('conversation_group_id', 'ASC')
+                // .orderBy('conversation_group_id', 'ASC')
+                .orderBy('tweet.tweet_id', 'ASC')
                 .addOrderBy('tweet.post_date', 'DESC')
-                .addOrderBy('tweet.tweet_id', 'DESC')
-                .distinctOn(['conversation_group_id'])
+                // .distinctOn(['conversation_group_id'])
                 .limit(limit);
 
             query = this.attachParentTweetQuery(query, user_id);
