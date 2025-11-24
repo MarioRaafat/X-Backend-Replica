@@ -67,6 +67,14 @@ export class InterestsCandidateSource {
                 'ui.category_id = tc.category_id AND ui.user_id = :user_id',
                 { user_id }
             )
+            .where(
+                'tweet.tweet_author_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
+                { user_id }
+            )
+            .andWhere(
+                'tweet.tweet_author_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = :user_id)',
+                { user_id }
+            )
 
             .orderBy('tweet.post_date', 'DESC')
             .limit(limit)
