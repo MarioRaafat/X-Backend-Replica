@@ -48,7 +48,7 @@ export class ForYouRanker {
         const seen_authors = new Set<string>();
 
         for (const candidate of scored_candidates) {
-            const author_id = candidate.tweet.user.id;
+            const author_id = candidate.user.id;
 
             let penalty = 0;
 
