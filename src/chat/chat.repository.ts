@@ -14,10 +14,10 @@ import { PaginationService } from '../shared/services/pagination/pagination.serv
 @Injectable()
 export class ChatRepository extends Repository<Chat> {
     constructor(
-        private dataSource: DataSource,
-        private paginationService: PaginationService
+        private data_source: DataSource,
+        private pagination_service: PaginationService
     ) {
-        super(Chat, dataSource.createEntityManager());
+        super(Chat, data_source.createEntityManager());
     }
 
     async createChat(user_id: string, dto: CreateChatDto) {
@@ -67,7 +67,7 @@ export class ChatRepository extends Repository<Chat> {
                 .addOrderBy('chat.id', 'DESC')
                 .take(query.limit);
 
-            this.paginationService.applyCursorPagination(
+            this.pagination_service.applyCursorPagination(
                 qb,
                 query?.cursor,
                 'chat',
@@ -110,7 +110,7 @@ export class ChatRepository extends Repository<Chat> {
             });
 
             // Generate next cursor using PaginationService
-            const next_cursor = this.paginationService.generateNextCursor(
+            const next_cursor = this.pagination_service.generateNextCursor(
                 chats,
                 'updated_at',
                 'id'
