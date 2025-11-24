@@ -6,11 +6,13 @@ import { UserProfileDto } from './dto/user-profile.dto';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
 import { RelationshipType } from './enums/relationship-type.enum';
 import { UserInterests } from './entities/user-interests.entity';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 describe('UserRepository', () => {
     let repository: UserRepository;
     let data_source: jest.Mocked<DataSource>;
     let entity_manager: any;
+    let pagination_service: jest.Mocked<PaginationService>;
 
     beforeEach(async () => {
         entity_manager = {
@@ -26,6 +28,10 @@ describe('UserRepository', () => {
             getRepository: jest.fn(),
         } as any;
 
+        const mock_pagination_service = {
+            applyCursorPagination: jest.fn(),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 UserRepository,
@@ -33,10 +39,12 @@ describe('UserRepository', () => {
                     provide: DataSource,
                     useValue: data_source,
                 },
+                { provide: PaginationService, useValue: mock_pagination_service },
             ],
         }).compile();
 
         repository = module.get<UserRepository>(UserRepository);
+        pagination_service = module.get(PaginationService);
     });
 
     afterEach(() => jest.clearAllMocks());
@@ -339,6 +347,7 @@ describe('UserRepository', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-30'),
             };
 
             const mock_query_builder = {
@@ -390,6 +399,7 @@ describe('UserRepository', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-30'),
                 is_follower: true,
                 is_following: false,
                 is_muted: false,
@@ -434,6 +444,7 @@ describe('UserRepository', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-30'),
             };
 
             const mock_query_builder = {
@@ -487,6 +498,7 @@ describe('UserRepository', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-30'),
                 is_follower: true,
                 is_following: false,
                 is_muted: false,
@@ -531,6 +543,7 @@ describe('UserRepository', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-30'),
             };
 
             const mock_query_builder = {
@@ -858,8 +871,8 @@ describe('UserRepository', () => {
         it('should get followers list without following filter', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-            const page_offset = 0;
-            const page_size = 10;
+            const cursor = '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000';
+            const limit = 20;
 
             const mock_followers = [
                 {
@@ -876,10 +889,12 @@ describe('UserRepository', () => {
             ];
 
             const mock_query_builder = {
+                addSelect: jest.fn().mockReturnThis(),
                 innerJoin: jest.fn().mockReturnThis(),
                 setParameter: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 limit: jest.fn().mockReturnThis(),
-                offset: jest.fn().mockReturnThis(),
                 getRawMany: jest.fn().mockResolvedValueOnce(mock_followers),
             };
 
@@ -887,14 +902,22 @@ describe('UserRepository', () => {
                 .spyOn(repository, 'buildUserListQuery')
                 .mockReturnValue(mock_query_builder as any);
 
+            const apply_cursor_pagination_spy = jest
+                .spyOn(pagination_service, 'applyCursorPagination')
+                .mockReturnValue(mock_query_builder as any);
+
             const result = await repository.getFollowersList(
                 current_user_id,
                 target_user_id,
-                page_offset,
-                page_size
+                cursor,
+                limit
             );
 
             expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
+                'target_followers.created_at',
+                'created_at'
+            );
             expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
                 'user_follows',
                 'target_followers',
@@ -904,16 +927,31 @@ describe('UserRepository', () => {
                 'target_user_id',
                 target_user_id
             );
-            expect(mock_query_builder.limit).toHaveBeenCalledWith(page_size);
-            expect(mock_query_builder.offset).toHaveBeenCalledWith(page_offset);
+            expect(mock_query_builder.orderBy).toHaveBeenCalledWith(
+                'target_followers.created_at',
+                'DESC'
+            );
+            expect(mock_query_builder.addOrderBy).toHaveBeenCalledWith(
+                'target_followers.follower_id',
+                'DESC'
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(limit);
+            expect(apply_cursor_pagination_spy).toHaveBeenCalledWith(
+                mock_query_builder,
+                cursor,
+                'target_followers',
+                'created_at',
+                'follower_id'
+            );
+            expect(mock_query_builder.getRawMany).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_followers);
         });
 
         it('should get followers list filtered by following when following is true', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-            const page_offset = 0;
-            const page_size = 10;
+            const cursor = '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000';
+            const limit = 20;
             const following = true;
 
             const mock_followers = [
@@ -931,10 +969,12 @@ describe('UserRepository', () => {
             ];
 
             const mock_query_builder = {
+                addSelect: jest.fn().mockReturnThis(),
                 innerJoin: jest.fn().mockReturnThis(),
                 setParameter: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 limit: jest.fn().mockReturnThis(),
-                offset: jest.fn().mockReturnThis(),
                 getRawMany: jest.fn().mockResolvedValueOnce(mock_followers),
             };
 
@@ -942,21 +982,54 @@ describe('UserRepository', () => {
                 .spyOn(repository, 'buildUserListQuery')
                 .mockReturnValue(mock_query_builder as any);
 
+            const apply_cursor_pagination_spy = jest
+                .spyOn(pagination_service, 'applyCursorPagination')
+                .mockReturnValue(mock_query_builder as any);
+
             const result = await repository.getFollowersList(
                 current_user_id,
                 target_user_id,
-                page_offset,
-                page_size,
+                cursor,
+                limit,
                 following
             );
 
-            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
-            expect(mock_query_builder.innerJoin).toHaveBeenCalledTimes(2);
             expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
                 'user_follows',
                 'current_user_following',
                 'current_user_following.follower_id = :current_user_id AND current_user_following.followed_id = "user"."id"'
             );
+            expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
+                'target_followers.created_at',
+                'created_at'
+            );
+            expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
+                'user_follows',
+                'target_followers',
+                'target_followers.follower_id = "user"."id" AND target_followers.followed_id = :target_user_id'
+            );
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'target_user_id',
+                target_user_id
+            );
+            expect(mock_query_builder.orderBy).toHaveBeenCalledWith(
+                'target_followers.created_at',
+                'DESC'
+            );
+            expect(mock_query_builder.addOrderBy).toHaveBeenCalledWith(
+                'target_followers.follower_id',
+                'DESC'
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(limit);
+            expect(apply_cursor_pagination_spy).toHaveBeenCalledWith(
+                mock_query_builder,
+                cursor,
+                'target_followers',
+                'created_at',
+                'follower_id'
+            );
+            expect(mock_query_builder.getRawMany).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_followers);
         });
     });
@@ -965,8 +1038,8 @@ describe('UserRepository', () => {
         it('should get following list', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-            const page_offset = 0;
-            const page_size = 10;
+            const cursor = '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000';
+            const limit = 20;
 
             const mock_following = [
                 {
@@ -983,10 +1056,12 @@ describe('UserRepository', () => {
             ];
 
             const mock_query_builder = {
+                addSelect: jest.fn().mockReturnThis(),
                 innerJoin: jest.fn().mockReturnThis(),
                 setParameter: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 limit: jest.fn().mockReturnThis(),
-                offset: jest.fn().mockReturnThis(),
                 getRawMany: jest.fn().mockResolvedValueOnce(mock_following),
             };
 
@@ -994,14 +1069,22 @@ describe('UserRepository', () => {
                 .spyOn(repository, 'buildUserListQuery')
                 .mockReturnValue(mock_query_builder as any);
 
+            const apply_cursor_pagination_spy = jest
+                .spyOn(pagination_service, 'applyCursorPagination')
+                .mockReturnValue(mock_query_builder as any);
+
             const result = await repository.getFollowingList(
                 current_user_id,
                 target_user_id,
-                page_offset,
-                page_size
+                cursor,
+                limit
             );
 
             expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
+                'target_following.created_at',
+                'created_at'
+            );
             expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
                 'user_follows',
                 'target_following',
@@ -1011,8 +1094,23 @@ describe('UserRepository', () => {
                 'target_user_id',
                 target_user_id
             );
-            expect(mock_query_builder.limit).toHaveBeenCalledWith(page_size);
-            expect(mock_query_builder.offset).toHaveBeenCalledWith(page_offset);
+            expect(mock_query_builder.orderBy).toHaveBeenCalledWith(
+                'target_following.created_at',
+                'DESC'
+            );
+            expect(mock_query_builder.addOrderBy).toHaveBeenCalledWith(
+                'target_following.followed_id',
+                'DESC'
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(limit);
+            expect(apply_cursor_pagination_spy).toHaveBeenCalledWith(
+                mock_query_builder,
+                cursor,
+                'target_following',
+                'created_at',
+                'followed_id'
+            );
+            expect(mock_query_builder.getRawMany).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_following);
         });
     });
@@ -1020,8 +1118,8 @@ describe('UserRepository', () => {
     describe('getMutedUsersList', () => {
         it('should get muted users list', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const page_offset = 0;
-            const page_size = 10;
+            const cursor = '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000';
+            const limit = 20;
 
             const mock_muted_users = [
                 {
@@ -1038,10 +1136,12 @@ describe('UserRepository', () => {
             ];
 
             const mock_query_builder = {
+                addSelect: jest.fn().mockReturnThis(),
                 innerJoin: jest.fn().mockReturnThis(),
                 setParameter: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 limit: jest.fn().mockReturnThis(),
-                offset: jest.fn().mockReturnThis(),
                 getRawMany: jest.fn().mockResolvedValueOnce(mock_muted_users),
             };
 
@@ -1049,13 +1149,17 @@ describe('UserRepository', () => {
                 .spyOn(repository, 'buildUserListQuery')
                 .mockReturnValue(mock_query_builder as any);
 
-            const result = await repository.getMutedUsersList(
-                current_user_id,
-                page_offset,
-                page_size
-            );
+            const apply_cursor_pagination_spy = jest
+                .spyOn(pagination_service, 'applyCursorPagination')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getMutedUsersList(current_user_id, cursor, limit);
 
             expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
+                'target_muted.created_at',
+                'created_at'
+            );
             expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
                 'user_mutes',
                 'target_muted',
@@ -1065,8 +1169,23 @@ describe('UserRepository', () => {
                 'current_user_id',
                 current_user_id
             );
-            expect(mock_query_builder.limit).toHaveBeenCalledWith(page_size);
-            expect(mock_query_builder.offset).toHaveBeenCalledWith(page_offset);
+            expect(mock_query_builder.orderBy).toHaveBeenCalledWith(
+                'target_muted.created_at',
+                'DESC'
+            );
+            expect(mock_query_builder.addOrderBy).toHaveBeenCalledWith(
+                'target_muted.muted_id',
+                'DESC'
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(limit);
+            expect(apply_cursor_pagination_spy).toHaveBeenCalledWith(
+                mock_query_builder,
+                cursor,
+                'target_muted',
+                'created_at',
+                'muted_id'
+            );
+            expect(mock_query_builder.getRawMany).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_muted_users);
         });
     });
@@ -1074,8 +1193,8 @@ describe('UserRepository', () => {
     describe('getBlockedUsersList', () => {
         it('should get blocked users list', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const page_offset = 0;
-            const page_size = 10;
+            const cursor = '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000';
+            const limit = 20;
 
             const mock_blocked_users = [
                 {
@@ -1092,10 +1211,12 @@ describe('UserRepository', () => {
             ];
 
             const mock_query_builder = {
+                addSelect: jest.fn().mockReturnThis(),
                 innerJoin: jest.fn().mockReturnThis(),
                 setParameter: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 limit: jest.fn().mockReturnThis(),
-                offset: jest.fn().mockReturnThis(),
                 getRawMany: jest.fn().mockResolvedValueOnce(mock_blocked_users),
             };
 
@@ -1103,13 +1224,17 @@ describe('UserRepository', () => {
                 .spyOn(repository, 'buildUserListQuery')
                 .mockReturnValue(mock_query_builder as any);
 
-            const result = await repository.getBlockedUsersList(
-                current_user_id,
-                page_offset,
-                page_size
-            );
+            const apply_cursor_pagination_spy = jest
+                .spyOn(pagination_service, 'applyCursorPagination')
+                .mockReturnValue(mock_query_builder as any);
+
+            const result = await repository.getBlockedUsersList(current_user_id, cursor, limit);
 
             expect(build_user_list_query_spy).toHaveBeenCalledWith(current_user_id);
+            expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
+                'target_blocked.created_at',
+                'created_at'
+            );
             expect(mock_query_builder.innerJoin).toHaveBeenCalledWith(
                 'user_blocks',
                 'target_blocked',
@@ -1119,8 +1244,23 @@ describe('UserRepository', () => {
                 'current_user_id',
                 current_user_id
             );
-            expect(mock_query_builder.limit).toHaveBeenCalledWith(page_size);
-            expect(mock_query_builder.offset).toHaveBeenCalledWith(page_offset);
+            expect(mock_query_builder.orderBy).toHaveBeenCalledWith(
+                'target_blocked.created_at',
+                'DESC'
+            );
+            expect(mock_query_builder.addOrderBy).toHaveBeenCalledWith(
+                'target_blocked.blocked_id',
+                'DESC'
+            );
+            expect(mock_query_builder.limit).toHaveBeenCalledWith(limit);
+            expect(apply_cursor_pagination_spy).toHaveBeenCalledWith(
+                mock_query_builder,
+                cursor,
+                'target_blocked',
+                'created_at',
+                'blocked_id'
+            );
+            expect(mock_query_builder.getRawMany).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_blocked_users);
         });
     });
