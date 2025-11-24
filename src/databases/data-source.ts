@@ -11,7 +11,7 @@ import { Hashtag } from '../tweets/entities/hashtags.entity';
 import { UserPostsView } from '../tweets/entities/user-posts-view.entity';
 import { UserBlocks, UserFollows, UserMutes } from '../user/entities';
 import { UserInterests } from '../user/entities/user-interests.entity';
-import { TweetCategory } from 'src/tweets/entities/tweet-category.entity';
+import { TweetCategory } from '../tweets/entities/tweet-category.entity';
 config({ path: resolve(__dirname, '../../config/.env') });
 const config_service = new ConfigService();
 

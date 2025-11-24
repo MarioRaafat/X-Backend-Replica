@@ -21,10 +21,10 @@ export class Hashtag {
     @JoinColumn({ name: 'created_by', referencedColumnName: 'id' })
     created_by: User;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
     // I guess we won't need this but just in case
-    @DeleteDateColumn({ type: 'timestamp' })
+    @DeleteDateColumn({ type: 'timestamptz' })
     deleted_at: Date;
 }
