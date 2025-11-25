@@ -1705,7 +1705,11 @@ describe('UserRepository', () => {
             );
 
             expect(create_query_builder_spy).toHaveBeenCalledWith('user');
-            expect(mock_query_builder.select).toHaveBeenCalledWith('user.id', 'user_exists');
+            expect(mock_query_builder.select).toHaveBeenCalledWith([
+                'user.id AS user_exists',
+                'user.avatar_url AS avatar_url',
+                'user.name AS name',
+            ]);
             expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
                 expect.stringContaining('user_follows'),
                 'relationship_exists'

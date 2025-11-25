@@ -54,12 +54,16 @@ describe('LikeJobService', () => {
             expect(mock_queue.add).toHaveBeenCalledWith(
                 JOB_NAMES.NOTIFICATION.LIKE,
                 mock_like_dto,
-                {
+                expect.objectContaining({
                     priority: JOB_PRIORITIES.HIGH,
                     delay: JOB_DELAYS.IMMEDIATE,
-                }
+                    attempts: 3,
+                    backoff: { type: 'exponential', delay: 2000 },
+                    removeOnComplete: 10,
+                    removeOnFail: 5,
+                })
             );
-            expect(result).toEqual({ id: 'job-123' });
+            expect(result).toEqual({ success: true, job_id: 'job-123' });
         });
 
         it('should queue a like notification job with custom priority', async () => {
@@ -69,12 +73,16 @@ describe('LikeJobService', () => {
             expect(mock_queue.add).toHaveBeenCalledWith(
                 JOB_NAMES.NOTIFICATION.LIKE,
                 mock_like_dto,
-                {
+                expect.objectContaining({
                     priority: custom_priority,
                     delay: JOB_DELAYS.IMMEDIATE,
-                }
+                    attempts: 3,
+                    backoff: { type: 'exponential', delay: 2000 },
+                    removeOnComplete: 10,
+                    removeOnFail: 5,
+                })
             );
-            expect(result).toEqual({ id: 'job-123' });
+            expect(result).toEqual({ success: true, job_id: 'job-123' });
         });
 
         it('should queue a like notification job with custom delay', async () => {
@@ -88,12 +96,16 @@ describe('LikeJobService', () => {
             expect(mock_queue.add).toHaveBeenCalledWith(
                 JOB_NAMES.NOTIFICATION.LIKE,
                 mock_like_dto,
-                {
+                expect.objectContaining({
                     priority: JOB_PRIORITIES.HIGH,
                     delay: custom_delay,
-                }
+                    attempts: 3,
+                    backoff: { type: 'exponential', delay: 2000 },
+                    removeOnComplete: 10,
+                    removeOnFail: 5,
+                })
             );
-            expect(result).toEqual({ id: 'job-123' });
+            expect(result).toEqual({ success: true, job_id: 'job-123' });
         });
 
         it('should queue a like notification job with both custom priority and delay', async () => {
@@ -108,19 +120,24 @@ describe('LikeJobService', () => {
             expect(mock_queue.add).toHaveBeenCalledWith(
                 JOB_NAMES.NOTIFICATION.LIKE,
                 mock_like_dto,
-                {
+                expect.objectContaining({
                     priority: custom_priority,
                     delay: custom_delay,
-                }
+                    attempts: 3,
+                    backoff: { type: 'exponential', delay: 2000 },
+                    removeOnComplete: 10,
+                    removeOnFail: 5,
+                })
             );
-            expect(result).toEqual({ id: 'job-123' });
+            expect(result).toEqual({ success: true, job_id: 'job-123' });
         });
 
         it('should handle queue errors gracefully', async () => {
             const error = new Error('Queue error');
             mock_queue.add.mockRejectedValueOnce(error);
 
-            await expect(service.queueLikeNotification(mock_like_dto)).rejects.toThrow();
+            const result = await service.queueLikeNotification(mock_like_dto);
+            expect(result).toEqual({ success: false, error: 'Queue error' });
         });
     });
 });

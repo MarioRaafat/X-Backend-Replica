@@ -36,6 +36,9 @@ describe('AuthController', () => {
                         verifyGoogleMobileToken: jest.fn(),
                         verifyGitHubMobileToken: jest.fn(),
                         createOAuthSession: jest.fn(),
+                        createExchangeToken: jest.fn(),
+                        validateExchangeToken: jest.fn(),
+                        confirmPassword: jest.fn(),
                         oauthCompletionStep1: jest.fn(),
                         oauthCompletionStep2: jest.fn(),
                     },
@@ -653,37 +656,36 @@ describe('AuthController', () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            const mock_tokens = {
-                access_token: 'access123',
-                refresh_token: 'refresh123',
-            };
+            const mock_exchange_token = 'exchange_token_123';
 
-            mock_auth_service.generateTokens.mockResolvedValue(mock_tokens as any);
-            const mock_set_cookie = jest.fn();
-            controller['httpOnlyRefreshToken'] = mock_set_cookie;
+            mock_auth_service.createExchangeToken.mockResolvedValue(mock_exchange_token);
 
             await controller.googleLoginCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
-
-            expect(mock_set_cookie).toHaveBeenCalledWith(mock_res, mock_tokens.refresh_token);
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
-                `${mock_frontend_url}/auth/success?token=${mock_tokens.access_token}`
+                `${mock_frontend_url}/auth/success?exchange_token=${encodeURIComponent(mock_exchange_token)}&provider=google`
             );
         });
 
-        it('should redirect to error page if generateTokens throws', async () => {
+        it('should redirect to error page if createExchangeToken throws', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn() } as any;
 
-            mock_auth_service.generateTokens.mockRejectedValue(new Error('OAuth failed'));
+            mock_auth_service.createExchangeToken.mockRejectedValue(new Error('OAuth failed'));
 
             await controller.googleLoginCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
                 `${mock_frontend_url}/auth/error?message=Authentication%20failed`
@@ -702,37 +704,36 @@ describe('AuthController', () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            const mock_tokens = {
-                access_token: 'access123',
-                refresh_token: 'refresh123',
-            };
+            const mock_exchange_token = 'exchange_token_123';
 
-            mock_auth_service.generateTokens.mockResolvedValue(mock_tokens as any);
-            const mock_set_cookie = jest.fn();
-            controller['httpOnlyRefreshToken'] = mock_set_cookie;
+            mock_auth_service.createExchangeToken.mockResolvedValue(mock_exchange_token);
 
             await controller.facebookLoginCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
-
-            expect(mock_set_cookie).toHaveBeenCalledWith(mock_res, mock_tokens.refresh_token);
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
-                `${mock_frontend_url}/auth/success?token=${mock_tokens.access_token}`
+                `${mock_frontend_url}/auth/success?exchange_token=${encodeURIComponent(mock_exchange_token)}&provider=facebook`
             );
         });
 
-        it('should redirect to error page if generateTokens throws', async () => {
+        it('should redirect to error page if createExchangeToken throws', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            mock_auth_service.generateTokens.mockRejectedValue(new Error('OAuth failed'));
+            mock_auth_service.createExchangeToken.mockRejectedValue(new Error('OAuth failed'));
 
             await controller.facebookLoginCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
                 `${mock_frontend_url}/auth/error?message=Authentication%20failed`
@@ -751,37 +752,36 @@ describe('AuthController', () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            const mock_tokens = {
-                access_token: 'access123',
-                refresh_token: 'refresh123',
-            };
+            const mock_exchange_token = 'exchange_token_123';
 
-            mock_auth_service.generateTokens.mockResolvedValue(mock_tokens as any);
-            const mock_set_cookie = jest.fn();
-            controller['httpOnlyRefreshToken'] = mock_set_cookie;
+            mock_auth_service.createExchangeToken.mockResolvedValue(mock_exchange_token);
 
             await controller.githubCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
-
-            expect(mock_set_cookie).toHaveBeenCalledWith(mock_res, mock_tokens.refresh_token);
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
-                `${mock_frontend_url}/auth/success?token=${mock_tokens.access_token}`
+                `${mock_frontend_url}/auth/success?exchange_token=${encodeURIComponent(mock_exchange_token)}&provider=github`
             );
         });
 
-        it('should redirect to error page if generateTokens throws', async () => {
+        it('should redirect to error page if createExchangeToken throws', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            mock_auth_service.generateTokens.mockRejectedValue(new Error('OAuth failed'));
+            mock_auth_service.createExchangeToken.mockRejectedValue(new Error('OAuth failed'));
 
             await controller.githubCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
                 `${mock_frontend_url}/auth/error?message=Authentication%20failed`
@@ -1241,6 +1241,87 @@ describe('AuthController', () => {
             await expect(
                 controller.oauthCompletionStep2(mock_dto as any, { cookie: jest.fn() } as any)
             ).rejects.toThrow('Cookie error');
+        });
+    });
+
+    describe('getCaptchaSiteKey', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should return captcha site key', () => {
+            const result = controller.getCaptchaSiteKey();
+
+            expect(result).toHaveProperty('siteKey');
+            expect(typeof result.siteKey).toBe('string');
+        });
+    });
+
+    describe('exchangeToken', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should exchange token successfully', async () => {
+            const mock_dto = { exchange_token: 'exchange-token' };
+            const mock_validation_result = {
+                user_id: 'user-1',
+                type: 'auth' as const,
+            };
+            const mock_tokens = {
+                access_token: 'access-token',
+                refresh_token: 'refresh-token',
+            };
+
+            mock_auth_service.validateExchangeToken.mockResolvedValue(mock_validation_result);
+            mock_auth_service.generateTokens.mockResolvedValue(mock_tokens as any);
+            const mock_set_cookie = jest.fn();
+            controller['httpOnlyRefreshToken'] = mock_set_cookie;
+
+            const mock_response = {
+                cookie: jest.fn(),
+                json: jest.fn().mockReturnValue({ type: 'auth', access_token: 'access-token' }),
+            };
+            const result = await controller.exchangeToken(mock_dto as any, mock_response as any);
+
+            expect(mock_auth_service.validateExchangeToken).toHaveBeenCalledWith('exchange-token');
+            expect(result).toEqual({ type: 'auth', access_token: 'access-token' });
+        });
+
+        it('should throw if exchange token is invalid', async () => {
+            const mock_dto = { exchange_token: 'invalid-token' };
+
+            mock_auth_service.validateExchangeToken.mockRejectedValue(new Error('Invalid token'));
+
+            const mock_response = { cookie: jest.fn() };
+            await expect(
+                controller.exchangeToken(mock_dto as any, mock_response as any)
+            ).rejects.toThrow('Invalid token');
+        });
+    });
+
+    describe('confirmPassword', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should confirm password successfully', async () => {
+            const mock_dto = { password: 'correct-password' };
+            const mock_user = { id: 'user-1' };
+            const mock_result = { valid: true };
+
+            mock_auth_service.confirmPassword.mockResolvedValue(mock_result as any);
+
+            const result = await controller.confirmPassword(mock_dto as any, 'user-1');
+
+            expect(mock_auth_service.confirmPassword).toHaveBeenCalledWith(mock_dto, 'user-1');
+            expect(result).toEqual(mock_result);
+        });
+
+        it('should throw if password is incorrect', async () => {
+            const mock_dto = { password: 'wrong-password' };
+
+            mock_auth_service.confirmPassword.mockRejectedValue(
+                new Error(ERROR_MESSAGES.WRONG_PASSWORD)
+            );
+
+            await expect(controller.confirmPassword(mock_dto as any, 'user-1')).rejects.toThrow(
+                ERROR_MESSAGES.WRONG_PASSWORD
+            );
         });
     });
 });
