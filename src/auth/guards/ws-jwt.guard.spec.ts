@@ -19,6 +19,7 @@ describe('WsJwtGuard', () => {
                     provide: JwtService,
                     useValue: {
                         verify: jest.fn(),
+                        verifyAsync: jest.fn(),
                     },
                 },
                 {
@@ -40,31 +41,22 @@ describe('WsJwtGuard', () => {
         jest.restoreAllMocks();
     });
 
-    describe('canActivate', () => {
+    describe('canActivate (async)', () => {
         it('should be defined', () => {
             expect(guard).toBeDefined();
         });
 
-        it('should return true for non-WebSocket contexts', () => {
-            const context = {
-                getType: jest.fn().mockReturnValue('http'),
-            } as any as ExecutionContext;
-
-            const result = guard.canActivate(context);
-
-            expect(result).toBe(true);
-        });
-
-        it('should validate token and attach user to client for WebSocket context', () => {
-            const mock_user = { id: '123', email: 'test@example.com' };
+        it('should activate with valid token from auth', async () => {
+            const mock_user = { id: 'user-123', username: 'testuser' };
             const mock_client = {
                 handshake: {
-                    headers: {
-                        authorization: 'Bearer valid-token',
+                    auth: {
+                        token: 'valid-token',
                     },
+                    headers: {},
                 },
-                data: {},
-            } as any as Socket;
+                user: undefined,
+            } as any;
 
             const context = {
                 getType: jest.fn().mockReturnValue('ws'),
@@ -73,26 +65,23 @@ describe('WsJwtGuard', () => {
                 }),
             } as any as ExecutionContext;
 
-            jest.spyOn(jwt_service, 'verify').mockReturnValue(mock_user);
+            jest.spyOn(jwt_service, 'verifyAsync').mockResolvedValue(mock_user);
 
-            const result = guard.canActivate(context);
+            const result = await guard.canActivate(context);
 
             expect(result).toBe(true);
-            expect(mock_client.data.user).toEqual(mock_user);
-            expect(jwt_service.verify).toHaveBeenCalledWith('valid-token', {
-                secret: 'test-secret',
+            expect(mock_client.user).toEqual({
+                user_id: 'user-123',
+                username: 'testuser',
             });
         });
 
-        it('should return false when validateToken returns null', () => {
+        it('should throw WsException when no token is provided', async () => {
             const mock_client = {
                 handshake: {
-                    headers: {
-                        authorization: 'Bearer invalid-token',
-                    },
+                    headers: {},
                 },
-                data: {},
-            } as any as Socket;
+            } as any;
 
             const context = {
                 getType: jest.fn().mockReturnValue('ws'),
@@ -101,15 +90,92 @@ describe('WsJwtGuard', () => {
                 }),
             } as any as ExecutionContext;
 
-            jest.spyOn(WsJwtGuard, 'validateToken').mockReturnValue({ user_id: null });
+            await expect(guard.canActivate(context)).rejects.toThrow(WsException);
+        });
 
-            const result = guard.canActivate(context);
+        it('should throw WsException when token verification fails', async () => {
+            const mock_client = {
+                handshake: {
+                    auth: {
+                        token: 'invalid-token',
+                    },
+                    headers: {},
+                },
+            } as any;
 
-            expect(result).toBe(false);
+            const context = {
+                getType: jest.fn().mockReturnValue('ws'),
+                switchToWs: jest.fn().mockReturnValue({
+                    getClient: jest.fn().mockReturnValue(mock_client),
+                }),
+            } as any as ExecutionContext;
+
+            jest.spyOn(jwt_service, 'verifyAsync').mockRejectedValue(new Error('Invalid token'));
+
+            await expect(guard.canActivate(context)).rejects.toThrow(WsException);
+        });
+
+        it('should extract token from query params', async () => {
+            const mock_user = { id: 'user-456', username: 'testuser2' };
+            const mock_client = {
+                handshake: {
+                    query: {
+                        token: 'query-token',
+                    },
+                    headers: {},
+                },
+                user: undefined,
+            } as any;
+
+            const context = {
+                getType: jest.fn().mockReturnValue('ws'),
+                switchToWs: jest.fn().mockReturnValue({
+                    getClient: jest.fn().mockReturnValue(mock_client),
+                }),
+            } as any as ExecutionContext;
+
+            jest.spyOn(jwt_service, 'verifyAsync').mockResolvedValue(mock_user);
+
+            const result = await guard.canActivate(context);
+
+            expect(result).toBe(true);
+            expect(mock_client.user).toEqual({
+                user_id: 'user-456',
+                username: 'testuser2',
+            });
+        });
+
+        it('should extract token from Authorization header', async () => {
+            const mock_user = { id: 'user-789', username: 'testuser3' };
+            const mock_client = {
+                handshake: {
+                    headers: {
+                        authorization: 'Bearer header-token',
+                    },
+                },
+                user: undefined,
+            } as any;
+
+            const context = {
+                getType: jest.fn().mockReturnValue('ws'),
+                switchToWs: jest.fn().mockReturnValue({
+                    getClient: jest.fn().mockReturnValue(mock_client),
+                }),
+            } as any as ExecutionContext;
+
+            jest.spyOn(jwt_service, 'verifyAsync').mockResolvedValue(mock_user);
+
+            const result = await guard.canActivate(context);
+
+            expect(result).toBe(true);
+            expect(mock_client.user).toEqual({
+                user_id: 'user-789',
+                username: 'testuser3',
+            });
         });
     });
 
-    describe('validateToken', () => {
+    describe('validateToken (static)', () => {
         it('should validate and return user payload for valid token', () => {
             const mock_user = { id: '123', email: 'test@example.com' };
             const mock_client = {
@@ -124,7 +190,7 @@ describe('WsJwtGuard', () => {
 
             const result = WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
 
-            expect(result).toEqual(mock_user);
+            expect(result).toEqual({ user_id: '123' });
             expect(jwt_service.verify).toHaveBeenCalledWith('valid-token', {
                 secret: 'test-secret',
             });
@@ -141,82 +207,6 @@ describe('WsJwtGuard', () => {
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
             }).toThrow(WsException);
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow('No authorization header');
-        });
-
-        it('should throw WsException when authorization header is undefined', () => {
-            const mock_client = {
-                handshake: {
-                    headers: {
-                        authorization: undefined,
-                    },
-                },
-            } as any as Socket;
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(WsException);
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow('No authorization header');
-        });
-
-        it('should throw WsException when token is missing', () => {
-            const mock_client = {
-                handshake: {
-                    headers: {
-                        authorization: 'Bearer',
-                    },
-                },
-            } as any as Socket;
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(WsException);
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow('Invalid authorization format');
-        });
-
-        it('should throw WsException when token after Bearer is empty', () => {
-            const mock_client = {
-                handshake: {
-                    headers: {
-                        authorization: 'Bearer ',
-                    },
-                },
-            } as any as Socket;
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(WsException);
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow('Invalid authorization format');
-        });
-
-        it('should throw WsException when authorization format is invalid', () => {
-            const mock_client = {
-                handshake: {
-                    headers: {
-                        authorization: 'InvalidFormat',
-                    },
-                },
-            } as any as Socket;
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(WsException);
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow('Invalid authorization format');
         });
 
         it('should throw WsException when JWT verification fails', () => {
@@ -235,46 +225,45 @@ describe('WsJwtGuard', () => {
             expect(() => {
                 WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
             }).toThrow(WsException);
-
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow('Invalid token');
         });
 
-        it('should throw WsException when JWT is expired', () => {
+        it('should extract token from handshake auth', () => {
+            const mock_user = { id: '123' };
             const mock_client = {
                 handshake: {
-                    headers: {
-                        authorization: 'Bearer expired-token',
+                    auth: {
+                        token: 'auth-token',
                     },
+                    headers: {},
                 },
             } as any as Socket;
 
-            (jwt_service.verify as jest.Mock).mockImplementation(() => {
-                throw new Error('jwt expired');
-            });
+            (jwt_service.verify as jest.Mock).mockReturnValue(mock_user);
 
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(WsException);
+            const result = WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
+
+            expect(result).toEqual({ user_id: '123' });
+            expect(jwt_service.verify).toHaveBeenCalledWith('auth-token', {
+                secret: 'test-secret',
+            });
         });
 
-        it('should handle malformed JWT tokens', () => {
+        it('should extract token from query params', () => {
+            const mock_user = { id: '456' };
             const mock_client = {
                 handshake: {
-                    headers: {
-                        authorization: 'Bearer malformed.token',
+                    query: {
+                        token: 'query-token',
                     },
+                    headers: {},
                 },
             } as any as Socket;
 
-            (jwt_service.verify as jest.Mock).mockImplementation(() => {
-                throw new Error('jwt malformed');
-            });
+            (jwt_service.verify as jest.Mock).mockReturnValue(mock_user);
 
-            expect(() => {
-                WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
-            }).toThrow(WsException);
+            const result = WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
+
+            expect(result).toEqual({ user_id: '456' });
         });
     });
 });

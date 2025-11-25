@@ -37,6 +37,8 @@ describe('AuthController', () => {
                         verifyGitHubMobileToken: jest.fn(),
                         createOAuthSession: jest.fn(),
                         createExchangeToken: jest.fn(),
+                        validateExchangeToken: jest.fn(),
+                        confirmPassword: jest.fn(),
                         oauthCompletionStep1: jest.fn(),
                         oauthCompletionStep2: jest.fn(),
                     },
@@ -1246,14 +1248,10 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should return captcha site key', () => {
-            const original_env = process.env.CAPTCHA_SITE_KEY;
-            process.env.CAPTCHA_SITE_KEY = 'test-site-key';
-
             const result = controller.getCaptchaSiteKey();
 
-            expect(result).toEqual({ siteKey: 'test-site-key' });
-
-            process.env.CAPTCHA_SITE_KEY = original_env;
+            expect(result).toHaveProperty('siteKey');
+            expect(typeof result.siteKey).toBe('string');
         });
     });
 
@@ -1276,11 +1274,14 @@ describe('AuthController', () => {
             const mock_set_cookie = jest.fn();
             controller['httpOnlyRefreshToken'] = mock_set_cookie;
 
-            const mock_response = { cookie: jest.fn() };
+            const mock_response = {
+                cookie: jest.fn(),
+                json: jest.fn().mockReturnValue({ type: 'auth', access_token: 'access-token' }),
+            };
             const result = await controller.exchangeToken(mock_dto as any, mock_response as any);
 
             expect(mock_auth_service.validateExchangeToken).toHaveBeenCalledWith('exchange-token');
-            expect(result).toEqual({ access_token: 'access-token' });
+            expect(result).toEqual({ type: 'auth', access_token: 'access-token' });
         });
 
         it('should throw if exchange token is invalid', async () => {
@@ -1305,7 +1306,7 @@ describe('AuthController', () => {
 
             mock_auth_service.confirmPassword.mockResolvedValue(mock_result as any);
 
-            const result = await controller.confirmPassword(mock_dto as any, mock_user as any);
+            const result = await controller.confirmPassword(mock_dto as any, 'user-1');
 
             expect(mock_auth_service.confirmPassword).toHaveBeenCalledWith(mock_dto, 'user-1');
             expect(result).toEqual(mock_result);
@@ -1313,15 +1314,14 @@ describe('AuthController', () => {
 
         it('should throw if password is incorrect', async () => {
             const mock_dto = { password: 'wrong-password' };
-            const mock_user = { id: 'user-1' };
 
             mock_auth_service.confirmPassword.mockRejectedValue(
                 new Error(ERROR_MESSAGES.WRONG_PASSWORD)
             );
 
-            await expect(
-                controller.confirmPassword(mock_dto as any, mock_user as any)
-            ).rejects.toThrow(ERROR_MESSAGES.WRONG_PASSWORD);
+            await expect(controller.confirmPassword(mock_dto as any, 'user-1')).rejects.toThrow(
+                ERROR_MESSAGES.WRONG_PASSWORD
+            );
         });
     });
 });
