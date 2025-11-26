@@ -70,6 +70,8 @@ export class TweetsRepository {
                     'tweet.num_replies AS num_replies',
                     'tweet.created_at AS created_at',
                     'tweet.updated_at AS updated_at',
+                    'tweet.reposted_by_name AS reposted_by_name',
+
                     `json_build_object(
                         'id', tweet.tweet_author_id,
                         'username', tweet.username,
@@ -923,12 +925,11 @@ export class TweetsRepository {
     }
 
     attachRepostInfo(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
-        query.leftJoin('user', 'u', 'u.id = tweet.profile_user_id')
-            .addSelect(`CASE WHEN tweet.repost_id IS NOT NULL THEN
+        query.addSelect(`CASE WHEN tweet.repost_id IS NOT NULL THEN
            json_build_object(
                         'repost_id', tweet.repost_id,
                         'id',tweet.profile_user_id,
-                        'name', u.name,
+                        'name', tweet.reposted_by_name,
                         'reposted_at',tweet.post_date
                        
                     ) ELSE NULL

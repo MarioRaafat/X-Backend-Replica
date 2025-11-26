@@ -33,7 +33,8 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             u.avatar_url,
             u.cover_url,
             u.verified,
-            u.bio
+            u.bio,
+            NULL::text AS reposted_by_name
         FROM tweets t
         INNER JOIN "user" u ON t.user_id = u.id
         
@@ -65,10 +66,13 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             u.avatar_url,
             u.cover_url,
             u.verified,
-            u.bio
+            u.bio,
+            reposter.name AS reposted_by_name
+
         FROM tweet_reposts tr
         INNER JOIN tweets t ON tr.tweet_id = t.tweet_id
         INNER JOIN "user" u ON t.user_id = u.id
+        INNER JOIN "user" reposter ON tr.user_id = reposter.id
     `,
 })
 export class UserPostsView {
@@ -149,6 +153,9 @@ export class UserPostsView {
 
     @ViewColumn()
     bio: string;
+
+    @ViewColumn()
+    reposted_by_name: string | null;
 
     // Virtual relations for joins (tweet author)
     @ManyToOne(() => User)
