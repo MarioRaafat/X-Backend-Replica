@@ -21,5 +21,6 @@ import { TweetsModule } from 'src/tweets/tweets.module';
     ],
     controllers: [UserController],
     providers: [UserService, UserRepository],
+    exports: [UserRepository],
 })
 export class UserModule {}
