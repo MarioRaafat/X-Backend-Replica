@@ -59,6 +59,7 @@ export const users_index_config = {
             verified: { type: 'boolean' },
             bio: { type: 'text' },
             avatar_url: { type: 'keyword', index: false },
+            country: { type: 'keyword' },
         },
     },
 };
