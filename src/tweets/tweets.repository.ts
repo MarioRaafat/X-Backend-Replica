@@ -782,6 +782,7 @@ export class TweetsRepository {
                     'tweet.num_replies AS num_replies',
                     'tweet.created_at AS created_at',
                     'tweet.updated_at AS updated_at',
+                    'like.created_at AS liked_at',
                     `json_build_object(
                         'id', tweet.tweet_author_id,
                         'username', tweet.username,
@@ -795,7 +796,7 @@ export class TweetsRepository {
                     ) AS user`,
                 ])
                 .where('tweet.type != :type', { type: 'repost' })
-                .orderBy('tweet.created_at', 'DESC')
+                .orderBy('like.created_at', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
@@ -812,7 +813,7 @@ export class TweetsRepository {
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'liked_at',
                 'tweet_id'
             );
 
