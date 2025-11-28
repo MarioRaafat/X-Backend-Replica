@@ -18,6 +18,7 @@ import { ChatModule } from './chat/chat.module';
 import { CategoryModule } from './category/category.module';
 import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { AzureStorageModule } from './azure-storage/azure-storage.module';
+import { MessagesModule } from './messages/messages.module';
 
 @Module({
     imports: [
@@ -42,6 +43,7 @@ import { AzureStorageModule } from './azure-storage/azure-storage.module';
         CategoryModule,
         BackgroundJobsModule,
         AzureStorageModule,
+        MessagesModule,
     ],
     controllers: [AppController],
     providers: [AppService],

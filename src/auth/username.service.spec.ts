@@ -197,5 +197,78 @@ describe('UsernameService', () => {
                 expect(username).not.toContain(' ');
             });
         });
+
+        it('should use Pattern 5 (lastname + numbers) when other patterns are taken', async () => {
+            let call_count = 0;
+            user_repository.findByUsername.mockImplementation(async (username: string) => {
+                call_count++;
+                // Make first 10 calls return taken, forcing it to use Pattern 5
+                if (call_count <= 10) {
+                    return { username } as any;
+                }
+                return null;
+            });
+
+            const result = await service.generateUsernameRecommendations('John', 'Doe');
+
+            expect(result).toBeDefined();
+            expect(result.length).toBe(5);
+        });
+
+        it('should fill remaining slots with random variations when all patterns are taken', async () => {
+            let call_count = 0;
+            user_repository.findByUsername.mockImplementation(async (username: string) => {
+                call_count++;
+                // Make many calls return taken to trigger the final while loop
+                if (call_count <= 15) {
+                    return { username } as any;
+                }
+                return null;
+            });
+
+            const result = await service.generateUsernameRecommendations('John', 'Doe');
+
+            expect(result).toBeDefined();
+            expect(result.length).toBe(5);
+        });
+    });
+
+    describe('generateUsernameRecommendationsSingleName', () => {
+        beforeEach(() => {
+            jest.spyOn(Math, 'random').mockReturnValue(0.5);
+        });
+
+        afterEach(() => {
+            jest.spyOn(Math, 'random').mockRestore();
+        });
+
+        it('should generate recommendations from a single name', async () => {
+            user_repository.findByUsername.mockResolvedValue(null);
+
+            const result = await service.generateUsernameRecommendationsSingleName('John');
+
+            expect(result).toBeDefined();
+            expect(result.length).toBe(5);
+        });
+
+        it('should handle multiple names separated by spaces', async () => {
+            user_repository.findByUsername.mockResolvedValue(null);
+
+            const result =
+                await service.generateUsernameRecommendationsSingleName('John Doe Smith');
+
+            expect(result).toBeDefined();
+            expect(result.length).toBe(5);
+            // Should treat 'John' as first name and 'Doe Smith' as last name
+        });
+
+        it('should handle single word names', async () => {
+            user_repository.findByUsername.mockResolvedValue(null);
+
+            const result = await service.generateUsernameRecommendationsSingleName('Madonna');
+
+            expect(result).toBeDefined();
+            expect(result.length).toBe(5);
+        });
     });
 });

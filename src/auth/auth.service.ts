@@ -538,6 +538,9 @@ export class AuthService {
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
+        if (user.username === new_username) {
+            return { username: new_username };
+        }
 
         // Check if username is already taken
         const is_available = await this.username_service.isUsernameAvailable(new_username);
