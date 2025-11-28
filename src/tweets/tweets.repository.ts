@@ -709,6 +709,8 @@ export class TweetsRepository {
                 'tweet.tweet_id'
             );
 
+            query = this.attachRepliedTweetQuery(query, current_user_id);
+
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
@@ -810,6 +812,8 @@ export class TweetsRepository {
                 'tweet.tweet_author_id',
                 'tweet.tweet_id'
             );
+
+            query = this.attachRepliedTweetQuery(query, user_id);
 
             query = this.paginate_service.applyCursorPagination(
                 query,
@@ -944,7 +948,6 @@ export class TweetsRepository {
         query: SelectQueryBuilder<UserPostsView>,
         user_id?: string
     ): SelectQueryBuilder<any> {
-        // Helper function to generate interaction SQL
         const get_interactions = (alias: string) => {
             if (!user_id) return '';
 
@@ -1043,7 +1046,6 @@ export class TweetsRepository {
             .where('tr2.reply_tweet_id = tweet.tweet_id')
             .limit(1);
 
-        // Attach subqueries to main query
         query
             .addSelect(`(${parent_sub_query.getQuery()})`, 'parent_tweet')
             .addSelect(`(${conversation_sub_query.getQuery()})`, 'conversation_tweet');
