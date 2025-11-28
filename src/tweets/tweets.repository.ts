@@ -812,8 +812,8 @@ export class TweetsRepository {
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
-                'tweet',
-                'liked_at',
+                'like',
+                'created_at',
                 'tweet_id'
             );
 
