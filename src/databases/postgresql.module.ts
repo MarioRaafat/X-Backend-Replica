@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
+import { readFileSync, writeFileSync } from 'fs';
 
 @Module({
     imports: [
@@ -19,6 +20,9 @@ import { TypeOrmModule } from '@nestjs/typeorm';
                 autoLoadEntities: true,
                 // logging: ['query'],
                 // logger: 'advanced-console',
+                ssl: {
+                    ca: readFileSync(process.env.DATABASE_CA!).toString(), // Path to the CA certificate
+                },
             }),
         }),
     ],
