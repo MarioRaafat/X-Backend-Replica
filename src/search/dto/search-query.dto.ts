@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { BasicQueryDto } from './basic-query.dto';
+import { Type } from 'class-transformer';
 
 export enum PeopleFilter {
     ANYONE = 'anyone',
@@ -32,22 +33,26 @@ export class SearchQueryDto extends BasicQueryDto {
     location?: LocationFilter;
 
     @ApiPropertyOptional({
-        description: 'Page number for pagination (starting from 1)',
-        example: 1,
-        type: Number,
+        description: 'Cursor for pagination (format: "timestamp_userId")',
+        required: false,
+        example: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
     })
     @IsOptional()
-    @IsInt()
-    @Min(1)
-    page_offset?: number = 1;
+    @IsString()
+    cursor?: string;
 
     @ApiPropertyOptional({
-        description: 'Number of results per page',
-        example: 10,
-        type: Number,
+        description: 'Number of items to return per page',
+        required: false,
+        default: 20,
+        minimum: 1,
+        maximum: 100,
+        example: 20,
     })
     @IsOptional()
+    @Type(() => Number)
     @IsInt()
     @Min(1)
-    page_size?: number = 10;
+    @Max(100)
+    limit?: number = 20;
 }

@@ -3,18 +3,28 @@ import { BasicQueryDto } from './dto/basic-query.dto';
 import { SearchQueryDto } from './dto/search-query.dto';
 import { PostsSearchDto } from './dto/post-search.dto';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
+import { UserListResponseDto } from 'src/user/dto/user-list-response.dto';
 
 @Injectable()
 export class SearchService {
     constructor(private readonly elasticsearch_service: ElasticsearchService) {}
 
-    async getSuggestions(query_dto: BasicQueryDto) {}
+    async getSuggestions(current_user_id: string, query_dto: BasicQueryDto) {}
 
-    async searchUsers(query_dto: SearchQueryDto) {
+    async searchUsers(
+        current_user_id: string,
+        query_dto: SearchQueryDto
+    ): Promise<UserListResponseDto> {
         const { query } = query_dto;
 
         if (!query || query.trim().length === 0) {
-            return { total: 0, results: [] };
+            return {
+                data: [],
+                pagination: {
+                    next_cursor: null,
+                    has_more: false,
+                },
+            };
         }
 
         try {
@@ -50,7 +60,7 @@ export class SearchService {
                 },
             });
 
-            // if (country) {
+            // if (location) {
             //     search_body.query.bool.filter.push({
             //         term: { country: country },
             //     });
@@ -62,24 +72,40 @@ export class SearchService {
             });
 
             const users = result.hits.hits.map((hit: any) => ({
-                id: hit._source.user_id,
+                user_id: hit._source.user_id,
                 username: hit._source.username,
                 name: hit._source.name,
                 bio: hit._source.bio,
                 country: hit._source.country,
                 followers: hit._source.followers,
+                following: hit._source.followers,
                 verified: hit._source.verified,
                 avatar_url: hit._source.avatar_url,
                 score: hit._score,
             }));
 
             console.log(users);
-        } catch (err) {
-            console.log(err);
+
+            return {
+                data: users,
+                pagination: {
+                    next_cursor: 'blah',
+                    has_more: users.length === 6,
+                },
+            };
+        } catch (error) {
+            console.log(error);
+            return {
+                data: [],
+                pagination: {
+                    next_cursor: null,
+                    has_more: false,
+                },
+            };
         }
     }
 
-    async searchPosts(query_dto: PostsSearchDto) {}
+    async searchPosts(current_user_id: string, query_dto: PostsSearchDto) {}
 
-    async searchLatestPosts(query_dto: SearchQueryDto) {}
+    async searchLatestPosts(current_user_id: string, query_dto: SearchQueryDto) {}
 }
