@@ -1,7 +1,7 @@
 import { Exclude } from 'class-transformer';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { Hashtag } from '../../tweets/entities/hashtags.entity';
-import { Column, Entity, JoinColumn, OneToMany, PrimaryGeneratedColumn , RelationId, UpdateDateColumn } from 'typeorm';
+import { Column, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
 import { UserFollows } from './user-follows.entity';
 
 @Entity()
@@ -41,10 +41,10 @@ export class User {
     google_id?: string;
 
     @Column({ type: 'varchar', nullable: true })
-    avatar_url?: string;
+    avatar_url?: string | null;
 
     @Column({ type: 'text', nullable: true })
-    cover_url?: string;
+    cover_url?: string | null;
 
     @Column({ type: 'date' })
     birth_date: Date;
@@ -53,13 +53,13 @@ export class User {
     language: 'en' | 'ar';
 
     @Column({ type: 'boolean', default: false })
-    verified: boolean = false;
+    verified: boolean;
 
     @Column({ type: 'varchar', nullable: true })
     country?: string | null;
 
     @Column({ type: 'boolean', default: false })
-    online: boolean = false;
+    online: boolean;
 
     @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
@@ -73,10 +73,10 @@ export class User {
     updated_at: Date;
 
     @Column({ type: 'int', default: 0 })
-    followers: number = 0;
+    followers: number;
 
     @Column({ type: 'int', default: 0 })
-    following: number = 0;
+    following: number;
 
     @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
     hashtags: Hashtag[];

@@ -109,7 +109,7 @@ export class PaginationService {
             if (cursor_timestamp && cursor_id) {
                 const cursor_date = new Date(cursor_timestamp);
                 query_builder.andWhere(
-                    `(${alias}.${timestamp_field} < :cursor_date OR (${alias}.${timestamp_field} = :cursor_date AND ${alias}.${id_field} < :cursor_id))`,
+                    `(date_trunc('milliseconds', ${alias}.${timestamp_field}) < :cursor_date OR (date_trunc('milliseconds', ${alias}.${timestamp_field}) = :cursor_date AND ${alias}.${id_field} < :cursor_id))`,
                     {
                         cursor_date,
                         cursor_id,
@@ -133,17 +133,16 @@ export class PaginationService {
         id_field: string = 'id'
     ): string | null {
         if (items.length === 0) return null;
-        
+
         const last_item = items[items.length - 1];
         const timestamp = last_item[timestamp_field];
         const id = last_item[id_field];
-        
+
         if (!timestamp || !id) return null;
-        
-        const timestamp_iso = timestamp instanceof Date 
-            ? timestamp.toISOString() 
-            : new Date(timestamp).toISOString();
-            
+
+        const timestamp_iso =
+            timestamp instanceof Date ? timestamp.toISOString() : new Date(timestamp).toISOString();
+
         return `${timestamp_iso}_${id}`;
     }
 }

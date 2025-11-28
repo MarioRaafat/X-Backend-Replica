@@ -30,6 +30,7 @@ import { VerifyUpdateEmailDto } from './dto/verify-update-email.dto';
 import { MobileGoogleAuthDto } from './dto/mobile-google-auth.dto';
 import { MobileGitHubAuthDto } from './dto/mobile-github-auth.dto';
 import { ForgetPasswordDto } from './dto/forget-password.dto';
+import { ExchangeTokenDto } from './dto/exchange-token.dto';
 import {
     ApiBearerAuth,
     ApiBody,
@@ -62,6 +63,8 @@ import {
     captcha_swagger,
     change_password_swagger,
     check_identifier_swagger,
+    confirm_password_swagger,
+    exchange_token_swagger,
     facebook_callback_swagger,
     facebook_oauth_swagger,
     forget_password_swagger,
@@ -89,6 +92,7 @@ import {
     verify_reset_otp_swagger,
     verify_update_email_swagger,
 } from './auth.swagger';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -100,7 +104,7 @@ export class AuthController {
 
         response.cookie('refresh_token', refresh, {
             httpOnly: true,
-            secure: is_production,
+            secure: true,
             sameSite: is_production ? 'strict' : 'none',
             maxAge: 7 * 24 * 60 * 60 * 1000,
         });
@@ -263,7 +267,6 @@ export class AuthController {
         return await this.auth_service.logoutAll(refresh_token, response);
     }
 
-    @ApiCookieAuth('refresh_token')
     @ApiOperation(refresh_token_swagger.operation)
     @ApiOkResponse(refresh_token_swagger.responses.success)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED)
@@ -278,6 +281,38 @@ export class AuthController {
             await this.auth_service.refresh(refresh_token_cookie);
         this.httpOnlyRefreshToken(response, refresh_token);
         return { access_token };
+    }
+
+    @ApiOperation(exchange_token_swagger.operation)
+    @ApiBody({ type: ExchangeTokenDto })
+    @ApiOkResponse(exchange_token_swagger.responses.completion_success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ResponseMessage(SUCCESS_MESSAGES.TOKEN_EXCHANGE_SUCCESS)
+    @Post('exchange-token')
+    async exchangeToken(@Body() body: ExchangeTokenDto, @Res() res: Response) {
+        const { exchange_token } = body;
+        const payload = await this.auth_service.validateExchangeToken(exchange_token);
+
+        if (payload.type === 'auth') {
+            if (!payload.user_id) {
+                throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+            }
+
+            const { access_token, refresh_token } = await this.auth_service.generateTokens(
+                payload.user_id
+            );
+            this.httpOnlyRefreshToken(res, refresh_token);
+
+            return res.json({
+                type: 'auth',
+                access_token,
+            });
+        } else {
+            return res.json({
+                type: 'completion',
+                session_token: payload.session_token,
+            });
+        }
     }
 
     @ApiOperation(captcha_swagger.operation)
@@ -402,8 +437,13 @@ export class AuthController {
             // if the user doesn't have a record for that email in DB, we will need to redirect the user to complete his data
             if (req.user?.needs_completion) {
                 const session_token = await this.auth_service.createOAuthSession(req.user.user);
+                const exchange_token = await this.auth_service.createExchangeToken({
+                    session_token,
+                    type: 'completion',
+                });
+
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(session_token)}&provider=google`
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?exchange_token=${encodeURIComponent(exchange_token)}&provider=google`
                 );
             }
 
@@ -416,15 +456,14 @@ export class AuthController {
             }
 
             // Normal OAuth flow for existing users
-            const { access_token, refresh_token } = await this.auth_service.generateTokens(
-                req.user.id
-            );
+            // Create secure exchange token with user_id (tokens will be generated on exchange)
+            const exchange_token = await this.auth_service.createExchangeToken({
+                user_id: req.user.id,
+                type: 'auth',
+            });
 
-            // Set refresh token in HTTP-only cookie
-            this.httpOnlyRefreshToken(res, refresh_token);
-
-            // Redirect to frontend with access token
-            const frontend_url = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
+            // Redirect to frontend with exchange token
+            const frontend_url = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?exchange_token=${encodeURIComponent(exchange_token)}&provider=google`;
             return res.redirect(frontend_url);
         } catch (error) {
             console.log('Google callback error:', error);
@@ -455,8 +494,13 @@ export class AuthController {
             // if the user doesn't have a record for that email in DB, we will need to redirect the user to complete his data
             if (req.user?.needs_completion) {
                 const session_token = await this.auth_service.createOAuthSession(req.user.user);
+                const exchange_token = await this.auth_service.createExchangeToken({
+                    session_token,
+                    type: 'completion',
+                });
+
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(session_token)}&provider=facebook`
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?exchange_token=${encodeURIComponent(exchange_token)}&provider=facebook`
                 );
             }
 
@@ -469,15 +513,13 @@ export class AuthController {
             }
 
             // Normal OAuth flow for existing users
-            const { access_token, refresh_token } = await this.auth_service.generateTokens(
-                req.user.id
-            );
+            const exchange_token = await this.auth_service.createExchangeToken({
+                user_id: req.user.id,
+                type: 'auth',
+            });
 
-            // Set refresh token in HTTP-only cookie
-            this.httpOnlyRefreshToken(res, refresh_token);
-
-            // Redirect to frontend with access token
-            const frontend_url = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
+            // Redirect to frontend with exchange token
+            const frontend_url = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?exchange_token=${encodeURIComponent(exchange_token)}&provider=facebook`;
             return res.redirect(frontend_url);
         } catch (error) {
             console.log('Facebook callback error:', error);
@@ -548,8 +590,13 @@ export class AuthController {
             // if the user doesn't have a record for that email in DB, we will need to redirect the user to complete his data
             if (req.user?.needs_completion) {
                 const session_token = await this.auth_service.createOAuthSession(req.user.user);
+                const exchange_token = await this.auth_service.createExchangeToken({
+                    session_token,
+                    type: 'completion',
+                });
+
                 return res.redirect(
-                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?session=${encodeURIComponent(session_token)}&provider=github`
+                    `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/oauth-complete?exchange_token=${encodeURIComponent(exchange_token)}&provider=github`
                 );
             }
 
@@ -562,15 +609,13 @@ export class AuthController {
             }
 
             // Normal OAuth flow for existing users
-            const { access_token, refresh_token } = await this.auth_service.generateTokens(
-                req.user.id
-            );
+            const exchange_token = await this.auth_service.createExchangeToken({
+                user_id: req.user.id,
+                type: 'auth',
+            });
 
-            // Set refresh token in HTTP-only cookie
-            this.httpOnlyRefreshToken(res, refresh_token);
-
-            // Redirect to frontend with access token
-            const frontend_url = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?token=${encodeURIComponent(access_token)}`;
+            // Redirect to frontend with exchange token
+            const frontend_url = `${process.env.FRONTEND_URL || 'http://localhost:3001'}/auth/success?exchange_token=${encodeURIComponent(exchange_token)}&provider=github`;
             return res.redirect(frontend_url);
         } catch (error) {
             console.log('Github callback error:', error);
@@ -608,5 +653,22 @@ export class AuthController {
 
         this.httpOnlyRefreshToken(response, refresh_token);
         return { access_token, user };
+    }
+
+    @ApiBearerAuth('JWT-auth')
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation(confirm_password_swagger.operation)
+    @ApiBody({ type: ConfirmPasswordDto })
+    @ApiOkResponse(confirm_password_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.WRONG_PASSWORD)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
+    @ResponseMessage(SUCCESS_MESSAGES.PASSWORD_CONFIRMED)
+    @Post('confirm-password')
+    async confirmPassword(
+        @Body() confirm_password_dto: ConfirmPasswordDto,
+        @GetUserId() user_id: string
+    ) {
+        return this.auth_service.confirmPassword(confirm_password_dto, user_id);
     }
 }

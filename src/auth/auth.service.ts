@@ -20,7 +20,7 @@ import { UsernameService } from './username.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
+import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
@@ -31,6 +31,8 @@ import { ConfigService } from '@nestjs/config';
 import { instanceToPlain } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import {
+    OAUTH_EXCHANGE_TOKEN_KEY,
+    OAUTH_EXCHANGE_TOKEN_OBJECT,
     OAUTH_SESSION_KEY,
     OAUTH_SESSION_OBJECT,
     OTP_KEY,
@@ -46,6 +48,8 @@ import { StringValue } from 'ms'; // Add this import
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { UserRepository } from 'src/user/user.repository';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
+import { EmailJobsService } from 'src/background-jobs/email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -55,7 +59,7 @@ export class AuthService {
         private readonly username_service: UsernameService,
         private readonly redis_service: RedisService,
         private readonly verification_service: VerificationService,
-        private readonly background_jobs_service: BackgroundJobsService,
+        private readonly background_jobs_service: EmailJobsService,
         private readonly captcha_service: CaptchaService,
         private readonly config_service: ConfigService
     ) {}
@@ -90,19 +94,6 @@ export class AuthService {
             access_token: access_token,
             refresh_token: refresh_token,
         };
-    }
-
-    async getRecommendedUsernames(name: string): Promise<string[]> {
-        const name_parts = name.split(' ');
-        const first_name = name_parts[0];
-        const last_name = name_parts.length > 1 ? name_parts.slice(1).join(' ') : '';
-
-        const recommendations = await this.username_service.generateUsernameRecommendations(
-            first_name,
-            last_name
-        );
-
-        return recommendations;
     }
 
     async validateUser(identifier: string, password: string, type: string): Promise<string> {
@@ -207,7 +198,10 @@ export class AuthService {
         );
 
         // generate username recommendations for step 3
-        const recommendations = await this.getRecommendedUsernames(signup_session.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(
+                signup_session.name
+            );
 
         return {
             isVerified: true,
@@ -389,7 +383,7 @@ export class AuthService {
 
         return {
             isValid: true,
-            resetToken: reset_token, // This token will be used in step 3
+            reset_token: reset_token, // This token will be used in step 3
         };
     }
 
@@ -425,7 +419,7 @@ export class AuthService {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
         // check that the 2 ids are same
-        if (token_data.userId !== user_id) {
+        if (token_data.user_id !== user_id) {
             throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
 
@@ -543,6 +537,9 @@ export class AuthService {
         const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+        if (user.username === new_username) {
+            return { username: new_username };
         }
 
         // Check if username is already taken
@@ -978,7 +975,8 @@ export class AuthService {
             updated_session_data.ttl
         );
 
-        const recommendations = await this.getRecommendedUsernames(user_data.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(user_data.name);
 
         return {
             usernames: recommendations,
@@ -1028,5 +1026,70 @@ export class AuthService {
             access_token,
             refresh_token,
         };
+    }
+
+    async createExchangeToken(payload: {
+        user_id?: string;
+        session_token?: string;
+        type: 'auth' | 'completion';
+    }): Promise<string> {
+        const token_id = crypto.randomUUID();
+        const exchange_token = this.jwt_service.sign(
+            { token_id, type: payload.type },
+            {
+                secret:
+                    process.env.OAUTH_EXCHANGE_TOKEN_SECRET ?? 'fallback-exchange-secret-change-me',
+                expiresIn: '5m',
+            }
+        );
+
+        const redis_object = OAUTH_EXCHANGE_TOKEN_OBJECT(token_id, payload);
+        await this.redis_service.set(redis_object.key, redis_object.value, redis_object.ttl);
+
+        return exchange_token;
+    }
+
+    async validateExchangeToken(exchange_token: string): Promise<{
+        user_id?: string;
+        session_token?: string;
+        type: 'auth' | 'completion';
+    }> {
+        try {
+            const decoded = this.jwt_service.verify(exchange_token, {
+                secret:
+                    process.env.OAUTH_EXCHANGE_TOKEN_SECRET ?? 'fallback-exchange-secret-change-me',
+            });
+
+            const { token_id, type } = decoded;
+            const redis_key = OAUTH_EXCHANGE_TOKEN_KEY(token_id);
+            const stored_data = await this.redis_service.get(redis_key);
+
+            if (!stored_data) {
+                throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+            }
+
+            await this.redis_service.del(redis_key);
+            const payload = JSON.parse(stored_data);
+            return { ...payload, type };
+        } catch (error) {
+            throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
+    }
+    async confirmPassword(confirm_password_dto: ConfirmPasswordDto, user_id: string) {
+        const user = await this.user_repository.findById(user_id);
+
+        if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+        if (user.password) {
+            const is_password_valid = await bcrypt.compare(
+                confirm_password_dto.password,
+                user.password
+            );
+            if (!is_password_valid) throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
+        } else {
+            throw new UnauthorizedException(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED);
+        }
+
+        return { valid: true };
     }
 }

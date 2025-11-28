@@ -15,17 +15,17 @@ export const REFRESH_TOKEN_OBJECT = (jti: string, id: string) => {
 };
 
 // set of JTIs
-export const USER_REFRESH_TOKENS_KEY = (userId: string) => `user:${userId}:refreshTokens`;
+export const USER_REFRESH_TOKENS_KEY = (user_id: string) => `user:${user_id}:refreshTokens`;
 
 // add JTI to the set
-export const USER_REFRESH_TOKENS_ADD = (userId: string, jti: string) => ({
-    key: USER_REFRESH_TOKENS_KEY(userId),
+export const USER_REFRESH_TOKENS_ADD = (user_id: string, jti: string) => ({
+    key: USER_REFRESH_TOKENS_KEY(user_id),
     value: jti,
     ttl: REFRESH_TOKEN_TTL,
 });
 
-export const USER_REFRESH_TOKENS_REMOVE = (userId: string, jti: string) => ({
-    key: USER_REFRESH_TOKENS_KEY(userId),
+export const USER_REFRESH_TOKENS_REMOVE = (user_id: string, jti: string) => ({
+    key: USER_REFRESH_TOKENS_KEY(user_id),
     value: jti,
 });
 
@@ -52,6 +52,20 @@ export const OAUTH_SESSION_OBJECT = (session_token: string, user_data: Record<st
     ttl: OAUTH_SESSION_TTL,
 });
 
+// ------------------ OAUTH EXCHANGE TOKEN (One-time use tokens) ------------------
+export const OAUTH_EXCHANGE_TOKEN_KEY = (exchange_token: string) =>
+    `oauth:exchange:${exchange_token}`;
+export const OAUTH_EXCHANGE_TOKEN_TTL = 5 * 60; // 5 minutes - short-lived for security
+
+export const OAUTH_EXCHANGE_TOKEN_OBJECT = (
+    exchange_token: string,
+    payload: { user_id?: string; session_token?: string; type: 'auth' | 'completion' }
+) => ({
+    key: OAUTH_EXCHANGE_TOKEN_KEY(exchange_token),
+    value: JSON.stringify(payload),
+    ttl: OAUTH_EXCHANGE_TOKEN_TTL,
+});
+
 /* 
     ######################### OTPs Section #########################
 */
@@ -62,12 +76,12 @@ export const OTP_KEY = (type: 'email' | 'password', identifier: string) =>
 export const OTP_OBJECT = (
     type: 'email' | 'password',
     identifier: string,
-    hashedToken: string,
+    hashed_token: string,
     created_at: string
 ) => ({
     key: OTP_KEY(type, identifier),
     value: {
-        token: hashedToken,
+        token: hashed_token,
         created_at,
     },
 });

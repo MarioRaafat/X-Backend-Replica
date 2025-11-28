@@ -56,7 +56,7 @@ export class CaptchaService {
 
     async validateCaptcha(token: string, remote_ip?: string): Promise<void> {
         // Check if CAPTCHA bypass is enabled for testing
-        const bypass_captcha = this.config_service.get<string>('BYPASS_CAPTCHA_FOR_TESTING');
+        const bypass_captcha = this.config_service.get<string>('BYPASS_FOR_TESTING');
 
         if (bypass_captcha === 'true') {
             console.log('CAPTCHA bypassed for testing purposes');

@@ -1,28 +1,16 @@
-// // src/constants.ts
-// import { BlobServiceClient } from "@azure/storage-blob";
+export const TOPICS = ['Sports', 'Entertainment', 'News'];
 
-// export const AZURE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING ?? "";
+export const categorize_prompt = (content: string) => {
+    return `Analyze the following text and categorize it into these topics: ${TOPICS.join(', ')}.
+        Return ONLY a JSON object with topic names as keys and percentage values (0-100) as numbers. The percentages should add up to 100.
+        Only include topics that are relevant (percentage > 0).
 
-// // Container for tweet images
-// export const TWEET_IMAGES_CONTAINER = "tweet-images";
+        Example format:
+        { "Sports": 60, "Entertainment": 30, "News": 10 }
 
-// export const blobServiceClient = BlobServiceClient.fromConnectionString(
-//   AZURE_CONNECTION_STRING
-// );
+        Text to analyze:
+        "${content}"
 
-// export const uploadImageToAzure = async (
-//   imageBuffer: Buffer,
-//   imageName: string,
-//   containerName: string
-// ) => {
-//   const containerClient = blobServiceClient.getContainerClient(containerName);
-
-//   await containerClient.createIfNotExists(); // creates container if missing
-
-//   const blockBlobClient = containerClient.getBlockBlobClient(imageName);
-
-//   // Upload the image buffer directly
-//   await blockBlobClient.upload(imageBuffer, imageBuffer.length);
-
-//   return blockBlobClient.url; // ✅ Azure URL returned
-// };
+        Return only the JSON object, no additional text or explanation.
+    `;
+};

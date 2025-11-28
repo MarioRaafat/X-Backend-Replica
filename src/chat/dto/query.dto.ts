@@ -1,32 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
 import { IsInt, IsOptional, IsString, IsUUID, Max, MaxLength, Min } from 'class-validator';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
-
-export class GetMessagesQueryDto {
-    @ApiPropertyOptional({
-        description: 'Number of messages to retrieve',
-        default: 50,
-        minimum: 1,
-        maximum: 100,
-        example: 20,
-    })
-    @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(1)
-    @Max(100)
-    limit?: number = 50;
-
-    @ApiPropertyOptional({
-        description: 'Get messages before this message ID (for loading older messages)',
-        example: 'msg_456abc-789def-012ghi',
-    })
-    @IsOptional()
-    @IsString()
-    @IsUUID()
-    before?: string;
-}
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GetChatsQueryDto {
     @ApiPropertyOptional({
@@ -44,16 +19,12 @@ export class GetChatsQueryDto {
     limit?: number = 20;
 
     @ApiPropertyOptional({
-        description: 'Number of chats to skip for pagination',
-        default: 0,
-        minimum: 0,
-        example: 0,
+        description:
+            "Cursor for pagination (It's from the last call to getChats, if it's the first call, leave it)",
     })
     @IsOptional()
-    @Type(() => Number)
-    @IsInt()
-    @Min(0)
-    offset?: number = 0;
+    @IsString()
+    cursor?: string;
 }
 
 export class SearchChatsQueryDto {
@@ -65,7 +36,7 @@ export class SearchChatsQueryDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(LARGE_MAX_LENGTH)
     query?: string;
 
     @ApiPropertyOptional({

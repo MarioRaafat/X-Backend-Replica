@@ -22,13 +22,17 @@ import {
 import { timeline_swagger } from './timeline.swagger';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import { ApiImplementationStatus, ImplementationStatus } from 'src/decorators/api-status.decorator';
+import { ForyouService } from './services/foryou/for-you.service';
 
 @ApiBearerAuth('JWT-auth')
 @UseGuards(JwtAuthGuard)
 @ApiTags('Timeline')
 @Controller('timeline')
 export class TimelineController {
-    constructor(private readonly timelineService: TimelineService) {}
+    constructor(
+        private readonly timeline_service: TimelineService,
+        private readonly foryou_service: ForyouService
+    ) {}
 
     @ApiImplementationStatus({
         status: ImplementationStatus.IN_PROGRESS,
@@ -47,7 +51,11 @@ export class TimelineController {
         @GetUserId() user_id: string,
         @Query() pagination: TimelinePaginationDto
     ) {
-        return await this.timelineService.getForyouTimeline(user_id, pagination);
+        return await this.foryou_service.getForyouTimeline(
+            user_id,
+            pagination.cursor,
+            pagination.limit
+        );
     }
     @ApiImplementationStatus({
         status: ImplementationStatus.IMPLEMENTED,
@@ -66,7 +74,7 @@ export class TimelineController {
         @GetUserId() user_id: string,
         @Query() pagination: TimelinePaginationDto
     ) {
-        return await this.timelineService.getFollowingTimeline(user_id, pagination);
+        return await this.timeline_service.getFollowingTimeline(user_id, pagination);
     }
 
     @ApiOperation(timeline_swagger.mentions.operation)

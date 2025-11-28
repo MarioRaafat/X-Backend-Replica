@@ -58,6 +58,7 @@ export const ERROR_MESSAGES = {
     // database
     FAILED_TO_SAVE_IN_DB: 'Failed to save the data to database',
     FAILED_TO_UPDATE_IN_DB: 'Failed to update the data in database',
+    FAILED_TO_FETCH_FROM_DB: 'Failed to fetch data from database',
 
     // links & Tokens
     INVALID_OR_EXPIRED_TOKEN: 'Invalid or expired token',
@@ -72,13 +73,14 @@ export const ERROR_MESSAGES = {
     MESSAGE_NOT_FOUND: 'Message not found',
     UNAUTHORIZED_ACCESS_TO_CHAT: 'Unauthorized access to chat',
     UNAUTHORIZED_ACCESS_TO_MESSAGE: 'Unauthorized access to message',
+    MESSAGE_DOES_NOT_BELONG_TO_CHAT: 'Message does not belong to this chat',
     RECIPIENT_NOT_FOUND: 'Recipient user not found',
     CANNOT_MESSAGE_YOURSELF: 'Cannot send message to yourself',
     MESSAGE_CONTENT_REQUIRED: 'Message content is required',
     CHAT_ALREADY_EXISTS: 'Chat already exists between these users',
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
-    CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
+    LAST_READ_MESSAGE_NOT_IN_CHAT: 'Last read message does not belong to this chat',
 
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
@@ -101,6 +103,8 @@ export const ERROR_MESSAGES = {
     TWEET_NOT_FOUND: 'Tweet not found',
     TWEET_ALREADY_LIKED: 'Tweet already liked',
     TWEET_NOT_LIKED: 'Tweet not liked yet',
+    TWEET_ALREADY_BOOKMARKED: 'Tweet already bookmarked',
+    TWEET_NOT_BOOKMARKED: 'Tweet not bookmarked yet',
     UNAUTHORIZED_TWEET_ACTION: 'Unauthorized to perform this action on tweet',
     TWEET_REPLIES_RETRIEVED_SUCCESSFULLY: 'Tweet replies retrieved successfully',
 
@@ -132,10 +136,12 @@ export const SUCCESS_MESSAGES = {
     USERNAME_UPDATED: 'Username updated successfully',
     EMAIL_UPDATE_INITIATED: 'Email update process initiated. Check your new email for verification',
     EMAIL_UPDATED: 'Email updated successfully',
+    PASSWORD_CONFIRMED: 'Password confirmed successfully',
 
     // OAuth completion
     BIRTH_DATE_SET: 'Birth date set successfully',
     OAUTH_USER_REGISTERED: 'OAuth user registered successfully',
+    TOKEN_EXCHANGE_SUCCESS: 'Token exchanged successfully',
 
     // chat
     CHAT_CREATED: 'Chat created successfully',
@@ -180,6 +186,7 @@ export const SUCCESS_MESSAGES = {
     COVER_DELETED: 'Cover deleted successfully',
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
     LANGUAGE_CHANGED: 'Language changed successfully',
+    USERNAME_RECOMMENDATIONS_RETRIEVED: 'Username recommendations retrieved successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
@@ -213,6 +220,11 @@ export const SUCCESS_MESSAGES = {
     TWEET_LIKED: 'Tweet liked successfully',
     TWEET_UNLIKED: 'Tweet unliked successfully',
     TWEET_LIKES_RETRIEVED: 'Tweet likes retrieved successfully',
+    TWEET_BOOKMARKED: 'Tweet bookmarked successfully',
+    TWEET_UNBOOKMARKED: 'Tweet unbookmarked successfully',
     QUOTE_TWEET_UPDATED: 'Quote tweet updated successfully',
     TWEET_VIEW_TRACKED: 'Tweet view tracked successfully',
+
+    // category
+    CATEGORIES_RETRIEVED: 'Categories retrieved successfully',
 } as const;

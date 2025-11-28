@@ -10,6 +10,7 @@ export const tweet_fields_slect = [
     'tweet.num_views',
     'tweet.num_quotes',
     'tweet.num_replies',
+    'tweet.num_bookmarks',
     'tweet.created_at',
     'tweet.updated_at',
     'user.id',

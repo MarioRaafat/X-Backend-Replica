@@ -1,6 +1,6 @@
 ﻿import { IsEmail, IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class GitHubUserDto {
     @ApiProperty({
@@ -8,7 +8,7 @@ export class GitHubUserDto {
         example: '12345678',
     })
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(LARGE_MAX_LENGTH)
     github_id: string;
 
     @ApiProperty({
@@ -43,6 +43,6 @@ export class GitHubUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(500)
+    @MaxLength(LARGE_MAX_LENGTH)
     avatar_url?: string;
 }

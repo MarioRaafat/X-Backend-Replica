@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsDateString, IsOptional, IsString, MaxLength, Validate } from 'class-validator';
-import { STRING_MAX_LENGTH } from 'src/constants/variables';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 import { AgeRangeValidator } from 'src/validations/birth-date';
 
 export class UpdateUserDto {
@@ -21,7 +21,7 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(500)
+    @MaxLength(STRING_MAX_LENGTH)
     bio?: string;
 
     @ApiProperty({
@@ -31,8 +31,8 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(500)
-    avatar_url?: string;
+    @MaxLength(LARGE_MAX_LENGTH)
+    avatar_url?: string | null;
 
     @ApiProperty({
         example: 'https://example.com/images/cover.jpg',
@@ -41,18 +41,18 @@ export class UpdateUserDto {
     })
     @IsOptional()
     @IsString()
-    @MaxLength(500)
-    cover_url?: string;
+    @MaxLength(LARGE_MAX_LENGTH)
+    cover_url?: string | null;
 
     @ApiProperty({
-        example: 'Cairo, Egypt',
-        description: 'The user’s location',
+        example: 'Egypt',
+        description: 'The user’s country',
         required: false,
     })
     @IsOptional()
     @IsString()
     @MaxLength(STRING_MAX_LENGTH)
-    location?: string;
+    country?: string;
 
     @ApiProperty({
         example: '2003-05-14',
