@@ -782,6 +782,7 @@ export class TweetsRepository {
                     'tweet.num_replies AS num_replies',
                     'tweet.created_at AS created_at',
                     'tweet.updated_at AS updated_at',
+                    'like.created_at AS liked_at',
                     `json_build_object(
                         'id', tweet.tweet_author_id,
                         'username', tweet.username,
@@ -827,7 +828,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'liked_at',
                 'tweet_id'
             );
 
