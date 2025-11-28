@@ -15,10 +15,12 @@ import { TweetCategory } from '../tweets/entities/tweet-category.entity';
 import { Chat } from '../chat/entities/chat.entity';
 import { Message } from '../messages/entities/message.entity';
 import { readFileSync } from 'fs';
+
 config({ path: resolve(__dirname, '../../config/.env') });
+
 const config_service = new ConfigService();
 
-export default new DataSource({
+const base_config: any = {
     type: 'postgres',
     host: process.env.POSTGRES_HOST || config_service.get<string>('POSTGRES_HOST'),
     username: process.env.POSTGRES_USERNAME || config_service.get<string>('POSTGRES_USERNAME'),
@@ -28,6 +30,7 @@ export default new DataSource({
         parseInt(process.env.POSTGRES_PORT || '5432') ||
         config_service.get<number>('POSTGRES_PORT') ||
         5432,
+
     entities: [
         User,
         Verification,
@@ -48,10 +51,16 @@ export default new DataSource({
         Chat,
         Message,
     ],
-    ssl: {
-        ca: readFileSync(process.env.DATABASE_CA!).toString(), // Path to the CA certificate
-    },
+
     migrations: ['src/migrations/*{.ts,.js}'],
     synchronize: false,
     uuidExtension: 'pgcrypto',
-});
+};
+
+if (process.env.DATABASE_CA) {
+    base_config.ssl = {
+        ca: readFileSync(process.env.DATABASE_CA).toString(),
+    };
+}
+
+export default new DataSource(base_config);

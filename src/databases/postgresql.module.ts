@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { readFileSync, writeFileSync } from 'fs';
+import { existsSync, readFileSync } from 'fs';
 
 @Module({
     imports: [
@@ -9,21 +9,33 @@ import { readFileSync, writeFileSync } from 'fs';
         TypeOrmModule.forRootAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
-            useFactory: (config_service: ConfigService) => ({
-                type: 'postgres',
-                host: config_service.get<string>('POSTGRES_HOST'),
-                username: config_service.get<string>('POSTGRES_USERNAME'),
-                password: config_service.get<string>('POSTGRES_PASSWORD'),
-                database: config_service.get<string>('POSTGRES_DB'),
-                port: config_service.get<number>('POSTGRES_PORT'),
-                synchronize: false, // Using migrations instead
-                autoLoadEntities: true,
-                // logging: ['query'],
-                // logger: 'advanced-console',
-                ssl: {
-                    ca: readFileSync(process.env.DATABASE_CA!).toString(), // Path to the CA certificate
-                },
-            }),
+            useFactory: (config_service: ConfigService) => {
+                // SSL CONFIG
+                let ssl: any;
+
+                const ca_path = process.env.DATABASE_CA;
+
+                if (ca_path) {
+                    if (existsSync(ca_path)) {
+                        ssl = {
+                            ca: readFileSync(ca_path).toString(),
+                        };
+                    }
+                }
+
+                return {
+                    type: 'postgres',
+                    host: config_service.get<string>('POSTGRES_HOST'),
+                    username: config_service.get<string>('POSTGRES_USERNAME'),
+                    password: config_service.get<string>('POSTGRES_PASSWORD'),
+                    database: config_service.get<string>('POSTGRES_DB'),
+                    port: config_service.get<number>('POSTGRES_PORT'),
+                    synchronize: false, // Using migrations instead
+                    autoLoadEntities: true,
+
+                    ssl,
+                };
+            },
         }),
     ],
     providers: [ConfigService],
