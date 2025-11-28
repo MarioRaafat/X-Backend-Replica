@@ -14,6 +14,7 @@ import { UserInterests } from '../user/entities/user-interests.entity';
 import { TweetCategory } from '../tweets/entities/tweet-category.entity';
 import { Chat } from '../chat/entities/chat.entity';
 import { Message } from '../messages/entities/message.entity';
+import { readFileSync } from 'fs';
 config({ path: resolve(__dirname, '../../config/.env') });
 const config_service = new ConfigService();
 
@@ -47,6 +48,9 @@ export default new DataSource({
         Chat,
         Message,
     ],
+    ssl: {
+        ca: readFileSync(process.env.DATABASE_CA!).toString(), // Path to the CA certificate
+    },
     migrations: ['src/migrations/*{.ts,.js}'],
     synchronize: false,
     uuidExtension: 'pgcrypto',
