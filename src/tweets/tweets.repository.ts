@@ -828,7 +828,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'liked_at',
                 'tweet_id'
             );
 
