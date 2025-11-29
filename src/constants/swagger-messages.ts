@@ -17,6 +17,7 @@ export const ERROR_MESSAGES = {
     PHONE_NUMBER_NOT_FOUND: 'Phone number not found',
     USERNAME_NOT_FOUND: 'Username not found',
     USERNAME_ALREADY_TAKEN: 'Username is already taken',
+    ACCOUNT_HAS_NO_PASSWORD: 'Account does not have a password set',
 
     // OAuth completion
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
