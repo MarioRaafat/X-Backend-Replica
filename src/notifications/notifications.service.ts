@@ -14,6 +14,7 @@ import { RepostNotificationEntity } from './entities/repost-notification.entity'
 import { QuoteNotificationEntity } from './entities/quote-notification.entity';
 import { LikeNotificationEntity } from './entities/like-notification.entity';
 import { FollowNotificationEntity } from './entities/follow-notification.entity';
+import { NotificationDto } from './dto/notifications-response.dto';
 
 @Injectable()
 export class NotificationsService {
@@ -83,7 +84,7 @@ export class NotificationsService {
         this.notificationsGateway.sendToUser(notification_type, user_id, payload);
     }
 
-    async getUserNotifications(user_id: string): Promise<any[]> {
+    async getUserNotifications(user_id: string): Promise<NotificationDto[]> {
         const user_notifications = await this.notificationModel
             .findOne({ user: user_id })
             .lean()
@@ -158,59 +159,77 @@ export class NotificationsService {
             tweets.map((tweet) => [tweet.tweet_id, tweet] as [string, Tweet])
         );
 
-        const response_notifications = user_notifications.notifications.map((notification: any) => {
-            const base_notification = {
-                type: notification.type,
-                created_at: notification.created_at,
-            };
-
-            switch (notification.type) {
-                case NotificationType.FOLLOW: {
-                    const follow_notification = notification as FollowNotificationEntity;
-                    return {
-                        ...base_notification,
-                        follower: user_map.get(follow_notification.follower_id),
-                    };
+        const response_notifications: NotificationDto[] = user_notifications.notifications
+            .map((notification: any) => {
+                switch (notification.type) {
+                    case NotificationType.FOLLOW: {
+                        const follow_notification = notification as FollowNotificationEntity;
+                        const follower = user_map.get(follow_notification.follower_id);
+                        if (!follower) return null;
+                        return {
+                            type: notification.type,
+                            created_at: notification.created_at,
+                            follower,
+                        } as NotificationDto;
+                    }
+                    case NotificationType.LIKE: {
+                        const like_notification = notification as LikeNotificationEntity;
+                        const liker = user_map.get(like_notification.liked_by);
+                        const tweet = tweet_map.get(like_notification.tweet_id);
+                        if (!liker || !tweet) return null;
+                        return {
+                            type: notification.type,
+                            created_at: notification.created_at,
+                            liker,
+                            tweet,
+                        } as NotificationDto;
+                    }
+                    case NotificationType.QUOTE: {
+                        const quote_notification = notification as QuoteNotificationEntity;
+                        const quoter = user_map.get(quote_notification.quoted_by);
+                        const quote_tweet = tweet_map.get(quote_notification.quote_tweet_id);
+                        const parent_tweet = tweet_map.get(quote_notification.parent_tweet_id);
+                        if (!quoter || !quote_tweet || !parent_tweet) return null;
+                        return {
+                            type: notification.type,
+                            created_at: notification.created_at,
+                            quoter,
+                            quote_tweet,
+                            parent_tweet,
+                        } as NotificationDto;
+                    }
+                    case NotificationType.REPLY: {
+                        const reply_notification = notification as ReplyNotificationEntity;
+                        const replier = user_map.get(reply_notification.replied_by);
+                        const reply_tweet = tweet_map.get(reply_notification.reply_tweet_id);
+                        const original_tweet = tweet_map.get(reply_notification.original_tweet_id);
+                        if (!replier || !reply_tweet || !original_tweet) return null;
+                        return {
+                            type: notification.type,
+                            created_at: notification.created_at,
+                            replier,
+                            reply_tweet,
+                            original_tweet,
+                            conversation_id: reply_notification.conversation_id,
+                        } as NotificationDto;
+                    }
+                    case NotificationType.REPOST: {
+                        const repost_notification = notification as RepostNotificationEntity;
+                        const reposter = user_map.get(repost_notification.reposted_by);
+                        const tweet = tweet_map.get(repost_notification.tweet_id);
+                        if (!reposter || !tweet) return null;
+                        return {
+                            type: notification.type,
+                            created_at: notification.created_at,
+                            reposter,
+                            tweet,
+                        } as NotificationDto;
+                    }
+                    default:
+                        return null;
                 }
-                case NotificationType.LIKE: {
-                    const like_notification = notification as LikeNotificationEntity;
-                    return {
-                        ...base_notification,
-                        liker: user_map.get(like_notification.liked_by),
-                        tweet: tweet_map.get(like_notification.tweet_id),
-                    };
-                }
-                case NotificationType.QUOTE: {
-                    const quote_notification = notification as QuoteNotificationEntity;
-                    return {
-                        ...base_notification,
-                        quoter: user_map.get(quote_notification.quoted_by),
-                        quote_tweet: tweet_map.get(quote_notification.quote_tweet_id),
-                        parent_tweet: tweet_map.get(quote_notification.parent_tweet_id),
-                    };
-                }
-                case NotificationType.REPLY: {
-                    const reply_notification = notification as ReplyNotificationEntity;
-                    return {
-                        ...base_notification,
-                        replier: user_map.get(reply_notification.replied_by),
-                        reply_tweet: tweet_map.get(reply_notification.reply_tweet_id),
-                        original_tweet: tweet_map.get(reply_notification.original_tweet_id),
-                        conversation_id: reply_notification.conversation_id,
-                    };
-                }
-                case NotificationType.REPOST: {
-                    const repost_notification = notification as RepostNotificationEntity;
-                    return {
-                        ...base_notification,
-                        reposter: user_map.get(repost_notification.reposted_by),
-                        tweet: tweet_map.get(repost_notification.tweet_id),
-                    };
-                }
-                default:
-                    return base_notification;
-            }
-        });
+            })
+            .filter((notification): notification is NotificationDto => notification !== null);
 
         return response_notifications;
     }

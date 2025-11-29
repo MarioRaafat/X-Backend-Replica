@@ -1,21 +1,50 @@
 import { Controller, Get, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+    ApiBearerAuth,
+    ApiExtraModels,
+    ApiOkResponse,
+    ApiOperation,
+    ApiTags,
+} from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { GetUserId } from 'src/decorators/get-userId.decorator';
+import { NotificationsResponseDto } from './dto/notifications-response.dto';
+import { FollowNotificationDto } from './dto/follow-notification.dto';
+import { LikeNotificationDto } from './dto/like-notification.dto';
+import { ReplyNotificationDto } from './dto/reply-notification.dto';
+import { RepostNotificationDto } from './dto/repost-notification.dto';
+import { QuoteNotificationDto } from './dto/quote-notification.dto';
+import { get_user_notifications_swagger } from './notification.swagger';
+import {
+    ApiInternalServerError,
+    ApiUnauthorizedErrorResponse,
+} from 'src/decorators/swagger-error-responses.decorator';
+import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 
 @ApiTags('Notifications')
+@ApiExtraModels(
+    NotificationsResponseDto,
+    FollowNotificationDto,
+    LikeNotificationDto,
+    ReplyNotificationDto,
+    RepostNotificationDto,
+    QuoteNotificationDto
+)
 @Controller('notifications')
 export class NotificationsController {
     constructor(private readonly notificationsService: NotificationsService) {}
 
     @UseGuards(JwtAuthGuard)
-    @ApiBearerAuth()
-    @ApiOperation({ summary: 'Get user notifications' })
-    @ApiOkResponse({ description: 'Returns all notifications for the user' })
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(get_user_notifications_swagger.operation)
+    @ApiOkResponse(get_user_notifications_swagger.responses.ok)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @Get()
-    async getUserNotifications(@GetUserId() user_id: string) {
-        return this.notificationsService.getUserNotifications(user_id);
+    async getUserNotifications(@GetUserId() user_id: string): Promise<NotificationsResponseDto> {
+        const notifications = await this.notificationsService.getUserNotifications(user_id);
+        return { notifications };
     }
 
     // @ApiOperation({
