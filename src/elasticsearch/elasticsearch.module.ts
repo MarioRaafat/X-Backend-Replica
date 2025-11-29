@@ -15,7 +15,7 @@ import { TweetsModule } from 'src/tweets/tweets.module';
         NestElasticsearchModule.registerAsync({
             imports: [ConfigModule],
             useFactory: async (config_service: ConfigService) => ({
-                node: config_service.get('ELASTICSEARCH_NODE'),
+                node: config_service.get('ELASTICSEARCH_NODE') || 'http://localhost:9200',
             }),
             inject: [ConfigService],
         }),
