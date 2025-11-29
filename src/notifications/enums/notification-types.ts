@@ -4,6 +4,6 @@ export enum NotificationType {
     REPOST = 'repost',
     QUOTE = 'quote',
     FOLLOW = 'follow',
-    MENTION = 'mention',
-    SYSTEM = 'system',
+    // MENTION = 'mention',
+    // SYSTEM = 'system',
 }

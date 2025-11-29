@@ -7,11 +7,15 @@ import { Notification, NotificationSchema } from './entities/notifications.entit
 import { MongodbModule } from 'src/databases/mongodb.module';
 import { JwtModule } from '@nestjs/jwt';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from 'src/user/entities';
+import { Tweet } from 'src/tweets/entities';
 
 @Module({
     imports: [
         MongodbModule,
         MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }]),
+        TypeOrmModule.forFeature([User, Tweet]),
         JwtModule.registerAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
@@ -23,6 +27,6 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
     ],
     providers: [NotificationsService, NotificationsGateway],
     exports: [NotificationsService, NotificationsGateway],
-    // controllers: [NotificationsController],
+    controllers: [NotificationsController],
 })
 export class NotificationsModule {}

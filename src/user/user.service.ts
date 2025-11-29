@@ -343,7 +343,7 @@ export class UserService {
             follower_id: current_user_id,
             followed_id: target_user_id,
             action: 'add',
-            followed_avatar_url: validation_result.avatar_url,
+            follower_avatar_url: validation_result.avatar_url,
             follower_name: validation_result.name,
         });
     }

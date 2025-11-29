@@ -1,5 +1,4 @@
 import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
-import { ReplyBackGroundNotificationJobDTO } from './reply.dto';
 import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import {
@@ -9,15 +8,16 @@ import {
     QUEUE_NAMES,
 } from 'src/background-jobs/constants/queue.constants';
 import type { Queue } from 'bull';
+import { QuoteBackGroundNotificationJobDTO } from './quote.dto';
 
 @Injectable()
-export class ReplyJobService extends BackgroundJobsService<ReplyBackGroundNotificationJobDTO> {
-    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private reply_queue: Queue) {
-        super(reply_queue, JOB_NAMES.NOTIFICATION.REPLY, JOB_PRIORITIES.HIGH, JOB_DELAYS.IMMEDIATE);
+export class QuoteJobService extends BackgroundJobsService<QuoteBackGroundNotificationJobDTO> {
+    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private quote_queue: Queue) {
+        super(quote_queue, JOB_NAMES.NOTIFICATION.QUOTE, JOB_PRIORITIES.HIGH, JOB_DELAYS.IMMEDIATE);
     }
 
-    async queueReplyNotification(
-        dto: ReplyBackGroundNotificationJobDTO,
+    async queueQuoteNotification(
+        dto: QuoteBackGroundNotificationJobDTO,
         priority?: number,
         delay?: number
     ) {
@@ -25,7 +25,7 @@ export class ReplyJobService extends BackgroundJobsService<ReplyBackGroundNotifi
             dto,
             priority ?? this.priority,
             delay ?? this.delay,
-            'Failed to queue reply notification job:'
+            'Failed to queue quote notification job:'
         );
     }
 }

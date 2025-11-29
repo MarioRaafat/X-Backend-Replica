@@ -41,21 +41,19 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     ) {}
 
     async handleConnection(client: IAuthenticatedSocket) {
-        try {
-            const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
-            client.user = user;
-            const user_id = client.user.user_id;
-
-            if (!this.userSockets.has(user_id)) {
-                this.userSockets.set(user_id, new Set());
-            }
-            this.userSockets.get(user_id)?.add(client.id);
-
-            console.log(`Client connected: ${client.id} (User: ${user_id})`);
-        } catch (error) {
-            console.error('Connection error:', error);
-            client.disconnect();
-        }
+        // try {
+        //     const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
+        //     client.user = user;
+        //     const user_id = client.user.user_id;
+        //     if (!this.userSockets.has(user_id)) {
+        //         this.userSockets.set(user_id, new Set());
+        //     }
+        //     this.userSockets.get(user_id)?.add(client.id);
+        //     console.log(`Client connected: ${client.id} (User: ${user_id})`);
+        // } catch (error) {
+        //     console.error('Connection error:', error);
+        //     client.disconnect();
+        // }
     }
 
     handleDisconnect(client: IAuthenticatedSocket) {

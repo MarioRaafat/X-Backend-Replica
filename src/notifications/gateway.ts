@@ -1,10 +1,4 @@
-import {
-    ConnectedSocket,
-    MessageBody,
-    SubscribeMessage,
-    WebSocketGateway,
-    WebSocketServer,
-} from '@nestjs/websockets';
+import { SubscribeMessage, WebSocketGateway, WebSocketServer } from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
 import { WsAuthMiddleware } from 'src/middlewares/ws.middleware';
 import { JwtService } from '@nestjs/jwt';
@@ -35,7 +29,7 @@ export class NotificationsGateway {
         console.log(`Client connected: ${client.id} for user ${user_id}`);
     }
 
-    @SubscribeMessage('message')
+    @SubscribeMessage('mark_seen')
     onMarkSeen(client: any, payload: any) {
         return 'Hello';
     }

@@ -1,10 +1,23 @@
-import { Controller, Get } from '@nestjs/common';
-import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
-import { notifications_websocket } from './notification.swagger';
+import { Controller, Get, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import { NotificationsService } from './notifications.service';
+import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
+import { GetUserId } from 'src/decorators/get-userId.decorator';
 
 @ApiTags('Notifications')
 @Controller('notifications')
 export class NotificationsController {
+    constructor(private readonly notificationsService: NotificationsService) {}
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth()
+    @ApiOperation({ summary: 'Get user notifications' })
+    @ApiOkResponse({ description: 'Returns all notifications for the user' })
+    @Get()
+    async getUserNotifications(@GetUserId() user_id: string) {
+        return this.notificationsService.getUserNotifications(user_id);
+    }
+
     // @ApiOperation({
     //     summary: 'WebSocket API Documentation',
     //     description: `

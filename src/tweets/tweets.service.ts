@@ -50,6 +50,8 @@ import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 import { categorize_prompt, TOPICS } from './constants';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
+import { RepostJobService } from 'src/background-jobs/notifications/repost/repost.service';
+import { QuoteJobService } from 'src/background-jobs/notifications/quote/quote.service';
 
 @Injectable()
 export class TweetsService {
@@ -75,7 +77,9 @@ export class TweetsService {
         private readonly tweets_repository: TweetsRepository,
         private readonly azure_storage_service: AzureStorageService,
         private readonly reply_job_service: ReplyJobService,
-        private readonly like_job_service: LikeJobService
+        private readonly like_job_service: LikeJobService,
+        private readonly repost_job_service: RepostJobService,
+        private readonly quote_job_service: QuoteJobService
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
@@ -284,13 +288,29 @@ export class TweetsService {
         try {
             const tweet = await this.tweet_repository.findOne({
                 where: { tweet_id },
-                select: ['tweet_id', 'user_id'],
+                select: ['tweet_id', 'user_id', 'type'],
             });
 
             if (!tweet) throw new NotFoundException('Tweet not found');
 
             if (tweet.user_id !== user_id) {
                 throw new BadRequestException('User is not allowed to delete this tweet');
+            }
+
+            if (tweet.type === TweetType.REPLY) {
+                this.reply_job_service.queueReplyNotification({
+                    reply_tweet_id: tweet.tweet_id,
+                    reply_to: user_id,
+                    replied_by: user_id,
+                    action: 'remove',
+                });
+            } else if (tweet.type === TweetType.QUOTE) {
+                this.quote_job_service.queueQuoteNotification({
+                    quote_tweet_id: tweet.tweet_id,
+                    quote_to: user_id,
+                    quoted_by: user_id,
+                    action: 'remove',
+                });
             }
 
             await this.tweet_repository.delete({ tweet_id });
@@ -327,11 +347,13 @@ export class TweetsService {
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_likes', 1);
             await query_runner.commitTransaction();
 
-            this.like_job_service.queueLikeNotification({
-                tweet,
-                like_to: tweet.user_id,
-                liked_by: user_id,
-            });
+            if (tweet.user_id !== user_id)
+                this.like_job_service.queueLikeNotification({
+                    tweet,
+                    like_to: tweet.user_id,
+                    liked_by: user_id,
+                    action: 'add',
+                });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -348,8 +370,11 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
-            if (!tweet_exists) throw new NotFoundException('Tweet not found');
+            const tweet = await query_runner.manager.findOne(Tweet, {
+                where: { tweet_id },
+                select: ['tweet_id', 'user_id'],
+            });
+            if (!tweet) throw new NotFoundException('Tweet not found');
 
             const delete_result = await query_runner.manager.delete(TweetLike, {
                 tweet: { tweet_id },
@@ -361,6 +386,14 @@ export class TweetsService {
 
             await query_runner.manager.decrement(Tweet, { tweet_id }, 'num_likes', 1);
             await query_runner.commitTransaction();
+
+            if (tweet.user_id !== user_id)
+                this.like_job_service.queueLikeNotification({
+                    tweet_id,
+                    like_to: tweet.user_id,
+                    liked_by: user_id,
+                    action: 'remove',
+                });
         } catch (error) {
             await query_runner.rollbackTransaction();
             console.error(error);
@@ -452,12 +485,23 @@ export class TweetsService {
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1);
             await query_runner.commitTransaction();
 
-            return plainToInstance(TweetQuoteResponseDTO, {
+            const response = plainToInstance(TweetQuoteResponseDTO, {
                 ...saved_quote_tweet,
                 quoted_tweet: plainToInstance(TweetResponseDTO, parentTweet, {
                     excludeExtraneousValues: true,
                 }),
             });
+
+            console.log('parentTweet', parentTweet);
+
+            if (parentTweet.user?.id && user_id !== parentTweet.user.id)
+                this.quote_job_service.queueQuoteNotification({
+                    quote_to: parentTweet.user.id,
+                    quoted_by: user_id,
+                    quote_tweet: saved_quote_tweet,
+                    parent_tweet: parentTweet,
+                    action: 'add',
+                });
         } catch (error) {
             await query_runner.rollbackTransaction();
             throw error;
@@ -472,8 +516,8 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const tweet_exists = await query_runner.manager.exists(Tweet, { where: { tweet_id } });
-            if (!tweet_exists) throw new NotFoundException('Tweet not found');
+            const tweet = await query_runner.manager.findOne(Tweet, { where: { tweet_id } });
+            if (!tweet) throw new NotFoundException('Tweet not found');
             const new_repost = query_runner.manager.create(TweetRepost, {
                 tweet_id,
                 user_id,
@@ -481,6 +525,14 @@ export class TweetsService {
             await query_runner.manager.insert(TweetRepost, new_repost);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
+
+            if (tweet.user_id !== user_id)
+                this.repost_job_service.queueRepostNotification({
+                    repost_to: tweet.user_id,
+                    reposted_by: user_id,
+                    tweet,
+                    action: 'add',
+                });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -517,6 +569,14 @@ export class TweetsService {
                 'num_reposts',
                 1
             );
+
+            if (repost.user_id !== user_id)
+                this.repost_job_service.queueRepostNotification({
+                    repost_to: user_id,
+                    reposted_by: user_id,
+                    tweet_id: tweet_id,
+                    action: 'remove',
+                });
 
             await query_runner.commitTransaction();
         } catch (error) {
@@ -581,12 +641,12 @@ export class TweetsService {
 
             if (user_id !== original_tweet.user_id)
                 this.reply_job_service.queueReplyNotification({
-                    tweet: saved_reply_tweet,
-                    reply_tweet_id: saved_reply_tweet.tweet_id,
+                    reply_tweet: saved_reply_tweet,
                     original_tweet_id: original_tweet_id,
                     replied_by: user_id,
                     reply_to: original_tweet.user_id,
                     conversation_id: original_reply?.conversation_id || original_tweet_id,
+                    action: 'add',
                 });
 
             const returned_reply = plainToInstance(

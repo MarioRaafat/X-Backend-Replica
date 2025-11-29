@@ -17,6 +17,11 @@ import { ReplyJobService } from './notifications/reply/reply.service';
 import { ReplyProcessor } from './notifications/reply/reply.processor';
 import { LikeJobService } from './notifications/like/like.service';
 import { LikeProcessor } from './notifications/like/like.processor';
+import { Tweet } from 'src/tweets/entities';
+import { RepostProcessor } from './notifications/repost/repost.processor';
+import { RepostJobService } from './notifications/repost/repost.service';
+import { QuoteProcessor } from './notifications/quote/quote.processor';
+import { QuoteJobService } from './notifications/quote/quote.service';
 
 @Module({
     imports: [
@@ -56,7 +61,7 @@ import { LikeProcessor } from './notifications/like/like.processor';
                 },
             },
         }),
-        TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([User, Tweet]),
         CommunicationModule,
         NotificationsModule,
     ],
@@ -70,7 +75,19 @@ import { LikeProcessor } from './notifications/like/like.processor';
         ReplyProcessor,
         LikeJobService,
         LikeProcessor,
+        RepostProcessor,
+        RepostJobService,
+        QuoteProcessor,
+        QuoteJobService,
     ],
-    exports: [EmailJobsService, FollowJobService, BullModule, ReplyJobService, LikeJobService],
+    exports: [
+        EmailJobsService,
+        FollowJobService,
+        BullModule,
+        ReplyJobService,
+        LikeJobService,
+        RepostJobService,
+        QuoteJobService,
+    ],
 })
 export class BackgroundJobsModule {}
