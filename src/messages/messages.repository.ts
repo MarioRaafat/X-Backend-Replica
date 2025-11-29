@@ -15,7 +15,12 @@ export class MessageRepository extends Repository<Message> {
         super(Message, data_source.createEntityManager());
     }
 
-    async createMessage(sender_id: string, chat_id: string, dto: SendMessageDto): Promise<Message> {
+    async createMessage(
+        sender_id: string,
+        chat_id: string,
+        dto: SendMessageDto,
+        is_read: boolean = false
+    ): Promise<Message> {
         try {
             const message = this.create({
                 sender_id,
@@ -23,6 +28,7 @@ export class MessageRepository extends Repository<Message> {
                 content: dto.content,
                 message_type: dto.message_type || MessageType.TEXT,
                 reply_to_message_id: dto.reply_to_message_id || null,
+                is_read: is_read,
             });
 
             const saved_message = await this.save(message);
