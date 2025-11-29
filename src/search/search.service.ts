@@ -4,10 +4,14 @@ import { SearchQueryDto } from './dto/search-query.dto';
 import { PostsSearchDto } from './dto/post-search.dto';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { UserListResponseDto } from 'src/user/dto/user-list-response.dto';
+import { UserRepository } from 'src/user/user.repository';
 
 @Injectable()
 export class SearchService {
-    constructor(private readonly elasticsearch_service: ElasticsearchService) {}
+    constructor(
+        private readonly elasticsearch_service: ElasticsearchService,
+        private readonly user_repository: UserRepository
+    ) {}
 
     async getSuggestions(current_user_id: string, query_dto: BasicQueryDto) {}
 
@@ -60,11 +64,14 @@ export class SearchService {
                 },
             });
 
-            // if (location) {
-            //     search_body.query.bool.filter.push({
-            //         term: { country: country },
-            //     });
-            // }
+            if (location) {
+                const user = await this.user_repository.findById(current_user_id);
+                if (user) {
+                    search_body.query.bool.filter.push({
+                        term: { country: user.country },
+                    });
+                }
+            }
 
             const result = await this.elasticsearch_service.search({
                 index: 'users',

@@ -4,11 +4,14 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ElasticsearchSetupService } from './elasticsearch-setup.service';
 import { UserSeederService } from './seeders/user-seeder.service';
 import { UserModule } from 'src/user/user.module';
+import { TweetSeederService } from './seeders/tweets-seeder.service';
+import { TweetsModule } from 'src/tweets/tweets.module';
 
 @Module({
     imports: [
         ConfigModule,
         UserModule,
+        TweetsModule,
         NestElasticsearchModule.registerAsync({
             imports: [ConfigModule],
             useFactory: async (config_service: ConfigService) => ({
@@ -17,7 +20,12 @@ import { UserModule } from 'src/user/user.module';
             inject: [ConfigService],
         }),
     ],
-    providers: [ElasticsearchSetupService, UserSeederService],
-    exports: [NestElasticsearchModule, ElasticsearchSetupService, UserSeederService],
+    providers: [ElasticsearchSetupService, UserSeederService, TweetSeederService],
+    exports: [
+        NestElasticsearchModule,
+        ElasticsearchSetupService,
+        UserSeederService,
+        TweetSeederService,
+    ],
 })
 export class ElasticsearchModule {}

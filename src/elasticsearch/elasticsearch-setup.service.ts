@@ -1,16 +1,12 @@
-import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { ELASTICSEARCH_INDICES, INDEX_CONFIGS } from '../elasticsearch/schemas';
 
 @Injectable()
-export class ElasticsearchSetupService implements OnModuleInit {
+export class ElasticsearchSetupService {
     private readonly logger = new Logger(ElasticsearchSetupService.name);
 
     constructor(private readonly elasticsearch_service: ElasticsearchService) {}
-
-    async onModuleInit() {
-        await this.setupIndices();
-    }
 
     async setupIndices() {
         try {

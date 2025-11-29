@@ -26,7 +26,8 @@
         "schema:log": "typeorm-ts-node-commonjs schema:log -d src/databases/data-source.ts",
         "prepare": "husky",
         "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts",
-        "es:seed": "ts-node -r tsconfig-paths/register src/elasticsearch/es-seed.ts"
+        "es:seed": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-seed.ts",
+        "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts"
     },
     "lint-staged": {
         "*.ts": [
