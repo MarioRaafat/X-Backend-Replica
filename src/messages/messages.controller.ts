@@ -24,6 +24,7 @@ import {
     get_messages_swagger,
     send_message_swagger,
     update_message_swagger,
+    websocket_docs_swagger,
 } from './messages.swagger';
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
@@ -34,6 +35,39 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 @Controller('messages')
 export class MessagesController {
     constructor(private readonly messages_service: MessagesService) {}
+
+    @ApiOperation(websocket_docs_swagger.operation)
+    @ApiOkResponse(websocket_docs_swagger.responses.success)
+    @Get('websocket-docs')
+    async socketDocs() {
+        return {
+            message: 'WebSocket documentation available in Swagger UI',
+            namespace: '/messages',
+            events: {
+                client_to_server: [
+                    'join_chat',
+                    'leave_chat',
+                    'send_message',
+                    'update_message',
+                    'delete_message',
+                    'typing_start',
+                    'typing_stop',
+                ],
+                server_to_client: [
+                    'unread_chats_summary',
+                    'new_message',
+                    'message_updated',
+                    'message_deleted',
+                    'user_typing',
+                    'user_stopped_typing',
+                    'joined_chat',
+                    'left_chat',
+                    'message_sent',
+                    'error',
+                ],
+            },
+        };
+    }
 
     @ApiOperation(send_message_swagger.operation)
     @ApiParam(send_message_swagger.params.chat_id)

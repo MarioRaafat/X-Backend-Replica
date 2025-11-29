@@ -114,6 +114,7 @@ export class AuthService {
             if (!unverified_user) {
                 throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
             } else {
+                console.log(`pass ${password} vs ${unverified_user.password}`);
                 const is_password_valid = await bcrypt.compare(password, unverified_user.password);
                 if (!is_password_valid) {
                     throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
