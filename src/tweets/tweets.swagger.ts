@@ -1294,9 +1294,7 @@ export const get_user_bookmarks_swagger = {
                             tweet_id: '550e8400-e29b-41d4-a716-446655440000',
                             type: 'tweet',
                             content: 'This is an interesting tweet I bookmarked!',
-                            images: [
-                                'https://example.com/image1.jpg',
-                            ],
+                            images: ['https://example.com/image1.jpg'],
                             videos: [],
                             likes_count: 42,
                             reposts_count: 15,
@@ -1347,7 +1345,8 @@ export const get_user_bookmarks_swagger = {
                     ],
                     pagination: {
                         count: 2,
-                        next_cursor: '2025-10-28T18:45:00.000Z_660e8400-e29b-41d4-a716-446655440001',
+                        next_cursor:
+                            '2025-10-28T18:45:00.000Z_660e8400-e29b-41d4-a716-446655440001',
                         has_more: true,
                     },
                     message: 'User bookmarks retrieved successfully',

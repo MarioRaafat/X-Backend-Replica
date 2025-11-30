@@ -7,8 +7,8 @@ import { Tweet } from './tweet.entity';
 export class TweetCategory {
     @PrimaryColumn({ type: 'uuid' })
     tweet_id: string;
-    @PrimaryColumn({ type: 'uuid' })
-    category_id: string;
+    @PrimaryColumn({ type: 'smallint' })
+    category_id: number;
 
     @Column({ type: 'int', default: 0 })
     percentage: number;
