@@ -32,6 +32,9 @@ export const tweets_index_config = {
     },
     mappings: {
         properties: {
+            tweet_id: {
+                type: 'keyword',
+            },
             content: {
                 type: 'text',
                 analyzer: 'tweet_analyzer',
