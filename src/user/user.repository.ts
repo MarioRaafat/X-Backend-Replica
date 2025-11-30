@@ -438,34 +438,17 @@ export class UserRepository extends Repository<User> {
         follower_id: string,
         followed_id: string
     ): Promise<InsertResult> {
-        return await this.data_source.transaction(async (manager) => {
-            const user_follows = new UserFollows({ follower_id, followed_id });
-            const insert_result = await manager.insert(UserFollows, user_follows);
-
-            await manager.increment(User, { id: follower_id }, 'following', 1);
-            await manager.increment(User, { id: followed_id }, 'followers', 1);
-
-            return insert_result;
-        });
+        const user_follows = new UserFollows({ follower_id, followed_id });
+        return await this.data_source.getRepository(UserFollows).insert(user_follows);
     }
 
     async deleteFollowRelationship(
         follower_id: string,
         followed_id: string
     ): Promise<DeleteResult> {
-        return await this.data_source.transaction(async (manager) => {
-            const delete_result = await manager.delete(UserFollows, {
-                follower_id,
-                followed_id,
-            });
-
-            if (delete_result.affected && delete_result.affected > 0) {
-                await manager.decrement(User, { id: follower_id }, 'following', 1);
-                await manager.decrement(User, { id: followed_id }, 'followers', 1);
-            }
-
-            return delete_result;
-        });
+        return await this.data_source
+            .getRepository(UserFollows)
+            .delete({ follower_id, followed_id });
     }
 
     async insertMuteRelationship(muter_id: string, muted_id: string): Promise<InsertResult> {
@@ -479,32 +462,9 @@ export class UserRepository extends Repository<User> {
 
     async insertBlockRelationship(blocker_id: string, blocked_id: string) {
         await this.data_source.transaction(async (manager) => {
-            const [remove_followed, remove_follower] = await Promise.all([
-                manager.delete(UserFollows, { follower_id: blocker_id, followed_id: blocked_id }),
-                manager.delete(UserFollows, { follower_id: blocked_id, followed_id: blocker_id }),
-                manager.insert(UserBlocks, { blocker_id, blocked_id }),
-            ]);
-
-            const decrement_following_conditions: { id: string }[] = [];
-            const decrement_followers_conditions: { id: string }[] = [];
-
-            if (remove_followed.affected && remove_followed.affected > 0) {
-                decrement_followers_conditions.push({ id: blocked_id });
-                decrement_following_conditions.push({ id: blocker_id });
-            }
-
-            if (remove_follower.affected && remove_follower.affected > 0) {
-                decrement_followers_conditions.push({ id: blocker_id });
-                decrement_following_conditions.push({ id: blocked_id });
-            }
-
-            if (decrement_followers_conditions.length > 0) {
-                await manager.decrement(User, decrement_followers_conditions, 'followers', 1);
-            }
-
-            if (decrement_following_conditions.length > 0) {
-                await manager.decrement(User, decrement_following_conditions, 'following', 1);
-            }
+            await manager.delete(UserFollows, { follower_id: blocker_id, followed_id: blocked_id });
+            await manager.delete(UserFollows, { follower_id: blocked_id, followed_id: blocker_id });
+            await manager.insert(UserBlocks, { blocker_id, blocked_id });
         });
     }
 
