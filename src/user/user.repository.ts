@@ -137,23 +137,25 @@ export class UserRepository extends Repository<User> {
                 .select('COUNT(*)', 'count')
                 .from('tweets', 't')
                 .where('t.user_id = user.id')
-                .andWhere("t.type = 'reply'");
+                .andWhere("t.type = 'reply'")
+                .andWhere('t.deleted_at IS NULL');
         }, 'num_replies');
 
-        query.addSelect((sub_query) => {
-            return sub_query
-                .select('COUNT(*)', 'count')
-                .from('tweets', 't')
-                .where('t.user_id = user.id')
-                .andWhere("t.type != 'reply'");
-        }, 'num_posts');
+        query.addSelect(
+            `(
+            (SELECT COUNT(*) FROM tweets t WHERE t.user_id = user.id AND t.type != 'reply' AND t.deleted_at IS NULL) +
+            (SELECT COUNT(*) FROM tweet_reposts r WHERE r.user_id = user.id)
+            )`,
+            'num_posts'
+        );
 
         query.addSelect((sub_query) => {
             return sub_query
                 .select('COUNT(*)', 'count')
                 .from('tweets', 't')
                 .where('t.user_id = user.id')
-                .andWhere('(array_length(t.images, 1) > 0 OR array_length(t.videos, 1) > 0)');
+                .andWhere('(array_length(t.images, 1) > 0 OR array_length(t.videos, 1) > 0)')
+                .andWhere('t.deleted_at IS NULL');
         }, 'num_media');
 
         if (identifier_type === 'id') {
