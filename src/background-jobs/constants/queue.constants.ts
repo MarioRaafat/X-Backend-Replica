@@ -21,6 +21,7 @@ export const JOB_NAMES = {
         LIKE: 'like-notification',
         REPOST: 'repost-notification',
         QUOTE: 'quote-notification',
+        CLEAR: 'clear-notifications',
     },
 } as const;
 

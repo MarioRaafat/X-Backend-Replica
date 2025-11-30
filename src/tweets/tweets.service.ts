@@ -570,13 +570,12 @@ export class TweetsService {
                 1
             );
 
-            if (repost.user_id !== user_id)
-                this.repost_job_service.queueRepostNotification({
-                    repost_to: user_id,
-                    reposted_by: user_id,
-                    tweet_id: tweet_id,
-                    action: 'remove',
-                });
+            this.repost_job_service.queueRepostNotification({
+                repost_to: user_id,
+                reposted_by: user_id,
+                tweet_id: tweet_id,
+                action: 'remove',
+            });
 
             await query_runner.commitTransaction();
         } catch (error) {

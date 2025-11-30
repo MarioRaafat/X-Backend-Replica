@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { NotificationsGateway } from './gateway';
 import { NotificationsService } from './notifications.service';
 import { NotificationsController } from './notifications.controller';
@@ -10,6 +10,7 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
 import { Tweet } from 'src/tweets/entities';
+import { BackgroundJobsModule } from 'src/background-jobs';
 
 @Module({
     imports: [
@@ -24,6 +25,7 @@ import { Tweet } from 'src/tweets/entities';
                 signOptions: { expiresIn: config_service.get('JWT_TOKEN_EXPIRES_IN') },
             }),
         }),
+        forwardRef(() => BackgroundJobsModule),
     ],
     providers: [NotificationsService, NotificationsGateway],
     exports: [NotificationsService, NotificationsGateway],

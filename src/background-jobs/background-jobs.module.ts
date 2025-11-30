@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { CommunicationModule } from '../communication/communication.module';
@@ -22,6 +22,8 @@ import { RepostProcessor } from './notifications/repost/repost.processor';
 import { RepostJobService } from './notifications/repost/repost.service';
 import { QuoteProcessor } from './notifications/quote/quote.processor';
 import { QuoteJobService } from './notifications/quote/quote.service';
+import { ClearProcessor } from './notifications/clear/clear.processor';
+import { ClearJobService } from './notifications/clear/clear.service';
 
 @Module({
     imports: [
@@ -63,7 +65,7 @@ import { QuoteJobService } from './notifications/quote/quote.service';
         }),
         TypeOrmModule.forFeature([User, Tweet]),
         CommunicationModule,
-        NotificationsModule,
+        forwardRef(() => NotificationsModule),
     ],
     controllers: [EmailJobsController],
     providers: [
@@ -79,6 +81,8 @@ import { QuoteJobService } from './notifications/quote/quote.service';
         RepostJobService,
         QuoteProcessor,
         QuoteJobService,
+        ClearProcessor,
+        ClearJobService,
     ],
     exports: [
         EmailJobsService,
@@ -88,6 +92,7 @@ import { QuoteJobService } from './notifications/quote/quote.service';
         LikeJobService,
         RepostJobService,
         QuoteJobService,
+        ClearJobService,
     ],
 })
 export class BackgroundJobsModule {}
