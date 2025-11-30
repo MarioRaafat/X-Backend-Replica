@@ -35,6 +35,9 @@ export const tweets_index_config = {
             tweet_id: {
                 type: 'keyword',
             },
+            type: {
+                type: 'keyword',
+            },
             content: {
                 type: 'text',
                 analyzer: 'tweet_analyzer',
@@ -51,6 +54,9 @@ export const tweets_index_config = {
                 },
             },
             created_at: {
+                type: 'date',
+            },
+            updated_at: {
                 type: 'date',
             },
             num_likes: {

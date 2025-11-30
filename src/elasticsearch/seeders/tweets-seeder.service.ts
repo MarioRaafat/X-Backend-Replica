@@ -68,8 +68,11 @@ export class TweetSeederService {
 
     private transformTweetForES(tweet: Tweet) {
         return {
+            tweet_id: tweet.tweet_id,
             content: tweet.content,
             created_at: tweet.created_at,
+            updated_at: tweet.updated_at,
+            type: tweet.type,
             num_likes: tweet.num_likes || 0,
             num_reposts: tweet.num_reposts || 0,
             num_views: tweet.num_views || 0,

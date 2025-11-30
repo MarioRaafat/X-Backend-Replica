@@ -6,6 +6,8 @@ import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { UserListResponseDto } from 'src/user/dto/user-list-response.dto';
 import { UserRepository } from 'src/user/user.repository';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
+import { TweetResponseDTO } from 'src/tweets/dto';
+import { SortResults } from 'node_modules/@elastic/elasticsearch/lib/api/types';
 
 @Injectable()
 export class SearchService {
@@ -113,7 +115,16 @@ export class SearchService {
         }
     }
 
-    async searchPosts(current_user_id: string, query_dto: PostsSearchDto) {
+    async searchPosts(
+        current_user_id: string,
+        query_dto: PostsSearchDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+    }> {
         const { query, cursor, limit = 20 } = query_dto;
 
         if (!query || query.trim().length === 0) {
@@ -126,104 +137,182 @@ export class SearchService {
             };
         }
 
-        const search_body: any = {
-            query: {
-                bool: {
-                    must: [],
-                    should: [],
+        try {
+            const search_body: any = {
+                query: {
+                    bool: {
+                        must: [],
+                        should: [],
+                    },
                 },
-            },
-            size: limit + 1,
-            sort: [
-                { _score: { order: 'desc' } },
-                { created_at: { order: 'desc' } },
-                { tweet_id: { order: 'desc' } },
-            ],
-        };
+                size: limit + 1,
+                sort: [
+                    { _score: { order: 'desc' } },
+                    { created_at: { order: 'desc' } },
+                    { tweet_id: { order: 'desc' } },
+                ],
+            };
 
-        search_body.query.bool.must.push({
-            multi_match: {
-                query: query.trim(),
-                fields: ['content^3', 'username^2', 'name'],
-                type: 'best_fields',
-                fuzziness: 'AUTO',
-                prefix_length: 1,
-                operator: 'or',
-            },
-        });
-
-        search_body.query.bool.should.push(
-            {
-                function_score: {
-                    field_value_factor: {
-                        field: 'num_likes',
-                        factor: 0.01,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
-            },
-            {
-                function_score: {
-                    field_value_factor: {
-                        field: 'num_reposts',
-                        factor: 0.02,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
-            },
-            {
-                function_score: {
-                    field_value_factor: {
-                        field: 'num_quotes',
-                        factor: 0.02,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
-            },
-            {
-                function_score: {
-                    field_value_factor: {
-                        field: 'num_replies',
-                        factor: 0.02,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
-            },
-            {
-                function_score: {
-                    field_value_factor: {
-                        field: 'num_views',
-                        factor: 0.001,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
-            },
-            {
-                function_score: {
-                    field_value_factor: {
-                        field: 'followers',
-                        factor: 0.001,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
+            if (cursor) {
+                search_body.search_after = this.decodeCursor(cursor);
             }
-        );
 
-        const result = await this.elasticsearch_service.search({
-            index: ELASTICSEARCH_INDICES.TWEETS,
-            body: search_body,
-        });
+            search_body.query.bool.must.push({
+                multi_match: {
+                    query: query.trim(),
+                    fields: ['content^3', 'username^2', 'name'],
+                    type: 'best_fields',
+                    fuzziness: 'AUTO',
+                    prefix_length: 1,
+                    operator: 'or',
+                },
+            });
 
-        const hits = result.hits.hits;
+            search_body.query.bool.should.push(
+                {
+                    function_score: {
+                        field_value_factor: {
+                            field: 'num_likes',
+                            factor: 0.01,
+                            modifier: 'log1p',
+                            missing: 0,
+                        },
+                    },
+                },
+                {
+                    function_score: {
+                        field_value_factor: {
+                            field: 'num_reposts',
+                            factor: 0.02,
+                            modifier: 'log1p',
+                            missing: 0,
+                        },
+                    },
+                },
+                {
+                    function_score: {
+                        field_value_factor: {
+                            field: 'num_quotes',
+                            factor: 0.02,
+                            modifier: 'log1p',
+                            missing: 0,
+                        },
+                    },
+                },
+                {
+                    function_score: {
+                        field_value_factor: {
+                            field: 'num_replies',
+                            factor: 0.02,
+                            modifier: 'log1p',
+                            missing: 0,
+                        },
+                    },
+                },
+                {
+                    function_score: {
+                        field_value_factor: {
+                            field: 'num_views',
+                            factor: 0.001,
+                            modifier: 'log1p',
+                            missing: 0,
+                        },
+                    },
+                },
+                {
+                    function_score: {
+                        field_value_factor: {
+                            field: 'followers',
+                            factor: 0.001,
+                            modifier: 'log1p',
+                            missing: 0,
+                        },
+                    },
+                }
+            );
 
-        console.log(hits);
+            const result = await this.elasticsearch_service.search({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: search_body,
+            });
+
+            const hits = result.hits.hits;
+
+            const has_more = hits.length > limit;
+            const items = has_more ? hits.slice(0, limit) : hits;
+
+            let next_cursor: string | null = null;
+
+            if (has_more) {
+                const last_hit = hits[limit - 1];
+                next_cursor = this.encodeCursor(last_hit.sort) ?? null;
+            }
+
+            console.log(result.hits.hits);
+            const tweets = items.map(this.mapTweet);
+
+            return {
+                data: tweets,
+                pagination: {
+                    next_cursor,
+                    has_more,
+                },
+            };
+        } catch (error) {
+            console.log(error);
+            return {
+                data: [],
+                pagination: {
+                    next_cursor: null,
+                    has_more: false,
+                },
+            };
+        }
     }
 
     async searchLatestPosts(current_user_id: string, query_dto: SearchQueryDto) {}
+
+    private mapTweet(hit: any) {
+        const s = hit._source;
+
+        return {
+            tweet_id: s.tweet_id,
+            type: s.type,
+            content: s.content,
+            created_at: s.created_at,
+            updated_at: s.updated_at,
+
+            likes_count: s.num_likes,
+            reposts_count: s.num_reposts,
+            views_count: s.num_views,
+            replies_count: s.num_replies,
+            quotes_count: s.num_quotes,
+
+            user: {
+                id: s.author_id,
+                username: s.username,
+                name: s.name,
+                avatar_url: s.avatar_url,
+                followers: s.followers,
+                following: s.following,
+            },
+
+            images: s.images ?? [],
+            videos: s.videos ?? [],
+        };
+    }
+
+    private encodeCursor(sort: any[] | undefined): string | null {
+        if (!sort) return null;
+        return Buffer.from(JSON.stringify(sort)).toString('base64');
+    }
+
+    private decodeCursor(cursor: string | null): any[] | null {
+        if (!cursor) return null;
+        try {
+            return JSON.parse(Buffer.from(cursor, 'base64').toString('utf8'));
+        } catch (error) {
+            return null;
+        }
+    }
 }
