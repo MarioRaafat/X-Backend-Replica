@@ -69,6 +69,10 @@ export class TweetsRepository {
                 .andWhere(
                     'tweet.tweet_author_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
                     { user_id }
+                )
+                .andWhere(
+                    'tweet.profile_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
+                    { user_id }
                 );
 
             let query = this.user_posts_view_repository.manager
