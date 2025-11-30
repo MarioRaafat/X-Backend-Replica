@@ -42,4 +42,16 @@ export class UserProfileDto {
         return Number(source) || 0;
     })
     following_count: number;
+
+    @Expose()
+    num_posts: number;
+
+    @Expose()
+    num_replies: number;
+
+    @Expose()
+    num_media: number;
+
+    @Expose()
+    num_likes?: number;
 }

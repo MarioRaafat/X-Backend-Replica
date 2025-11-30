@@ -78,18 +78,6 @@ export class User {
     @Column({ type: 'int', default: 0 })
     following: number;
 
-    @Column({ type: 'int', default: 0 })
-    num_posts: number;
-
-    @Column({ type: 'int', default: 0 })
-    num_replies: number;
-
-    @Column({ type: 'int', default: 0 })
-    num_media: number;
-
-    @Column({ type: 'int', default: 0 })
-    num_likes: number;
-
     @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
     hashtags: Hashtag[];
 

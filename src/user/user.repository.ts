@@ -63,10 +63,15 @@ export class UserRepository extends Repository<User> {
     }
 
     async getMyProfile(current_user_id: string): Promise<UserProfileDto | null> {
-        const profile = await this.buildProfileQuery(
-            current_user_id,
-            'id'
-        ).getRawOne<UserProfileDto>();
+        const query = this.buildProfileQuery(current_user_id, 'id');
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweet_likes', 'tl')
+                .where('tl.user_id = user.id');
+        }, 'num_likes');
+
+        const profile = await query.getRawOne<UserProfileDto>();
         return profile ?? null;
     }
 
@@ -125,6 +130,30 @@ export class UserRepository extends Repository<User> {
             'user.followers AS followers_count',
             'user.following AS following_count',
         ]);
+
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweets', 't')
+                .where('t.user_id = user.id')
+                .andWhere("t.type = 'reply'");
+        }, 'num_replies');
+
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweets', 't')
+                .where('t.user_id = user.id')
+                .andWhere("t.type != 'reply'");
+        }, 'num_posts');
+
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweets', 't')
+                .where('t.user_id = user.id')
+                .andWhere('(array_length(t.images, 1) > 0 OR array_length(t.videos, 1) > 0)');
+        }, 'num_media');
 
         if (identifier_type === 'id') {
             query.where('user.id = :identifier', { identifier });

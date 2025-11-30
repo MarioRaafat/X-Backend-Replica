@@ -50,7 +50,6 @@ import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 import { categorize_prompt, TOPICS } from './constants';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
-import { update_user } from 'src/user/user.swagger';
 
 @Injectable()
 export class TweetsService {
@@ -228,19 +227,6 @@ export class TweetsService {
                 ...tweet,
             });
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
-
-            const has_media = (tweet.images?.length ?? 0) > 0 || (tweet.videos?.length ?? 0) > 0;
-
-            await query_runner.manager
-                .createQueryBuilder()
-                .update(User)
-                .set({
-                    num_posts: () => 'num_posts + 1',
-                    num_media: () => (has_media ? 'num_media + 1' : 'num_media'),
-                })
-                .where('id = :user_id', { user_id })
-                .execute();
-
             await query_runner.commitTransaction();
 
             return plainToInstance(TweetResponseDTO, saved_tweet, {
@@ -295,12 +281,8 @@ export class TweetsService {
 
     // hard delete tweet
     async deleteTweet(tweet_id: string, user_id: string): Promise<void> {
-        const query_runner = this.data_source.createQueryRunner();
-        await query_runner.connect();
-        await query_runner.startTransaction();
-
         try {
-            const tweet = await query_runner.manager.findOne(Tweet, {
+            const tweet = await this.tweet_repository.findOne({
                 where: { tweet_id },
                 select: ['tweet_id', 'user_id'],
             });
@@ -311,22 +293,7 @@ export class TweetsService {
                 throw new BadRequestException('User is not allowed to delete this tweet');
             }
 
-            await query_runner.manager.delete(Tweet, { tweet_id });
-
-            const has_media = (tweet.images?.length ?? 0) > 0 || (tweet.videos?.length ?? 0) > 0;
-
-            await query_runner.manager
-                .createQueryBuilder()
-                .update(User)
-                .set({
-                    num_posts: () => (tweet.type === 'reply' ? 'num_posts' : 'num_posts - 1'),
-                    num_replies: () => (tweet.type === 'reply' ? 'num_replies - 1' : 'num_replies'),
-                    num_media: () => (has_media ? 'num_media - 1' : 'num_media'),
-                })
-                .where('id = :user_id', { user_id })
-                .execute();
-
-            await query_runner.commitTransaction();
+            await this.tweet_repository.delete({ tweet_id });
         } catch (error) {
             console.error(error);
             throw error;
@@ -358,7 +325,6 @@ export class TweetsService {
 
             await query_runner.manager.insert(TweetLike, new_like);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_likes', 1);
-            await query_runner.manager.increment(User, { id: user_id }, 'num_likes', 1);
             await query_runner.commitTransaction();
 
             this.like_job_service.queueLikeNotification({
@@ -394,7 +360,6 @@ export class TweetsService {
                 throw new BadRequestException('User has not liked this tweet');
 
             await query_runner.manager.decrement(Tweet, { tweet_id }, 'num_likes', 1);
-            await query_runner.manager.decrement(User, { id: user_id }, 'num_likes', 1);
             await query_runner.commitTransaction();
         } catch (error) {
             await query_runner.rollbackTransaction();
@@ -485,19 +450,6 @@ export class TweetsService {
 
             await query_runner.manager.save(TweetQuote, tweet_quote);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1);
-
-            const has_media = (quote.images?.length ?? 0) > 0 || (quote.videos?.length ?? 0) > 0;
-
-            await query_runner.manager
-                .createQueryBuilder()
-                .update(User)
-                .set({
-                    num_posts: () => 'num_posts + 1',
-                    num_media: () => (has_media ? 'num_media + 1' : 'num_media'),
-                })
-                .where('id = :user_id', { user_id })
-                .execute();
-
             await query_runner.commitTransaction();
 
             return plainToInstance(TweetQuoteResponseDTO, {
@@ -528,7 +480,6 @@ export class TweetsService {
             });
             await query_runner.manager.insert(TweetRepost, new_repost);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
-            await query_runner.manager.increment(User, { id: user_id }, 'num_posts', 1);
             await query_runner.commitTransaction();
         } catch (error) {
             await query_runner.rollbackTransaction();
@@ -566,9 +517,6 @@ export class TweetsService {
                 'num_reposts',
                 1
             );
-
-            // Decrement the user's posts count
-            await query_runner.manager.decrement(User, { id: user_id }, 'num_posts', 1);
 
             await query_runner.commitTransaction();
         } catch (error) {
@@ -628,20 +576,6 @@ export class TweetsService {
                 'num_replies',
                 1
             );
-
-            // Increment user's reply count
-            const has_media =
-                (reply_dto.images?.length ?? 0) > 0 || (reply_dto.videos?.length ?? 0) > 0;
-
-            await query_runner.manager
-                .createQueryBuilder()
-                .update(User)
-                .set({
-                    num_posts: () => 'num_posts + 1',
-                    num_media: () => (has_media ? 'num_media + 1' : 'num_media'),
-                })
-                .where('id = :user_id', { user_id })
-                .execute();
 
             await query_runner.commitTransaction();
 
