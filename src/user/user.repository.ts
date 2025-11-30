@@ -64,6 +64,7 @@ export class UserRepository extends Repository<User> {
 
     async getMyProfile(current_user_id: string): Promise<UserProfileDto | null> {
         const query = this.buildProfileQuery(current_user_id, 'id');
+        query.addSelect('user.email AS email');
         query.addSelect((sub_query) => {
             return sub_query
                 .select('COUNT(*)', 'count')
