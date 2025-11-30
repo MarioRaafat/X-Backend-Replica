@@ -187,6 +187,7 @@ export const SUCCESS_MESSAGES = {
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
     LANGUAGE_CHANGED: 'Language changed successfully',
     USERNAME_RECOMMENDATIONS_RETRIEVED: 'Username recommendations retrieved successfully',
+    USER_RELATIONS_RETRIEVED: 'User relations counts retrieved successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',
