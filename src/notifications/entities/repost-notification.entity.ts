@@ -12,11 +12,11 @@ export class RepostNotificationEntity extends BaseNotificationEntity {
     })
     declare type: NotificationType.REPOST;
 
-    @Prop({ type: String, required: true })
-    tweet_id: string;
+    @Prop({ type: [String], required: true })
+    tweet_id: string[];
 
-    @Prop({ type: String, required: true })
-    reposted_by: string;
+    @Prop({ type: [String], required: true })
+    reposted_by: string[];
 }
 
 export const RepostNotificationSchema = SchemaFactory.createForClass(RepostNotificationEntity);

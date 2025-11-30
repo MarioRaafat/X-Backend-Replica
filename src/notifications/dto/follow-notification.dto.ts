@@ -18,8 +18,9 @@ export class FollowNotificationDto {
     created_at: Date;
 
     @ApiProperty({
-        description: 'User who followed you',
-        type: () => User,
+        description: 'Users who followed you',
+        type: () => [User],
+        isArray: true,
     })
-    follower: User;
+    followers: User[];
 }

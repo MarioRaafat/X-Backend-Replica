@@ -25,14 +25,9 @@ export class QuoteNotificationDto {
     quoter: User;
 
     @ApiProperty({
-        description: 'The quote tweet (new tweet with quoted content)',
+        description:
+            'The quote tweet (new tweet with quoted content), includes parent_tweet nested inside',
         type: () => Tweet,
     })
-    quote_tweet: Tweet;
-
-    @ApiProperty({
-        description: 'Your original tweet that was quoted',
-        type: () => Tweet,
-    })
-    parent_tweet: Tweet;
+    quote_tweet: Tweet & { parent_tweet: Tweet };
 }

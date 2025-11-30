@@ -12,8 +12,8 @@ export class FollowNotificationEntity extends BaseNotificationEntity {
     })
     declare type: NotificationType.FOLLOW;
 
-    @Prop({ type: String, required: true })
-    follower_id: string;
+    @Prop({ type: [String], required: true })
+    follower_id: string[];
 }
 
 export const FollowNotificationSchema = SchemaFactory.createForClass(FollowNotificationEntity);

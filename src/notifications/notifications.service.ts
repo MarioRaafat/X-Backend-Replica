@@ -33,16 +33,27 @@ export class NotificationsService {
         private readonly clear_jobs_service: ClearJobService
     ) {}
 
-    async handleMessage(data: any): Promise<void> {
-        try {
-            const { user_id, notification } = data;
+    async saveNotificationAndSend(
+        user_id: string,
+        notification_data: BaseNotificationEntity,
+        payload: any
+    ): Promise<void> {
+        if (!notification_data.created_at) notification_data.created_at = new Date();
 
+        // Normalize notification data to ensure arrays
+        this.normalizeNotificationData(notification_data);
+
+        // Check if we can aggregate this notification
+        const aggregation_result = await this.tryAggregateNotification(user_id, notification_data);
+
+        if (!aggregation_result.aggregated) {
+            // If not aggregated, add as new notification
             await this.notificationModel.updateOne(
                 { user: user_id },
                 {
                     $push: {
                         notifications: {
-                            $each: [notification],
+                            $each: [notification_data],
                             $position: 0,
                             $slice: 50,
                         },
@@ -50,33 +61,360 @@ export class NotificationsService {
                 },
                 { upsert: true }
             );
-        } catch (error) {
-            console.error(error);
-            throw error;
+
+            // Send with 'add' action for new notification
+            this.notificationsGateway.sendToUser(notification_data.type, user_id, {
+                ...payload,
+                action: 'add',
+            });
+        } else {
+            // Send with 'aggregate' action for aggregated notification
+            this.notificationsGateway.sendToUser(notification_data.type, user_id, {
+                ...payload,
+                action: 'aggregate',
+                old_notification: aggregation_result.old_notification,
+            });
         }
     }
 
-    async saveNotificationAndSend(
-        user_id: string,
-        notification_data: BaseNotificationEntity,
-        payload: any
-    ): Promise<void> {
-        if (!notification_data.created_at) notification_data.created_at = new Date();
-        await this.notificationModel.updateOne(
-            { user: user_id },
-            {
-                $push: {
-                    notifications: {
-                        $each: [notification_data],
-                        $position: 0,
-                        $slice: 50,
-                    },
-                },
-            },
-            { upsert: true }
-        );
+    private normalizeNotificationData(notification_data: BaseNotificationEntity): void {
+        switch (notification_data.type) {
+            case NotificationType.FOLLOW: {
+                const follow_notification = notification_data as FollowNotificationEntity;
+                if (!Array.isArray(follow_notification.follower_id)) {
+                    follow_notification.follower_id = [follow_notification.follower_id as any];
+                }
+                break;
+            }
+            case NotificationType.LIKE: {
+                const like_notification = notification_data as LikeNotificationEntity;
+                if (!Array.isArray(like_notification.tweet_id)) {
+                    like_notification.tweet_id = [like_notification.tweet_id as any];
+                }
+                if (!Array.isArray(like_notification.liked_by)) {
+                    like_notification.liked_by = [like_notification.liked_by as any];
+                }
+                break;
+            }
+            case NotificationType.REPOST: {
+                const repost_notification = notification_data as RepostNotificationEntity;
+                if (!Array.isArray(repost_notification.tweet_id)) {
+                    repost_notification.tweet_id = [repost_notification.tweet_id as any];
+                }
+                if (!Array.isArray(repost_notification.reposted_by)) {
+                    repost_notification.reposted_by = [repost_notification.reposted_by as any];
+                }
+                break;
+            }
+        }
+    }
 
-        this.notificationsGateway.sendToUser(notification_data.type, user_id, payload);
+    private async tryAggregateNotification(
+        user_id: string,
+        notification_data: BaseNotificationEntity
+    ): Promise<{
+        aggregated: boolean;
+        old_notification?: any;
+    }> {
+        const one_day_ago = new Date(Date.now() - 24 * 60 * 60 * 1000);
+
+        switch (notification_data.type) {
+            case NotificationType.FOLLOW: {
+                const follow_notification = notification_data as FollowNotificationEntity;
+                const new_follower_id = Array.isArray(follow_notification.follower_id)
+                    ? follow_notification.follower_id[0]
+                    : follow_notification.follower_id;
+
+                // Find the user document and check for existing FOLLOW notification
+                const user_document = await this.notificationModel
+                    .findOne({ user: user_id })
+                    .lean();
+
+                if (!user_document || !user_document.notifications) {
+                    return { aggregated: false };
+                }
+
+                const recent_follow_notification_index = user_document.notifications.findIndex(
+                    (n: any) =>
+                        n.type === NotificationType.FOLLOW && new Date(n.created_at) >= one_day_ago
+                );
+
+                if (recent_follow_notification_index === -1) {
+                    return { aggregated: false };
+                }
+
+                const old_notification = user_document.notifications[
+                    recent_follow_notification_index
+                ] as any;
+
+                // Update the specific notification
+                const result = await this.notificationModel.updateOne(
+                    {
+                        user: user_id,
+                    },
+                    {
+                        $addToSet: {
+                            'notifications.$[elem].follower_id': new_follower_id,
+                        },
+                        $set: {
+                            'notifications.$[elem].created_at': new Date(),
+                        },
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                                'elem.type': NotificationType.FOLLOW,
+                                'elem.created_at': { $gte: one_day_ago },
+                            },
+                        ],
+                    }
+                );
+
+                return {
+                    aggregated: result.matchedCount > 0,
+                    old_notification: {
+                        type: old_notification.type,
+                        created_at: old_notification.created_at,
+                        follower_id: old_notification.follower_id,
+                    },
+                };
+            }
+
+            case NotificationType.LIKE: {
+                const like_notification = notification_data as LikeNotificationEntity;
+                const new_tweet_id = Array.isArray(like_notification.tweet_id)
+                    ? like_notification.tweet_id[0]
+                    : like_notification.tweet_id;
+                const new_liked_by = Array.isArray(like_notification.liked_by)
+                    ? like_notification.liked_by[0]
+                    : like_notification.liked_by;
+
+                // Find the user document and check for existing LIKE notification
+                const user_document = await this.notificationModel
+                    .findOne({ user: user_id })
+                    .lean();
+
+                if (!user_document || !user_document.notifications) {
+                    return { aggregated: false };
+                }
+
+                // First, try to find aggregation by TWEET (multiple people liking the same tweet)
+                const matching_by_tweet_index = user_document.notifications.findIndex((n: any) => {
+                    if (n.type !== NotificationType.LIKE) return false;
+                    if (new Date(n.created_at) < one_day_ago) return false;
+
+                    // Check if this notification is for the same tweet
+                    const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
+                    return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
+                });
+
+                // Second, try to find aggregation by PERSON (same person liking multiple tweets)
+                const matching_by_person_index = user_document.notifications.findIndex((n: any) => {
+                    if (n.type !== NotificationType.LIKE) return false;
+                    if (new Date(n.created_at) < one_day_ago) return false;
+
+                    // Check if this notification contains a like from the same person
+                    const liked_by_array = Array.isArray(n.liked_by) ? n.liked_by : [n.liked_by];
+                    return liked_by_array.includes(new_liked_by) && liked_by_array.length === 1;
+                });
+
+                let aggregation_type: 'tweet' | 'person' | null = null;
+                let matching_index = -1;
+
+                // Prioritize aggregation by tweet if found
+                if (matching_by_tweet_index !== -1) {
+                    aggregation_type = 'tweet';
+                    matching_index = matching_by_tweet_index;
+                } else if (matching_by_person_index !== -1) {
+                    aggregation_type = 'person';
+                    matching_index = matching_by_person_index;
+                } else {
+                    return { aggregated: false };
+                }
+
+                const old_notification = user_document.notifications[matching_index] as any;
+
+                // Update based on aggregation type
+                let result;
+                if (aggregation_type === 'tweet') {
+                    // Add the new person to the existing notification for this tweet
+                    result = await this.notificationModel.updateOne(
+                        { user: user_id },
+                        {
+                            $addToSet: {
+                                'notifications.$[elem].liked_by': new_liked_by,
+                            },
+                            $set: {
+                                'notifications.$[elem].created_at': new Date(),
+                            },
+                        },
+                        {
+                            arrayFilters: [
+                                {
+                                    'elem.type': NotificationType.LIKE,
+                                    'elem.tweet_id': new_tweet_id,
+                                    'elem.created_at': { $gte: one_day_ago },
+                                },
+                            ],
+                        }
+                    );
+                } else {
+                    // Add the new tweet to the existing notification for this person
+                    result = await this.notificationModel.updateOne(
+                        { user: user_id },
+                        {
+                            $addToSet: {
+                                'notifications.$[elem].tweet_id': new_tweet_id,
+                            },
+                            $set: {
+                                'notifications.$[elem].created_at': new Date(),
+                            },
+                        },
+                        {
+                            arrayFilters: [
+                                {
+                                    'elem.type': NotificationType.LIKE,
+                                    'elem.liked_by': new_liked_by,
+                                    'elem.created_at': { $gte: one_day_ago },
+                                },
+                            ],
+                        }
+                    );
+                }
+
+                return {
+                    aggregated: result.matchedCount > 0,
+                    old_notification: {
+                        type: old_notification.type,
+                        created_at: old_notification.created_at,
+                        tweet_id: old_notification.tweet_id,
+                        liked_by: old_notification.liked_by,
+                    },
+                };
+            }
+
+            case NotificationType.REPOST: {
+                const repost_notification = notification_data as RepostNotificationEntity;
+                const new_tweet_id = Array.isArray(repost_notification.tweet_id)
+                    ? repost_notification.tweet_id[0]
+                    : repost_notification.tweet_id;
+                const new_reposted_by = Array.isArray(repost_notification.reposted_by)
+                    ? repost_notification.reposted_by[0]
+                    : repost_notification.reposted_by;
+
+                // Find the user document and check for existing REPOST notification
+                const user_document = await this.notificationModel
+                    .findOne({ user: user_id })
+                    .lean();
+
+                if (!user_document || !user_document.notifications) {
+                    return { aggregated: false };
+                }
+
+                // First, try to find aggregation by TWEET (multiple people reposting the same tweet)
+                const matching_by_tweet_index = user_document.notifications.findIndex((n: any) => {
+                    if (n.type !== NotificationType.REPOST) return false;
+                    if (new Date(n.created_at) < one_day_ago) return false;
+
+                    // Check if this notification is for the same tweet
+                    const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
+                    return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
+                });
+
+                // Second, try to find aggregation by PERSON (same person reposting multiple tweets)
+                const matching_by_person_index = user_document.notifications.findIndex((n: any) => {
+                    if (n.type !== NotificationType.REPOST) return false;
+                    if (new Date(n.created_at) < one_day_ago) return false;
+
+                    // Check if this notification contains a repost from the same person
+                    const reposted_by_array = Array.isArray(n.reposted_by)
+                        ? n.reposted_by
+                        : [n.reposted_by];
+                    return (
+                        reposted_by_array.includes(new_reposted_by) &&
+                        reposted_by_array.length === 1
+                    );
+                });
+
+                let aggregation_type: 'tweet' | 'person' | null = null;
+                let matching_index = -1;
+
+                // Prioritize aggregation by tweet if found
+                if (matching_by_tweet_index !== -1) {
+                    aggregation_type = 'tweet';
+                    matching_index = matching_by_tweet_index;
+                } else if (matching_by_person_index !== -1) {
+                    aggregation_type = 'person';
+                    matching_index = matching_by_person_index;
+                } else {
+                    return { aggregated: false };
+                }
+
+                const old_notification = user_document.notifications[matching_index] as any;
+
+                // Update based on aggregation type
+                let result;
+                if (aggregation_type === 'tweet') {
+                    // Add the new person to the existing notification for this tweet
+                    result = await this.notificationModel.updateOne(
+                        { user: user_id },
+                        {
+                            $addToSet: {
+                                'notifications.$[elem].reposted_by': new_reposted_by,
+                            },
+                            $set: {
+                                'notifications.$[elem].created_at': new Date(),
+                            },
+                        },
+                        {
+                            arrayFilters: [
+                                {
+                                    'elem.type': NotificationType.REPOST,
+                                    'elem.tweet_id': new_tweet_id,
+                                    'elem.created_at': { $gte: one_day_ago },
+                                },
+                            ],
+                        }
+                    );
+                } else {
+                    // Add the new tweet to the existing notification for this person
+                    result = await this.notificationModel.updateOne(
+                        { user: user_id },
+                        {
+                            $addToSet: {
+                                'notifications.$[elem].tweet_id': new_tweet_id,
+                            },
+                            $set: {
+                                'notifications.$[elem].created_at': new Date(),
+                            },
+                        },
+                        {
+                            arrayFilters: [
+                                {
+                                    'elem.type': NotificationType.REPOST,
+                                    'elem.reposted_by': new_reposted_by,
+                                    'elem.created_at': { $gte: one_day_ago },
+                                },
+                            ],
+                        }
+                    );
+                }
+
+                return {
+                    aggregated: result.matchedCount > 0,
+                    old_notification: {
+                        type: old_notification.type,
+                        created_at: old_notification.created_at,
+                        tweet_id: old_notification.tweet_id,
+                        reposted_by: old_notification.reposted_by,
+                    },
+                };
+            }
+
+            default:
+                // Quote and Reply notifications are not aggregated
+                return { aggregated: false };
+        }
     }
 
     async sendNotificationOnly(
@@ -93,18 +431,13 @@ export class NotificationsService {
             .lean()
             .exec();
 
-        console.log('User notifications found:', user_notifications);
-
         if (
             !user_notifications ||
             !user_notifications.notifications ||
             user_notifications.notifications.length === 0
         ) {
-            console.log('No notifications found for user:', user_id);
             return [];
         }
-
-        console.log('Notifications count:', user_notifications.notifications.length);
 
         const user_ids = new Set<string>();
         const tweet_ids = new Set<string>();
@@ -114,17 +447,30 @@ export class NotificationsService {
                 case NotificationType.FOLLOW: {
                     const follow_notification = notification as FollowNotificationEntity;
                     if (follow_notification.follower_id) {
-                        user_ids.add(follow_notification.follower_id);
+                        if (Array.isArray(follow_notification.follower_id)) {
+                            follow_notification.follower_id.forEach((id) => user_ids.add(id));
+                        } else {
+                            user_ids.add(follow_notification.follower_id as any);
+                        }
                     }
                     break;
                 }
                 case NotificationType.LIKE: {
                     const like_notification = notification as LikeNotificationEntity;
                     if (like_notification.liked_by) {
-                        user_ids.add(like_notification.liked_by);
+                        if (Array.isArray(like_notification.liked_by)) {
+                            like_notification.liked_by.forEach((id) => user_ids.add(id));
+                        } else {
+                            user_ids.add(like_notification.liked_by as any);
+                        }
                     }
                     if (like_notification.tweet_id) {
-                        tweet_ids.add(like_notification.tweet_id);
+                        // Collect ALL tweet IDs for aggregated notifications
+                        if (Array.isArray(like_notification.tweet_id)) {
+                            like_notification.tweet_id.forEach((id) => tweet_ids.add(id));
+                        } else {
+                            tweet_ids.add(like_notification.tweet_id as any);
+                        }
                     }
                     break;
                 }
@@ -157,10 +503,19 @@ export class NotificationsService {
                 case NotificationType.REPOST: {
                     const repost_notification = notification as RepostNotificationEntity;
                     if (repost_notification.reposted_by) {
-                        user_ids.add(repost_notification.reposted_by);
+                        if (Array.isArray(repost_notification.reposted_by)) {
+                            repost_notification.reposted_by.forEach((id) => user_ids.add(id));
+                        } else {
+                            user_ids.add(repost_notification.reposted_by as any);
+                        }
                     }
                     if (repost_notification.tweet_id) {
-                        tweet_ids.add(repost_notification.tweet_id);
+                        // Collect ALL tweet IDs for aggregated notifications
+                        if (Array.isArray(repost_notification.tweet_id)) {
+                            repost_notification.tweet_id.forEach((id) => tweet_ids.add(id));
+                        } else {
+                            tweet_ids.add(repost_notification.tweet_id as any);
+                        }
                     }
                     break;
                 }
@@ -189,11 +544,6 @@ export class NotificationsService {
             tweets.map((tweet) => [tweet.tweet_id, tweet] as [string, Tweet])
         );
 
-        console.log('Fetched users count:', users.length);
-        console.log('Fetched tweets count:', tweets.length);
-        console.log('User IDs needed:', Array.from(user_ids));
-        console.log('Tweet IDs needed:', Array.from(tweet_ids));
-
         const missing_tweet_ids = new Set<string>();
 
         const response_notifications: NotificationDto[] = user_notifications.notifications
@@ -201,32 +551,78 @@ export class NotificationsService {
                 switch (notification.type) {
                     case NotificationType.FOLLOW: {
                         const follow_notification = notification as FollowNotificationEntity;
-                        const follower = user_map.get(follow_notification.follower_id);
-                        if (!follower) {
+                        if (!follow_notification.follower_id) {
+                            return null;
+                        }
+
+                        const follower_ids = Array.isArray(follow_notification.follower_id)
+                            ? follow_notification.follower_id
+                            : [follow_notification.follower_id as any];
+
+                        const followers = follower_ids
+                            .map((id) => user_map.get(id))
+                            .filter((user): user is User => user !== undefined);
+
+                        if (followers.length === 0) {
                             return null;
                         }
                         return {
                             type: notification.type,
                             created_at: notification.created_at,
-                            follower,
-                        } as NotificationDto;
+                            followers,
+                        };
                     }
                     case NotificationType.LIKE: {
                         const like_notification = notification as LikeNotificationEntity;
-                        const liker = user_map.get(like_notification.liked_by);
-                        const tweet = tweet_map.get(like_notification.tweet_id);
-                        if (!liker || !tweet) {
-                            if (!tweet && like_notification.tweet_id) {
-                                missing_tweet_ids.add(like_notification.tweet_id);
-                            }
+
+                        // Skip notifications with missing tweet_id
+                        if (
+                            !like_notification.tweet_id ||
+                            like_notification.tweet_id.length === 0
+                        ) {
                             return null;
                         }
+
+                        // Get ALL tweet IDs as an array
+                        const tweet_ids_array = Array.isArray(like_notification.tweet_id)
+                            ? like_notification.tweet_id
+                            : [like_notification.tweet_id as any];
+
+                        // Map all tweet IDs to tweet objects
+                        const tweets = tweet_ids_array
+                            .map((id) => tweet_map.get(id))
+                            .filter((tweet): tweet is Tweet => tweet !== undefined);
+
+                        if (tweets.length === 0) {
+                            tweet_ids_array.forEach((id) => missing_tweet_ids.add(id));
+                            return null;
+                        }
+
+                        if (
+                            !like_notification.liked_by ||
+                            like_notification.liked_by.length === 0
+                        ) {
+                            return null;
+                        }
+
+                        const liked_by_ids = Array.isArray(like_notification.liked_by)
+                            ? like_notification.liked_by
+                            : [like_notification.liked_by as any];
+
+                        const likers = liked_by_ids
+                            .map((id) => user_map.get(id))
+                            .filter((user): user is User => user !== undefined);
+
+                        if (likers.length === 0) {
+                            return null;
+                        }
+
                         return {
                             type: notification.type,
                             created_at: notification.created_at,
-                            liker,
-                            tweet,
-                        } as NotificationDto;
+                            likers,
+                            tweets,
+                        };
                     }
                     case NotificationType.QUOTE: {
                         const quote_notification = notification as QuoteNotificationEntity;
@@ -242,12 +638,16 @@ export class NotificationsService {
                             }
                             return null;
                         }
+                        // Nest parent_tweet inside quote_tweet
+                        const quote_tweet_with_parent = {
+                            ...quote_tweet,
+                            parent_tweet,
+                        };
                         return {
                             type: notification.type,
                             created_at: notification.created_at,
                             quoter,
-                            quote_tweet,
-                            parent_tweet,
+                            quote_tweet: quote_tweet_with_parent,
                         } as NotificationDto;
                     }
                     case NotificationType.REPLY: {
@@ -279,20 +679,55 @@ export class NotificationsService {
                     }
                     case NotificationType.REPOST: {
                         const repost_notification = notification as RepostNotificationEntity;
-                        const reposter = user_map.get(repost_notification.reposted_by);
-                        const tweet = tweet_map.get(repost_notification.tweet_id);
-                        if (!reposter || !tweet) {
-                            if (!tweet && repost_notification.tweet_id) {
-                                missing_tweet_ids.add(repost_notification.tweet_id);
-                            }
+
+                        // Skip notifications with missing tweet_id
+                        if (
+                            !repost_notification.tweet_id ||
+                            repost_notification.tweet_id.length === 0
+                        ) {
                             return null;
                         }
+
+                        // Get ALL tweet IDs as an array
+                        const tweet_ids_array = Array.isArray(repost_notification.tweet_id)
+                            ? repost_notification.tweet_id
+                            : [repost_notification.tweet_id as any];
+
+                        // Map all tweet IDs to tweet objects
+                        const tweets = tweet_ids_array
+                            .map((id) => tweet_map.get(id))
+                            .filter((tweet): tweet is Tweet => tweet !== undefined);
+
+                        if (tweets.length === 0) {
+                            tweet_ids_array.forEach((id) => missing_tweet_ids.add(id));
+                            return null;
+                        }
+
+                        if (
+                            !repost_notification.reposted_by ||
+                            repost_notification.reposted_by.length === 0
+                        ) {
+                            return null;
+                        }
+
+                        const reposted_by_ids = Array.isArray(repost_notification.reposted_by)
+                            ? repost_notification.reposted_by
+                            : [repost_notification.reposted_by as any];
+
+                        const reposters = reposted_by_ids
+                            .map((id) => user_map.get(id))
+                            .filter((user): user is User => user !== undefined);
+
+                        if (reposters.length === 0) {
+                            return null;
+                        }
+
                         return {
                             type: notification.type,
                             created_at: notification.created_at,
-                            reposter,
-                            tweet,
-                        } as NotificationDto;
+                            reposters,
+                            tweets,
+                        };
                     }
                     default:
                         return null;
@@ -300,8 +735,8 @@ export class NotificationsService {
             })
             .filter((notification): notification is NotificationDto => notification !== null);
 
-        console.log('Response notifications count:', response_notifications.length);
-        console.log('Missing tweet IDs:', Array.from(missing_tweet_ids));
+        // Deduplicate notifications: merge those with same type, same people, and same tweet
+        const deduplicated_notifications = this.deduplicateNotifications(response_notifications);
 
         // Clean up notifications with missing tweets
         if (missing_tweet_ids.size > 0) {
@@ -311,13 +746,102 @@ export class NotificationsService {
             });
         }
 
-        return response_notifications;
+        return deduplicated_notifications;
+    }
+
+    private deduplicateNotifications(notifications: NotificationDto[]): NotificationDto[] {
+        const map = new Map<string, NotificationDto>();
+
+        for (const notification of notifications) {
+            let key: string;
+
+            switch (notification.type) {
+                case NotificationType.LIKE: {
+                    const like_notification = notification as any;
+                    // Create key based on type + sorted user IDs + sorted tweet IDs
+                    const user_ids =
+                        like_notification.likers
+                            ?.map((u: any) => u.id)
+                            .sort()
+                            .join(',') || '';
+                    const tweet_ids =
+                        like_notification.tweets
+                            ?.map((t: any) => t.tweet_id)
+                            .sort()
+                            .join(',') || '';
+                    key = `like:${user_ids}:${tweet_ids}`;
+
+                    if (map.has(key)) {
+                        // Keep the one with the most recent created_at
+                        const existing = map.get(key)!;
+                        if (new Date(notification.created_at) > new Date(existing.created_at)) {
+                            map.set(key, notification);
+                        }
+                    } else {
+                        map.set(key, notification);
+                    }
+                    break;
+                }
+                case NotificationType.REPOST: {
+                    const repost_notification = notification as any;
+                    // Create key based on type + sorted user IDs + sorted tweet IDs
+                    const user_ids =
+                        repost_notification.reposters
+                            ?.map((u: any) => u.id)
+                            .sort()
+                            .join(',') || '';
+                    const tweet_ids =
+                        repost_notification.tweets
+                            ?.map((t: any) => t.tweet_id)
+                            .sort()
+                            .join(',') || '';
+                    key = `repost:${user_ids}:${tweet_ids}`;
+
+                    if (map.has(key)) {
+                        // Keep the one with the most recent created_at
+                        const existing = map.get(key)!;
+                        if (new Date(notification.created_at) > new Date(existing.created_at)) {
+                            map.set(key, notification);
+                        }
+                    } else {
+                        map.set(key, notification);
+                    }
+                    break;
+                }
+                case NotificationType.FOLLOW: {
+                    const follow_notification = notification as any;
+                    // Create key based on type + sorted user IDs
+                    const user_ids =
+                        follow_notification.followers
+                            ?.map((u: any) => u.id)
+                            .sort()
+                            .join(',') || '';
+                    key = `follow:${user_ids}`;
+
+                    if (map.has(key)) {
+                        // Keep the one with the most recent created_at
+                        const existing = map.get(key)!;
+                        if (new Date(notification.created_at) > new Date(existing.created_at)) {
+                            map.set(key, notification);
+                        }
+                    } else {
+                        map.set(key, notification);
+                    }
+                    break;
+                }
+                default:
+                    // For REPLY and QUOTE, use unique key (no deduplication)
+                    key = `${notification.type}:${notification.created_at.toString()}:${Math.random()}`;
+                    map.set(key, notification);
+                    break;
+            }
+        }
+
+        return Array.from(map.values());
     }
 
     async deleteNotificationsByTweetIds(user_id: string, tweet_ids: string[]): Promise<void> {
         try {
-            console.log(tweet_ids);
-
             // Delete notifications where any tweet-related field matches the provided tweet IDs
             for (const tweet_id of tweet_ids) {
                 await this.notificationModel.updateOne(
@@ -342,26 +866,4 @@ export class NotificationsService {
             throw error;
         }
     }
-
-    async getUserMentionsNotifications(_user_id: string): Promise<void> {}
-
-    async markNotificationsAsSeen(_user_id: string): Promise<void> {}
-
-    async getUnseenCount(_user_id: string): Promise<void> {}
-
-    // async getUserNotifications(user_id: string): Promise<Notification | null> {
-    //     const user_notifications = await this.notificationModel
-    //         .findOne({ user: user_id })
-    //         .lean<Notification>()
-    //         .exec();
-    //     return user_notifications;
-    // }
-
-    // Just for testing, but notifications messages will be sent from other services
-    async sendNotification(notification: any): Promise<void> {
-        console.log('Send');
-    }
-
-    // Test function
-    async temp(object: any) {}
 }

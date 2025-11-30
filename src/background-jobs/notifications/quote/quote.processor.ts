@@ -51,7 +51,7 @@ export class QuoteProcessor {
                     TweetQuoteResponseDTO,
                     {
                         ...quote_tweet,
-                        quoted_tweet: parent_tweet,
+                        parent_tweet: parent_tweet,
                     },
                     { excludeExtraneousValues: true }
                 );

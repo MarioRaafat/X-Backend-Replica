@@ -24,7 +24,7 @@ export class LikeProcessor {
     @Process(JOB_NAMES.NOTIFICATION.LIKE)
     async handleSendLikeNotification(job: Job<LikeBackGroundNotificationJobDTO>) {
         try {
-            const { like_to, liked_by, tweet_id, action } = job.data;
+            const { like_to, liked_by, tweet, action } = job.data;
 
             if (action === 'remove') {
                 this.notificationsService.sendNotificationOnly(NotificationType.LIKE, like_to, {
@@ -46,7 +46,7 @@ export class LikeProcessor {
                     new LikeNotificationEntity(),
                     {
                         type: NotificationType.LIKE,
-                        tweet_id,
+                        tweet_id: tweet?.tweet_id,
                         liked_by,
                         created_at: new Date(),
                     }
