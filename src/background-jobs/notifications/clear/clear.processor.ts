@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
 import { JOB_NAMES, QUEUE_NAMES } from 'src/background-jobs/constants/queue.constants';
 import { NotificationsService } from 'src/notifications/notifications.service';
-import { ClearBackGroundNotificationJobDTO } from './clea.dto';
+import { ClearBackGroundNotificationJobDTO } from './clear.dto';
 
 @Processor(QUEUE_NAMES.NOTIFICATION)
 export class ClearProcessor {

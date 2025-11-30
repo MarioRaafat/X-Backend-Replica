@@ -11,8 +11,8 @@ import { RedisService } from './redis.service';
             inject: [ConfigService],
             useFactory: (config_service: ConfigService) => ({
                 type: 'single',
-                // url: `redis://${config_service.get<string>('REDIS_USERNAME', '')}:${config_service.get<string>('REDIS_PASSWORD')}@${config_service.get<string>('REDIS_HOST')}:${config_service.get<string>('REDIS_PORT')}`,
-                url: `redis://${config_service.get<string>('REDIS_HOST')}:${config_service.get<string>('REDIS_PORT')}`,
+                url: `redis://${config_service.get<string>('REDIS_USERNAME', '')}:${config_service.get<string>('REDIS_PASSWORD')}@${config_service.get<string>('REDIS_HOST')}:${config_service.get<string>('REDIS_PORT')}`,
+                // url: `redis://${config_service.get<string>('REDIS_HOST')}:${config_service.get<string>('REDIS_PORT')}`,
             }),
         }),
     ],

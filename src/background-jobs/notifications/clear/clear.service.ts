@@ -8,7 +8,7 @@ import {
     QUEUE_NAMES,
 } from '../../constants/queue.constants';
 import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
-import { ClearBackGroundNotificationJobDTO } from './clea.dto';
+import { ClearBackGroundNotificationJobDTO } from './clear.dto';
 
 @Injectable()
 export class ClearJobService extends BackgroundJobsService<ClearBackGroundNotificationJobDTO> {
