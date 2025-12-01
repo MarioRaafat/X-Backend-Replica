@@ -45,6 +45,7 @@ import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UsernameService } from 'src/auth/username.service';
 import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
 import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
+import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
 
 @Injectable()
 export class UserService {
@@ -786,5 +787,16 @@ export class UserService {
             await this.username_service.generateUsernameRecommendationsSingleName(user.name);
 
         return { recommendations };
+    }
+
+    async getUserRelationsCounts(user_id: string): Promise<UserRelationsResponseDto> {
+        const manager = this.user_repository.manager;
+
+        const [blocked_count, muted_count] = await Promise.all([
+            manager.count('user_blocks', { where: { blocker_id: user_id } }),
+            manager.count('user_mutes', { where: { muter_id: user_id } }),
+        ]);
+
+        return { blocked_count, muted_count };
     }
 }
