@@ -50,6 +50,12 @@ import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 import { categorize_prompt, TOPICS } from './constants';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
+import sharp from 'sharp';
+import ffmpeg from 'fluent-ffmpeg';
+import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
+import { Readable } from 'stream';
+
+ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
 @Injectable()
 export class TweetsService {
@@ -113,32 +119,21 @@ export class TweetsService {
         container_name: string
     ): Promise<string> {
         const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
-
         if (!connection_string) {
-            throw new Error(
-                'AZURE_STORAGE_CONNECTION_STRING is not defined in environment variables'
-            );
+            throw new Error('AZURE_STORAGE_CONNECTION_STRING is not defined.');
         }
 
-        // Debug: Check if connection string has placeholder key
-        if (connection_string.includes('YOUR_KEY_HERE')) {
-            throw new Error(
-                'Azure Storage AccountKey is still set to placeholder value. Please update with actual key.'
-            );
-        }
+        const webp_name = image_name.replace(/\.[^/.]+$/, '') + '.webp';
 
-        console.log(
-            'Azure Connection String (masked):',
-            connection_string.replace(/AccountKey=[^;]+/, 'AccountKey=***')
-        );
+        const webp_buffer = await sharp(image_buffer).webp({ quality: 30 }).toBuffer();
 
         const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
-
         const container_client = blob_service_client.getContainerClient(container_name);
+
         await container_client.createIfNotExists({ access: 'blob' });
 
-        const block_blob_client = container_client.getBlockBlobClient(image_name);
-        await block_blob_client.upload(image_buffer, image_buffer.length);
+        const block_blob_client = container_client.getBlockBlobClient(webp_name);
+        await block_blob_client.upload(webp_buffer, webp_buffer.length);
 
         return block_blob_client.url;
     }
@@ -170,36 +165,62 @@ export class TweetsService {
         }
     }
 
+    private convertToCompressedMp4(video_buffer: Buffer): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            const inputStream = new Readable();
+            inputStream.push(video_buffer);
+            inputStream.push(null);
+
+            const outputChunks: Buffer[] = [];
+
+            ffmpeg(inputStream)
+                .outputOptions([
+                    '-vcodec libx264',
+                    '-crf 28',
+                    '-preset veryfast',
+                    '-acodec aac',
+                    '-movflags +frag_keyframe+empty_moov+faststart',
+                ])
+                .toFormat('mp4')
+                .on('error', (error) => {
+                    console.error('FFmpeg error:', error);
+                    reject(error);
+                })
+                .on('end', () => {
+                    console.log('FFmpeg conversion completed');
+                    resolve(Buffer.concat(outputChunks));
+                })
+                .pipe()
+                .on('data', (chunk: Buffer) => {
+                    outputChunks.push(chunk);
+                })
+                .on('error', (error) => {
+                    console.error('Stream error:', error);
+                    reject(error);
+                });
+        });
+    }
+
     private async uploadVideoToAzure(video_buffer: Buffer, video_name: string): Promise<string> {
         try {
             const container_name = this.TWEET_VIDEOS_CONTAINER;
             const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             if (!connection_string) {
-                throw new Error(
-                    'AZURE_STORAGE_CONNECTION_STRING is not defined in environment variables'
-                );
+                throw new Error('AZURE_STORAGE_CONNECTION_STRING is not defined');
             }
-
-            if (connection_string.includes('YOUR_KEY_HERE')) {
-                throw new Error(
-                    'Azure Storage AccountKey is still set to placeholder value. Please update with actual key.'
-                );
-            }
-
-            console.log(
-                'Azure Connection String (masked):',
-                connection_string.replace(/AccountKey=[^;]+/, 'AccountKey=***')
-            );
 
             const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
-
             const container_client = blob_service_client.getContainerClient(container_name);
             await container_client.createIfNotExists({ access: 'blob' });
 
-            const block_blob_client = container_client.getBlockBlobClient(video_name);
+            const compressed = await this.convertToCompressedMp4(video_buffer);
 
-            await block_blob_client.upload(video_buffer, video_buffer.length, {
+            const final_name = video_name.replace(/\.[^/.]+$/, '') + '.mp4';
+
+            const block_blob_client = container_client.getBlockBlobClient(final_name);
+
+            await block_blob_client.upload(compressed, compressed.length, {
                 blobHTTPHeaders: {
                     blobContentType: 'video/mp4',
                 },
