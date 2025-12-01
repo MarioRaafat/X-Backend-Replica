@@ -63,10 +63,16 @@ export class UserRepository extends Repository<User> {
     }
 
     async getMyProfile(current_user_id: string): Promise<UserProfileDto | null> {
-        const profile = await this.buildProfileQuery(
-            current_user_id,
-            'id'
-        ).getRawOne<UserProfileDto>();
+        const query = this.buildProfileQuery(current_user_id, 'id');
+        query.addSelect('user.email AS email');
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweet_likes', 'tl')
+                .where('tl.user_id = user.id');
+        }, 'num_likes');
+
+        const profile = await query.getRawOne<UserProfileDto>();
         return profile ?? null;
     }
 
@@ -125,6 +131,32 @@ export class UserRepository extends Repository<User> {
             'user.followers AS followers_count',
             'user.following AS following_count',
         ]);
+
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweets', 't')
+                .where('t.user_id = user.id')
+                .andWhere("t.type = 'reply'")
+                .andWhere('t.deleted_at IS NULL');
+        }, 'num_replies');
+
+        query.addSelect(
+            `(
+            (SELECT COUNT(*) FROM tweets t WHERE t.user_id = user.id AND t.type != 'reply' AND t.deleted_at IS NULL) +
+            (SELECT COUNT(*) FROM tweet_reposts r WHERE r.user_id = user.id)
+            )`,
+            'num_posts'
+        );
+
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweets', 't')
+                .where('t.user_id = user.id')
+                .andWhere('(array_length(t.images, 1) > 0 OR array_length(t.videos, 1) > 0)')
+                .andWhere('t.deleted_at IS NULL');
+        }, 'num_media');
 
         if (identifier_type === 'id') {
             query.where('user.id = :identifier', { identifier });
