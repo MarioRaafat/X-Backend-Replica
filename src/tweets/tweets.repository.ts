@@ -485,6 +485,7 @@ export class TweetsRepository {
                     'tweet.num_quotes AS num_quotes',
                     'tweet.num_replies AS num_replies',
                     'tweet.created_at AS created_at',
+                    'tweet.post_date AS post_date',
                     'tweet.updated_at AS updated_at',
                     `json_build_object(
                         'id', tweet.tweet_author_id,
@@ -500,7 +501,7 @@ export class TweetsRepository {
                 ])
                 .where('tweet.profile_user_id = :user_id', { user_id })
                 .andWhere('tweet.type != :type', { type: 'reply' })
-                .orderBy('tweet.created_at', 'DESC')
+                .orderBy('tweet.post_date', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
@@ -517,7 +518,7 @@ export class TweetsRepository {
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -532,7 +533,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -597,7 +598,7 @@ export class TweetsRepository {
                 ])
                 .where('tweet.profile_user_id = :user_id', { user_id })
                 .andWhere('tweet.type = :type', { type: 'reply' })
-                .orderBy('tweet.created_at', 'DESC')
+                .orderBy('tweet.post_date', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
@@ -614,7 +615,7 @@ export class TweetsRepository {
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -629,7 +630,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -696,7 +697,8 @@ export class TweetsRepository {
                 .andWhere(
                     '(array_length(tweet.images, 1) > 0 OR array_length(tweet.videos, 1) > 0)'
                 )
-                .orderBy('tweet.created_at', 'DESC')
+                .andWhere('tweet.type != :type', { type: 'repost' })
+                .orderBy('tweet.post_date', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
@@ -707,11 +709,13 @@ export class TweetsRepository {
                 'tweet.tweet_id'
             );
 
+            query = this.attachRepliedTweetQuery(query, current_user_id);
+
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -726,7 +730,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -808,6 +812,8 @@ export class TweetsRepository {
                 'tweet.tweet_author_id',
                 'tweet.tweet_id'
             );
+
+            query = this.attachRepliedTweetQuery(query, user_id);
 
             query = this.paginate_service.applyCursorPagination(
                 query,
@@ -942,7 +948,6 @@ export class TweetsRepository {
         query: SelectQueryBuilder<UserPostsView>,
         user_id?: string
     ): SelectQueryBuilder<any> {
-        // Helper function to generate interaction SQL
         const get_interactions = (alias: string) => {
             if (!user_id) return '';
 
@@ -1041,7 +1046,6 @@ export class TweetsRepository {
             .where('tr2.reply_tweet_id = tweet.tweet_id')
             .limit(1);
 
-        // Attach subqueries to main query
         query
             .addSelect(`(${parent_sub_query.getQuery()})`, 'parent_tweet')
             .addSelect(`(${conversation_sub_query.getQuery()})`, 'conversation_tweet');
