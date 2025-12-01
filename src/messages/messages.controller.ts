@@ -52,6 +52,7 @@ export class MessagesController {
                     'delete_message',
                     'typing_start',
                     'typing_stop',
+                    'get_messages',
                 ],
                 server_to_client: [
                     'unread_chats_summary',
@@ -63,6 +64,7 @@ export class MessagesController {
                     'joined_chat',
                     'left_chat',
                     'message_sent',
+                    'messages_retrieved',
                     'error',
                 ],
             },

@@ -35,18 +35,24 @@ export class ChatRepository extends Repository<Chat> {
                 return this.save(new_chat);
             }
         } catch (error) {
+            console.error('Error in createChat repository method:', error);
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB);
         }
     }
 
     async findChat(user1_id: string, user2_id: string): Promise<Chat | null> {
-        const chat = await this.findOne({
-            where: [
-                { user1_id: user1_id, user2_id: user2_id },
-                { user1_id: user2_id, user2_id: user1_id },
-            ],
-        });
-        return chat;
+        try {
+            const chat = await this.findOne({
+                where: [
+                    { user1_id: user1_id, user2_id: user2_id },
+                    { user1_id: user2_id, user2_id: user1_id },
+                ],
+            });
+            return chat;
+        } catch (error) {
+            console.error('Error in findChat repository method:', error);
+            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_FETCH_FROM_DB);
+        }
     }
 
     async findChatById(chat_id: string): Promise<Chat | null> {
