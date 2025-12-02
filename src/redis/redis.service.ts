@@ -59,6 +59,20 @@ export class RedisService {
         return await this.redis_client.smembers(key);
     }
 
+    async zadd(key: string, ...args: any[]): Promise<number> {
+        return this.redis_client.zadd(key, ...args);
+    }
+
+    async zincrby(key: string, increment: number, member: string): Promise<string> {
+        return this.redis_client.zincrby(key, increment, member);
+    }
+    async zrangebyscore(
+        key: string,
+        min: number | string,
+        max: number | string
+    ): Promise<string[]> {
+        return this.redis_client.zrangebyscore(key, min, max);
+    }
     pipeline() {
         return this.redis_client.pipeline();
     }

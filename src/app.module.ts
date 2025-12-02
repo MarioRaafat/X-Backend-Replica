@@ -19,6 +19,7 @@ import { CategoryModule } from './category/category.module';
 import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { AzureStorageModule } from './azure-storage/azure-storage.module';
 import { MessagesModule } from './messages/messages.module';
+import { TrendModule } from './trend/trend.module';
 
 @Module({
     imports: [
@@ -44,6 +45,7 @@ import { MessagesModule } from './messages/messages.module';
         BackgroundJobsModule,
         AzureStorageModule,
         MessagesModule,
+        TrendModule,
     ],
     controllers: [AppController],
     providers: [AppService],
