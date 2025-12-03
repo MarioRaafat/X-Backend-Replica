@@ -67,6 +67,10 @@ describe('TweetsRepository', () => {
         setParameters: jest.fn().mockReturnThis(),
         getRawMany: jest.fn(),
         getMany: jest.fn(),
+        getQuery: jest.fn().mockReturnValue('SELECT * FROM user_posts_view'),
+        getParameters: jest.fn().mockReturnValue({}),
+        addCommonTableExpression: jest.fn().mockReturnThis(),
+        from: jest.fn().mockReturnThis(),
     };
 
     const MOCK_DATA_SOURCE = {
@@ -92,6 +96,9 @@ describe('TweetsRepository', () => {
 
     const MOCK_USER_POSTS_VIEW_REPOSITORY = {
         createQueryBuilder: jest.fn(() => MOCK_QUERY_BUILDER),
+        manager: {
+            createQueryBuilder: jest.fn(() => MOCK_QUERY_BUILDER),
+        },
     };
 
     const MOCK_PAGINATION_SERVICE = {
@@ -191,9 +198,9 @@ describe('TweetsRepository', () => {
             expect(MOCK_PAGINATION_SERVICE.applyCursorPagination).toHaveBeenCalledWith(
                 expect.anything(),
                 cursor,
-                'tweet',
+                'ranked',
                 'post_date',
-                'tweet_id'
+                'id'
             );
         });
 
@@ -578,7 +585,7 @@ describe('TweetsRepository', () => {
                 expect.anything(),
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
         });
@@ -746,7 +753,7 @@ describe('TweetsRepository', () => {
                 expect.anything(),
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
         });
@@ -812,7 +819,7 @@ describe('TweetsRepository', () => {
             expect(MOCK_PAGINATION_SERVICE.applyCursorPagination).toHaveBeenCalledWith(
                 expect.anything(),
                 cursor,
-                'tweet',
+                'like',
                 'created_at',
                 'tweet_id'
             );
@@ -1156,11 +1163,6 @@ describe('TweetsRepository', () => {
             const result = (repository as any).attachRepostInfo(query);
 
             expect(result).toBe(query);
-            expect(query.leftJoin).toHaveBeenCalledWith(
-                'user',
-                'u',
-                'u.id = tweet.profile_user_id'
-            );
             expect(query.addSelect).toHaveBeenCalled();
         });
     });

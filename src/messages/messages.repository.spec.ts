@@ -93,6 +93,7 @@ describe('MessageRepository', () => {
                 content: dto.content,
                 message_type: dto.message_type,
                 reply_to_message_id: null,
+                is_read: false,
             });
             expect(repository.save).toHaveBeenCalled();
             expect(chat_repository.update).toHaveBeenCalledWith(
@@ -116,7 +117,8 @@ describe('MessageRepository', () => {
                 chat_id: mock_chat_id,
                 content: dto.content,
                 message_type: dto.message_type,
-                reply_to_message_id: 'original-message-id',
+                reply_to_message_id: dto.reply_to_message_id || null,
+                is_read: false,
             });
         });
 

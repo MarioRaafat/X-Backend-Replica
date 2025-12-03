@@ -348,9 +348,13 @@ describe('UserRepository', () => {
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
                 birth_date: new Date('2025-10-30'),
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const mock_query_builder = {
+                addSelect: jest.fn().mockReturnThis(),
                 getRawOne: jest.fn().mockResolvedValueOnce(mock_profile),
             };
 
@@ -370,6 +374,7 @@ describe('UserRepository', () => {
             const current_user_id = 'nonexistent-id';
 
             const mock_query_builder = {
+                addSelect: jest.fn().mockReturnThis(),
                 getRawOne: jest.fn().mockResolvedValueOnce(undefined),
             };
 
@@ -406,6 +411,9 @@ describe('UserRepository', () => {
                 is_blocked: false,
                 top_mutual_followers: [],
                 mutual_followers_count: 5,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const mock_query_builder_with_context = {
@@ -445,6 +453,9 @@ describe('UserRepository', () => {
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
                 birth_date: new Date('2025-10-30'),
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const mock_query_builder = {
@@ -505,6 +516,9 @@ describe('UserRepository', () => {
                 is_blocked: false,
                 top_mutual_followers: [],
                 mutual_followers_count: 5,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const mock_query_builder_with_context = {
@@ -544,6 +558,9 @@ describe('UserRepository', () => {
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
                 birth_date: new Date('2025-10-30'),
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const mock_query_builder = {
@@ -589,6 +606,7 @@ describe('UserRepository', () => {
 
             const mock_query_builder = {
                 select: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 groupBy: jest.fn().mockReturnThis(),
                 addGroupBy: jest.fn().mockReturnThis(),
@@ -613,6 +631,7 @@ describe('UserRepository', () => {
 
             const mock_query_builder = {
                 select: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 groupBy: jest.fn().mockReturnThis(),
                 addGroupBy: jest.fn().mockReturnThis(),
@@ -1266,7 +1285,7 @@ describe('UserRepository', () => {
     });
 
     describe('insertFollowRelationship', () => {
-        it('should insert follow relationship and increment counters', async () => {
+        it('should insert follow relationship', async () => {
             const follower_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const followed_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
@@ -1276,43 +1295,24 @@ describe('UserRepository', () => {
                 raw: [],
             };
 
-            const mock_manager = {
+            const mock_repository = {
                 insert: jest.fn().mockResolvedValueOnce(mock_insert_result),
-                increment: jest.fn().mockResolvedValue(undefined),
             };
 
-            const transaction_spy = jest
-                .spyOn(data_source, 'transaction')
-                .mockImplementation(async (callback: any) => {
-                    return await callback(mock_manager);
-                });
+            data_source.getRepository = jest.fn().mockReturnValue(mock_repository);
 
             const result = await repository.insertFollowRelationship(follower_id, followed_id);
 
-            expect(transaction_spy).toHaveBeenCalledTimes(1);
-            expect(mock_manager.insert).toHaveBeenCalledWith(
-                UserFollows,
+            expect(data_source.getRepository).toHaveBeenCalledWith(UserFollows);
+            expect(mock_repository.insert).toHaveBeenCalledWith(
                 expect.objectContaining({ follower_id, followed_id })
             );
-            expect(mock_manager.increment).toHaveBeenCalledWith(
-                User,
-                { id: follower_id },
-                'following',
-                1
-            );
-            expect(mock_manager.increment).toHaveBeenCalledWith(
-                User,
-                { id: followed_id },
-                'followers',
-                1
-            );
-            expect(mock_manager.increment).toHaveBeenCalledTimes(2);
             expect(result).toEqual(mock_insert_result);
         });
     });
 
     describe('deleteFollowRelationship', () => {
-        it('should delete follow relationship and decrement counters when relationship exists', async () => {
+        it('should delete follow relationship when relationship exists', async () => {
             const follower_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const followed_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
@@ -1321,41 +1321,23 @@ describe('UserRepository', () => {
                 raw: [],
             };
 
-            const mock_manager = {
+            const mock_repository = {
                 delete: jest.fn().mockResolvedValueOnce(mock_delete_result),
-                decrement: jest.fn().mockResolvedValue(undefined),
             };
 
-            const transaction_spy = jest
-                .spyOn(data_source, 'transaction')
-                .mockImplementation(async (callback: any) => {
-                    return await callback(mock_manager);
-                });
+            data_source.getRepository = jest.fn().mockReturnValue(mock_repository);
 
             const result = await repository.deleteFollowRelationship(follower_id, followed_id);
 
-            expect(transaction_spy).toHaveBeenCalledTimes(1);
-            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+            expect(data_source.getRepository).toHaveBeenCalledWith(UserFollows);
+            expect(mock_repository.delete).toHaveBeenCalledWith({
                 follower_id,
                 followed_id,
             });
-            expect(mock_manager.decrement).toHaveBeenCalledWith(
-                User,
-                { id: follower_id },
-                'following',
-                1
-            );
-            expect(mock_manager.decrement).toHaveBeenCalledWith(
-                User,
-                { id: followed_id },
-                'followers',
-                1
-            );
-            expect(mock_manager.decrement).toHaveBeenCalledTimes(2);
             expect(result).toEqual(mock_delete_result);
         });
 
-        it('should not decrement counters when relationship does not exist', async () => {
+        it('should return delete result when relationship does not exist', async () => {
             const follower_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const followed_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
@@ -1364,25 +1346,19 @@ describe('UserRepository', () => {
                 raw: [],
             };
 
-            const mock_manager = {
+            const mock_repository = {
                 delete: jest.fn().mockResolvedValueOnce(mock_delete_result),
-                decrement: jest.fn().mockResolvedValue(undefined),
             };
 
-            const transaction_spy = jest
-                .spyOn(data_source, 'transaction')
-                .mockImplementation(async (callback: any) => {
-                    return await callback(mock_manager);
-                });
+            data_source.getRepository = jest.fn().mockReturnValue(mock_repository);
 
             const result = await repository.deleteFollowRelationship(follower_id, followed_id);
 
-            expect(transaction_spy).toHaveBeenCalledTimes(1);
-            expect(mock_manager.delete).toHaveBeenCalledWith(UserFollows, {
+            expect(data_source.getRepository).toHaveBeenCalledWith(UserFollows);
+            expect(mock_repository.delete).toHaveBeenCalledWith({
                 follower_id,
                 followed_id,
             });
-            expect(mock_manager.decrement).not.toHaveBeenCalled();
             expect(result).toEqual(mock_delete_result);
         });
     });
@@ -1445,7 +1421,7 @@ describe('UserRepository', () => {
     });
 
     describe('insertBlockRelationship', () => {
-        it('should insert block relationship and delete follow relationships when both follow each other', async () => {
+        it('should insert block relationship and delete follow relationships', async () => {
             const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
@@ -1455,7 +1431,6 @@ describe('UserRepository', () => {
                     .mockResolvedValueOnce({ affected: 1 })
                     .mockResolvedValueOnce({ affected: 1 }),
                 insert: jest.fn().mockResolvedValueOnce({}),
-                decrement: jest.fn().mockResolvedValue({}),
             } as any;
 
             const transaction_spy = jest
@@ -1483,23 +1458,9 @@ describe('UserRepository', () => {
                 blocker_id,
                 blocked_id,
             });
-
-            expect(mock_manager.decrement).toHaveBeenCalledTimes(2);
-            expect(mock_manager.decrement).toHaveBeenCalledWith(
-                User,
-                [{ id: blocked_id }, { id: blocker_id }],
-                'followers',
-                1
-            );
-            expect(mock_manager.decrement).toHaveBeenCalledWith(
-                User,
-                [{ id: blocker_id }, { id: blocked_id }],
-                'following',
-                1
-            );
         });
 
-        it('should insert block relationship and delete follow relationships when only blocker follows blocked', async () => {
+        it('should insert block relationship when only blocker follows blocked', async () => {
             const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
@@ -1509,7 +1470,6 @@ describe('UserRepository', () => {
                     .mockResolvedValueOnce({ affected: 1 })
                     .mockResolvedValueOnce({ affected: 0 }),
                 insert: jest.fn().mockResolvedValueOnce({}),
-                decrement: jest.fn().mockResolvedValue({}),
             } as any;
 
             const transaction_spy = jest
@@ -1537,23 +1497,9 @@ describe('UserRepository', () => {
                 blocker_id,
                 blocked_id,
             });
-
-            expect(mock_manager.decrement).toHaveBeenCalledTimes(2);
-            expect(mock_manager.decrement).toHaveBeenCalledWith(
-                User,
-                [{ id: blocked_id }],
-                'followers',
-                1
-            );
-            expect(mock_manager.decrement).toHaveBeenCalledWith(
-                User,
-                [{ id: blocker_id }],
-                'following',
-                1
-            );
         });
 
-        it('should insert block relationship and delete follow relationships when only blocked follows blocker', async () => {
+        it('should insert block relationship when only blocked follows blocker', async () => {
             const blocker_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const blocked_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
@@ -1563,7 +1509,6 @@ describe('UserRepository', () => {
                     .mockResolvedValueOnce({ affected: 0 })
                     .mockResolvedValueOnce({ affected: 1 }),
                 insert: jest.fn().mockResolvedValueOnce({}),
-                decrement: jest.fn().mockResolvedValue({}),
             } as any;
 
             const transaction_spy = jest
@@ -1591,20 +1536,6 @@ describe('UserRepository', () => {
                 blocker_id,
                 blocked_id,
             });
-
-            expect(mock_manager.decrement).toHaveBeenCalledTimes(2);
-            expect(mock_manager.decrement).toHaveBeenCalledWith(
-                User,
-                [{ id: blocker_id }],
-                'followers',
-                1
-            );
-            expect(mock_manager.decrement).toHaveBeenCalledWith(
-                User,
-                [{ id: blocked_id }],
-                'following',
-                1
-            );
         });
 
         it('should insert block relationship with no follow relationships at all', async () => {

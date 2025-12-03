@@ -130,6 +130,7 @@
         },
         "collectCoverageFrom": [
             "**/*.(t|j)s",
+            "!**/databases/**",
             "!**/*.dto.ts",
             "!**/*.entity.ts",
             "!**/*.interface.ts",

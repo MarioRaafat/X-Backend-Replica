@@ -594,6 +594,9 @@ describe('UserService', () => {
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
                 birth_date: new Date('2025-10-30'),
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -639,6 +642,9 @@ describe('UserService', () => {
                     },
                 ],
                 mutual_followers_count: 5,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -674,6 +680,9 @@ describe('UserService', () => {
                 is_blocked: false,
                 top_mutual_followers: [],
                 mutual_followers_count: 0,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
@@ -736,6 +745,9 @@ describe('UserService', () => {
                     },
                 ],
                 mutual_followers_count: 5,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -774,6 +786,9 @@ describe('UserService', () => {
                 is_blocked: false,
                 top_mutual_followers: [],
                 mutual_followers_count: 0,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const target_username = 'Alyaa242';
@@ -1875,7 +1890,7 @@ describe('UserService', () => {
                 tweets: [],
             };
 
-            const mock_response: UserProfileDto = {
+            const mock_response = {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 name: 'Updated Name',
                 username: 'Alyaa242',
@@ -1887,6 +1902,11 @@ describe('UserService', () => {
                 birth_date: new Date('2003-05-14'),
                 followers_count: 10,
                 following_count: 15,
+                email: 'example@gmail.com',
+                num_likes: undefined,
+                num_media: undefined,
+                num_posts: undefined,
+                num_replies: undefined,
             };
 
             const find_one_spy = jest
