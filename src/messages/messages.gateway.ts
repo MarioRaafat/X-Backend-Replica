@@ -349,8 +349,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
                 data: {
                     chat_id,
                     ...response_data,
-                    has_more: result.messages.length === limit,
-                    next_cursor,
                 },
                 pagination: {
                     next_cursor,
