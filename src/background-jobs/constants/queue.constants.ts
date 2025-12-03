@@ -22,10 +22,11 @@ export const JOB_NAMES = {
         LIKE: 'like-notification',
     },
     ELASTICSEARCH: {
-        INDEX_TWEET: 'index_tweet',
-        DELETE_TWEET: 'delete_tweet',
-        UPDATE_USER: 'update_user',
-        DELETE_USER: 'delete_user',
+        INDEX_TWEET: 'index-tweet',
+        DELETE_TWEET: 'delete-tweet',
+        UPDATE_USER: 'update-user',
+        DELETE_USER: 'delete-user',
+        FOLLOW: 'follow',
     },
 } as const;
 

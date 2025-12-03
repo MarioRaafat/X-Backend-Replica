@@ -47,6 +47,7 @@ import { UsernameRecommendationsResponseDto } from './dto/username-recommendatio
 import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
 import { EsUpdateUserJobService } from 'src/background-jobs/elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-delete-user.service';
+import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
 
 @Injectable()
 export class UserService {
@@ -61,7 +62,8 @@ export class UserService {
         private readonly username_service: UsernameService,
         private readonly follow_job_service: FollowJobService,
         private readonly es_update_user_job_service: EsUpdateUserJobService,
-        private readonly es_delete_user_job_service: EsDeleteUserJobService
+        private readonly es_delete_user_job_service: EsDeleteUserJobService,
+        private readonly es_follow_job_service: EsFollowJobService
     ) {}
 
     async getUsersByIds(
@@ -351,12 +353,9 @@ export class UserService {
             follower_name: validation_result.name,
         });
 
-        await this.es_update_user_job_service.queueUpdateUser({
-            user_id: current_user_id,
-        });
-
-        await this.es_update_user_job_service.queueUpdateUser({
-            user_id: target_user_id,
+        await this.es_follow_job_service.queueEsFollow({
+            follower_id: current_user_id,
+            followed_id: target_user_id,
         });
     }
 
@@ -380,12 +379,9 @@ export class UserService {
             action: 'remove',
         });
 
-        await this.es_update_user_job_service.queueUpdateUser({
-            user_id: current_user_id,
-        });
-
-        await this.es_update_user_job_service.queueUpdateUser({
-            user_id: target_user_id,
+        await this.es_follow_job_service.queueEsFollow({
+            follower_id: current_user_id,
+            followed_id: target_user_id,
         });
     }
 

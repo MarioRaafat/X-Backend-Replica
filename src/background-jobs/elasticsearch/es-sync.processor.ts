@@ -11,6 +11,7 @@ import { Tweet } from 'src/tweets/entities';
 import { Repository } from 'typeorm';
 import { User } from 'src/user/entities';
 import { EsSyncUserDto } from './dtos/es-sync-user.dto';
+import { EsSyncFollowDto } from './dtos/es-sync-follow.dto';
 
 @Processor(QUEUE_NAMES.ELASTICSEARCH)
 export class EsSyncProcessor {
@@ -135,6 +136,72 @@ export class EsSyncProcessor {
             this.logger.log(`Delete tweets with author ${user_id}`);
         } catch (error) {
             this.logger.error(`Failed to delete tweets with author ${user_id}:`, error);
+            throw error;
+        }
+    }
+
+    @Process(JOB_NAMES.ELASTICSEARCH.FOLLOW)
+    async handleFollow(job: Job<EsSyncFollowDto>) {
+        const { follower_id, followed_id } = job.data;
+
+        try {
+            const [follower, followed] = await Promise.all([
+                this.user_repository.findOne({ where: { id: follower_id } }),
+                this.user_repository.findOne({ where: { id: followed_id } }),
+            ]);
+
+            if (!follower) {
+                this.logger.warn(`User ${follower_id} not found for author info update`);
+                return;
+            }
+            if (!followed) {
+                this.logger.warn(`User ${followed_id} not found for author info update`);
+                return;
+            }
+
+            await Promise.all([
+                this.elasticsearch_service.updateByQuery({
+                    index: ELASTICSEARCH_INDICES.TWEETS,
+                    body: {
+                        query: {
+                            term: { author_id: follower_id },
+                        },
+                        script: {
+                            source: `
+                            ctx._source.following = params.following;
+                        `,
+                            params: {
+                                following: follower.following || 0,
+                            },
+                        },
+                    },
+                }),
+                this.elasticsearch_service.updateByQuery({
+                    index: ELASTICSEARCH_INDICES.TWEETS,
+                    body: {
+                        query: {
+                            term: { author_id: followed_id },
+                        },
+                        script: {
+                            source: `
+                            ctx._source.followers = params.followers;
+                        `,
+                            params: {
+                                followers: followed.followers || 0,
+                            },
+                        },
+                    },
+                }),
+            ]);
+
+            this.logger.log(
+                `Updated follow info for tweets by users ${follower_id} and ${followed_id}`
+            );
+        } catch (error) {
+            this.logger.error(
+                `Failed to update follow info for tweets by users ${follower_id} and ${followed_id}:`,
+                error
+            );
             throw error;
         }
     }
