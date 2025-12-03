@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
@@ -16,6 +17,7 @@ export enum MessageType {
 }
 
 @Entity('messages')
+@Index('IDX_CHAT_CREATED_AT', ['chat_id', 'created_at'])
 export class Message {
     @PrimaryGeneratedColumn('uuid')
     id: string;

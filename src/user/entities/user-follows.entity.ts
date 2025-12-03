@@ -1,7 +1,9 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('user_follows')
+@Index('IDX_FOLLOWER', ['follower_id', 'created_at'])
+@Index('IDX_FOLLOWED', ['followed_id', 'created_at'])
 export class UserFollows {
     @PrimaryColumn({ type: 'uuid' })
     follower_id: string;
