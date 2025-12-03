@@ -8,6 +8,7 @@ import { UserRepository } from 'src/user/user.repository';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
 import { TweetResponseDTO } from 'src/tweets/dto';
 import { SortResults } from 'node_modules/@elastic/elasticsearch/lib/api/types';
+import { map } from 'rxjs';
 
 @Injectable()
 export class SearchService {
@@ -253,11 +254,64 @@ export class SearchService {
                 const last_hit = hits[limit - 1];
                 next_cursor = this.encodeCursor(last_hit.sort) ?? null;
             }
+            const tweets = items.map((hit) => hit._source) as any[];
 
-            const tweets = items.map(this.mapTweet);
+            const parent_tweet_ids = tweets
+                .filter((t) => (t.type === 'reply' || t.type === 'quote') && t.parent_id)
+                .map((t) => t.parent_id);
+
+            const conversation_tweet_ids = tweets
+                .filter((t) => t.type === 'reply' && t.conversation_id)
+                .map((t) => t.conversation_id);
+
+            let parent_map = new Map();
+            let conversation_map = new Map();
+
+            if (parent_tweet_ids.length > 0 || conversation_tweet_ids.length > 0) {
+                const ids_to_fetch = [...new Set([...parent_tweet_ids, ...conversation_tweet_ids])];
+
+                const fetched_tweets = await this.elasticsearch_service.mget({
+                    index: ELASTICSEARCH_INDICES.TWEETS,
+                    body: { ids: ids_to_fetch },
+                });
+
+                const tweets_data = new Map(
+                    fetched_tweets.docs
+                        .filter((doc: any) => doc.found === true)
+                        .map((doc: any) => [doc._id, doc._source])
+                );
+
+                parent_map = new Map(
+                    parent_tweet_ids
+                        .filter((id) => tweets_data.has(id))
+                        .map((id) => [id, tweets_data.get(id)])
+                );
+
+                conversation_map = new Map(
+                    conversation_tweet_ids
+                        .filter((id) => tweets_data.has(id))
+                        .map((id) => [id, tweets_data.get(id)])
+                );
+            }
+
+            const mapped_tweets = items.map((hit) => {
+                const s = hit._source as any;
+
+                const parent_tweet =
+                    (s.type === 'reply' || s.type === 'quote') && s.parent_id
+                        ? parent_map.get(s.parent_id)
+                        : undefined;
+
+                const conversation_tweet =
+                    s.type === 'reply' && s.conversation_id
+                        ? conversation_map.get(s.conversation_id)
+                        : undefined;
+
+                return this.mapTweet(hit, parent_tweet, conversation_tweet);
+            });
 
             return {
-                data: tweets,
+                data: mapped_tweets,
                 pagination: {
                     next_cursor,
                     has_more,
@@ -277,10 +331,10 @@ export class SearchService {
 
     async searchLatestPosts(current_user_id: string, query_dto: SearchQueryDto) {}
 
-    private mapTweet(hit: any) {
+    private mapTweet(hit: any, parent_source?: any, conversation_source?: any) {
         const s = hit._source;
 
-        return {
+        const tweet = {
             tweet_id: s.tweet_id,
             type: s.type,
             content: s.content,
@@ -299,13 +353,62 @@ export class SearchService {
                 name: s.name,
                 avatar_url: s.avatar_url,
                 followers: s.followers,
-                following: s.following,
+                following: s.followers,
             },
 
             images: s.images ?? [],
             videos: s.videos ?? [],
-            parent_id: s.parent_id,
         };
+
+        if (parent_source) {
+            tweet['parent_tweet'] = {
+                tweet_id: parent_source.tweet_id,
+                type: parent_source.type,
+                content: parent_source.content,
+                created_at: parent_source.created_at,
+                likes_count: parent_source.num_likes,
+                reposts_count: parent_source.num_reposts,
+                views_count: parent_source.num_views,
+                replies_count: parent_source.num_replies,
+                quotes_count: parent_source.num_quotes,
+                user: {
+                    id: parent_source.author_id,
+                    username: parent_source.username,
+                    name: parent_source.name,
+                    avatar_url: parent_source.avatar_url,
+                    followers: parent_source.followers,
+                    following: parent_source.following,
+                },
+                images: parent_source.images ?? [],
+                videos: parent_source.videos ?? [],
+            };
+        }
+
+        if (conversation_source) {
+            tweet['conversation_tweet'] = {
+                tweet_id: conversation_source.tweet_id,
+                type: conversation_source.type,
+                content: conversation_source.content,
+                created_at: conversation_source.created_at,
+                likes_count: conversation_source.num_likes,
+                reposts_count: conversation_source.num_reposts,
+                views_count: conversation_source.num_views,
+                replies_count: conversation_source.num_replies,
+                quotes_count: conversation_source.num_quotes,
+                user: {
+                    id: conversation_source.author_id,
+                    username: conversation_source.username,
+                    name: conversation_source.name,
+                    avatar_url: conversation_source.avatar_url,
+                    followers: conversation_source.followers,
+                    following: conversation_source.following,
+                },
+                images: conversation_source.images ?? [],
+                videos: conversation_source.videos ?? [],
+            };
+        }
+
+        return tweet;
     }
 
     private encodeCursor(sort: any[] | undefined): string | null {

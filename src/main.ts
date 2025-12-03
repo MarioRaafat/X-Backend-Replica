@@ -17,9 +17,8 @@ async function bootstrap() {
     );
     app.use(cookieParser());
     app.enableCors({
-        // origin: [process.env.FRONTEND_URL || 'http://localhost:3001'],
-        // credentials: true, // for cookies and auth headers
-        origin: '*',
+        origin: [process.env.FRONTEND_URL || 'http://localhost:3001'],
+        credentials: true, // for cookies and auth headers
     });
 
     // response interceptor
