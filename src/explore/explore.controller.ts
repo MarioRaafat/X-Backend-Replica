@@ -5,6 +5,8 @@ import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import { explore_root_swagger, search_latest_posts, trending_swagger, who_to_follow_swagger } from './explore.swagger';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import { ExploreService } from './explore.service';
+import { GetUserId } from 'src/decorators/get-userId.decorator';
+import { Public } from 'src/decorators/public.decorator';
 
 @ApiTags('Explore')
 @Controller('explore')
@@ -15,9 +17,10 @@ export class ExploreController {
     @ApiOkResponse(explore_root_swagger.responses.success)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_DATA_RETRIEVED)
+    @Public()
     @Get()
-    async getExploreData() {
-        return await this.explore_service.getExploreData();
+    async getExploreData(@GetUserId() user_id: string) {
+        return await this.explore_service.getExploreData(user_id);
     }
 
     @ApiOperation(trending_swagger.operation)

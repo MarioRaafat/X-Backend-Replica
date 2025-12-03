@@ -1,14 +1,24 @@
 import { Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { CommunicationModule } from '../communication/communication.module';
+import { RedisModuleConfig } from '../redis/redis.module';
 import { QUEUE_NAMES } from './constants/queue.constants';
 import { EmailProcessor } from './email/email.processor';
+import { TrendingScoreProcessor } from './processors/trending-score.processor';
 import { BackgroundJobsService } from './background-jobs.service';
+import { TrendingScoreService } from './services/trending-score.service';
+import { TrendingScoreCron } from './cron/trending-score.cron';
 import { BackgroundJobsController } from './background-jobs.controller';
+import { Tweet } from '../tweets/entities/tweet.entity';
+import { TweetCategory } from '../tweets/entities/tweet-category.entity';
 
 @Module({
     imports: [
+        ScheduleModule.forRoot(), // Enable cron jobs
+        TypeOrmModule.forFeature([Tweet, TweetCategory]),
         BullModule.forRootAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
@@ -35,10 +45,27 @@ import { BackgroundJobsController } from './background-jobs.controller';
                 },
             },
         }),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.TRENDING,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 5000,
+                },
+            },
+        }),
         CommunicationModule,
+        RedisModuleConfig,
     ],
     controllers: [BackgroundJobsController],
-    providers: [EmailProcessor, BackgroundJobsService],
-    exports: [BackgroundJobsService, BullModule],
+    providers: [
+        EmailProcessor,
+        TrendingScoreProcessor,
+        BackgroundJobsService,
+        TrendingScoreService,
+        TrendingScoreCron,
+    ],
+    exports: [BackgroundJobsService, TrendingScoreService, TrendingScoreCron, BullModule],
 })
 export class BackgroundJobsModule {}

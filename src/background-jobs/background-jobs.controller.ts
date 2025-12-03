@@ -1,11 +1,16 @@
-import { Controller, Get } from '@nestjs/common';
+import { Body, Controller, Get, Post } from '@nestjs/common';
 import { ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BackgroundJobsService } from './background-jobs.service';
+import { TrendingScoreCron } from './cron/trending-score.cron';
+import { TrendingScoreJobDto } from './dto/trending-job.dto';
 
 @ApiTags('Background Jobs')
 @Controller('background-jobs')
 export class BackgroundJobsController {
-    constructor(private readonly background_jobs_service: BackgroundJobsService) {}
+    constructor(
+        private readonly background_jobs_service: BackgroundJobsService,
+        private readonly trending_score_cron: TrendingScoreCron
+    ) {}
 
     @Get('email-queue/stats')
     @ApiOperation({ summary: 'Get email queue statistics' })
@@ -39,5 +44,24 @@ export class BackgroundJobsController {
     async cleanEmailQueue() {
         const result = await this.background_jobs_service.cleanEmailQueue();
         return result;
+    }
+
+    // Trending Score Endpoints
+    @Post('trending/trigger')
+    @ApiOperation({ summary: 'Manually trigger trending score recalculation' })
+    @ApiResponse({ status: 200, description: 'Trending score job triggered successfully' })
+    async triggerTrendingUpdate() {
+        const result = await this.trending_score_cron.triggerManualUpdate();
+        return result;
+    }
+
+    @Get('trending/queue/stats')
+    @ApiOperation({ summary: 'Get trending score queue statistics' })
+    @ApiResponse({ status: 200, description: 'Queue stats retrieved successfully' })
+    async getTrendingQueueStats() {
+        const stats = await this.trending_score_cron.getQueueStats();
+        return {
+            data: stats,
+        };
     }
 }

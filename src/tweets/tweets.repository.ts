@@ -17,6 +17,7 @@ import { UserPostsView } from './entities/user-posts-view.entity';
 import { getFollowingTweetsQuery } from './queries/get-following-tweets.query';
 import { getForyouTweetsQuery } from './queries/get-foryou-tweets.query';
 import { TweetCategory } from './entities/tweet-category.entity';
+import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 
 @Injectable()
 export class TweetsRepository {
@@ -35,6 +36,30 @@ export class TweetsRepository {
         @InjectRepository(UserPostsView)
         private user_posts_view_repository: Repository<UserPostsView>
     ) {}
+
+    async getTweetsByIds(tweet_ids: string[], current_user_id?: string): Promise<TweetResponseDTO[]> {
+        if (!tweet_ids.length) return [];
+
+        let query = this.tweet_repository
+            .createQueryBuilder('tweet')
+            .leftJoinAndSelect('tweet.user', 'user')
+            .where('tweet.tweet_id IN (:...tweet_ids)', { tweet_ids })
+            .select(tweet_fields_slect);
+
+        // Map interaction flags
+        query = this.attachUserTweetInteractionFlags(
+            query,
+            current_user_id,
+            'tweet'
+        );
+
+        const tweets = await query.getMany();
+
+        return plainToInstance(TweetResponseDTO, tweets, {
+            excludeExtraneousValues: true,
+        });
+    }
+
     // Tweets
     // Replies
     // Quotes
