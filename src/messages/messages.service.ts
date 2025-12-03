@@ -11,13 +11,15 @@ import { Chat } from 'src/chat/entities/chat.entity';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { MessageType } from './entities/message.entity';
 import { ChatRepository } from 'src/chat/chat.repository';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 @Injectable()
 export class MessagesService {
     constructor(
         private readonly message_repository: MessageRepository,
         @InjectRepository(Chat)
-        private readonly chat_repository: ChatRepository
+        private readonly chat_repository: ChatRepository,
+        private readonly pagination_service: PaginationService
     ) {}
 
     async validateChatParticipation(
@@ -96,10 +98,21 @@ export class MessagesService {
     async getMessages(user_id: string, chat_id: string, query: GetMessagesQueryDto) {
         const chat = await this.validateChatParticipation(user_id, chat_id);
         const messages = await this.message_repository.findMessagesByChatId(chat_id, query);
-
         const other_user = chat.user1_id === user_id ? chat.user2 : chat.user1;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            messages,
+            'created_at',
+            'id'
+        );
+        let has_more = false;
+        if (messages.length > query.limit) {
+            has_more = true;
+            messages.pop(); // Remove the extra message used to check for next page
+        }
 
         return {
+            next_cursor,
+            has_more,
             sender: {
                 id: other_user.id,
                 username: other_user.username,

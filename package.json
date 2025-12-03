@@ -81,6 +81,7 @@
         "sharp": "^0.34.5",
         "socket.io": "^4.8.1",
         "swagger-ui-express": "^5.0.1",
+        "tunnel-ssh": "^5.2.0",
         "typeorm": "^0.3.26",
         "xlsx": "^0.18.5"
     },
@@ -100,6 +101,7 @@
         "@types/passport-facebook": "^3.0.3",
         "@types/passport-github2": "^1.2.9",
         "@types/supertest": "^6.0.2",
+        "@types/tunnel-ssh": "^5.0.4",
         "eslint": "^9.18.0",
         "eslint-config-prettier": "^10.0.1",
         "eslint-plugin-prettier": "^5.2.2",
