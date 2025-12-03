@@ -47,6 +47,7 @@ import {
     get_user_by_id,
     get_user_media,
     get_user_posts,
+    get_user_relations,
     get_user_replies,
     get_username_recommendations,
     get_users_by_ids,
@@ -507,5 +508,16 @@ export class UserController {
     @Get('me/username-recommendations')
     async getUsernameRecommendations(@GetUserId() current_user_id: string) {
         return await this.user_service.getUsernameRecommendations(current_user_id);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(get_user_relations.operation)
+    @ApiCreatedResponse(get_user_relations.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ResponseMessage(SUCCESS_MESSAGES.USER_RELATIONS_RETRIEVED)
+    @Get('me/relations-count')
+    async getRelationsCount(@GetUserId() current_user_id: string) {
+        return await this.user_service.getUserRelationsCounts(current_user_id);
     }
 }

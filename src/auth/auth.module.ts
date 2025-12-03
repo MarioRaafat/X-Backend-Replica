@@ -11,8 +11,6 @@ import { GitHubStrategy } from './strategies/github.strategy';
 import { CaptchaService } from './captcha.service';
 import { UsernameService } from './username.service';
 import { UserModule } from 'src/user/user.module';
-import { RedisModule } from '@nestjs-modules/ioredis';
-import { RedisService } from 'src/redis/redis.service';
 import { VerificationModule } from 'src/verification/verification.module';
 import { CommunicationModule } from 'src/communication/communication.module';
 import { EmailService } from 'src/communication/email.service';
@@ -39,7 +37,6 @@ import { EmailJobsService } from 'src/background-jobs/email/email.service';
         }),
         PassportModule,
         UserModule,
-        RedisModule,
         VerificationModule,
         CommunicationModule,
         BackgroundJobsModule,
@@ -50,7 +47,6 @@ import { EmailJobsService } from 'src/background-jobs/email/email.service';
         JwtStrategy,
         GitHubStrategy,
         UserRepository,
-        RedisService,
         VerificationService,
         EmailService,
         EmailJobsService,

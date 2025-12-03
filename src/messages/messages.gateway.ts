@@ -12,6 +12,7 @@ import { UseGuards } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MessagesService } from './messages.service';
+import { ChatRepository } from 'src/chat/chat.repository';
 import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
 import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
 
@@ -36,24 +37,49 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
     private userSockets = new Map<string, Set<string>>();
     constructor(
         private readonly messages_service: MessagesService,
+        private readonly chat_repository: ChatRepository,
         private readonly jwt_service: JwtService,
         private readonly config_service: ConfigService
     ) {}
 
     async handleConnection(client: IAuthenticatedSocket) {
-        // try {
-        //     const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
-        //     client.user = user;
-        //     const user_id = client.user.user_id;
-        //     if (!this.userSockets.has(user_id)) {
-        //         this.userSockets.set(user_id, new Set());
-        //     }
-        //     this.userSockets.get(user_id)?.add(client.id);
-        //     console.log(`Client connected: ${client.id} (User: ${user_id})`);
-        // } catch (error) {
-        //     console.error('Connection error:', error);
-        //     client.disconnect();
-        // }
+        try {
+            const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
+            client.user = user;
+            const user_id = client.user.user_id;
+
+            if (!this.userSockets.has(user_id)) {
+                this.userSockets.set(user_id, new Set());
+            }
+            this.userSockets.get(user_id)?.add(client.id);
+
+            console.log(`Client connected: ${client.id} (User: ${user_id})`);
+
+            // Send unread messages count to newly connected client
+            await this.sendUnreadChatsOnConnection(client, user_id);
+        } catch (error) {
+            console.error('Connection error:', error);
+            client.disconnect();
+        }
+    }
+
+    /**
+     * Notify client about chats with unread messages when they connect
+     * Frontend should then request full message history for these chats
+     */
+    private async sendUnreadChatsOnConnection(client: IAuthenticatedSocket, user_id: string) {
+        try {
+            const unread_chats = await this.messages_service.getUnreadChatsForUser(user_id);
+
+            if (unread_chats.length > 0) {
+                client.emit('unread_chats_summary', {
+                    chats: unread_chats,
+                    message: 'You have unread messages in these chats',
+                });
+            }
+        } catch (error) {
+            console.error('Error sending unread chats on connection:', error);
+        }
     }
 
     handleDisconnect(client: IAuthenticatedSocket) {
@@ -79,7 +105,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             const user_id = client.user!.user_id;
             const { chat_id } = data;
 
-            await this.messages_service.validateChatParticipation(user_id, chat_id);
+            const chat = await this.messages_service.validateChatParticipation(user_id, chat_id);
+
+            // Reset unread count for this user when they join the chat
+            const unread_field =
+                chat.user1_id === user_id ? 'unread_count_user1' : 'unread_count_user2';
+            await this.chat_repository.update({ id: chat_id }, { [unread_field]: 0 });
 
             await client.join(chat_id);
             return {
@@ -126,18 +157,26 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             const user_id = client.user!.user_id;
             const { chat_id, message } = data;
 
-            const result = await this.messages_service.sendMessage(user_id, chat_id, message);
+            // Check if recipient is actively in the chat room
+            const chat = await this.messages_service.validateChatParticipation(user_id, chat_id);
+            const recipient_id = chat.user1_id === user_id ? chat.user2_id : chat.user1_id;
+            console.log('Recipient ID:', recipient_id);
+            const is_recipient_in_room = await this.isUserInChatRoom(recipient_id, chat_id);
 
-            // Emit to the chat room (for users already in the room)
-            this.server.to(chat_id).emit('new_message', {
-                chat_id: chat_id,
-                message: result,
-            });
+            const result = await this.messages_service.sendMessage(
+                user_id,
+                chat_id,
+                message,
+                is_recipient_in_room
+            );
 
-            // Also emit directly to the recipient (in case they're not in the room yet)
-            const recipient_id = result.recipient_id;
             if (recipient_id) {
                 this.emitToUser(recipient_id, 'new_message', {
+                    chat_id,
+                    message: result,
+                });
+            } else {
+                this.server.to(chat_id).emit('new_message', {
                     chat_id,
                     message: result,
                 });
@@ -151,29 +190,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             return {
                 event: 'error',
                 data: { message: error.message || 'Failed to send message' },
-            };
-        }
-    }
-
-    @SubscribeMessage('get_messages')
-    async handleGetMessages(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody() data: { chat_id: string; query?: GetMessagesQueryDto }
-    ) {
-        try {
-            const user_id = client.user!.user_id;
-            const { chat_id, query } = data;
-
-            const messages = await this.messages_service.getMessages(user_id, chat_id, query || {});
-
-            return {
-                event: 'messages_retrieved',
-                data: messages,
-            };
-        } catch (error) {
-            return {
-                event: 'error',
-                data: { message: error.message || 'Failed to retrieve messages' },
             };
         }
     }
@@ -194,15 +210,16 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
                 message_id,
                 update
             );
-            this.server.to(chat_id).emit('message_updated', {
-                chat_id,
-                message_id,
-                message: result,
-            });
 
             const recipient_id = result.recipient_id;
             if (recipient_id) {
                 this.emitToUser(recipient_id, 'message_updated', {
+                    chat_id,
+                    message_id,
+                    message: result,
+                });
+            } else {
+                this.server.to(chat_id).emit('message_updated', {
                     chat_id,
                     message_id,
                     message: result,
@@ -231,10 +248,6 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             const { chat_id, message_id } = data;
 
             const result = await this.messages_service.deleteMessage(user_id, chat_id, message_id);
-            this.server.to(chat_id).emit('message_deleted', {
-                chat_id,
-                message_id,
-            });
 
             const recipient_id = result.recipient_id;
             if (recipient_id) {
@@ -242,6 +255,11 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
                     chat_id,
                     message_id,
                     message: result,
+                });
+            } else {
+                this.server.to(chat_id).emit('message_deleted', {
+                    chat_id,
+                    message_id,
                 });
             }
 
@@ -319,5 +337,21 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
                 this.server.to(socket_id).emit(event, data);
             });
         }
+    }
+
+    async isUserInChatRoom(user_id: string, chat_id: string): Promise<boolean> {
+        const socket_ids = this.userSockets.get(user_id);
+        if (!socket_ids) return false;
+        // Check if any of the user's sockets are in the chat room
+        const sockets_in_room = await this.server.in(chat_id).fetchSockets();
+        const room_socket_ids = new Set(sockets_in_room.map((s) => s.id));
+
+        for (const socket_id of socket_ids) {
+            if (room_socket_ids.has(socket_id)) {
+                console.log(`User ${user_id} is in chat room ${chat_id} via socket ${socket_id}`);
+                return true;
+            }
+        }
+        return false;
     }
 }

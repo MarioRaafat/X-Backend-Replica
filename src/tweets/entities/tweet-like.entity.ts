@@ -11,7 +11,7 @@ export class TweetLike {
     @PrimaryColumn({ type: 'uuid' })
     tweet_id: string;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })

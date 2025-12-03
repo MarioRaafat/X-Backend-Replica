@@ -1302,3 +1302,28 @@ export const get_username_recommendations = {
         },
     },
 };
+
+export const get_user_relations = {
+    operation: {
+        summary: 'Get user relations',
+        description: `
+        Get blocked and muted counts of current user
+    `,
+    },
+
+    responses: {
+        success: {
+            description: 'User relations counts retrieved successfully',
+            schema: {
+                example: {
+                    data: {
+                        blocked_count: 1,
+                        muted_count: 0,
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.USER_RELATIONS_RETRIEVED,
+                },
+            },
+        },
+    },
+};

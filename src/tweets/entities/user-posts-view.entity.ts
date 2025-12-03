@@ -33,9 +33,14 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             u.avatar_url,
             u.cover_url,
             u.verified,
-            u.bio
+            u.bio,
+            NULL::text AS reposted_by_name,
+            COALESCE(tq.original_tweet_id, trep.original_tweet_id) AS parent_id,
+            trep.conversation_id AS conversation_id
         FROM tweets t
         INNER JOIN "user" u ON t.user_id = u.id
+        LEFT JOIN tweet_quotes tq ON t.tweet_id = tq.quote_tweet_id
+        LEFT JOIN tweet_replies trep ON t.tweet_id = trep.reply_tweet_id
         
         UNION ALL
         
@@ -65,10 +70,17 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             u.avatar_url,
             u.cover_url,
             u.verified,
-            u.bio
+            u.bio,
+            reposter.name AS reposted_by_name,
+            COALESCE(tq.original_tweet_id, trep.original_tweet_id) AS parent_id,
+            trep.conversation_id AS conversation_id
+
         FROM tweet_reposts tr
         INNER JOIN tweets t ON tr.tweet_id = t.tweet_id
         INNER JOIN "user" u ON t.user_id = u.id
+        INNER JOIN "user" reposter ON tr.user_id = reposter.id
+        LEFT JOIN tweet_quotes tq ON t.tweet_id = tq.quote_tweet_id
+        LEFT JOIN tweet_replies trep ON t.tweet_id = trep.reply_tweet_id
     `,
 })
 export class UserPostsView {
@@ -149,6 +161,15 @@ export class UserPostsView {
 
     @ViewColumn()
     bio: string;
+
+    @ViewColumn()
+    reposted_by_name: string | null;
+
+    @ViewColumn()
+    parent_id: string | null;
+
+    @ViewColumn()
+    conversation_id: string | null;
 
     // Virtual relations for joins (tweet author)
     @ManyToOne(() => User)
