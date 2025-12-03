@@ -46,6 +46,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         try {
             const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
             client.user = user;
+            if (client.user === undefined) {
+                return client.disconnect();
+            }
             const user_id = client.user.user_id;
 
             if (!this.userSockets.has(user_id)) {
