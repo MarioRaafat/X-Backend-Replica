@@ -55,11 +55,8 @@ export class TweetsRepository {
                 .where(
                     new Brackets((qb) =>
                         qb
+
                             .where(
-                                'tweet.tweet_author_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id)',
-                                { user_id }
-                            )
-                            .orWhere(
                                 'tweet.profile_user_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id)',
                                 { user_id }
                             )
