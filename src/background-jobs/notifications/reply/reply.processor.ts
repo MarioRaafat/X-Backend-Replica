@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 import { ReplyBackGroundNotificationJobDTO } from './reply.dto';
 import { Tweet } from 'src/tweets/entities';
+import { TweetReply } from 'src/tweets/entities/tweet-reply.entity';
 import { ReplyNotificationEntity } from 'src/notifications/entities/reply-notification.entity';
 
 @Processor(QUEUE_NAMES.NOTIFICATION)
@@ -18,7 +19,9 @@ export class ReplyProcessor {
     constructor(
         private readonly notificationsService: NotificationsService,
         @InjectRepository(User) private readonly user_repository: Repository<User>,
-        @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>
+        @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>,
+        @InjectRepository(TweetReply)
+        private readonly tweet_reply_repository: Repository<TweetReply>
     ) {}
 
     @Process(JOB_NAMES.NOTIFICATION.REPLY)
@@ -28,6 +31,7 @@ export class ReplyProcessor {
                 reply_to,
                 replied_by,
                 reply_tweet_id,
+                reply_tweet,
                 original_tweet_id,
                 conversation_id,
                 action,
@@ -35,16 +39,27 @@ export class ReplyProcessor {
 
             let payload: any;
             if (action === 'remove') {
-                payload = {
-                    ...job.data,
-                    replied_by,
-                };
+                let was_deleted = false;
+                if (reply_to && reply_tweet_id) {
+                    was_deleted = await this.notificationsService.removeReplyNotification(
+                        reply_to,
+                        reply_tweet_id,
+                        replied_by
+                    );
+                }
 
-                this.notificationsService.sendNotificationOnly(
-                    NotificationType.REPLY,
-                    reply_to,
-                    payload
-                );
+                if (was_deleted) {
+                    payload = {
+                        ...job.data,
+                        replied_by,
+                    };
+
+                    this.notificationsService.sendNotificationOnly(
+                        NotificationType.REPLY,
+                        reply_to,
+                        payload
+                    );
+                }
             } else {
                 const replier = await this.user_repository.findOne({
                     where: { id: replied_by },
@@ -57,17 +72,17 @@ export class ReplyProcessor {
                 }
 
                 replier.id = replied_by;
-                payload = {
-                    type: NotificationType.REPLY,
-                    replier,
-                    ...job.data,
-                };
+
+                if (!reply_tweet) {
+                    this.logger.warn(`Reply tweet with ID ${reply_tweet_id} not found.`);
+                    return;
+                }
 
                 const notification_entity: ReplyNotificationEntity = Object.assign(
                     new ReplyNotificationEntity(),
                     {
                         type: NotificationType.REPLY,
-                        reply_tweet_id,
+                        reply_tweet_id: reply_tweet.tweet_id,
                         original_tweet_id,
                         replied_by,
                         conversation_id,
@@ -78,7 +93,11 @@ export class ReplyProcessor {
                 await this.notificationsService.saveNotificationAndSend(
                     reply_to,
                     notification_entity,
-                    payload
+                    {
+                        type: NotificationType.REPLY,
+                        replier,
+                        ...job.data,
+                    }
                 );
             }
         } catch (error) {

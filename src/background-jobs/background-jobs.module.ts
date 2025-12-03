@@ -17,7 +17,7 @@ import { ReplyJobService } from './notifications/reply/reply.service';
 import { ReplyProcessor } from './notifications/reply/reply.processor';
 import { LikeJobService } from './notifications/like/like.service';
 import { LikeProcessor } from './notifications/like/like.processor';
-import { Tweet } from 'src/tweets/entities';
+import { Tweet, TweetQuote, TweetReply } from 'src/tweets/entities';
 import { RepostProcessor } from './notifications/repost/repost.processor';
 import { RepostJobService } from './notifications/repost/repost.service';
 import { QuoteProcessor } from './notifications/quote/quote.processor';
@@ -63,7 +63,7 @@ import { ClearJobService } from './notifications/clear/clear.service';
                 },
             },
         }),
-        TypeOrmModule.forFeature([User, Tweet]),
+        TypeOrmModule.forFeature([User, Tweet, TweetQuote, TweetReply]),
         CommunicationModule,
         forwardRef(() => NotificationsModule),
     ],

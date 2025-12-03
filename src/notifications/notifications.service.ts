@@ -19,7 +19,7 @@ import { BackgroundJobsModule } from 'src/background-jobs';
 import { ClearJobService } from 'src/background-jobs/notifications/clear/clear.service';
 
 @Injectable()
-export class NotificationsService {
+export class NotificationsService implements OnModuleInit {
     private readonly key = 'notifications';
 
     constructor(
@@ -32,6 +32,10 @@ export class NotificationsService {
         private readonly tweetRepository: Repository<Tweet>,
         private readonly clear_jobs_service: ClearJobService
     ) {}
+
+    onModuleInit() {
+        this.notificationsGateway.setNotificationsService(this);
+    }
 
     async saveNotificationAndSend(
         user_id: string,
@@ -47,7 +51,7 @@ export class NotificationsService {
         const aggregation_result = await this.tryAggregateNotification(user_id, notification_data);
 
         if (!aggregation_result.aggregated) {
-            // If not aggregated, add as new notification
+            // If not aggregated, add as new notification and increment newest_count
             await this.notificationModel.updateOne(
                 { user: user_id },
                 {
@@ -58,6 +62,7 @@ export class NotificationsService {
                             $slice: 50,
                         },
                     },
+                    $inc: { newest_count: 1 },
                 },
                 { upsert: true }
             );
@@ -68,6 +73,12 @@ export class NotificationsService {
                 action: 'add',
             });
         } else {
+            // Increment newest_count for aggregated notification
+            await this.notificationModel.updateOne(
+                { user: user_id },
+                { $inc: { newest_count: 1 } }
+            );
+
             // Send with 'aggregate' action for aggregated notification
             this.notificationsGateway.sendToUser(notification_data.type, user_id, {
                 ...payload,
@@ -863,6 +874,390 @@ export class NotificationsService {
             }
         } catch (error) {
             console.error('Error deleting notifications by tweet IDs:', error);
+            throw error;
+        }
+    }
+
+    async removeFollowNotification(user_id: string, follower_id: string): Promise<boolean> {
+        try {
+            // Calculate the date 1 day ago
+            const one_day_ago = new Date();
+            one_day_ago.setDate(one_day_ago.getDate() - 1);
+
+            // First, try to remove the follower from an aggregated notification
+            const result = await this.notificationModel.updateOne(
+                { user: user_id },
+                {
+                    $pull: {
+                        'notifications.$[elem].follower_id': follower_id,
+                    },
+                },
+                {
+                    arrayFilters: [
+                        {
+                            'elem.type': NotificationType.FOLLOW,
+                            'elem.created_at': { $gte: one_day_ago },
+                        },
+                    ],
+                }
+            );
+
+            // Then, remove any follow notifications with empty follower_id arrays
+            const cleanup_result = await this.notificationModel.updateOne(
+                { user: user_id },
+                {
+                    $pull: {
+                        notifications: {
+                            type: NotificationType.FOLLOW,
+                            follower_id: { $size: 0 },
+                            created_at: { $gte: one_day_ago },
+                        },
+                    },
+                }
+            );
+
+            // Return true if any modification was made
+            return result.modifiedCount > 0 || cleanup_result.modifiedCount > 0;
+        } catch (error) {
+            console.error('Error removing follow notification:', error);
+            throw error;
+        }
+    }
+
+    async removeLikeNotification(
+        user_id: string,
+        tweet_id: string,
+        liked_by: string
+    ): Promise<boolean> {
+        try {
+            // Calculate the date 1 day ago
+            const one_day_ago = new Date();
+            one_day_ago.setDate(one_day_ago.getDate() - 1);
+
+            // First, check for aggregated notifications
+            const user_document = await this.notificationModel.findOne({ user: user_id }).lean();
+
+            if (!user_document || !user_document.notifications) {
+                return false;
+            }
+
+            // Find the notification that contains the like
+            const notification_index = user_document.notifications.findIndex((n: any) => {
+                if (n.type !== NotificationType.LIKE) return false;
+                if (new Date(n.created_at) < one_day_ago) return false;
+
+                const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
+                const liked_by_array = Array.isArray(n.liked_by) ? n.liked_by : [n.liked_by];
+
+                return tweet_id_array.includes(tweet_id) && liked_by_array.includes(liked_by);
+            });
+
+            if (notification_index === -1) {
+                return false;
+            }
+
+            const notification = user_document.notifications[notification_index] as any;
+            const tweet_id_array = Array.isArray(notification.tweet_id)
+                ? notification.tweet_id
+                : [notification.tweet_id];
+            const liked_by_array = Array.isArray(notification.liked_by)
+                ? notification.liked_by
+                : [notification.liked_by];
+
+            // Determine if this is aggregated by tweet or by person
+            const is_single_tweet = tweet_id_array.length === 1;
+            const is_single_person = liked_by_array.length === 1;
+            let modified = false;
+
+            if (is_single_tweet && is_single_person) {
+                // Not aggregated
+                const result = await this.notificationModel.updateOne(
+                    { user: user_id },
+                    {
+                        $pull: {
+                            notifications: {
+                                type: NotificationType.LIKE,
+                                tweet_id: tweet_id,
+                                liked_by: liked_by,
+                                created_at: { $gte: one_day_ago },
+                            },
+                        },
+                    }
+                );
+                modified = result.modifiedCount > 0;
+            } else if (is_single_tweet) {
+                // Aggregated by tweet, remove the person
+                const result = await this.notificationModel.updateOne(
+                    { user: user_id },
+                    {
+                        $pull: {
+                            'notifications.$[elem].liked_by': liked_by,
+                        },
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                                'elem.type': NotificationType.LIKE,
+                                'elem.tweet_id': tweet_id,
+                                'elem.created_at': { $gte: one_day_ago },
+                            },
+                        ],
+                    }
+                );
+                modified = result.modifiedCount > 0;
+            } else if (is_single_person) {
+                // Aggregated by person, remove the tweet
+                const result = await this.notificationModel.updateOne(
+                    { user: user_id },
+                    {
+                        $pull: {
+                            'notifications.$[elem].tweet_id': tweet_id,
+                        },
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                                'elem.type': NotificationType.LIKE,
+                                'elem.liked_by': liked_by,
+                                'elem.created_at': { $gte: one_day_ago },
+                            },
+                        ],
+                    }
+                );
+                modified = result.modifiedCount > 0;
+            }
+
+            // Clean up notifications with empty arrays
+            const cleanup_result = await this.notificationModel.updateOne(
+                { user: user_id },
+                {
+                    $pull: {
+                        notifications: {
+                            type: NotificationType.LIKE,
+                            created_at: { $gte: one_day_ago },
+                            $or: [{ tweet_id: { $size: 0 } }, { liked_by: { $size: 0 } }],
+                        },
+                    },
+                }
+            );
+
+            return modified || cleanup_result.modifiedCount > 0;
+        } catch (error) {
+            console.error('Error removing like notification:', error);
+            throw error;
+        }
+    }
+
+    async removeRepostNotification(
+        user_id: string,
+        tweet_id: string,
+        reposted_by: string
+    ): Promise<boolean> {
+        try {
+            // Calculate the date 1 day ago
+            const one_day_ago = new Date();
+            one_day_ago.setDate(one_day_ago.getDate() - 1);
+
+            // First, check for aggregated notifications
+            const user_document = await this.notificationModel.findOne({ user: user_id }).lean();
+
+            if (!user_document || !user_document.notifications) {
+                return false;
+            }
+
+            // Find the notification that contains the repost
+            const notification_index = user_document.notifications.findIndex((n: any) => {
+                if (n.type !== NotificationType.REPOST) return false;
+                if (new Date(n.created_at) < one_day_ago) return false;
+
+                const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
+                const reposted_by_array = Array.isArray(n.reposted_by)
+                    ? n.reposted_by
+                    : [n.reposted_by];
+
+                return tweet_id_array.includes(tweet_id) && reposted_by_array.includes(reposted_by);
+            });
+
+            if (notification_index === -1) {
+                return false;
+            }
+
+            const notification = user_document.notifications[notification_index] as any;
+            const tweet_id_array = Array.isArray(notification.tweet_id)
+                ? notification.tweet_id
+                : [notification.tweet_id];
+            const reposted_by_array = Array.isArray(notification.reposted_by)
+                ? notification.reposted_by
+                : [notification.reposted_by];
+
+            // Determine if this is aggregated by tweet or by person
+            const is_single_tweet = tweet_id_array.length === 1;
+            const is_single_person = reposted_by_array.length === 1;
+            let modified = false;
+
+            if (is_single_tweet && is_single_person) {
+                // Not aggregated
+                const result = await this.notificationModel.updateOne(
+                    { user: user_id },
+                    {
+                        $pull: {
+                            notifications: {
+                                type: NotificationType.REPOST,
+                                tweet_id: tweet_id,
+                                reposted_by: reposted_by,
+                                created_at: { $gte: one_day_ago },
+                            },
+                        },
+                    }
+                );
+                modified = result.modifiedCount > 0;
+            } else if (is_single_tweet) {
+                // Aggregated by tweet, remove the person
+                const result = await this.notificationModel.updateOne(
+                    { user: user_id },
+                    {
+                        $pull: {
+                            'notifications.$[elem].reposted_by': reposted_by,
+                        },
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                                'elem.type': NotificationType.REPOST,
+                                'elem.tweet_id': tweet_id,
+                                'elem.created_at': { $gte: one_day_ago },
+                            },
+                        ],
+                    }
+                );
+                modified = result.modifiedCount > 0;
+            } else if (is_single_person) {
+                // Aggregated by person, remove the tweet
+                const result = await this.notificationModel.updateOne(
+                    { user: user_id },
+                    {
+                        $pull: {
+                            'notifications.$[elem].tweet_id': tweet_id,
+                        },
+                    },
+                    {
+                        arrayFilters: [
+                            {
+                                'elem.type': NotificationType.REPOST,
+                                'elem.reposted_by': reposted_by,
+                                'elem.created_at': { $gte: one_day_ago },
+                            },
+                        ],
+                    }
+                );
+                modified = result.modifiedCount > 0;
+            }
+
+            // Clean up notifications with empty arrays
+            const cleanup_result = await this.notificationModel.updateOne(
+                { user: user_id },
+                {
+                    $pull: {
+                        notifications: {
+                            type: NotificationType.REPOST,
+                            created_at: { $gte: one_day_ago },
+                            $or: [{ tweet_id: { $size: 0 } }, { reposted_by: { $size: 0 } }],
+                        },
+                    },
+                }
+            );
+
+            return modified || cleanup_result.modifiedCount > 0;
+        } catch (error) {
+            console.error('Error removing repost notification:', error);
+            throw error;
+        }
+    }
+
+    async removeReplyNotification(
+        user_id: string,
+        reply_tweet_id: string,
+        replied_by: string
+    ): Promise<boolean> {
+        try {
+            // Calculate the date 1 day ago
+            const one_day_ago = new Date();
+            one_day_ago.setDate(one_day_ago.getDate() - 1);
+
+            const result = await this.notificationModel.updateOne(
+                { user: user_id },
+                {
+                    $pull: {
+                        notifications: {
+                            type: NotificationType.REPLY,
+                            reply_tweet_id: reply_tweet_id,
+                            replied_by: replied_by,
+                            created_at: { $gte: one_day_ago },
+                        },
+                    },
+                }
+            );
+
+            return result.modifiedCount > 0;
+        } catch (error) {
+            console.error('Error removing reply notification:', error);
+            throw error;
+        }
+    }
+
+    async removeQuoteNotification(
+        user_id: string,
+        quote_tweet_id: string,
+        quoted_by: string
+    ): Promise<boolean> {
+        try {
+            // Calculate the date 1 day ago
+            const one_day_ago = new Date();
+            one_day_ago.setDate(one_day_ago.getDate() - 1);
+
+            const result = await this.notificationModel.updateOne(
+                { user: user_id },
+                {
+                    $pull: {
+                        notifications: {
+                            type: NotificationType.QUOTE,
+                            quote_tweet_id: quote_tweet_id,
+                            quoted_by: quoted_by,
+                            created_at: { $gte: one_day_ago },
+                        },
+                    },
+                }
+            );
+
+            return result.modifiedCount > 0;
+        } catch (error) {
+            console.error('Error removing quote notification:', error);
+            throw error;
+        }
+    }
+
+    async clearNewestCount(user_id: string): Promise<void> {
+        try {
+            await this.notificationModel.updateOne(
+                { user: user_id },
+                { $set: { newest_count: 0 } }
+            );
+        } catch (error) {
+            console.error('Error clearing newest_count:', error);
+            throw error;
+        }
+    }
+
+    async getNewestCount(user_id: string): Promise<number> {
+        try {
+            const user_notifications = await this.notificationModel
+                .findOne({ user: user_id })
+                .select('newest_count')
+                .lean();
+
+            return user_notifications?.newest_count || 0;
+        } catch (error) {
+            console.error('Error getting newest_count:', error);
             throw error;
         }
     }

@@ -29,14 +29,34 @@ export class RepostProcessor {
             const { repost_to, reposted_by, tweet_id, tweet, action } = job.data;
 
             if (action === 'remove') {
-                await this.notificationsService.sendNotificationOnly(
-                    NotificationType.REPOST,
-                    repost_to,
-                    {
-                        ...job.data,
-                        reposted_by,
-                    }
-                );
+                let tweet_owner_id = repost_to;
+                const tweet_entity = await this.tweet_repository.findOne({
+                    where: { tweet_id: tweet_id },
+                    select: ['user_id'],
+                });
+
+                if (tweet_entity) tweet_owner_id = tweet_entity.user_id;
+                else this.logger.warn(`Tweet with ID ${tweet_id} not found.`);
+
+                let was_deleted = false;
+                if (tweet_id) {
+                    was_deleted = await this.notificationsService.removeRepostNotification(
+                        tweet_owner_id,
+                        tweet_id,
+                        reposted_by
+                    );
+                }
+
+                if (was_deleted) {
+                    this.notificationsService.sendNotificationOnly(
+                        NotificationType.REPOST,
+                        tweet_owner_id,
+                        {
+                            ...job.data,
+                            reposted_by,
+                        }
+                    );
+                }
             } else {
                 const reposter = await this.user_repository.findOne({
                     where: { id: reposted_by },
@@ -69,6 +89,7 @@ export class RepostProcessor {
                     repost_to,
                     notification_entity,
                     {
+                        type: NotificationType.REPOST,
                         reposter: reposter,
                         ...job.data,
                     }

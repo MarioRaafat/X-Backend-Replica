@@ -297,21 +297,7 @@ export class TweetsService {
                 throw new BadRequestException('User is not allowed to delete this tweet');
             }
 
-            if (tweet.type === TweetType.REPLY) {
-                this.reply_job_service.queueReplyNotification({
-                    reply_tweet_id: tweet.tweet_id,
-                    reply_to: user_id,
-                    replied_by: user_id,
-                    action: 'remove',
-                });
-            } else if (tweet.type === TweetType.QUOTE) {
-                this.quote_job_service.queueQuoteNotification({
-                    quote_tweet_id: tweet.tweet_id,
-                    quote_to: user_id,
-                    quoted_by: user_id,
-                    action: 'remove',
-                });
-            }
+            await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id);
 
             await this.tweet_repository.delete({ tweet_id });
         } catch (error) {
@@ -910,6 +896,60 @@ export class TweetsService {
     }
 
     /***************************************Helper Methods***************************************/
+    private async queueRepostAndQuoteDeleteJobs(
+        tweet: Tweet,
+        type: TweetType,
+        user_id: string
+    ): Promise<void> {
+        try {
+            if (type === TweetType.REPLY) {
+                const tweet_reply = await this.tweet_reply_repository.findOne({
+                    where: { reply_tweet_id: tweet.tweet_id },
+                });
+
+                if (tweet_reply?.original_tweet_id) {
+                    const original_tweet = await this.tweet_repository.findOne({
+                        where: { tweet_id: tweet_reply.original_tweet_id },
+                        select: ['user_id'],
+                    });
+                    const parent_owner_id = original_tweet?.user_id || null;
+
+                    if (!parent_owner_id) return;
+
+                    this.reply_job_service.queueReplyNotification({
+                        reply_tweet_id: tweet.tweet_id,
+                        reply_to: parent_owner_id || user_id,
+                        replied_by: user_id,
+                        action: 'remove',
+                    });
+                }
+            } else if (type === TweetType.QUOTE) {
+                const tweet_quote = await this.tweet_quote_repository.findOne({
+                    where: { quote_tweet_id: tweet.tweet_id },
+                });
+
+                if (tweet_quote?.original_tweet_id) {
+                    const original_tweet = await this.tweet_repository.findOne({
+                        where: { tweet_id: tweet_quote.original_tweet_id },
+                        select: ['user_id'],
+                    });
+                    const parent_owner_id = original_tweet?.user_id || null;
+
+                    if (!parent_owner_id) return;
+
+                    this.quote_job_service.queueQuoteNotification({
+                        quote_tweet_id: tweet.tweet_id,
+                        quote_to: parent_owner_id,
+                        quoted_by: user_id,
+                        action: 'remove',
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching parent tweet owner:', error);
+        }
+    }
+
     private async getTweetWithUserById(
         tweet_id: string,
         current_user_id?: string,

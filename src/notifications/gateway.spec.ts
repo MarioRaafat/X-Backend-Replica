@@ -120,10 +120,35 @@ describe('NotificationsGateway', () => {
     });
 
     describe('onMarkSeen', () => {
-        it('should return "Hello"', () => {
-            const result = gateway.onMarkSeen({}, {});
+        it('should clear newest_count and return success', async () => {
+            const mock_client = {
+                data: {
+                    user: {
+                        id: 'user123',
+                    },
+                },
+            };
 
-            expect(result).toBe('Hello');
+            const mock_service = {
+                clearNewestCount: jest.fn().mockResolvedValue(undefined),
+            };
+
+            gateway.setNotificationsService(mock_service);
+
+            const result = await gateway.onMarkSeen(mock_client as any, {});
+
+            expect(result).toEqual({ success: true });
+            expect(mock_service.clearNewestCount).toHaveBeenCalledWith('user123');
+        });
+
+        it('should return error if user not authenticated', async () => {
+            const mock_client = {
+                data: {},
+            };
+
+            const result = await gateway.onMarkSeen(mock_client as any, {});
+
+            expect(result).toEqual({ success: false, message: 'User not authenticated' });
         });
     });
 

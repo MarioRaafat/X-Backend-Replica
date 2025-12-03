@@ -24,13 +24,25 @@ export class LikeProcessor {
     @Process(JOB_NAMES.NOTIFICATION.LIKE)
     async handleSendLikeNotification(job: Job<LikeBackGroundNotificationJobDTO>) {
         try {
-            const { like_to, liked_by, tweet, action } = job.data;
+            const { like_to, liked_by, tweet, action, tweet_id } = job.data;
 
             if (action === 'remove') {
-                this.notificationsService.sendNotificationOnly(NotificationType.LIKE, like_to, {
-                    ...job.data,
-                    liked_by,
-                });
+                // Remove the notification from MongoDB
+                let was_deleted = false;
+                if (tweet_id) {
+                    was_deleted = await this.notificationsService.removeLikeNotification(
+                        like_to,
+                        tweet_id,
+                        liked_by
+                    );
+                }
+
+                if (was_deleted) {
+                    this.notificationsService.sendNotificationOnly(NotificationType.LIKE, like_to, {
+                        ...job.data,
+                        liked_by,
+                    });
+                }
             } else {
                 const liker = await this.user_repository.findOne({
                     where: { id: liked_by },

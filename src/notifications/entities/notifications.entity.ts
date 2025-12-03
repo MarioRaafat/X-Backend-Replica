@@ -11,7 +11,7 @@ export class Notification extends Document {
     notifications: BaseNotificationEntity[];
 
     @Prop({ type: Number, name: 'newest_date', default: Date.now() })
-    newestCount: number;
+    newest_count: number;
 }
 
 export const NotificationSchema = SchemaFactory.createForClass(Notification);

@@ -8,6 +8,7 @@ import { User } from 'src/user/entities';
 import { Repository } from 'typeorm';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 import { Tweet } from 'src/tweets/entities';
+import { TweetQuote } from 'src/tweets/entities/tweet-quote.entity';
 import { QuoteBackGroundNotificationJobDTO } from './quote.dto';
 import { plainToInstance } from 'class-transformer';
 import { TweetQuoteResponseDTO } from 'src/tweets/dto/tweet-quote-reponse';
@@ -20,7 +21,10 @@ export class QuoteProcessor {
 
     constructor(
         private readonly notificationsService: NotificationsService,
-        @InjectRepository(User) private readonly user_repository: Repository<User>
+        @InjectRepository(User) private readonly user_repository: Repository<User>,
+        @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>,
+        @InjectRepository(TweetQuote)
+        private readonly tweet_quote_repository: Repository<TweetQuote>
     ) {}
 
     @Process(JOB_NAMES.NOTIFICATION.QUOTE)
@@ -30,10 +34,25 @@ export class QuoteProcessor {
                 job.data;
 
             if (action === 'remove') {
-                this.notificationsService.sendNotificationOnly(NotificationType.QUOTE, quote_to, {
-                    ...job.data,
-                    quoted_by,
-                });
+                let was_deleted = false;
+                if (quote_to && quote_tweet_id) {
+                    was_deleted = await this.notificationsService.removeQuoteNotification(
+                        quote_to,
+                        quote_tweet_id,
+                        quoted_by
+                    );
+                }
+
+                if (was_deleted) {
+                    this.notificationsService.sendNotificationOnly(
+                        NotificationType.QUOTE,
+                        quote_to,
+                        {
+                            ...job.data,
+                            quoted_by,
+                        }
+                    );
+                }
             } else {
                 const quoter = await this.user_repository.findOne({
                     where: { id: quoted_by },
@@ -83,6 +102,7 @@ export class QuoteProcessor {
                     quote_to,
                     notification_entity,
                     {
+                        type: NotificationType.QUOTE,
                         quoted_by: quoter,
                         quote,
                     }
