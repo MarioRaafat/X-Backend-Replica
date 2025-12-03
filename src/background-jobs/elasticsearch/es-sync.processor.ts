@@ -48,4 +48,25 @@ export class EsSyncProcessor {
             throw error;
         }
     }
+
+    @Process(JOB_NAMES.ELASTICSEARCH.DELETE_TWEET)
+    async handleDeleteTweet(job: Job<ElasticsearchSyncTweetDto>) {
+        const { tweet_id } = job.data;
+
+        try {
+            await this.elasticsearch_service.delete({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: tweet_id,
+            });
+
+            this.logger.log(`Deleted tweet ${tweet_id} from Elasticsearch`);
+        } catch (error) {
+            if (error.meta?.statusCode === 404) {
+                this.logger.warn(`Tweet ${tweet_id} not found in ES, skipping delete`);
+            } else {
+                this.logger.error(`Failed to delete tweet ${tweet_id}:`, error);
+                throw error;
+            }
+        }
+    }
 }

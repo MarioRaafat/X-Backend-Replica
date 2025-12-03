@@ -18,7 +18,6 @@ import { ReplyProcessor } from './notifications/reply/reply.processor';
 import { LikeJobService } from './notifications/like/like.service';
 import { LikeProcessor } from './notifications/like/like.processor';
 import { EsIndexTweetJobService } from './elasticsearch/es-index-tweet.service';
-import { EsUpdateTweetJobService } from './elasticsearch/es-update-tweet.service';
 import { EsDeleteTweetJobService } from './elasticsearch/es-delete-tweet.service';
 import { EsSyncProcessor } from './elasticsearch/es-sync.processor';
 import { Tweet } from 'src/tweets/entities';
@@ -89,7 +88,6 @@ import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
         LikeJobService,
         LikeProcessor,
         EsIndexTweetJobService,
-        EsUpdateTweetJobService,
         EsDeleteTweetJobService,
         EsSyncProcessor,
     ],
@@ -100,7 +98,6 @@ import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
         ReplyJobService,
         LikeJobService,
         EsIndexTweetJobService,
-        EsUpdateTweetJobService,
         EsDeleteTweetJobService,
     ],
 })

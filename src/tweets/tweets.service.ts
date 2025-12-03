@@ -51,7 +51,6 @@ import { categorize_prompt, TOPICS } from './constants';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
 import { EsIndexTweetJobService } from 'src/background-jobs/elasticsearch/es-index-tweet.service';
-import { EsUpdateTweetJobService } from 'src/background-jobs/elasticsearch/es-update-tweet.service';
 import { EsDeleteTweetJobService } from 'src/background-jobs/elasticsearch/es-delete-tweet.service';
 
 @Injectable()
@@ -80,7 +79,6 @@ export class TweetsService {
         private readonly reply_job_service: ReplyJobService,
         private readonly like_job_service: LikeJobService,
         private readonly es_index_tweet_service: EsIndexTweetJobService,
-        private readonly es_update_tweet_service: EsUpdateTweetJobService,
         private readonly es_delete_tweet_service: EsDeleteTweetJobService
     ) {}
 
