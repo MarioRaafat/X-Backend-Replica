@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { User } from 'src/user/entities';
-import { UserRepository } from 'src/user/user.repository';
 import { ELASTICSEARCH_INDICES } from '../schemas';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class UserSeederService {
@@ -10,7 +11,8 @@ export class UserSeederService {
     private readonly BATCH_SIZE = 1000;
 
     constructor(
-        private readonly user_repository: UserRepository,
+        @InjectRepository(User)
+        private user_repository: Repository<User>,
         private readonly elasticsearch_service: ElasticsearchService
     ) {}
 

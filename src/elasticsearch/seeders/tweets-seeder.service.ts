@@ -1,8 +1,9 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { Tweet } from 'src/tweets/entities';
-import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { ELASTICSEARCH_INDICES } from '../schemas';
+import { Repository } from 'typeorm';
+import { InjectRepository } from '@nestjs/typeorm';
 
 @Injectable()
 export class TweetSeederService {
@@ -10,7 +11,8 @@ export class TweetSeederService {
     private readonly BATCH_SIZE = 1000;
 
     constructor(
-        private readonly tweets_repository: TweetsRepository,
+        @InjectRepository(Tweet)
+        private tweets_repository: Repository<Tweet>,
         private readonly elasticsearch_service: ElasticsearchService
     ) {}
 
@@ -66,7 +68,7 @@ export class TweetSeederService {
         }
     }
 
-    private transformTweetForES(tweet: Tweet) {
+    public transformTweetForES(tweet: Tweet) {
         return {
             tweet_id: tweet.tweet_id,
             content: tweet.content,

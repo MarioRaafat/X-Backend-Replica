@@ -17,6 +17,12 @@ import { ReplyJobService } from './notifications/reply/reply.service';
 import { ReplyProcessor } from './notifications/reply/reply.processor';
 import { LikeJobService } from './notifications/like/like.service';
 import { LikeProcessor } from './notifications/like/like.processor';
+import { EsIndexTweetJobService } from './elasticsearch/es-index-tweet.service';
+import { EsUpdateTweetJobService } from './elasticsearch/es-update-tweet.service';
+import { EsDeleteTweetJobService } from './elasticsearch/es-delete-tweet.service';
+import { EsSyncProcessor } from './elasticsearch/es-sync.processor';
+import { Tweet } from 'src/tweets/entities';
+import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
 
 @Module({
     imports: [
@@ -56,9 +62,21 @@ import { LikeProcessor } from './notifications/like/like.processor';
                 },
             },
         }),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.ELASTICSEARCH,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 2000,
+                },
+            },
+        }),
         TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([Tweet]),
         CommunicationModule,
         NotificationsModule,
+        ElasticsearchModule,
     ],
     controllers: [EmailJobsController],
     providers: [
@@ -70,7 +88,20 @@ import { LikeProcessor } from './notifications/like/like.processor';
         ReplyProcessor,
         LikeJobService,
         LikeProcessor,
+        EsIndexTweetJobService,
+        EsUpdateTweetJobService,
+        EsDeleteTweetJobService,
+        EsSyncProcessor,
     ],
-    exports: [EmailJobsService, FollowJobService, BullModule, ReplyJobService, LikeJobService],
+    exports: [
+        EmailJobsService,
+        FollowJobService,
+        BullModule,
+        ReplyJobService,
+        LikeJobService,
+        EsIndexTweetJobService,
+        EsUpdateTweetJobService,
+        EsDeleteTweetJobService,
+    ],
 })
 export class BackgroundJobsModule {}
