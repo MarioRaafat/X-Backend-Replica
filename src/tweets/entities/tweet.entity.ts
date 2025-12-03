@@ -58,6 +58,10 @@ export class Tweet {
     @Column({ name: 'num_bookmarks', type: 'int', default: 0 })
     num_bookmarks: number;
 
+    @Column({ name: 'hotness_score', type: 'double precision', default: 0 })
+    hotness_score: number;
+
+
     @CreateDateColumn({ type: 'timestamp' })
     created_at: Date;
 
