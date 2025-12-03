@@ -24,6 +24,8 @@ export class SearchService {
     ): Promise<UserListResponseDto> {
         const { query } = query_dto;
 
+        const { cursor, limit = 20 } = query_dto;
+
         if (!query || query.trim().length === 0) {
             return {
                 data: [],
@@ -35,9 +37,6 @@ export class SearchService {
         }
 
         try {
-            const from = 0;
-            const size = 10;
-
             const search_body: any = {
                 query: {
                     bool: {
@@ -45,10 +44,17 @@ export class SearchService {
                         filter: [],
                     },
                 },
-                from,
-                size,
-                sort: [{ _score: { order: 'desc' } }, { follower_count: { order: 'desc' } }],
+                size: limit + 1,
+                sort: [
+                    { _score: { order: 'desc' } },
+                    { followers: { order: 'desc' } },
+                    { user_id: { order: 'desc' } },
+                ],
             };
+
+            if (cursor) {
+                search_body.search_after = this.decodeCursor(cursor);
+            }
 
             search_body.query.bool.must.push({
                 multi_match: {
@@ -67,21 +73,24 @@ export class SearchService {
                 },
             });
 
-            if (location) {
-                const user = await this.user_repository.findById(current_user_id);
-                if (user) {
-                    search_body.query.bool.filter.push({
-                        term: { country: user.country },
-                    });
-                }
-            }
-
             const result = await this.elasticsearch_service.search({
                 index: 'users',
                 body: search_body,
             });
 
-            const users = result.hits.hits.map((hit: any) => ({
+            const hits = result.hits.hits;
+
+            const has_more = hits.length > limit;
+            const items = has_more ? hits.slice(0, limit) : hits;
+
+            let next_cursor: string | null = null;
+
+            if (has_more) {
+                const last_hit = hits[limit - 1];
+                next_cursor = this.encodeCursor(last_hit.sort) ?? null;
+            }
+
+            const users = items.map((hit: any) => ({
                 user_id: hit._source.user_id,
                 username: hit._source.username,
                 name: hit._source.name,
@@ -91,16 +100,13 @@ export class SearchService {
                 following: hit._source.followers,
                 verified: hit._source.verified,
                 avatar_url: hit._source.avatar_url,
-                score: hit._score,
             }));
-
-            console.log(users);
 
             return {
                 data: users,
                 pagination: {
-                    next_cursor: 'blah',
-                    has_more: users.length === 6,
+                    next_cursor,
+                    has_more,
                 },
             };
         } catch (error) {
@@ -248,7 +254,6 @@ export class SearchService {
                 next_cursor = this.encodeCursor(last_hit.sort) ?? null;
             }
 
-            console.log(result.hits.hits);
             const tweets = items.map(this.mapTweet);
 
             return {
