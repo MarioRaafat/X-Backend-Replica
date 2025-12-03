@@ -17,6 +17,7 @@ export const ERROR_MESSAGES = {
     PHONE_NUMBER_NOT_FOUND: 'Phone number not found',
     USERNAME_NOT_FOUND: 'Username not found',
     USERNAME_ALREADY_TAKEN: 'Username is already taken',
+    ACCOUNT_HAS_NO_PASSWORD: 'Account does not have a password set',
 
     // OAuth completion
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
@@ -187,6 +188,7 @@ export const SUCCESS_MESSAGES = {
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
     LANGUAGE_CHANGED: 'Language changed successfully',
     USERNAME_RECOMMENDATIONS_RETRIEVED: 'Username recommendations retrieved successfully',
+    USER_RELATIONS_RETRIEVED: 'User relations counts retrieved successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',

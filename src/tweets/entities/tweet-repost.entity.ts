@@ -21,7 +21,7 @@ export class TweetRepost {
     @PrimaryColumn({ type: 'uuid' })
     tweet_id: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })

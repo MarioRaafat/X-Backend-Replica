@@ -1086,9 +1086,9 @@ export class AuthService {
                 confirm_password_dto.password,
                 user.password
             );
-            if (!is_password_valid) throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
+            if (!is_password_valid) throw new ForbiddenException(ERROR_MESSAGES.WRONG_PASSWORD);
         } else {
-            throw new UnauthorizedException(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED);
+            throw new ConflictException(ERROR_MESSAGES.ACCOUNT_HAS_NO_PASSWORD);
         }
 
         return { valid: true };
