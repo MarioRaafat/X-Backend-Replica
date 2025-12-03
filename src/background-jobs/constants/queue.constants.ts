@@ -24,8 +24,8 @@ export const JOB_NAMES = {
     ELASTICSEARCH: {
         INDEX_TWEET: 'index_tweet',
         DELETE_TWEET: 'delete_tweet',
-
-        UPDATE_TWEETS_AUTHOR_INFO: 'update_tweets_author_info',
+        UPDATE_USER: 'update_user',
+        DELETE_USER: 'delete_user',
     },
 } as const;
 

@@ -22,6 +22,8 @@ import { EsDeleteTweetJobService } from './elasticsearch/es-delete-tweet.service
 import { EsSyncProcessor } from './elasticsearch/es-sync.processor';
 import { Tweet } from 'src/tweets/entities';
 import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
+import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
+import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
 
 @Module({
     imports: [
@@ -90,6 +92,8 @@ import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
         EsIndexTweetJobService,
         EsDeleteTweetJobService,
         EsSyncProcessor,
+        EsUpdateUserJobService,
+        EsDeleteUserJobService,
     ],
     exports: [
         EmailJobsService,
@@ -99,6 +103,8 @@ import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
         LikeJobService,
         EsIndexTweetJobService,
         EsDeleteTweetJobService,
+        EsUpdateUserJobService,
+        EsDeleteUserJobService,
     ],
 })
 export class BackgroundJobsModule {}
