@@ -304,6 +304,7 @@ export class SearchService {
 
             images: s.images ?? [],
             videos: s.videos ?? [],
+            parent_id: s.parent_id,
         };
     }
 

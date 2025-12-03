@@ -5,7 +5,6 @@ import { JOB_NAMES, QUEUE_NAMES } from 'src/background-jobs/constants/queue.cons
 import { EsSyncTweetDto } from './dtos/es-sync-tweet.dto';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
-import { TweetSeederService } from 'src/elasticsearch/seeders/tweets-seeder.service';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Tweet } from 'src/tweets/entities';
 import { Repository } from 'typeorm';
@@ -22,13 +21,12 @@ export class EsSyncProcessor {
         private tweets_repository: Repository<Tweet>,
         @InjectRepository(User)
         private user_repository: Repository<User>,
-        private readonly elasticsearch_service: ElasticsearchService,
-        private readonly tweets_seeder_service: TweetSeederService
+        private readonly elasticsearch_service: ElasticsearchService
     ) {}
 
     @Process(JOB_NAMES.ELASTICSEARCH.INDEX_TWEET)
     async handleIndexTweet(job: Job<EsSyncTweetDto>): Promise<void> {
-        const { tweet_id } = job.data;
+        const { tweet_id, parent_id, conversation_id } = job.data;
 
         try {
             const tweet = await this.tweets_repository.findOne({
@@ -44,7 +42,7 @@ export class EsSyncProcessor {
             await this.elasticsearch_service.index({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 id: tweet_id,
-                document: this.tweets_seeder_service.transformTweetForES(tweet),
+                document: this.transformTweetForES(tweet, parent_id, conversation_id),
             });
 
             this.logger.log(`Indexed tweet ${tweet_id} to Elasticsearch`);
@@ -204,5 +202,43 @@ export class EsSyncProcessor {
             );
             throw error;
         }
+    }
+
+    private transformTweetForES(
+        tweet: Tweet,
+        parent_id: string | undefined,
+        conversation_id: string | undefined
+    ) {
+        const base_transform = {
+            tweet_id: tweet.tweet_id,
+            content: tweet.content,
+            created_at: tweet.created_at,
+            updated_at: tweet.updated_at,
+            type: tweet.type,
+            num_likes: tweet.num_likes || 0,
+            num_reposts: tweet.num_reposts || 0,
+            num_views: tweet.num_views || 0,
+            num_replies: tweet.num_replies || 0,
+            num_quotes: tweet.num_quotes || 0,
+            author_id: tweet.user_id,
+            name: tweet.user?.name,
+            username: tweet.user?.username,
+            followers: tweet.user?.followers || 0,
+            following: tweet.user?.following || 0,
+            images: tweet.images || [],
+            videos: tweet.videos || [],
+            bio: tweet.user?.bio,
+            avatar_url: tweet.user?.avatar_url,
+        };
+
+        if (parent_id) {
+            base_transform['parent_id'] = parent_id;
+        }
+
+        if (conversation_id) {
+            base_transform['conversation_id'] = conversation_id;
+        }
+
+        return base_transform;
     }
 }

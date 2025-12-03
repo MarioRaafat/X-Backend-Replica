@@ -477,7 +477,8 @@ export class TweetsService {
             await query_runner.commitTransaction();
 
             await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id,
+                tweet_id: saved_quote_tweet.tweet_id,
+                parent_id: saved_quote_tweet.tweet_id,
             });
 
             return plainToInstance(TweetQuoteResponseDTO, {
@@ -509,10 +510,6 @@ export class TweetsService {
             await query_runner.manager.insert(TweetRepost, new_repost);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
-
-            await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id,
-            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -551,10 +548,6 @@ export class TweetsService {
             );
 
             await query_runner.commitTransaction();
-
-            await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id,
-            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             console.error(error);
@@ -637,7 +630,9 @@ export class TweetsService {
             returned_reply.parent_tweet_id = original_tweet_id;
 
             await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id: original_tweet_id,
+                tweet_id: saved_reply_tweet.tweet_id,
+                parent_id: original_tweet_id,
+                conversation_id: original_reply?.conversation_id || original_tweet_id,
             });
 
             return returned_reply;

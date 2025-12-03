@@ -111,6 +111,12 @@ export const tweets_index_config = {
                 type: 'keyword',
                 index: false,
             },
+            parent_id: {
+                type: 'keyword',
+            },
+            conversation_id: {
+                type: 'keyword',
+            },
         },
     },
 };

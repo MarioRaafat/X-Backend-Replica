@@ -2,8 +2,9 @@ import { Injectable, Logger } from '@nestjs/common';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { Tweet } from 'src/tweets/entities';
 import { ELASTICSEARCH_INDICES } from '../schemas';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
 
 @Injectable()
 export class TweetSeederService {
@@ -13,7 +14,8 @@ export class TweetSeederService {
     constructor(
         @InjectRepository(Tweet)
         private tweets_repository: Repository<Tweet>,
-        private readonly elasticsearch_service: ElasticsearchService
+        private readonly elasticsearch_service: ElasticsearchService,
+        private readonly data_source: DataSource
     ) {}
 
     async seedTweets(): Promise<void> {
@@ -34,7 +36,35 @@ export class TweetSeederService {
 
             if (tweets.length === 0) break;
 
-            await this.bulkIndexTweets(tweets);
+            const tweet_ids = tweets.map((t) => t.tweet_id);
+
+            const quotes = await this.data_source.query(
+                `SELECT quote_tweet_id, original_tweet_id 
+             FROM tweet_quotes 
+             WHERE quote_tweet_id = ANY($1)`,
+                [tweet_ids]
+            );
+
+            const replies = await this.data_source.query(
+                `SELECT reply_tweet_id, original_tweet_id, conversation_id 
+             FROM tweet_replies 
+             WHERE reply_tweet_id = ANY($1)`,
+                [tweet_ids]
+            );
+
+            const quotes_map = new Map(quotes.map((q) => [q.quote_tweet_id, q.original_tweet_id]));
+
+            const replies_map = new Map(
+                replies.map((r) => [
+                    r.reply_tweet_id,
+                    {
+                        parent_id: r.original_tweet_id,
+                        conversation_id: r.conversation_id,
+                    },
+                ])
+            );
+
+            await this.bulkIndexTweets(tweets, quotes_map, replies_map);
 
             indexed += tweets.length;
             offset += this.BATCH_SIZE;
@@ -45,10 +75,14 @@ export class TweetSeederService {
         this.logger.log('Tweet indexing completed');
     }
 
-    private async bulkIndexTweets(tweets: Tweet[]): Promise<void> {
+    private async bulkIndexTweets(
+        tweets: Tweet[],
+        quotes_map: any,
+        replies_map: any
+    ): Promise<void> {
         const operations = tweets.flatMap((tweet) => [
             { index: { _index: ELASTICSEARCH_INDICES.TWEETS, _id: tweet.tweet_id } },
-            this.transformTweetForES(tweet),
+            this.transformTweetForES(tweet, quotes_map, replies_map),
         ]);
 
         if (operations.length === 0) return;
@@ -68,8 +102,8 @@ export class TweetSeederService {
         }
     }
 
-    public transformTweetForES(tweet: Tweet) {
-        return {
+    private transformTweetForES(tweet: Tweet, quotes_map: any, replies_map: any) {
+        const base_transform = {
             tweet_id: tweet.tweet_id,
             content: tweet.content,
             created_at: tweet.created_at,
@@ -90,5 +124,17 @@ export class TweetSeederService {
             bio: tweet.user?.bio,
             avatar_url: tweet.user?.avatar_url,
         };
+
+        if (tweet.type === TweetType.QUOTE && quotes_map.has(tweet.tweet_id)) {
+            base_transform['parent_id'] = quotes_map.get(tweet.tweet_id);
+        }
+
+        if (tweet.type === TweetType.REPLY && replies_map.has(tweet.tweet_id)) {
+            const reply_data = replies_map.get(tweet.tweet_id);
+            base_transform['parent_id'] = reply_data.parent_id;
+            base_transform['conversation_id'] = reply_data.conversation_id;
+        }
+
+        return base_transform;
     }
 }
