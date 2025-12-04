@@ -27,49 +27,69 @@ export class ExploreService {
     async getTrending(category: string = '', country: string = 'global'): Promise<string[]> {
         return [];
     }
-
-    async getCategoryTrending(category_id: string, current_user_id?: string) {
-        const [trending_items, category] = await Promise.all([
-            this.getTrendingWithScores(category_id, 20),
-            this.category_repository.findOne({ where: { id: parseInt(category_id) } }),
-        ]);
+    async getWhoToFollow() {
+        return [];
+    }
+    async getCategoryTrending(
+        category_id: string,
+        current_user_id?: string,
+        page: number = 1,
+        limit: number = 20
+    ) {
+        const category = await this.category_repository.findOne({
+            where: { id: parseInt(category_id) },
+        });
 
         if (!category) {
-            return [];
+            return {
+                category: null,
+                tweets: [],
+                page,
+                limit,
+                hasMore: false,
+            };
         }
-        if (trending_items.length === 0) return [];
 
-        const tweet_ids = trending_items.map((item) => item.tweet_id);
-        const tweets = await this.tweets_service.getTweetsByIds(tweet_ids, current_user_id);
+        const offset = (page - 1) * limit;
+
+        // Fetch limit + 1 to check if there are more results
+        const tweet_ids = await this.getTrendingWithOffset(category_id, offset, limit + 1);
+
+        const hasMore = tweet_ids.length > limit;
+        const ids_to_return = hasMore ? tweet_ids.slice(0, limit) : tweet_ids;
+
+        if (ids_to_return.length === 0) {
+            return {
+                category: { id: category.id, name: category.name },
+                tweets: [],
+                page,
+                limit,
+                hasMore: false,
+            };
+        }
+
+        const tweets = await this.tweets_service.getTweetsByIds(ids_to_return, current_user_id);
         const tweets_map = new Map(tweets.map((t) => [t.tweet_id, t]));
 
         return {
             category: { id: category.id, name: category.name },
-            tweets: trending_items
-                .map((item) => tweets_map.get(item.tweet_id))
+            tweets: ids_to_return
+                .map((tweet_id) => tweets_map.get(tweet_id))
                 .filter((t) => t !== undefined),
+            pagination: {
+                page,
+                hasMore,
+            },
         };
     }
 
-    async getTrendingWithScores(
-        category_id: string = 'global',
-        limit: number = 50
-    ): Promise<Array<{ tweet_id: string; score: number }>> {
+    async getTrendingWithOffset(
+        category_id: string,
+        offset: number,
+        limit: number
+    ): Promise<string[]> {
         const redis_key = `trending:category:${category_id}`;
-        const results = await this.redis_service.zrevrangeWithScores(redis_key, 0, limit - 1);
-
-        const trending: Array<{ tweet_id: string; score: number }> = [];
-        for (let i = 0; i < results.length; i += 2) {
-            trending.push({
-                tweet_id: results[i],
-                score: parseFloat(results[i + 1]),
-            });
-        }
-        return trending;
-    }
-
-    async getWhoToFollow() {
-        return [];
+        return await this.redis_service.zrevrange(redis_key, offset, limit);
     }
 
     async getForYouPosts(current_user_id?: string) {

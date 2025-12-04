@@ -562,7 +562,7 @@ export const category_wise_trending_swagger = {
     operation: {
         summary: 'Get trending posts for a specific category',
         description:
-            'Retrieve trending posts for a specific category based on the category ID. Returns a list of tweets sorted by trending score.',
+            'Retrieve trending posts for a specific category based on the category ID. Returns a list of tweets sorted by trending score with cursor-based pagination.',
     },
     params: {
         category_id: {
@@ -570,6 +570,22 @@ export const category_wise_trending_swagger = {
             required: true,
             description: 'The ID of the category to fetch trending posts for',
             example: '1',
+            schema: { type: 'string' },
+        },
+    },
+    queries: {
+        page: {
+            name: 'page',
+            required: false,
+            description: 'Page number for pagination (default: 1)',
+            example: '1',
+            schema: { type: 'string' },
+        },
+        limit: {
+            name: 'limit',
+            required: false,
+            description: 'Number of tweets to return per page (default: 20, max: 100)',
+            example: '20',
             schema: { type: 'string' },
         },
     },
@@ -617,7 +633,10 @@ export const category_wise_trending_swagger = {
                             },
                         },
                     ],
-                    count: 20,
+                    pagination: {
+                        page: 1,
+                        hasMore: true,
+                    },
                     message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED,
                 },
             },

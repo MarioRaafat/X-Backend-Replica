@@ -64,24 +64,26 @@ export class RedisService {
     async zadd(key: string, score: number, member: string): Promise<number> {
         return this.redis_client.zadd(key, score, member);
     }
-    //get range from sorted set
-    async zrevrange(key: string, start: number, stop: number): Promise<string[]> {
-        return this.redis_client.zrevrange(key, start, stop);
+    //get range from sorted set with offset and limit
+    async zrevrange(key: string, offset: number, limit: number): Promise<string[]> {
+        const stop = offset + limit - 1;
+        return this.redis_client.zrevrange(key, offset, stop);
     }
 
-    //get with scores (in case needed)
-    async zrevrangeWithScores(key: string, start: number, stop: number): Promise<Array<string>> {
-        return this.redis_client.zrevrange(key, start, stop, 'WITHSCORES');
-    }
     //set range the one ranked stop + 1 will be excluded
     async zremrangebyrank(key: string, start: number, stop: number): Promise<number> {
         return this.redis_client.zremrangebyrank(key, start, stop);
     }
 
-    async zrevrangeMultiple(keys: string[], start: number, stop: number): Promise<Array<string[]>> {
+    async zrevrangeMultiple(
+        keys: string[],
+        offset: number,
+        limit: number
+    ): Promise<Array<string[]>> {
         const pipeline = this.redis_client.pipeline();
+        const stop = offset + limit - 1;
         keys.forEach((key) => {
-            pipeline.zrevrange(key, start, stop, 'WITHSCORES');
+            pipeline.zrevrange(key, offset, stop);
         });
 
         const results = await pipeline.exec();

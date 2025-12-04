@@ -57,12 +57,23 @@ export class ExploreController {
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
     @ApiParam(category_wise_trending_swagger.params.category_id)
+    @ApiQuery(category_wise_trending_swagger.queries.page)
+    @ApiQuery(category_wise_trending_swagger.queries.limit)
     @Get('category/:category_id')
     async getCategoryWiseTrending(
         @Param('category_id') category_id: string,
-        @GetUserId() user_id: string
+        @GetUserId() user_id: string,
+        @Query('page') page?: string,
+        @Query('limit') limit?: string
     ) {
-        return await this.explore_service.getCategoryTrending(category_id, user_id);
+        const parsedPage = page ? parseInt(page, 10) : 1;
+        const parsedLimit = limit ? parseInt(limit, 10) : 20;
+        return await this.explore_service.getCategoryTrending(
+            category_id,
+            user_id,
+            parsedPage,
+            parsedLimit
+        );
     }
 
     // @ApiOperation(search_latest_posts.operation)
