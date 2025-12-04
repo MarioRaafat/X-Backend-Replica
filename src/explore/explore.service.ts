@@ -43,9 +43,12 @@ export class ExploreService {
         const tweets = await this.tweets_service.getTweetsByIds(tweet_ids, current_user_id);
         const tweets_map = new Map(tweets.map((t) => [t.tweet_id, t]));
 
-        return trending_items
-            .map((item) => tweets_map.get(item.tweet_id))
-            .filter((t) => t !== undefined);
+        return {
+            category: { id: category.id, name: category.name },
+            tweets: trending_items
+                .map((item) => tweets_map.get(item.tweet_id))
+                .filter((t) => t !== undefined),
+        };
     }
 
     async getTrendingWithScores(
