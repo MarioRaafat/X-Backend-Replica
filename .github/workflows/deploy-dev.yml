@@ -103,8 +103,8 @@ jobs:
             echo "Deploying version: $IMG_TAG"
 
             echo "🔄 Pulling new image and restarting app container..."
-            IMG_TAG=$IMG_TAG docker compose pull api api-local
-            IMG_TAG=$IMG_TAG docker compose up -d api api-local
+            IMG_TAG=$IMG_TAG docker compose pull api api-local api-test
+            IMG_TAG=$IMG_TAG docker compose up -d api api-local api-test
 
             echo "⏳ Waiting for health check..."
             sleep 10
@@ -113,10 +113,60 @@ jobs:
             
             if [ "$HTTP_CODE" = "200" ]; then
               echo "✅ Dev deployment successful for version $IMG_TAG"
+              
+              echo "🔄 Running migrations for all services..."
+              MIGRATION_FAILED=0
+              
+              echo "📦 Running migration for api..."
+              if docker compose exec -T api npm run migration:run 2>&1 | tee /tmp/api-migration.log; then
+                if grep -q "No migrations are pending" /tmp/api-migration.log || grep -q "No pending migrations" /tmp/api-migration.log; then
+                  echo "ℹ️ No pending migrations for api"
+                else
+                  echo "✅ Migration for api completed successfully"
+                fi
+              else
+                echo "❌ Migration for api failed!"
+                MIGRATION_FAILED=1
+              fi
+              
+              echo "📦 Running migration for api-local..."
+              if docker compose exec -T api-local npm run migration:run 2>&1 | tee /tmp/api-local-migration.log; then
+                if grep -q "No migrations are pending" /tmp/api-local-migration.log || grep -q "No pending migrations" /tmp/api-local-migration.log; then
+                  echo "ℹ️ No pending migrations for api-local"
+                else
+                  echo "✅ Migration for api-local completed successfully"
+                fi
+              else
+                echo "❌ Migration for api-local failed!"
+                MIGRATION_FAILED=1
+              fi
+              
+              echo "📦 Running migration for api-test..."
+              if docker compose exec -T api-test npm run migration:run 2>&1 | tee /tmp/api-test-migration.log; then
+                if grep -q "No migrations are pending" /tmp/api-test-migration.log || grep -q "No pending migrations" /tmp/api-test-migration.log; then
+                  echo "ℹ️ No pending migrations for api-test"
+                else
+                  echo "✅ Migration for api-test completed successfully"
+                fi
+              else
+                echo "❌ Migration for api-test failed!"
+                MIGRATION_FAILED=1
+              fi
+              
+              if [ "$MIGRATION_FAILED" = "1" ]; then
+                echo "❌ One or more migrations failed! Rolling back..."
+                if [ "$CURRENT_TAG" != "unknown" ]; then
+                  IMG_TAG=$CURRENT_TAG docker compose up -d api api-local api-test
+                  echo "🔙 Rolled back to $CURRENT_TAG"
+                fi
+                exit 1
+              fi
+              
+              echo "✅ All migrations completed successfully"
             else
               echo "❌ Health check failed (HTTP $HTTP_CODE)! Rolling back app container..."
               if [ "$CURRENT_TAG" != "unknown" ]; then
-                IMG_TAG=$CURRENT_TAG docker compose up -d api api-local
+                IMG_TAG=$CURRENT_TAG docker compose up -d api api-local api-test
                 echo "🔙 Rolled back to $CURRENT_TAG"
               fi
               exit 1
