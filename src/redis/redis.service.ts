@@ -73,6 +73,21 @@ export class RedisService {
     ): Promise<string[]> {
         return this.redis_client.zrangebyscore(key, min, max);
     }
+    async zscore(key: string, member: string): Promise<string | null> {
+        return this.redis_client.zscore(key, member);
+    }
+    async zrevrange(
+        key: string,
+        start: number,
+        stop: number,
+        with_scores?: 'WITHSCORES'
+    ): Promise<string[]> {
+        if (with_scores) {
+            return this.redis_client.zrevrange(key, start, stop, with_scores);
+        }
+        return this.redis_client.zrevrange(key, start, stop);
+    }
+
     pipeline() {
         return this.redis_client.pipeline();
     }

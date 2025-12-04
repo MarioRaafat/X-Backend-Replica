@@ -20,6 +20,7 @@ import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { AzureStorageModule } from './azure-storage/azure-storage.module';
 import { MessagesModule } from './messages/messages.module';
 import { TrendModule } from './trend/trend.module';
+import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
     imports: [
@@ -46,6 +47,7 @@ import { TrendModule } from './trend/trend.module';
         AzureStorageModule,
         MessagesModule,
         TrendModule,
+        ScheduleModule.forRoot(),
     ],
     controllers: [AppController],
     providers: [AppService],
