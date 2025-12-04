@@ -19,7 +19,7 @@ import { getForyouTweetsQuery } from './queries/get-foryou-tweets.query';
 import { TweetCategory } from './entities/tweet-category.entity';
 
 @Injectable()
-export class TweetsRepository {
+export class TweetsRepository extends Repository<Tweet> {
     constructor(
         @InjectRepository(Tweet)
         private readonly tweet_repository: Repository<Tweet>,
@@ -34,7 +34,9 @@ export class TweetsRepository {
         private data_source: DataSource,
         @InjectRepository(UserPostsView)
         private user_posts_view_repository: Repository<UserPostsView>
-    ) {}
+    ) {
+        super(Tweet, data_source.createEntityManager());
+    }
     // Tweets
     // Replies
     // Quotes
@@ -55,11 +57,8 @@ export class TweetsRepository {
                 .where(
                     new Brackets((qb) =>
                         qb
+
                             .where(
-                                'tweet.tweet_author_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id)',
-                                { user_id }
-                            )
-                            .orWhere(
                                 'tweet.profile_user_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id)',
                                 { user_id }
                             )

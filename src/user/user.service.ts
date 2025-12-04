@@ -45,6 +45,9 @@ import { UserListResponseDto } from './dto/user-list-response.dto';
 import { UsernameService } from 'src/auth/username.service';
 import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
 import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
+import { EsUpdateUserJobService } from 'src/background-jobs/elasticsearch/es-update-user.service';
+import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-delete-user.service';
+import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
 import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
 
 @Injectable()
@@ -58,7 +61,10 @@ export class UserService {
         private readonly tweets_repository: TweetsRepository,
         private readonly pagination_service: PaginationService,
         private readonly username_service: UsernameService,
-        private readonly follow_job_service: FollowJobService
+        private readonly follow_job_service: FollowJobService,
+        private readonly es_update_user_job_service: EsUpdateUserJobService,
+        private readonly es_delete_user_job_service: EsDeleteUserJobService,
+        private readonly es_follow_job_service: EsFollowJobService
     ) {}
 
     async getUsersByIds(
@@ -118,6 +124,11 @@ export class UserService {
     }
 
     async getMe(user_id: string): Promise<UserProfileDto> {
+        const user = await this.user_repository.findOne({ where: { id: user_id } });
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const result = await this.user_repository.getMyProfile(user_id);
 
         return plainToInstance(UserProfileDto, result, {
@@ -347,6 +358,11 @@ export class UserService {
             followed_avatar_url: validation_result.avatar_url,
             follower_name: validation_result.name,
         });
+
+        await this.es_follow_job_service.queueEsFollow({
+            follower_id: current_user_id,
+            followed_id: target_user_id,
+        });
     }
 
     async unfollowUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -367,6 +383,11 @@ export class UserService {
             follower_id: current_user_id,
             followed_id: target_user_id,
             action: 'remove',
+        });
+
+        await this.es_follow_job_service.queueEsFollow({
+            follower_id: current_user_id,
+            followed_id: target_user_id,
         });
     }
 
@@ -598,6 +619,10 @@ export class UserService {
             }
         }
 
+        await this.es_update_user_job_service.queueUpdateUser({
+            user_id,
+        });
+
         return plainToInstance(UserProfileDto, updated_user, {
             excludeExtraneousValues: true,
         });
@@ -641,6 +666,10 @@ export class UserService {
                 console.warn('Failed to delete cover file:', error.message);
             }
         }
+
+        await this.es_delete_user_job_service.queueDeleteUser({
+            user_id: current_user_id,
+        });
     }
 
     async uploadAvatar(

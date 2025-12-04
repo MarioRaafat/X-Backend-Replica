@@ -25,7 +25,9 @@
         "migration:show": "typeorm-ts-node-commonjs migration:show -d src/databases/data-source.ts",
         "schema:log": "typeorm-ts-node-commonjs schema:log -d src/databases/data-source.ts",
         "prepare": "husky",
-        "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts"
+        "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts",
+        "es:seed": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-seed.ts",
+        "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts"
     },
     "lint-staged": {
         "*.ts": [
@@ -35,6 +37,7 @@
     },
     "dependencies": {
         "@azure/storage-blob": "^12.29.1",
+        "@elastic/elasticsearch": "^8.19.1",
         "@ffmpeg-installer/ffmpeg": "^1.1.0",
         "@nestjs-modules/ioredis": "^2.0.2",
         "@nestjs-modules/mailer": "^2.0.2",
@@ -43,6 +46,7 @@
         "@nestjs/common": "^11.0.1",
         "@nestjs/config": "^4.0.2",
         "@nestjs/core": "^11.0.1",
+        "@nestjs/elasticsearch": "^11.1.0",
         "@nestjs/jwt": "^11.0.0",
         "@nestjs/mapped-types": "*",
         "@nestjs/mongoose": "^11.0.3",
@@ -68,6 +72,8 @@
         "ioredis": "^5.7.0",
         "mongoose": "^8.19.1",
         "multer": "^2.0.2",
+        "nest-commander": "^3.20.1",
+        "nestjs-command": "^3.1.5",
         "nodemailer": "^7.0.6",
         "passport": "^0.7.0",
         "passport-facebook": "^3.0.0",
@@ -81,6 +87,7 @@
         "sharp": "^0.34.5",
         "socket.io": "^4.8.1",
         "swagger-ui-express": "^5.0.1",
+        "tunnel-ssh": "^5.2.0",
         "typeorm": "^0.3.26",
         "xlsx": "^0.18.5"
     },
@@ -100,6 +107,7 @@
         "@types/passport-facebook": "^3.0.3",
         "@types/passport-github2": "^1.2.9",
         "@types/supertest": "^6.0.2",
+        "@types/tunnel-ssh": "^5.0.4",
         "eslint": "^9.18.0",
         "eslint-config-prettier": "^10.0.1",
         "eslint-plugin-prettier": "^5.2.2",
