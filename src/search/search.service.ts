@@ -99,7 +99,7 @@ export class SearchService {
                 bio: hit._source.bio,
                 country: hit._source.country,
                 followers: hit._source.followers,
-                following: hit._source.followers,
+                following: hit._source.following,
                 verified: hit._source.verified,
                 avatar_url: hit._source.avatar_url,
             }));
