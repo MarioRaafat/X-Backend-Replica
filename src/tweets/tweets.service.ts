@@ -57,6 +57,7 @@ import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { Readable } from 'stream';
+import Groq from 'groq-sdk';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
@@ -94,8 +95,10 @@ export class TweetsService {
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
     private readonly TWEET_VIDEOS_CONTAINER = 'post-videos';
 
-    private readonly API_KEY = process.env.GOOGLE_API_KEY ?? '';
-    private readonly genAI = new GoogleGenAI({ apiKey: this.API_KEY });
+    private readonly API_KEY = process.env.GROQ_API_KEY ?? '';
+    private readonly groq = new Groq({
+        apiKey: process.env.GROQ_API_KEY ?? '',
+    });
 
     /**
      * Handles image upload processing
@@ -1144,9 +1147,10 @@ export class TweetsService {
         // Extract hashtags
         const hashtags =
             content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
+
         await this.updateHashtags(hashtags, user_id, query_runner);
 
-        // Extract topics using Gemini AI
+        // Extract topics using Groq AI
         const topics = await this.extractTopics(content);
         console.log('Extracted topics:', topics);
 
@@ -1157,51 +1161,53 @@ export class TweetsService {
 
     async extractTopics(content: string): Promise<Record<string, number>> {
         try {
-            if (!process.env.ENABLE_GOOGLE_GEMINI) {
-                console.warn('Gemini is disabled, returning empty topics');
-                const empty_response: Record<string, number> = {};
-                TOPICS.forEach((topic) => (empty_response[topic] = 0));
-                return empty_response;
+            if (!process.env.ENABLE_GROQ || !process.env.MODEL_NAME) {
+                console.warn('Groq is disabled, returning empty topics');
+                const empty: Record<string, number> = {};
+                TOPICS.forEach((t) => (empty[t] = 0));
+                return empty;
             }
+
+            // remove hashtags and extra spaces
+            content = content
+                .replace(/#[a-zA-Z0-9_]+/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
 
             const prompt = categorize_prompt(content);
 
-            const response = await this.genAI.models.generateContent({
-                model: 'gemini-2.0-flash-exp',
-                contents: prompt,
+            const response = await this.groq.chat.completions.create({
+                model: process.env.MODEL_NAME,
+                messages: [{ role: 'user', content: prompt }],
+                temperature: 0,
             });
 
-            if (!response.text) {
-                console.warn('Gemini returned empty response');
-                const empty_response: Record<string, number> = {};
-                TOPICS.forEach((topic) => (empty_response[topic] = 0));
-                return empty_response;
+            const rawText = response.choices?.[0]?.message?.content?.trim() ?? '';
+            if (!rawText) {
+                console.warn('Groq returned empty response');
+                const empty: Record<string, number> = {};
+                TOPICS.forEach((t) => (empty[t] = 0));
+                return empty;
             }
 
-            const response_text = response.text.trim();
-            console.log('Gemini response:', response_text);
+            let jsonText = rawText;
+            const m = rawText.match(/\{[^}]+\}/);
+            if (m) jsonText = m[0];
 
-            let json_text = response_text;
-            const json_match = response_text.match(/\{[^}]+\}/);
-            if (json_match) json_text = json_match[0];
+            let topics = JSON.parse(jsonText);
 
-            const topic_percentages = JSON.parse(json_text);
+            const total = Object.values<number>(topics).reduce((a, b) => a + Number(b), 0);
 
-            const total = Object.values(topic_percentages).reduce(
-                (sum: number, val: any) => sum + Number(val),
-                0
-            ) as number;
             if (Math.abs(total - 100) > 1) {
-                console.warn('Topic percentages do not sum to 100, normalizing...');
-
-                Object.keys(topic_percentages).forEach((key) => {
-                    topic_percentages[key] = Math.round((topic_percentages[key] / total) * 100);
-                });
+                console.warn('Normalizing...');
+                for (const k of Object.keys(topics)) {
+                    topics[k] = Math.round((topics[k] / total) * 100);
+                }
             }
 
-            return topic_percentages;
+            return topics;
         } catch (error) {
-            console.error('Error extracting topics with Gemini:', error);
+            console.error('Error extracting topics with Groq:', error);
             throw error;
         }
     }
