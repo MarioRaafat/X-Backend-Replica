@@ -30,6 +30,7 @@ export class MessagesService {
     ) {
         const chat = await this.chat_repository.findOne({
             where: { id: chat_id },
+            relations: ['user1', 'user2'],
         });
 
         if (!chat) throw new NotFoundException(ERROR_MESSAGES.CHAT_NOT_FOUND);
