@@ -36,7 +36,7 @@ export class TestDataConstants {
     static readonly TEST_USERS = [
         {
             email: 'mario@yapper.test',
-            password: 'mario123#',
+            password: 'Mario123#',
             name: 'Mario Raafat',
             username: 'mario_rafat12956014',
             birth_date: new Date('2004-05-22'),
@@ -46,7 +46,7 @@ export class TestDataConstants {
         },
         {
             email: 'mohsen@yapper.test',
-            password: 'mohsen123#',
+            password: 'Mohsen123#',
             name: 'Kero Mohsen',
             username: 'kero_mohsen239609562',
             birth_date: new Date('2005-03-03'),
@@ -56,7 +56,7 @@ export class TestDataConstants {
         },
         {
             email: 'esraa@yapper.test',
-            password: 'esraa123#',
+            password: 'Esraa123#',
             name: 'Esraa Hassan',
             username: 'esraa_hassan7890560',
             birth_date: new Date('2004-09-10'),
@@ -66,55 +66,67 @@ export class TestDataConstants {
         },
         {
             email: 'salah@yapper.test',
-            password: 'test123#',
+            password: 'Test123#',
             name: 'Mo Salah',
             username: 'mo_salah4567890',
-            birth_date: new Date('2003-03-15'),
+            birth_date: new Date('1992-06-15'),
             language: 'en' as const,
+            avatar_url:
+                'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837060155-salah.jpg',
         },
         {
             email: 'messi@yapper.test',
-            password: 'test123#',
+            password: 'Test123#',
             name: 'Lionel Messi',
             username: 'lionel_messi8901234',
-            birth_date: new Date('2002-07-28'),
+            birth_date: new Date('1987-06-24'),
             language: 'en' as const,
+            avatar_url:
+                'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837077268-messi.jpg',
         },
         {
             email: 'afsha@yapper.test',
-            password: 'test123#',
+            password: 'Test123#',
             name: 'Magdy Afsha',
             username: 'magdy_afsha2345678',
-            birth_date: new Date('2001-11-05'),
+            birth_date: new Date('1996-03-06'),
             language: 'en' as const,
+            avatar_url:
+                'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837092750-afsha.jpg',
         },
         {
             email: '7amada@yapper.test',
-            password: 'test123#',
+            password: 'Test123#',
             name: '7amada ElSawy',
             username: '7amada_elsawy6789012',
             birth_date: new Date('2004-02-14'),
             language: 'en' as const,
+            avatar_url:
+                'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837119558-7amada.jpg',
         },
         {
             email: '3m_3abdo@yapper.test',
-            password: 'test123#',
+            password: 'Test123#',
             name: '3m 3abdo',
             username: '3m_3abdo3456789',
             birth_date: new Date('2003-08-19'),
             language: 'en' as const,
+            avatar_url:
+                'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837138612-3abdo.jpg',
         },
         {
             email: 'liverpool@yapper.test',
-            password: 'test123#',
+            password: 'Test123#',
             name: 'Liverpool FC',
             username: 'liverpool_fc9012345',
             birth_date: new Date('2002-12-30'),
             language: 'en' as const,
+            avatar_url:
+                'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837164100-liverpool.jpg',
         },
         {
             email: 'yapper@yapper.test',
-            password: 'test123#',
+            password: 'Test123#',
             name: 'yapper Dev',
             username: 'yapper_dev7890123',
             birth_date: new Date('2001-04-22'),
@@ -324,92 +336,148 @@ export class TestDataConstants {
             ],
         },
         {
-            user_index: 3,
+            user_index: 3, // Salah
+            tweets: [
+                {
+                    content: 'Proud to represent Egypt 🇪🇬❤️ #Egypt #MoSalah',
+                    images: [],
+                },
+                { content: 'What a night at Anfield! YNWA ❤️ #Liverpool #LFC', images: [] },
+                { content: 'Training hard for the next match 💪⚽ #Football', images: [] },
+                {
+                    content: 'Thank you to all the Egyptian fans for your support! 🇪🇬 #Pharaohs',
+                    images: [],
+                },
+                {
+                    content: "Liverpool family forever! You'll Never Walk Alone 🔴 #YNWA",
+                    images: [],
+                },
+            ],
+        },
+        {
+            user_index: 4, // Messi
             tweets: [
                 {
                     content:
-                        'Good morning everyone! Starting a new day with fresh coffee ☕ #morning',
-                    images: [],
+                        'The greatest moment of my career! Lifting the World Cup trophy for Argentina 🏆🇦🇷 #WorldCup #Qatar2022 #Champion',
+                    images: [
+                        'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837204715-world%20cup.jpg',
+                    ],
                 },
-                { content: 'Learning new technologies every day 📚 #learning', images: [] },
-                { content: 'Excited about the new project features 🚀 #excited', images: [] },
                 {
-                    content: 'Team collaboration makes everything better 👥 #collaboration',
-                    images: [],
+                    content:
+                        'Another Golden Boot added to the collection! 👢✨ Hard work pays off #GoldenBoot #Topscorer',
+                    images: [
+                        'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837304076-golden%20boots.jpg',
+                    ],
                 },
-                { content: 'Looking forward to the weekend! 🎉 #weekend', images: [] },
-            ],
-        },
-        {
-            user_index: 4,
-            tweets: [
-                { content: 'Data analysis reveals interesting patterns 📊 #data', images: [] },
-                { content: 'Working on improving system performance ⚡ #optimization', images: [] },
-                { content: 'Documentation is finally up to date 📝 #docs', images: [] },
-                { content: 'Code reviews help us all grow 🌱 #growth', images: [] },
-                { content: "Great discussion in today's stand-up meeting 💬 #standup", images: [] },
-            ],
-        },
-        {
-            user_index: 5,
-            tweets: [
-                { content: 'DevOps practices improving our workflow 🔄 #devops', images: [] },
-                { content: 'Infrastructure as code is amazing 🏗️ #iac', images: [] },
-                { content: 'Monitoring and logging setup complete 📡 #monitoring', images: [] },
-                { content: 'Deployment automation saves hours of work ⏰ #automation', images: [] },
                 {
-                    content: 'System reliability is at an all-time high 📈 #reliability',
-                    images: [],
+                    content:
+                        "Proud to receive another Ballon d'Or! Thank you to everyone who believed in me 🏅⚽ #BallonDor #GoldenBall",
+                    images: [
+                        'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837319026-golden%20ball.jpg',
+                    ],
                 },
-            ],
-        },
-        {
-            user_index: 6,
-            tweets: [
-                { content: 'UI/UX design principles guide everything we build 🎨 #ux', images: [] },
                 {
-                    content: 'User feedback is invaluable for improvements 💭 #feedback',
+                    content:
+                        'Champions League 2009 - What a night in Rome! First of many trophies with the best team 🏆⚽ #UCL #Champions #Barcelona',
+                    images: [
+                        'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837348076-champ.jpg',
+                    ],
+                },
+                {
+                    content:
+                        'El Clásico 5-0! Historic night at Camp Nou 🔵🔴 Could they score even half of them? 😏⚽⚽⚽⚽⚽ #ElClasico #Barca #Historic',
+                    images: [
+                        'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837368024-5-0.jpg',
+                    ],
+                },
+                {
+                    content:
+                        'Copa América champions! For my country, for my people 🇦🇷🏆 #CopaAmerica #VamosArgentina',
+                    images: [
+                        'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837383609-copa.jpg',
+                    ],
+                },
+                {
+                    content:
+                        'Dreams do come true! World Cup winner! This is for all of Argentina 🌟🏆🇦🇷 #WorldCup2022 #GOAT #Argentina',
+                    images: [
+                        'https://yapperdev.blob.core.windows.net/profile-images/test-team-1764837398822-world%20cup2.jpg',
+                    ],
+                },
+            ],
+        },
+        {
+            user_index: 5, // Afsha
+            tweets: [
+                { content: 'يلا يا أهلي! ❤️🦅 #الاهلي', images: [] },
+                { content: 'شرف ليا إني ألعب مع القلعة الحمرا 🏰❤️ #Ahly', images: [] },
+                { content: 'القاضية ممكن 85:45', images: [] },
+                {
+                    content: `
+                    تماس للمعلول، كورة لـ على، ٨٦ دقيقة، الاكسترا تايم قريب ولكن احذروا الـK.O احذروا الـK.O، ترجع الكورة بالراس، القاضية ممكن، القاضية ممكن.. شاط الكورة وجوووووووووووووول والقاضية ممممممكن، القاضية مممممممكن، القاضية ممممممكن.. سجلها ولد معلول، سجلها علي معلول.. ملك الحلول
+Oui يا علي Oui , Oui يا علي Oui , Oui يا علي Oui , Oui يا علي Oui
+علي Oui , معلول Oui .. والكورة Yes ، الكورة Sí. 
+هل هو معلول أم لا؟
+أي قذيفة جاءت؟ أي قذيفة جاءت يا باتشيكو؟
+التاسعة يا الأهلي، التاسعة يا الأهلي، لا هو 19، هو قفشة، هو ولدنا قفشة..
+هو الولد قفشة، هو قفشة، هو قفشة..
+هو قفشة ما لها من عبسة، حط الكورة ثاني ويا لها من صرخة..
+كي جولاثو يا قفشة، كي جولاثو يا قفشة..
+                    `,
                     images: [],
                 },
-                { content: 'Wireframes are ready for review 📐 #wireframes', images: [] },
-                { content: 'Design system consistency is key 🔑 #designsystem', images: [] },
-                { content: 'A/B testing results are in! 📊 #abtesting', images: [] },
+                {
+                    content: 'مباراة القمة قدام و إن شاء الله هنكسب 🔴🦅 #ديربي',
+                    images: [],
+                },
             ],
         },
         {
-            user_index: 7,
+            user_index: 6, // 7amada
             tweets: [
-                { content: 'Database optimization improved query speed 🚀 #database', images: [] },
-                { content: 'Data modeling for the new features 📊 #datamodeling', images: [] },
-                { content: 'Backup and recovery procedures tested ✅ #backup', images: [] },
-                { content: 'Indexing strategies make a huge difference 📈 #indexing', images: [] },
-                { content: 'Database migrations went smoothly 🔄 #migrations', images: [] },
+                { content: 'انا سبونج بوب', images: [] },
+                { content: 'بوب بوب', images: [] },
+                { content: 'انا سبونج بوب بوب بوب', images: [] },
+                { content: 'انا سبونج بوب', images: [] },
+                { content: 'اصفر لمونييييييييييييييي', images: [] },
             ],
         },
         {
-            user_index: 8,
+            user_index: 7, // 3m 3abdo
+            tweets: [
+                { content: 'فول و طعمية الصبح أحسن حاجة 😋🥙 #فول', images: [] },
+                { content: 'عربية الفول النهاردة كانت زحمة جداً 🚶‍♂️', images: [] },
+                { content: 'الفول بالزبدة و الطماطم 👌 #فطار', images: [] },
+                { content: 'مفيش أحسن من ريحة الفول الصبح ☀️🥙', images: [] },
+                { content: 'فول و عيش سخن = سعادة 😊🍞', images: [] },
+            ],
+        },
+        {
+            user_index: 8, // Liverpool FC
             tweets: [
                 {
-                    content: 'Project management tools keep us organized 📋 #projectmanagement',
+                    content: "You'll Never Walk Alone 🔴 #LFC #YNWA",
                     images: [],
                 },
-                { content: 'Sprint planning complete for next iteration 🎯 #sprint', images: [] },
-                { content: 'Team velocity is improving each sprint 📈 #velocity', images: [] },
-                { content: 'Stakeholder meeting went really well 🤝 #stakeholders', images: [] },
-                { content: 'Release planning for the next quarter 📅 #release', images: [] },
+                { content: 'This is Anfield. 🏟️❤️ #Liverpool', images: [] },
+                { content: 'Match day at Anfield! Come on you Reds! 🔴⚽ #LFC', images: [] },
+                { content: 'We are Liverpool, this means more. ❤️ #YNWA', images: [] },
+                { content: "The Kop is ready! Let's go Reds! 🔴🎵 #Anfield", images: [] },
             ],
         },
         {
             user_index: 9,
             tweets: [
-                { content: 'Cloud architecture design is fascinating ☁️ #cloud', images: [] },
+                { content: 'الباك تيم طرش الطرش', images: [] },
                 {
-                    content: 'Serverless functions reduce operational overhead 🚀 #serverless',
+                    content: 'تحية من الباك لاي راجل جدع هيكبس عالتويتة دي 👍',
                     images: [],
                 },
-                { content: 'Container orchestration with Kubernetes 🎯 #kubernetes', images: [] },
-                { content: 'Scaling strategies for high traffic 📈 #scaling', images: [] },
-                { content: 'Multi-region deployment complete 🌍 #deployment', images: [] },
+                { content: 'تبا ل ايلون ماسك', images: [] },
+                { content: 'و حبيبنا مييين Yapper 😍😍', images: [] },
+                { content: 'يارب السيرفر يشتغل قدام م خالد', images: [] },
             ],
         },
     ];
@@ -488,6 +556,78 @@ export class TestDataConstants {
             original_tweet_index: 9,
             reply: 'Accessibility audit passed with flying colors! ♿',
         },
+        {
+            replier_index: 0,
+            original_user_index: 1,
+            original_tweet_index: 6,
+            reply: 'The testing coverage for these animations is super important! 👍',
+        },
+        {
+            replier_index: 1,
+            original_user_index: 0,
+            original_tweet_index: 8,
+            reply: 'Clean code review comments are always appreciated! 😊',
+        },
+        {
+            replier_index: 2,
+            original_user_index: 1,
+            original_tweet_index: 12,
+            reply: 'Figma to code conversion was spot on! 🎨',
+        },
+        {
+            replier_index: 0,
+            original_user_index: 2,
+            original_tweet_index: 12,
+            reply: 'Mobile testing on different devices is crucial, thanks! 📱',
+        },
+        {
+            replier_index: 1,
+            original_user_index: 0,
+            original_tweet_index: 12,
+            reply: 'Pair programming sessions are always productive with you! 🤝',
+        },
+        {
+            replier_index: 2,
+            original_user_index: 0,
+            original_tweet_index: 16,
+            reply: 'CI/CD integration testing went smoothly! 🔄',
+        },
+        {
+            replier_index: 0,
+            original_user_index: 1,
+            original_tweet_index: 11,
+            reply: 'TypeScript really does make React better! 💯',
+        },
+        {
+            replier_index: 1,
+            original_user_index: 2,
+            original_tweet_index: 15,
+            reply: 'Edge cases are where the real bugs hide! 🔍',
+        },
+        {
+            replier_index: 2,
+            original_user_index: 1,
+            original_tweet_index: 17,
+            reply: 'PWA features tested across all platforms! ✅',
+        },
+        {
+            replier_index: 0,
+            original_user_index: 2,
+            original_tweet_index: 17,
+            reply: 'Quality metrics are looking fantastic this sprint! 📈',
+        },
+        {
+            replier_index: 1,
+            original_user_index: 0,
+            original_tweet_index: 17,
+            reply: 'Microservices communication is seamless now! 🎯',
+        },
+        {
+            replier_index: 2,
+            original_user_index: 1,
+            original_tweet_index: 15,
+            reply: 'Web performance audit shows great improvements! 🚀',
+        },
     ];
 
     // Likes data structure for main 3 users liking each other's tweets
@@ -506,5 +646,32 @@ export class TestDataConstants {
         { liker_index: 2, liked_user_index: 0, tweet_index: 11 },
         { liker_index: 2, liked_user_index: 1, tweet_index: 3 },
         { liker_index: 2, liked_user_index: 1, tweet_index: 9 },
+        { liker_index: 0, liked_user_index: 1, tweet_index: 6 },
+        { liker_index: 0, liked_user_index: 1, tweet_index: 8 },
+        { liker_index: 0, liked_user_index: 1, tweet_index: 11 },
+        { liker_index: 0, liked_user_index: 1, tweet_index: 12 },
+        { liker_index: 0, liked_user_index: 2, tweet_index: 6 },
+        { liker_index: 0, liked_user_index: 2, tweet_index: 9 },
+        { liker_index: 0, liked_user_index: 2, tweet_index: 12 },
+        { liker_index: 0, liked_user_index: 2, tweet_index: 15 },
+        { liker_index: 1, liked_user_index: 0, tweet_index: 8 },
+        { liker_index: 1, liked_user_index: 0, tweet_index: 9 },
+        { liker_index: 1, liked_user_index: 0, tweet_index: 12 },
+        { liker_index: 1, liked_user_index: 0, tweet_index: 16 },
+        { liker_index: 1, liked_user_index: 0, tweet_index: 17 },
+        { liker_index: 1, liked_user_index: 2, tweet_index: 2 },
+        { liker_index: 1, liked_user_index: 2, tweet_index: 12 },
+        { liker_index: 1, liked_user_index: 2, tweet_index: 15 },
+        { liker_index: 1, liked_user_index: 2, tweet_index: 17 },
+        { liker_index: 2, liked_user_index: 0, tweet_index: 6 },
+        { liker_index: 2, liked_user_index: 0, tweet_index: 8 },
+        { liker_index: 2, liked_user_index: 0, tweet_index: 13 },
+        { liker_index: 2, liked_user_index: 0, tweet_index: 16 },
+        { liker_index: 2, liked_user_index: 0, tweet_index: 18 },
+        { liker_index: 2, liked_user_index: 1, tweet_index: 6 },
+        { liker_index: 2, liked_user_index: 1, tweet_index: 11 },
+        { liker_index: 2, liked_user_index: 1, tweet_index: 15 },
+        { liker_index: 2, liked_user_index: 1, tweet_index: 17 },
+        { liker_index: 2, liked_user_index: 1, tweet_index: 18 },
     ];
 }
