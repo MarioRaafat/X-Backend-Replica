@@ -21,7 +21,7 @@ export class SearchQueryDto extends BasicQueryDto {
     })
     @IsOptional()
     @IsString()
-    cursor?: string;
+    cursor?: string | null;
 
     @ApiPropertyOptional({
         description: 'Number of items to return per page',
