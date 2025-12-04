@@ -15,6 +15,8 @@ import { MessagesService } from './messages.service';
 import { ChatRepository } from 'src/chat/chat.repository';
 import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
 import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { path } from '@ffmpeg-installer/ffmpeg';
 
 interface IAuthenticatedSocket extends Socket {
     user?: {
@@ -24,6 +26,7 @@ interface IAuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
     namespace: '/messages',
+    path: process.env.SOCKET_IO || '/socket.io',
     cors: {
         origin: true,
         credentials: true,
@@ -39,7 +42,8 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         private readonly messages_service: MessagesService,
         private readonly chat_repository: ChatRepository,
         private readonly jwt_service: JwtService,
-        private readonly config_service: ConfigService
+        private readonly config_service: ConfigService,
+        private readonly pagination_service: PaginationService
     ) {}
 
     async handleConnection(client: IAuthenticatedSocket) {
@@ -328,6 +332,38 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
             return {
                 event: 'error',
                 data: { message: error.message || 'Failed to send typing stop indicator' },
+            };
+        }
+    }
+
+    @SubscribeMessage('get_messages')
+    async handleGetMessages(
+        @ConnectedSocket() client: IAuthenticatedSocket,
+        @MessageBody() data: { chat_id: string; limit: number; cursor?: string }
+    ) {
+        try {
+            const user_id = client.user!.user_id;
+            const { chat_id, limit = 50, cursor } = data;
+            const query: GetMessagesQueryDto = { limit, cursor };
+
+            const result = await this.messages_service.getMessages(user_id, chat_id, query);
+            const { next_cursor, has_more, ...response_data } = result;
+
+            return {
+                event: 'messages_retrieved',
+                data: {
+                    chat_id,
+                    ...response_data,
+                },
+                pagination: {
+                    next_cursor,
+                    has_more,
+                },
+            };
+        } catch (error) {
+            return {
+                event: 'error',
+                data: { message: error.message || 'Failed to retrieve messages' },
             };
         }
     }

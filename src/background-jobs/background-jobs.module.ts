@@ -17,13 +17,14 @@ import { ReplyJobService } from './notifications/reply/reply.service';
 import { ReplyProcessor } from './notifications/reply/reply.processor';
 import { LikeJobService } from './notifications/like/like.service';
 import { LikeProcessor } from './notifications/like/like.processor';
-import { Tweet, TweetQuote, TweetReply } from 'src/tweets/entities';
-import { RepostProcessor } from './notifications/repost/repost.processor';
-import { RepostJobService } from './notifications/repost/repost.service';
-import { QuoteProcessor } from './notifications/quote/quote.processor';
-import { QuoteJobService } from './notifications/quote/quote.service';
-import { ClearProcessor } from './notifications/clear/clear.processor';
-import { ClearJobService } from './notifications/clear/clear.service';
+import { EsIndexTweetJobService } from './elasticsearch/es-index-tweet.service';
+import { EsDeleteTweetJobService } from './elasticsearch/es-delete-tweet.service';
+import { EsSyncProcessor } from './elasticsearch/es-sync.processor';
+import { Tweet } from 'src/tweets/entities';
+import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
+import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
+import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
+import { EsFollowJobService } from './elasticsearch/es-follow.service';
 
 @Module({
     imports: [
@@ -63,9 +64,21 @@ import { ClearJobService } from './notifications/clear/clear.service';
                 },
             },
         }),
-        TypeOrmModule.forFeature([User, Tweet, TweetQuote, TweetReply]),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.ELASTICSEARCH,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 2000,
+                },
+            },
+        }),
+        TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([Tweet]),
         CommunicationModule,
-        forwardRef(() => NotificationsModule),
+        NotificationsModule,
+        ElasticsearchModule,
     ],
     controllers: [EmailJobsController],
     providers: [
@@ -77,12 +90,12 @@ import { ClearJobService } from './notifications/clear/clear.service';
         ReplyProcessor,
         LikeJobService,
         LikeProcessor,
-        RepostProcessor,
-        RepostJobService,
-        QuoteProcessor,
-        QuoteJobService,
-        ClearProcessor,
-        ClearJobService,
+        EsIndexTweetJobService,
+        EsDeleteTweetJobService,
+        EsSyncProcessor,
+        EsUpdateUserJobService,
+        EsDeleteUserJobService,
+        EsFollowJobService,
     ],
     exports: [
         EmailJobsService,
@@ -90,9 +103,11 @@ import { ClearJobService } from './notifications/clear/clear.service';
         BullModule,
         ReplyJobService,
         LikeJobService,
-        RepostJobService,
-        QuoteJobService,
-        ClearJobService,
+        EsIndexTweetJobService,
+        EsDeleteTweetJobService,
+        EsUpdateUserJobService,
+        EsDeleteUserJobService,
+        EsFollowJobService,
     ],
 })
 export class BackgroundJobsModule {}

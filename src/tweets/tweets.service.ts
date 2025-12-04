@@ -35,7 +35,6 @@ import { UserFollows } from '../user/entities/user-follows.entity';
 import { User } from '../user/entities/user.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { BlobServiceClient } from '@azure/storage-blob';
-import { GoogleGenAI } from '@google/genai';
 import { TweetsRepository } from './tweets.repository';
 import { TimelinePaginationDto } from 'src/timeline/dto/timeline-pagination.dto';
 import { GetTweetRepliesQueryDto } from './dto';
@@ -52,6 +51,8 @@ import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.s
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
 import { RepostJobService } from 'src/background-jobs/notifications/repost/repost.service';
 import { QuoteJobService } from 'src/background-jobs/notifications/quote/quote.service';
+import { EsIndexTweetJobService } from 'src/background-jobs/elasticsearch/es-index-tweet.service';
+import { EsDeleteTweetJobService } from 'src/background-jobs/elasticsearch/es-delete-tweet.service';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
@@ -84,6 +85,8 @@ export class TweetsService {
         private readonly azure_storage_service: AzureStorageService,
         private readonly reply_job_service: ReplyJobService,
         private readonly like_job_service: LikeJobService,
+        private readonly es_index_tweet_service: EsIndexTweetJobService,
+        private readonly es_delete_tweet_service: EsDeleteTweetJobService,
         private readonly repost_job_service: RepostJobService,
         private readonly quote_job_service: QuoteJobService
     ) {}
@@ -254,6 +257,10 @@ export class TweetsService {
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
             await query_runner.commitTransaction();
 
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_tweet.tweet_id,
+            });
+
             return plainToInstance(TweetResponseDTO, saved_tweet, {
                 excludeExtraneousValues: true,
             });
@@ -292,6 +299,10 @@ export class TweetsService {
             const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
             await query_runner.commitTransaction();
 
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: updated_tweet.tweet_id,
+            });
+
             // return TweetMapper.toDTO(tweet_with_type_info);
             return plainToInstance(TweetResponseDTO, updated_tweet, {
                 excludeExtraneousValues: true,
@@ -321,6 +332,10 @@ export class TweetsService {
             await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id);
 
             await this.tweet_repository.delete({ tweet_id });
+
+            await this.es_delete_tweet_service.queueDeleteTweet({
+                tweet_id,
+            });
         } catch (error) {
             console.error(error);
             throw error;
@@ -361,6 +376,10 @@ export class TweetsService {
                     liked_by: user_id,
                     action: 'add',
                 });
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -401,6 +420,10 @@ export class TweetsService {
                     liked_by: user_id,
                     action: 'remove',
                 });
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             console.error(error);
@@ -492,6 +515,16 @@ export class TweetsService {
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1);
             await query_runner.commitTransaction();
 
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_quote_tweet.tweet_id,
+                parent_id: saved_quote_tweet.tweet_id,
+            });
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_quote_tweet.tweet_id,
+                parent_id: saved_quote_tweet.tweet_id,
+            });
+
             const response = plainToInstance(TweetQuoteResponseDTO, {
                 ...saved_quote_tweet,
                 quoted_tweet: plainToInstance(TweetResponseDTO, parentTweet, {
@@ -540,6 +573,10 @@ export class TweetsService {
                     tweet,
                     action: 'add',
                 });
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: tweet_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -582,6 +619,10 @@ export class TweetsService {
                 reposted_by: user_id,
                 tweet_id: tweet_id,
                 action: 'remove',
+            });
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: tweet_id,
             });
 
             await query_runner.commitTransaction();
@@ -665,6 +706,13 @@ export class TweetsService {
             );
 
             returned_reply.parent_tweet_id = original_tweet_id;
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_reply_tweet.tweet_id,
+                parent_id: original_tweet_id,
+                conversation_id: original_reply?.conversation_id || original_tweet_id,
+            });
+
             return returned_reply;
         } catch (error) {
             await query_runner.rollbackTransaction();

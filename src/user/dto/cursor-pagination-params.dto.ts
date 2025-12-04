@@ -13,7 +13,7 @@ export class CursorPaginationDto {
     cursor?: string;
 
     @ApiProperty({
-        description: 'Number of users to return per page',
+        description: 'Number of items to return per page',
         required: false,
         default: 20,
         minimum: 1,
