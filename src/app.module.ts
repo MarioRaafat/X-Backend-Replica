@@ -18,6 +18,7 @@ import { ChatModule } from './chat/chat.module';
 import { CategoryModule } from './category/category.module';
 import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { AzureStorageModule } from './azure-storage/azure-storage.module';
+import { ElasticsearchModule } from './elasticsearch/elasticsearch.module';
 import { MessagesModule } from './messages/messages.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/entities/user.entity';
@@ -49,6 +50,7 @@ import { TweetReply } from './tweets/entities/tweet-reply.entity';
         CategoryModule,
         BackgroundJobsModule,
         AzureStorageModule,
+        ElasticsearchModule,
         MessagesModule,
         TypeOrmModule.forFeature([User, Tweet, UserFollows, TweetLike, TweetReply]),
     ],

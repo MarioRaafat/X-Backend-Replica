@@ -15,9 +15,9 @@ export const get_suggestions_swagger = {
                 example: {
                     data: {
                         suggested_queries: [
-                            { query: 'alyaa', isTrending: true },
-                            { query: 'alia', isTrending: true },
-                            { query: 'ali', isTrending: true },
+                            { query: 'alyaa', is_trending: true },
+                            { query: 'alia', is_trending: true },
+                            { query: 'ali', is_trending: true },
                         ],
                         suggested_users: [
                             {
@@ -26,7 +26,7 @@ export const get_suggestions_swagger = {
                                 username: 'Alyaali242',
                                 avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                                 is_following: true,
-                                follows_me: false,
+                                is_follower: false,
                             },
                             {
                                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
@@ -34,7 +34,7 @@ export const get_suggestions_swagger = {
                                 username: 'alyaa#222',
                                 avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
                                 is_following: false,
-                                follows_me: false,
+                                is_follower: false,
                             },
                         ],
                     },
@@ -60,28 +60,49 @@ export const search_users_swagger = {
             schema: {
                 example: {
                     data: {
-                        users: [
+                        data: [
                             {
-                                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                                name: 'Amira Khalid',
-                                username: 'Amirakhalid9',
-                                bio: 'computer engineering student',
-                                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                                is_following: true,
-                                follows_me: false,
+                                user_id: 'ffd712d1-6bdb-402d-a4cd-a083910eca96',
+                                name: 'Blowgan',
+                                username: 'BogalinaWow',
+                                bio: 'https://t.co/UTBRrtOOXI',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1975000639454208000/qP6Lj05M_normal.jpg',
+                                cover_url:
+                                    'https://pbs.twimg.com/profile_images/1975000639454208000/qP6Lj05M_normal.jpg',
+                                verified: false,
+                                followers: 17,
+                                following: 200,
+                                is_following: false,
+                                is_follower: false,
+                                is_muted: false,
+                                is_blocked: false,
                             },
                             {
-                                user_id: 5,
-                                name: 'Amira Mohamed',
-                                username: 'amira#222',
-                                bio: 'computer engineer',
-                                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                                user_id: 'ffd19c65-2d77-46ca-9aed-53b4afe67c85',
+                                name: 'topp530',
+                                username: 'topp530',
+                                bio: null,
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1802933092153208832/Z8iF2yfF_normal.jpg',
+                                cover_url:
+                                    'https://pbs.twimg.com/profile_images/1802933092153208832/Z8iF2yfF_normal.jpg',
+                                verified: false,
+                                followers: 200,
+                                following: 200,
                                 is_following: false,
-                                follows_me: false,
+                                is_follower: false,
+                                is_muted: false,
+                                is_blocked: false,
                             },
                         ],
+                        pagination: {
+                            next_cursor:
+                                '2025-11-19T12:38:24.295Z_ffd19c65-2d77-46ca-9aed-53b4afe67c85',
+                            has_more: true,
+                        },
                     },
-                    count: 1,
+                    count: 2,
                     message: SUCCESS_MESSAGES.SEARCH_USERS_RETRIEVED,
                 },
             },
@@ -97,21 +118,24 @@ export const search_posts = {
 
     Each returned post includes its author, content, engagement counts, and creation date.
 
+    Each post has a user object that has all needed user data.
+
     A post can be one of the following types:
 
     - **Normal Post:**  
       A standalone post with no reference to another post.
 
     - **Quote Post:**  
-      A post that quotes another post.  
-      The quoted post is returned in the \`referenced_post\` field, containing its author and content.
+      A quote has a parent_tweet object that has all needed data of the quoted tweet.
 
     - **Reply Post:**  
-      A post that replies to one or more users.  
-      The usernames being replied to are listed in the \`replying_to\` array,  
-      
-    Each post also includes engagement metrics such as \`likes_count\`, \`reposts_count\`, and \`viewsCount\`.
-    `,
+      A post that replies to one or more users.
+      Each reply has:
+      - **Parent Tweet:**  
+          The tweet that the reply replies to.
+
+      - **Conversation Tweet:**  
+          The original root tweet of the whole reply series.    `,
     },
 
     responses: {
@@ -119,88 +143,159 @@ export const search_posts = {
             description: 'Posts search results retrieved successfully',
             schema: {
                 example: {
-                    data: [
-                        {
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            username: 'alyaa242',
-                            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                            post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'blah blah',
-                            images_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            videos_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            date: '2023-03-12',
-                            likes_count: 10,
-                            replies_count: 5,
-                            reposts_count: 2,
-                            views: 5,
-                            reposted_by_me: true,
-                            type: 'post',
-                        },
-                        {
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            username: 'alyaa242',
-                            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                            post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'blah blah',
-                            images_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            videos_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            date: '2023-03-12',
-                            likes_count: 10,
-                            replies_count: 5,
-                            reposts_count: 2,
-                            views: 5,
-                            reposted_by_me: true,
-                            type: 'quote',
-                            referenced_post: {
-                                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                                username: 'alyaa242',
-                                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                                post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                                content: 'blah blah',
-                                images_url: [
-                                    'https://cdn.app.com/profiles/u877.jpg',
-                                    'https://cdn.app.com/profiles/u877.jpg',
+                    data: {
+                        data: [
+                            {
+                                tweet_id: 'a606119b-fada-4775-92de-699a04ba1461',
+                                type: 'quote',
+                                content: 'This is my first quote!',
+                                images: [
+                                    'https://example.com/image1.jpg',
+                                    'https://example.com/image2.jpg',
                                 ],
-                                date: '2023-03-12',
+                                videos: ['https://example.com/video1.mp4'],
+                                user: {
+                                    id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                    username: 'alyaa2242',
+                                    name: 'Alyaa Eissa',
+                                    avatar_url: null,
+                                    verified: false,
+                                    bio: null,
+                                    cover_url: null,
+                                    followers: 2,
+                                    following: 1,
+                                },
+                                parent_tweet: {
+                                    tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                                    type: 'tweet',
+                                    content: 'This is my 5 tweet!',
+                                    images: [
+                                        'https://example.com/image1.jpg',
+                                        'https://example.com/image2.jpg',
+                                    ],
+                                    videos: ['https://example.com/video1.mp4'],
+                                    user: {
+                                        id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                        username: 'alyaa2242',
+                                        name: 'Alyaa Eissa',
+                                        avatar_url: null,
+                                        verified: false,
+                                        bio: null,
+                                        cover_url: null,
+                                        followers: 2,
+                                        following: 1,
+                                    },
+                                    created_at: '2025-11-19T09:46:08.261915',
+                                },
+                                likes_count: 1,
+                                reposts_count: 1,
+                                views_count: 0,
+                                quotes_count: 0,
+                                replies_count: 0,
+                                is_liked: true,
+                                is_reposted: true,
+                                created_at: '2025-11-19T07:47:18.478Z',
+                                updated_at: '2025-11-19T08:59:18.907Z',
                             },
+                            {
+                                tweet_id: '7711de75-0bee-48e3-a229-71541df71d95',
+                                type: 'reply',
+                                content: 'Third reply',
+                                images: [
+                                    'https://example.com/image1.jpg',
+                                    'https://example.com/image2.jpg',
+                                ],
+                                videos: ['https://example.com/video1.mp4'],
+                                user: {
+                                    id: '0e7c4fe8-34a1-4b3d-9885-31b93cd226f4',
+                                    username: 'alyaa2#242',
+                                    name: 'Alyaa 2',
+                                    avatar_url: null,
+                                    verified: false,
+                                    bio: null,
+                                    cover_url: null,
+                                    followers: 1,
+                                    following: 0,
+                                    is_following: false,
+                                    is_follower: false,
+                                },
+                                parent_tweet: {
+                                    tweet_id: '9b1a6a33-4a20-414e-a91e-ee7400f80d18',
+                                    type: 'reply',
+                                    content: 'Second reply',
+                                    images: [
+                                        'https://example.com/image1.jpg',
+                                        'https://example.com/image2.jpg',
+                                    ],
+                                    videos: ['https://example.com/video1.mp4'],
+                                    user: {
+                                        id: '0e7c4fe8-34a1-4b3d-9885-31b93cd226f4',
+                                        username: 'alyaa2#242',
+                                        name: 'Alyaa 2',
+                                        avatar_url: null,
+                                        verified: false,
+                                        bio: null,
+                                        cover_url: null,
+                                        followers: 1,
+                                        following: 0,
+                                        is_following: false,
+                                        is_follower: false,
+                                    },
+                                    likes_count: 0,
+                                    reposts_count: 0,
+                                    views_count: 0,
+                                    quotes_count: 0,
+                                    replies_count: 1,
+                                    is_bookmarked: false,
+                                    created_at: '2025-11-21T11:03:15.503653',
+                                },
+                                conversation_tweet: {
+                                    tweet_id: '9b1a6a33-4a20-414e-a91e-ee7400f80d18',
+                                    type: 'reply',
+                                    content: 'Second reply',
+                                    images: [
+                                        'https://example.com/image1.jpg',
+                                        'https://example.com/image2.jpg',
+                                    ],
+                                    videos: ['https://example.com/video1.mp4'],
+                                    user: {
+                                        id: '0e7c4fe8-34a1-4b3d-9885-31b93cd226f4',
+                                        username: 'alyaa2#242',
+                                        name: 'Alyaa 2',
+                                        avatar_url: null,
+                                        verified: false,
+                                        bio: null,
+                                        cover_url: null,
+                                        followers: 1,
+                                        following: 0,
+                                        is_following: false,
+                                        is_follower: false,
+                                    },
+                                    likes_count: 0,
+                                    reposts_count: 0,
+                                    views_count: 0,
+                                    quotes_count: 0,
+                                    replies_count: 1,
+                                    is_bookmarked: false,
+                                    created_at: '2025-11-21T11:03:15.503653',
+                                },
+                                likes_count: 0,
+                                reposts_count: 0,
+                                views_count: 0,
+                                quotes_count: 0,
+                                replies_count: 0,
+                                is_bookmarked: false,
+                                created_at: '2025-11-21T09:08:19.803Z',
+                                updated_at: '2025-11-21T09:08:19.803Z',
+                            },
+                        ],
+                        pagination: {
+                            next_cursor:
+                                '2025-11-19T07:46:08.261Z_a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                            has_more: true,
                         },
-                        {
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            username: 'alyaa242',
-                            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                            post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'blah blah',
-                            images_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            videos_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            date: '2023-03-12',
-                            likes_count: 10,
-                            replies_count: 5,
-                            reposts_count: 2,
-                            views: 5,
-                            reposted_by_me: true,
-                            type: 'reply',
-                            replying_to: ['amira#2424', 'mohamed998'],
-                        },
-                    ],
-                    count: 3,
+                    },
+                    count: 2,
                     message: SUCCESS_MESSAGES.SEARCH_POSTS_RETRIEVED,
                 },
             },
@@ -216,20 +311,25 @@ export const search_latest_posts = {
 
     Each returned post includes its author, content, engagement counts, and creation date.
 
+    Each post has a user object that has all needed user data.
+
     A post can be one of the following types:
 
     - **Normal Post:**  
       A standalone post with no reference to another post.
 
     - **Quote Post:**  
-      A post that quotes another post.  
-      The quoted post is returned in the \`referenced_post\` field, containing its author and content.
+      A quote has a parent_tweet object that has all needed data of the quoted tweet.
 
     - **Reply Post:**  
-      A post that replies to one or more users.  
-      The usernames being replied to are listed in the \`replying_to\` array,  
-      
-    Each post also includes engagement metrics such as \`likes_count\`, \`reposts_count\`, and \`viewsCount\`.    `,
+      A post that replies to one or more users.
+      Each reply has:
+      - **Parent Tweet:**  
+          The tweet that the reply replies to.
+
+      - **Conversation Tweet:**  
+          The original root tweet of the whole reply series.
+      `,
     },
 
     responses: {
@@ -237,88 +337,99 @@ export const search_latest_posts = {
             description: 'Latest posts search results retrieved successfully',
             schema: {
                 example: {
-                    data: [
-                        {
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            username: 'alyaa242',
-                            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                            post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'blah blah',
-                            images_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            videos_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            date: '2023-03-12',
-                            likes_count: 10,
-                            replies_count: 5,
-                            reposts_count: 2,
-                            views: 5,
-                            reposted_by_me: true,
-                            type: 'post',
-                        },
-                        {
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            username: 'alyaa242',
-                            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                            post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'blah blah',
-                            images_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            videos_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            date: '2023-03-12',
-                            likes_count: 10,
-                            replies_count: 5,
-                            reposts_count: 2,
-                            views: 5,
-                            reposted_by_me: true,
-                            type: 'quote',
-                            referenced_post: {
-                                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                                username: 'alyaa242',
-                                avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                                post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                                content: 'blah blah',
-                                images_url: [
-                                    'https://cdn.app.com/profiles/u877.jpg',
-                                    'https://cdn.app.com/profiles/u877.jpg',
+                    data: {
+                        data: [
+                            {
+                                tweet_id: 'a606119b-fada-4775-92de-699a04ba1461',
+                                type: 'quote',
+                                content: 'This is my first quote!',
+                                images: [
+                                    'https://example.com/image1.jpg',
+                                    'https://example.com/image2.jpg',
                                 ],
-                                date: '2023-03-12',
+                                videos: ['https://example.com/video1.mp4'],
+                                user: {
+                                    id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                    username: 'alyaa2242',
+                                    name: 'Alyaa Eissa',
+                                    avatar_url: null,
+                                    verified: false,
+                                    bio: null,
+                                    cover_url: null,
+                                    followers: 2,
+                                    following: 1,
+                                },
+                                parent_tweet: {
+                                    tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                                    type: 'tweet',
+                                    content: 'This is my 5 tweet!',
+                                    images: [
+                                        'https://example.com/image1.jpg',
+                                        'https://example.com/image2.jpg',
+                                    ],
+                                    videos: ['https://example.com/video1.mp4'],
+                                    user: {
+                                        id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                        username: 'alyaa2242',
+                                        name: 'Alyaa Eissa',
+                                        avatar_url: null,
+                                        verified: false,
+                                        bio: null,
+                                        cover_url: null,
+                                        followers: 2,
+                                        following: 1,
+                                    },
+                                    created_at: '2025-11-19T09:46:08.261915',
+                                },
+                                likes_count: 1,
+                                reposts_count: 1,
+                                views_count: 0,
+                                quotes_count: 0,
+                                replies_count: 0,
+                                is_liked: true,
+                                is_reposted: true,
+                                created_at: '2025-11-19T07:47:18.478Z',
+                                updated_at: '2025-11-19T08:59:18.907Z',
                             },
+                            {
+                                tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                                type: 'tweet',
+                                content: 'This is my 5 tweet!',
+                                images: [
+                                    'https://example.com/image1.jpg',
+                                    'https://example.com/image2.jpg',
+                                ],
+                                videos: ['https://example.com/video1.mp4'],
+                                user: {
+                                    id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                    username: 'alyaa2242',
+                                    name: 'Alyaa Eissa',
+                                    avatar_url: null,
+                                    verified: false,
+                                    bio: null,
+                                    cover_url: null,
+                                    followers: 2,
+                                    following: 1,
+                                },
+                                parent_tweet: null,
+                                likes_count: 1,
+                                reposts_count: 1,
+                                views_count: 0,
+                                quotes_count: 1,
+                                replies_count: 1,
+                                is_liked: true,
+                                is_reposted: true,
+                                created_at: '2025-11-19T07:46:08.261Z',
+                                updated_at: '2025-11-19T08:01:23.611Z',
+                            },
+                        ],
+                        pagination: {
+                            next_cursor:
+                                '2025-11-19T07:46:08.261Z_a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                            has_more: true,
                         },
-                        {
-                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            username: 'alyaa242',
-                            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                            post_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'blah blah',
-                            images_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            videos_url: [
-                                'https://cdn.app.com/profiles/u877.jpg',
-                                'https://cdn.app.com/profiles/u877.jpg',
-                            ],
-                            date: '2023-03-12',
-                            likes_count: 10,
-                            replies_count: 5,
-                            reposts_count: 2,
-                            views: 5,
-                            reposted_by_me: true,
-                            type: 'reply',
-                            replying_to: ['amira#2424', 'mohamed998'],
-                        },
-                    ],
-                    count: 3,
+                    },
+                    count: 2,
                     message: SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED,
                 },
             },

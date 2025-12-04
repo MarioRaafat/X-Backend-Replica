@@ -93,6 +93,8 @@ import {
     verify_update_email_swagger,
 } from './auth.swagger';
 import { ConfirmPasswordDto } from './dto/confirm-password.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { LogoutDto } from './dto/logout.dto';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -144,7 +146,7 @@ export class AuthController {
         const { user, access_token, refresh_token } = await this.auth_service.signupStep3(dto);
 
         this.httpOnlyRefreshToken(response, refresh_token);
-        return { user, access_token };
+        return { user, access_token, refresh_token };
     }
 
     @ApiOperation(login_swagger.operation)
@@ -159,7 +161,7 @@ export class AuthController {
         const { access_token, refresh_token, user } = await this.auth_service.login(login_dto);
 
         this.httpOnlyRefreshToken(response, refresh_token);
-        return { access_token, user };
+        return { user, access_token, refresh_token };
     }
 
     @ApiOperation(generate_otp_swagger.operation)
@@ -240,14 +242,19 @@ export class AuthController {
     @ApiBearerAuth('JWT-auth')
     @UseGuards(JwtAuthGuard)
     @ApiOperation(logout_swagger.operation)
+    @ApiBody({ type: LogoutDto, required: false })
     @ApiCookieAuth('refresh_token')
     @ApiOkResponse(logout_swagger.responses.success)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.LOGGED_OUT)
     @Post('logout')
-    async logout(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
-        const refresh_token = req.cookies['refresh_token'];
+    async logout(
+        @Body() body: LogoutDto,
+        @Req() req: Request,
+        @Res({ passthrough: true }) response: Response
+    ) {
+        const refresh_token = body.refresh_token || req.cookies['refresh_token'];
         if (!refresh_token) throw new BadRequestException('No refresh token provided');
         return await this.auth_service.logout(refresh_token, response);
     }
@@ -256,31 +263,42 @@ export class AuthController {
     @ApiCookieAuth('refresh_token')
     @UseGuards(JwtAuthGuard)
     @ApiOperation(logout_all_swagger.operation)
+    @ApiBody({ type: LogoutDto, required: false })
     @ApiOkResponse(logout_all_swagger.responses.success)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.LOGGED_OUT_ALL)
     @Post('logout-all')
-    async logoutAll(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
-        const refresh_token = req.cookies['refresh_token'];
+    async logoutAll(
+        @Body() body: LogoutDto,
+        @Req() req: Request,
+        @Res({ passthrough: true }) response: Response
+    ) {
+        const refresh_token = body.refresh_token || req.cookies['refresh_token'];
         if (!refresh_token) throw new BadRequestException('No refresh token provided');
         return await this.auth_service.logoutAll(refresh_token, response);
     }
 
     @ApiOperation(refresh_token_swagger.operation)
+    @ApiBody({ type: RefreshTokenDto, required: false })
+    @ApiCookieAuth('refresh_token')
     @ApiOkResponse(refresh_token_swagger.responses.success)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED)
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ResponseMessage(SUCCESS_MESSAGES.NEW_ACCESS_TOKEN)
     @Post('refresh')
-    async refresh(@Req() req: Request, @Res({ passthrough: true }) response: Response) {
-        const refresh_token_cookie = req.cookies['refresh_token'];
-        if (!refresh_token_cookie) throw new BadRequestException('No refresh token provided');
+    async refresh(
+        @Body() body: RefreshTokenDto,
+        @Req() req: Request,
+        @Res({ passthrough: true }) response: Response
+    ) {
+        const refresh_token_input = body.refresh_token || req.cookies['refresh_token'];
+        if (!refresh_token_input) throw new BadRequestException('No refresh token provided');
 
         const { access_token, refresh_token } =
-            await this.auth_service.refresh(refresh_token_cookie);
+            await this.auth_service.refresh(refresh_token_input);
         this.httpOnlyRefreshToken(response, refresh_token);
-        return { access_token };
+        return { access_token, refresh_token };
     }
 
     @ApiOperation(exchange_token_swagger.operation)
@@ -423,6 +441,7 @@ export class AuthController {
 
         return {
             access_token,
+            refresh_token,
             user: user,
         };
     }
@@ -576,6 +595,7 @@ export class AuthController {
 
         return {
             access_token,
+            refresh_token,
             user: user,
         };
     }
@@ -652,7 +672,7 @@ export class AuthController {
             await this.auth_service.oauthCompletionStep2(dto);
 
         this.httpOnlyRefreshToken(response, refresh_token);
-        return { access_token, user };
+        return { access_token, refresh_token, user };
     }
 
     @ApiBearerAuth('JWT-auth')
