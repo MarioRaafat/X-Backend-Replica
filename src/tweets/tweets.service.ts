@@ -510,6 +510,10 @@ export class TweetsService {
             await query_runner.manager.insert(TweetRepost, new_repost);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: tweet_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -546,6 +550,10 @@ export class TweetsService {
                 'num_reposts',
                 1
             );
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: tweet_id,
+            });
 
             await query_runner.commitTransaction();
         } catch (error) {
