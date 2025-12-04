@@ -1143,11 +1143,11 @@ export class TweetsService {
         const mentions = content.match(/@([a-zA-Z0-9_]+)/g) || [];
         this.mentionNotification(mentions, user_id);
 
-        // Extract hashtags
+        // Extract hashtags and remove duplicates
         const hashtags =
             content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
-
-        await this.updateHashtags(hashtags, user_id, query_runner);
+        const unique_hashtags = [...new Set(hashtags)];
+        await this.updateHashtags(unique_hashtags, user_id, query_runner);
 
         // Extract topics using Groq AI
         const topics = await this.extractTopics(content);
