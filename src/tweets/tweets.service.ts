@@ -35,7 +35,6 @@ import { UserFollows } from '../user/entities/user-follows.entity';
 import { User } from '../user/entities/user.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { BlobServiceClient } from '@azure/storage-blob';
-import { GoogleGenAI } from '@google/genai';
 import { TweetsRepository } from './tweets.repository';
 import { TimelinePaginationDto } from 'src/timeline/dto/timeline-pagination.dto';
 import { GetTweetRepliesQueryDto } from './dto';
