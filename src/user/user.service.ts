@@ -48,6 +48,7 @@ import { FollowJobService } from 'src/background-jobs/notifications/follow/follo
 import { EsUpdateUserJobService } from 'src/background-jobs/elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
+import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
 
 @Injectable()
 export class UserService {
@@ -123,6 +124,11 @@ export class UserService {
     }
 
     async getMe(user_id: string): Promise<UserProfileDto> {
+        const user = await this.user_repository.findOne({ where: { id: user_id } });
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const result = await this.user_repository.getMyProfile(user_id);
 
         return plainToInstance(UserProfileDto, result, {
@@ -810,5 +816,16 @@ export class UserService {
             await this.username_service.generateUsernameRecommendationsSingleName(user.name);
 
         return { recommendations };
+    }
+
+    async getUserRelationsCounts(user_id: string): Promise<UserRelationsResponseDto> {
+        const manager = this.user_repository.manager;
+
+        const [blocked_count, muted_count] = await Promise.all([
+            manager.count('user_blocks', { where: { blocker_id: user_id } }),
+            manager.count('user_mutes', { where: { muter_id: user_id } }),
+        ]);
+
+        return { blocked_count, muted_count };
     }
 }

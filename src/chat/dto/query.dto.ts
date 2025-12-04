@@ -16,7 +16,7 @@ export class GetChatsQueryDto {
     @IsInt()
     @Min(1)
     @Max(50)
-    limit?: number = 20;
+    limit: number = 20;
 
     @ApiPropertyOptional({
         description:

@@ -27,6 +27,8 @@ const OAUTH_RESPONSE_EXISTING_USER = {
                 following: 150,
             },
             access_token: "messi doesn't need a token to be authenticated bro",
+            refresh_token:
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImp0aSI6IjEyMzQ1Njc4LTkwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4NzUyNjY5fQ.abc123',
         },
         count: 1,
         message: SUCCESS_MESSAGES.LOGGED_IN,
@@ -168,6 +170,8 @@ Complete your registration by setting a password, choosing a username, and optio
                         },
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        refresh_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImp0aSI6IjEyMzQ1Njc4LTkwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4NzUyNjY5fQ.abc123',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED,
@@ -238,7 +242,7 @@ export const login_swagger = {
     operation: {
         summary: 'User login',
         description:
-            'Authenticate user and receive access token. Refresh token is set as httpOnly cookie.',
+            'Authenticate user and receive access token and refresh token. Refresh token is also set as httpOnly cookie for web clients.',
     },
 
     responses: {
@@ -249,6 +253,8 @@ export const login_swagger = {
                     data: {
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        refresh_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImp0aSI6IjEyMzQ1Njc4LTkwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4NzUyNjY5fQ.abc123',
                         user: {
                             id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
                             email: 'amirakhaled928@gmail.com',
@@ -285,17 +291,20 @@ export const login_swagger = {
 export const refresh_token_swagger = {
     operation: {
         summary: 'Refresh access token',
-        description: 'Use refresh token from httpOnly cookie to get a new access token.',
+        description:
+            'Use refresh token from httpOnly cookie or request body to get a new access token. For mobile apps, provide refresh_token in the request body.',
     },
 
     responses: {
         success: {
-            description: 'New access token generated',
+            description: 'New access token and refresh token generated',
             schema: {
                 example: {
                     data: {
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNjZTM3YjEzLWQ2ZGUtNDhjZC1iNzQ2LWRmMjY0ODQ1N2E0NiIsImlhdCI6MTc1ODE0OTI2NywiZXhwIjoxNzU4MTUyODY3fQ.M1ennV-LC8xiJpsRKCsUo9Y4o7_6mydG0SPURuNzh6I',
+                        refresh_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNjZTM3YjEzLWQ2ZGUtNDhjZC1iNzQ2LWRmMjY0ODQ1N2E0NiIsImp0aSI6Ijk4NzY1NDMyLTEwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0OTI2NywiZXhwIjoxNzU4NzU0MDY3fQ.xyz789',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.NEW_ACCESS_TOKEN,
@@ -975,7 +984,7 @@ export const oauth_completion_step2_swagger = {
         summary: 'OAuth Step 2: Complete registration with username',
         description: `
             Complete OAuth registration step 2. Finalizes user account creation with the chosen username.
-            Returns access token and user data. Refresh token is set as httpOnly cookie.
+            Returns access token, refresh token, and user data. Refresh token is also set as httpOnly cookie for web clients.
         `,
     },
 
@@ -987,6 +996,8 @@ export const oauth_completion_step2_swagger = {
                     data: {
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        refresh_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImp0aSI6IjEyMzQ1Njc4LTkwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4NzUyNjY5fQ.abc123',
                         user: {
                             id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
                             email: 'mariorafat10@gmail.com',

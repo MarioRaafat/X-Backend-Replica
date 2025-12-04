@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
@@ -7,10 +8,13 @@ import {
     Patch,
     Post,
     Query,
+    Req,
+    Res,
     UploadedFile,
     UseGuards,
     UseInterceptors,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { UserService } from './user.service';
 import {
     ApiBearerAuth,
@@ -47,6 +51,7 @@ import {
     get_user_by_id,
     get_user_media,
     get_user_posts,
+    get_user_relations,
     get_user_replies,
     get_username_recommendations,
     get_users_by_ids,
@@ -118,7 +123,14 @@ export class UserController {
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USER_RETRIEVED)
     @Get('me')
-    async getMe(@GetUserId() user_id: string) {
+    async getMe(
+        @GetUserId() user_id: string,
+        @Req() req: Request,
+        @Query('refresh_token') refresh_token_query?: string
+    ) {
+        const refresh_token = refresh_token_query || req.cookies['refresh_token'];
+        if (!refresh_token) throw new BadRequestException('No refresh token provided');
+
         return await this.user_service.getMe(user_id);
     }
 
@@ -507,5 +519,16 @@ export class UserController {
     @Get('me/username-recommendations')
     async getUsernameRecommendations(@GetUserId() current_user_id: string) {
         return await this.user_service.getUsernameRecommendations(current_user_id);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(get_user_relations.operation)
+    @ApiCreatedResponse(get_user_relations.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ResponseMessage(SUCCESS_MESSAGES.USER_RELATIONS_RETRIEVED)
+    @Get('me/relations-count')
+    async getRelationsCount(@GetUserId() current_user_id: string) {
+        return await this.user_service.getUserRelationsCounts(current_user_id);
     }
 }

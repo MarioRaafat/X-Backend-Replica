@@ -6,6 +6,9 @@ export class UserProfileDto {
     user_id: string;
 
     @Expose()
+    email?: string;
+
+    @Expose()
     name: string;
 
     @Expose()
@@ -42,4 +45,16 @@ export class UserProfileDto {
         return Number(source) || 0;
     })
     following_count: number;
+
+    @Expose()
+    num_posts: number;
+
+    @Expose()
+    num_replies: number;
+
+    @Expose()
+    num_media: number;
+
+    @Expose()
+    num_likes?: number;
 }

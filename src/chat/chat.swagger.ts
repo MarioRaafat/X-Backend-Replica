@@ -53,7 +53,6 @@ Create a new chat between the authenticated user and another user.
                         updated_at: '2025-10-16T10:30:00.000Z',
                         last_message: null,
                     },
-                    count: 1,
                     message: SUCCESS_MESSAGES.CHAT_CREATED,
                 },
             },
@@ -90,48 +89,55 @@ Get a paginated list of chats that the authenticated user is part of, ordered by
             description: 'Chats retrieved successfully',
             schema: {
                 example: {
-                    data: [
-                        {
-                            id: 'chat_123abc-def456-789ghi',
-                            participant: {
-                                id: 'user_456def-789abc-012ghi',
-                                username: 'john_doe',
-                                name: 'John Doe',
-                                avatar_url: 'https://example.com/avatars/john.jpg',
+                    data: {
+                        data: [
+                            {
+                                id: 'chat_123abc-def456-789ghi',
+                                participant: {
+                                    id: 'user_456def-789abc-012ghi',
+                                    username: 'john_doe',
+                                    name: 'John Doe',
+                                    avatar_url: 'https://example.com/avatars/john.jpg',
+                                },
+                                last_message: {
+                                    id: 'msg_789def-012abc-345ghi',
+                                    content: 'msa msa ya bto3 el front',
+                                    message_type: 'text',
+                                    sender_id: 'user_456def-789abc-012ghi',
+                                    created_at: '2025-10-16T10:45:00.000Z',
+                                    is_read: false,
+                                },
+                                unread_count: 3,
+                                created_at: '2025-10-16T10:30:00.000Z',
+                                updated_at: '2025-10-16T10:45:00.000Z',
                             },
-                            last_message: {
-                                id: 'msg_789def-012abc-345ghi',
-                                content: 'msa msa ya bto3 el front',
-                                message_type: 'text',
-                                sender_id: 'user_456def-789abc-012ghi',
-                                created_at: '2025-10-16T10:45:00.000Z',
-                                is_read: false,
+                            {
+                                id: 'conv_456def-789ghi-012abc',
+                                participant: {
+                                    id: 'user_890abc-123def-456ghi',
+                                    username: 'alice_wonder',
+                                    name: 'Alice Wonder',
+                                    avatar_url: 'https://example.com/avatars/alice.jpg',
+                                },
+                                last_message: {
+                                    id: 'msg_345ghi-678abc-901def',
+                                    content: 'Thanks for the help yesterday!',
+                                    message_type: 'text',
+                                    sender_id: 'user_current_user_id',
+                                    created_at: '2025-10-15T18:20:00.000Z',
+                                    is_read: true,
+                                },
+                                unread_count: 0,
+                                created_at: '2025-10-15T15:00:00.000Z',
+                                updated_at: '2025-10-15T18:20:00.000Z',
                             },
-                            unread_count: 3,
-                            created_at: '2025-10-16T10:30:00.000Z',
-                            updated_at: '2025-10-16T10:45:00.000Z',
+                        ],
+                        pagination: {
+                            next_cursor:
+                                'eyJ1cGRhdGVkX2F0IjoiMjAyNS0xMC0xNVQxODoyMDowMC4wMDBaIiwiaWQiOiJjb252XzQ1NmRlZi03ODlnaGktMDEyYWJjIn0=',
+                            has_more: false,
                         },
-                        {
-                            id: 'conv_456def-789ghi-012abc',
-                            participant: {
-                                id: 'user_890abc-123def-456ghi',
-                                username: 'alice_wonder',
-                                name: 'Alice Wonder',
-                                avatar_url: 'https://example.com/avatars/alice.jpg',
-                            },
-                            last_message: {
-                                id: 'msg_345ghi-678abc-901def',
-                                content: 'Thanks for the help yesterday!',
-                                message_type: 'text',
-                                sender_id: 'user_current_user_id',
-                                created_at: '2025-10-15T18:20:00.000Z',
-                                is_read: true,
-                            },
-                            unread_count: 0,
-                            created_at: '2025-10-15T15:00:00.000Z',
-                            updated_at: '2025-10-15T18:20:00.000Z',
-                        },
-                    ],
+                    },
                     count: 2,
                     message: SUCCESS_MESSAGES.CHATS_RETRIEVED,
                 },
@@ -179,7 +185,6 @@ Mark all messages in a chat as read by the authenticated user up to a specific m
                         messages_marked_read: 3,
                         read_at: '2025-10-16T11:10:00.000Z',
                     },
-                    count: 1,
                     message: SUCCESS_MESSAGES.MESSAGE_READ_STATUS_UPDATED,
                 },
             },
@@ -227,7 +232,6 @@ Remove a chat from the authenticated user's chat list. This is a soft delete ope
                         is_deleted: true,
                         deleted_at: '2025-10-16T11:15:00.000Z',
                     },
-                    count: 1,
                     message: SUCCESS_MESSAGES.CHAT_DELETED,
                 },
             },

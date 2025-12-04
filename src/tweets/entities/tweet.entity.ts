@@ -58,10 +58,10 @@ export class Tweet {
     @Column({ name: 'num_bookmarks', type: 'int', default: 0 })
     num_bookmarks: number;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
-    @UpdateDateColumn({ type: 'timestamp' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     updated_at: Date;
 
     @DeleteDateColumn({ name: 'deleted_at' })
