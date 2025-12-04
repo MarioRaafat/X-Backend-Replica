@@ -36,7 +36,7 @@ export class UserResponseDTO {
         description: 'Whether the user is verified',
         example: true,
     })
-    verified: boolean;
+    verified?: boolean = false;
 
     @Expose()
     @ApiProperty({

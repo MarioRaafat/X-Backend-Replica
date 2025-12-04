@@ -18,6 +18,7 @@ import { ChatModule } from './chat/chat.module';
 import { CategoryModule } from './category/category.module';
 import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { AzureStorageModule } from './azure-storage/azure-storage.module';
+import { ElasticsearchModule } from './elasticsearch/elasticsearch.module';
 import { MessagesModule } from './messages/messages.module';
 
 @Module({
@@ -43,6 +44,7 @@ import { MessagesModule } from './messages/messages.module';
         CategoryModule,
         BackgroundJobsModule,
         AzureStorageModule,
+        ElasticsearchModule,
         MessagesModule,
     ],
     controllers: [AppController],

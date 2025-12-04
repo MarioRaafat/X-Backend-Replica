@@ -50,6 +50,8 @@ import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 import { categorize_prompt, TOPICS } from './constants';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
+import { EsIndexTweetJobService } from 'src/background-jobs/elasticsearch/es-index-tweet.service';
+import { EsDeleteTweetJobService } from 'src/background-jobs/elasticsearch/es-delete-tweet.service';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
@@ -81,7 +83,9 @@ export class TweetsService {
         private readonly tweets_repository: TweetsRepository,
         private readonly azure_storage_service: AzureStorageService,
         private readonly reply_job_service: ReplyJobService,
-        private readonly like_job_service: LikeJobService
+        private readonly like_job_service: LikeJobService,
+        private readonly es_index_tweet_service: EsIndexTweetJobService,
+        private readonly es_delete_tweet_service: EsDeleteTweetJobService
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
@@ -250,6 +254,10 @@ export class TweetsService {
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
             await query_runner.commitTransaction();
 
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_tweet.tweet_id,
+            });
+
             return plainToInstance(TweetResponseDTO, saved_tweet, {
                 excludeExtraneousValues: true,
             });
@@ -288,6 +296,10 @@ export class TweetsService {
             const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
             await query_runner.commitTransaction();
 
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: updated_tweet.tweet_id,
+            });
+
             // return TweetMapper.toDTO(tweet_with_type_info);
             return plainToInstance(TweetResponseDTO, updated_tweet, {
                 excludeExtraneousValues: true,
@@ -315,6 +327,10 @@ export class TweetsService {
             }
 
             await this.tweet_repository.delete({ tweet_id });
+
+            await this.es_delete_tweet_service.queueDeleteTweet({
+                tweet_id,
+            });
         } catch (error) {
             console.error(error);
             throw error;
@@ -353,6 +369,10 @@ export class TweetsService {
                 like_to: tweet.user_id,
                 liked_by: user_id,
             });
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -382,6 +402,10 @@ export class TweetsService {
 
             await query_runner.manager.decrement(Tweet, { tweet_id }, 'num_likes', 1);
             await query_runner.commitTransaction();
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             console.error(error);
@@ -473,6 +497,11 @@ export class TweetsService {
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1);
             await query_runner.commitTransaction();
 
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_quote_tweet.tweet_id,
+                parent_id: saved_quote_tweet.tweet_id,
+            });
+
             return plainToInstance(TweetQuoteResponseDTO, {
                 ...saved_quote_tweet,
                 quoted_tweet: plainToInstance(TweetResponseDTO, parentTweet, {
@@ -502,6 +531,10 @@ export class TweetsService {
             await query_runner.manager.insert(TweetRepost, new_repost);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: tweet_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)
@@ -538,6 +571,10 @@ export class TweetsService {
                 'num_reposts',
                 1
             );
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: tweet_id,
+            });
 
             await query_runner.commitTransaction();
         } catch (error) {
@@ -620,6 +657,13 @@ export class TweetsService {
             );
 
             returned_reply.parent_tweet_id = original_tweet_id;
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_reply_tweet.tweet_id,
+                parent_id: original_tweet_id,
+                conversation_id: original_reply?.conversation_id || original_tweet_id,
+            });
+
             return returned_reply;
         } catch (error) {
             await query_runner.rollbackTransaction();

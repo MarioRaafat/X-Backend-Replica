@@ -3,6 +3,7 @@ export const QUEUE_NAMES = {
     TIMELINE: 'timeline-queue',
     FEED: 'feed-queue',
     NOTIFICATION: 'notification-queue',
+    ELASTICSEARCH: 'elasticsearch-queue',
 } as const;
 
 export const JOB_NAMES = {
@@ -19,6 +20,13 @@ export const JOB_NAMES = {
         FOLLOW: 'follow-notification',
         REPLY: 'reply-notification',
         LIKE: 'like-notification',
+    },
+    ELASTICSEARCH: {
+        INDEX_TWEET: 'index-tweet',
+        DELETE_TWEET: 'delete-tweet',
+        UPDATE_USER: 'update-user',
+        DELETE_USER: 'delete-user',
+        FOLLOW: 'follow',
     },
 } as const;
 
