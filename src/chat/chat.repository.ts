@@ -44,6 +44,9 @@ export class ChatRepository extends Repository<Chat> {
             }
         } catch (error) {
             console.error('Error in createChat repository method:', error);
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB);
         }
     }

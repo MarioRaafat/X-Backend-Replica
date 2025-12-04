@@ -76,6 +76,9 @@ describe('TweetsRepository', () => {
     const MOCK_DATA_SOURCE = {
         createQueryRunner: jest.fn(() => MOCK_QUERY_RUNNER),
         createQueryBuilder: jest.fn(() => MOCK_QUERY_BUILDER),
+        createEntityManager: jest.fn(() => ({
+            createQueryBuilder: jest.fn(() => MOCK_QUERY_BUILDER),
+        })),
     };
 
     const MOCK_TWEET_REPOSITORY = {

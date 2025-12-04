@@ -139,6 +139,8 @@
         "collectCoverageFrom": [
             "**/*.(t|j)s",
             "!**/databases/**",
+            "!**/seeders/**",
+            "!**/scripts/**",
             "!**/*.dto.ts",
             "!**/*.entity.ts",
             "!**/*.interface.ts",

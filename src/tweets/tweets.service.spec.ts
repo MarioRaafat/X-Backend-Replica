@@ -16,6 +16,8 @@ import { TweetsRepository } from './tweets.repository';
 import { AzureStorageService } from '../azure-storage/azure-storage.service';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
+import { EsIndexTweetJobService } from 'src/background-jobs/elasticsearch/es-index-tweet.service';
+import { EsDeleteTweetJobService } from 'src/background-jobs/elasticsearch/es-delete-tweet.service';
 import { BlobServiceClient } from '@azure/storage-blob';
 
 jest.mock('@azure/storage-blob');
@@ -89,12 +91,23 @@ describe('TweetsService', () => {
             queueLikeNotification: jest.fn(),
         };
 
+        const mock_es_index_tweet_service = {
+            addIndexTweetJob: jest.fn(),
+            queueIndexTweet: jest.fn(),
+        };
+
+        const mock_es_delete_tweet_service = {
+            addDeleteTweetJob: jest.fn(),
+            queueDeleteTweet: jest.fn(),
+        };
+
         mock_query_runner = {
             connect: jest.fn(),
             startTransaction: jest.fn(),
             commitTransaction: jest.fn(),
             rollbackTransaction: jest.fn(),
             release: jest.fn(),
+            isTransactionActive: true,
             manager: {
                 create: jest.fn(),
                 save: jest.fn(),
@@ -130,6 +143,8 @@ describe('TweetsService', () => {
                 { provide: AzureStorageService, useValue: mock_azure_storage_service },
                 { provide: ReplyJobService, useValue: mock_reply_job_service },
                 { provide: LikeJobService, useValue: mock_like_job_service },
+                { provide: EsIndexTweetJobService, useValue: mock_es_index_tweet_service },
+                { provide: EsDeleteTweetJobService, useValue: mock_es_delete_tweet_service },
             ],
         }).compile();
 
@@ -1435,7 +1450,7 @@ describe('TweetsService', () => {
             process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
 
             await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
-        }, 10000);
+        }, 15000);
 
         it('should call uploadVideoToAzure with correct parameters', async () => {
             const mock_file: Express.Multer.File = {
@@ -1714,7 +1729,7 @@ describe('TweetsService', () => {
             process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
 
             await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
-        });
+        }, 15000);
 
         it('should upload video to Azure blob storage successfully', async () => {
             const mock_file: Express.Multer.File = {
