@@ -5,13 +5,10 @@ import { ExploreService } from './explore.service';
 import { RedisModuleConfig } from '../redis/redis.module';
 import { Category } from '../category/entities/category.entity';
 import { TweetsModule } from '../tweets/tweets.module';
+import { UserInterests } from 'src/user/entities/user-interests.entity';
 
 @Module({
-    imports: [
-        RedisModuleConfig,
-        TypeOrmModule.forFeature([Category]),
-        TweetsModule
-    ],
+    imports: [RedisModuleConfig, TypeOrmModule.forFeature([Category, UserInterests]), TweetsModule],
     controllers: [ExploreController],
     providers: [ExploreService],
     exports: [ExploreService],

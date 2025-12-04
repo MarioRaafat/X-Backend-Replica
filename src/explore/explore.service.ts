@@ -5,14 +5,20 @@ import { RedisService } from '../redis/redis.service';
 import { Category } from '../category/entities/category.entity';
 import { TweetsService } from '../tweets/tweets.service';
 
+import { UserInterests } from 'src/user/entities/user-interests.entity';
+
 @Injectable()
 export class ExploreService {
     constructor(
         private readonly redis_service: RedisService,
         @InjectRepository(Category)
         private readonly category_repository: Repository<Category>,
+        @InjectRepository(UserInterests)
+        private readonly user_interests_repository: Repository<UserInterests>,
         private readonly tweets_service: TweetsService
     ) {}
+
+    private readonly DEFAULT_CATEGORIES = [1, 2, 3, 4, 5];
 
     async getExploreData(current_user_id?: string) {
         // This method would fetch all explore data in one go
@@ -69,13 +75,10 @@ export class ExploreService {
         }
 
         const tweets = await this.tweets_service.getTweetsByIds(ids_to_return, current_user_id);
-        const tweets_map = new Map(tweets.map((t) => [t.tweet_id, t]));
 
         return {
             category: { id: category.id, name: category.name },
-            tweets: ids_to_return
-                .map((tweet_id) => tweets_map.get(tweet_id))
-                .filter((t) => t !== undefined),
+            tweets: tweets,
             pagination: {
                 page,
                 hasMore,
@@ -94,7 +97,22 @@ export class ExploreService {
 
     async getForYouPosts(current_user_id?: string) {
         const all_tweet_ids = new Set<string>();
-        const categories = await this.category_repository.find();
+        const time_before = Date.now();
+        const user_interests = await this.user_interests_repository.find({
+            where: { user_id: current_user_id },
+            relations: ['category'],
+            order: { score: 'DESC' },
+            take: 5,
+        });
+        const time_after = Date.now();
+        console.log('Time taken to fetch user interests:', time_after - time_before, 'ms');
+
+        const categories = user_interests.map((interest) => interest.category);
+        if (categories.length === 0) {
+            // If no user interests, use default categories
+            const default_cats = await this.category_repository.findByIds(this.DEFAULT_CATEGORIES);
+            categories.push(...default_cats);
+        }
 
         const keys = categories.map((cat) => `trending:category:${cat.id}`);
         const results = await this.redis_service.zrevrangeMultiple(keys, 0, 4);
@@ -102,7 +120,7 @@ export class ExploreService {
         const feed_structure: Array<{
             category: string;
             category_id: number;
-            items: { tweet_id: string; score: number }[];
+            items: { tweet_id: string }[];
         }> = [];
 
         results.forEach((raw_tweets, index) => {
@@ -134,17 +152,9 @@ export class ExploreService {
             current_user_id
         );
 
-        const tweets_map = new Map(tweets.map((t) => [t.tweet_id, t]));
-
         return feed_structure.map((item) => ({
             category: { name: item.category, id: item.category_id },
-            tweets: item.items
-                .map((i) => {
-                    const tweet = tweets_map.get(i.tweet_id);
-                    if (!tweet) return undefined;
-                    return { ...tweet, score: i.score };
-                })
-                .filter((t) => t !== undefined),
+            tweets: tweets.filter((tweet) => item.items.some((i) => i.tweet_id === tweet.tweet_id)),
         }));
     }
 }
