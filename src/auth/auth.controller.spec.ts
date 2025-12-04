@@ -147,6 +147,7 @@ describe('AuthController', () => {
             expect(result).toEqual({
                 user: mock_result.user,
                 access_token: mock_result.access_token,
+                refresh_token: mock_result.refresh_token,
             });
         });
 
@@ -278,6 +279,7 @@ describe('AuthController', () => {
             expect(mock_set_cookie).toHaveBeenCalledWith(mock_response, mock_result.refresh_token);
             expect(result).toEqual({
                 access_token: mock_result.access_token,
+                refresh_token: mock_result.refresh_token,
                 user: mock_result.user,
             });
         });
@@ -315,7 +317,7 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should generate a new access token when valid refresh token is provided', async () => {
-            const mock_req = { cookies: { refresh_token: 'valid-refresh' } } as any;
+            const mock_req = { cookies: { refresh_token: 'valid-refresh' }, body: {} } as any;
             const mock_res = { cookie: jest.fn() } as any;
 
             const mock_result = {
@@ -327,20 +329,20 @@ describe('AuthController', () => {
             const mock_set_cookie = jest.fn();
             controller['httpOnlyRefreshToken'] = mock_set_cookie;
 
-            const result = await controller.refresh(mock_req, mock_res);
+            const result = await controller.refresh({}, mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.refresh).toHaveBeenCalledWith('valid-refresh');
 
             expect(mock_set_cookie).toHaveBeenCalledWith(mock_res, 'new-refresh');
-            expect(result).toEqual({ access_token: 'new-access' });
+            expect(result).toEqual({ access_token: 'new-access', refresh_token: 'new-refresh' });
         });
 
         it('should throw BadRequestException if no refresh token is provided', async () => {
-            const mock_req = { cookies: {} } as any;
+            const mock_req = { cookies: {}, body: {} } as any;
             const mock_res = { cookie: jest.fn() } as any;
 
-            await expect(controller.refresh(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.refresh({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -348,14 +350,14 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.refresh throws', async () => {
-            const mock_req = { cookies: { refresh_token: 'invalid' } } as any;
+            const mock_req = { cookies: { refresh_token: 'invalid' }, body: {} } as any;
             const mock_res = { cookie: jest.fn() } as any;
 
             mock_auth_service.refresh.mockRejectedValue(
                 new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            await expect(controller.refresh(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.refresh({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
@@ -364,7 +366,7 @@ describe('AuthController', () => {
         });
 
         it('should throw if httpOnlyRefreshToken fails', async () => {
-            const mock_req = { cookies: { refresh_token: 'valid' } } as any;
+            const mock_req = { cookies: { refresh_token: 'valid' }, body: {} } as any;
             const mock_res = { cookie: jest.fn() } as any;
 
             const mock_result = {
@@ -377,7 +379,9 @@ describe('AuthController', () => {
             });
             controller['httpOnlyRefreshToken'] = mock_set_cookie;
 
-            await expect(controller.refresh(mock_req, mock_res)).rejects.toThrow('Cookie error');
+            await expect(controller.refresh({}, mock_req, mock_res)).rejects.toThrow(
+                'Cookie error'
+            );
         });
     });
 
@@ -385,13 +389,13 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should call auth_service.logout and return its result', async () => {
-            const mock_req = { cookies: { refresh_token: 'valid-refresh' } } as any;
+            const mock_req = { cookies: { refresh_token: 'valid-refresh' }, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
             const mock_result = { message: 'Successfully logged out' };
 
             mock_auth_service.logout.mockResolvedValue(mock_result as any);
 
-            const result = await controller.logout(mock_req, mock_res);
+            const result = await controller.logout({}, mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.logout).toHaveBeenCalledWith('valid-refresh', mock_res);
@@ -399,10 +403,10 @@ describe('AuthController', () => {
         });
 
         it('should throw BadRequestException if no refresh token is provided', async () => {
-            const mock_req = { cookies: {} } as any;
+            const mock_req = { cookies: {}, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
-            await expect(controller.logout(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.logout({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED
             );
 
@@ -411,14 +415,14 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.logout throws an error', async () => {
-            const mock_req = { cookies: { refresh_token: 'invalid' } } as any;
+            const mock_req = { cookies: { refresh_token: 'invalid' }, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
             mock_auth_service.logout.mockRejectedValue(
                 new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            await expect(controller.logout(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.logout({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
@@ -429,13 +433,13 @@ describe('AuthController', () => {
 
     describe('logoutAll', () => {
         it('should call auth_service.logoutAll and return its result', async () => {
-            const mock_req = { cookies: { refresh_token: 'valid-refresh' } } as any;
+            const mock_req = { cookies: { refresh_token: 'valid-refresh' }, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
             const mock_result = { message: 'Successfully logged out from all devices' };
 
             mock_auth_service.logoutAll.mockResolvedValue(mock_result as any);
 
-            const result = await controller.logoutAll(mock_req, mock_res);
+            const result = await controller.logoutAll({}, mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.logoutAll).toHaveBeenCalledWith('valid-refresh', mock_res);
@@ -443,10 +447,10 @@ describe('AuthController', () => {
         });
 
         it('should throw BadRequestException if no refresh token is provided', async () => {
-            const mock_req = { cookies: {} } as any;
+            const mock_req = { cookies: {}, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
-            await expect(controller.logoutAll(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.logoutAll({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED
             );
 
@@ -455,14 +459,14 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.logoutAll throws an error', async () => {
-            const mock_req = { cookies: { refresh_token: 'expired-token' } } as any;
+            const mock_req = { cookies: { refresh_token: 'expired-token' }, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
             mock_auth_service.logoutAll.mockRejectedValue(
                 new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            await expect(controller.logoutAll(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.logoutAll({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
@@ -1005,6 +1009,7 @@ describe('AuthController', () => {
             expect(result).toEqual({
                 access_token: mock_tokens.access_token,
                 user: mock_result.user,
+                refresh_token: mock_tokens.refresh_token,
             });
         });
 
@@ -1099,6 +1104,7 @@ describe('AuthController', () => {
             expect(result).toEqual({
                 access_token: mock_tokens.access_token,
                 user: mock_result.user,
+                refresh_token: mock_tokens.refresh_token,
             });
         });
 
@@ -1207,6 +1213,7 @@ describe('AuthController', () => {
             expect(result).toEqual({
                 access_token: mock_result.access_token,
                 user: mock_result.user,
+                refresh_token: mock_result.refresh_token,
             });
         });
 

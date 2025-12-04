@@ -1,8 +1,9 @@
-import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('tweet_replies')
+@Index('IDX_USER_ORIGINAL', ['original_tweet_id'])
 export class TweetReply {
     @PrimaryColumn({ type: 'uuid' })
     user_id: string;
