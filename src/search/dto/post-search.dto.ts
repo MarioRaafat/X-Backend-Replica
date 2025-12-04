@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsBoolean, IsOptional } from 'class-validator';
 import { SearchQueryDto } from './search-query.dto';
+import { Transform } from 'class-transformer';
 
 export class PostsSearchDto extends SearchQueryDto {
     @ApiPropertyOptional({
@@ -10,14 +11,10 @@ export class PostsSearchDto extends SearchQueryDto {
     })
     @IsOptional()
     @IsBoolean()
-    has_media?: boolean;
-
-    @ApiPropertyOptional({
-        description: 'Flag to compact media posts',
-        example: true,
-        type: Boolean,
+    @Transform(({ value }) => {
+        if (value === 'true') return true;
+        if (value === 'false') return false;
+        return value;
     })
-    @IsOptional()
-    @IsBoolean()
-    is_compact?: boolean;
+    has_media?: boolean;
 }

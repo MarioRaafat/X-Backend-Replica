@@ -9,6 +9,7 @@ import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
 import { TweetResponseDTO } from 'src/tweets/dto';
 import { SortResults } from 'node_modules/@elastic/elasticsearch/lib/api/types';
 import { map } from 'rxjs';
+import { TweetListResponseDto } from './dto/tweet-list-response.dto';
 
 @Injectable()
 export class SearchService {
@@ -125,14 +126,8 @@ export class SearchService {
     async searchPosts(
         current_user_id: string,
         query_dto: PostsSearchDto
-    ): Promise<{
-        data: TweetResponseDTO[];
-        pagination: {
-            next_cursor: string | null;
-            has_more: boolean;
-        };
-    }> {
-        const { query, cursor, limit = 20 } = query_dto;
+    ): Promise<TweetListResponseDto> {
+        const { query, cursor, limit = 20, has_media } = query_dto;
 
         if (!query || query.trim().length === 0) {
             return {
@@ -175,68 +170,18 @@ export class SearchService {
                 },
             });
 
-            search_body.query.bool.should.push(
-                {
-                    function_score: {
-                        field_value_factor: {
-                            field: 'num_likes',
-                            factor: 0.01,
-                            modifier: 'log1p',
-                            missing: 0,
+            this.applyTweetsBoosting(search_body);
+
+            if (has_media) {
+                search_body.query.bool.filter = search_body.query.bool.filter || [];
+                search_body.query.bool.filter.push({
+                    script: {
+                        script: {
+                            source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
                         },
                     },
-                },
-                {
-                    function_score: {
-                        field_value_factor: {
-                            field: 'num_reposts',
-                            factor: 0.02,
-                            modifier: 'log1p',
-                            missing: 0,
-                        },
-                    },
-                },
-                {
-                    function_score: {
-                        field_value_factor: {
-                            field: 'num_quotes',
-                            factor: 0.02,
-                            modifier: 'log1p',
-                            missing: 0,
-                        },
-                    },
-                },
-                {
-                    function_score: {
-                        field_value_factor: {
-                            field: 'num_replies',
-                            factor: 0.02,
-                            modifier: 'log1p',
-                            missing: 0,
-                        },
-                    },
-                },
-                {
-                    function_score: {
-                        field_value_factor: {
-                            field: 'num_views',
-                            factor: 0.001,
-                            modifier: 'log1p',
-                            missing: 0,
-                        },
-                    },
-                },
-                {
-                    function_score: {
-                        field_value_factor: {
-                            field: 'followers',
-                            factor: 0.001,
-                            modifier: 'log1p',
-                            missing: 0,
-                        },
-                    },
-                }
-            );
+                });
+            }
 
             const result = await this.elasticsearch_service.search({
                 index: ELASTICSEARCH_INDICES.TWEETS,
@@ -254,61 +199,8 @@ export class SearchService {
                 const last_hit = hits[limit - 1];
                 next_cursor = this.encodeCursor(last_hit.sort) ?? null;
             }
-            const tweets = items.map((hit) => hit._source) as any[];
 
-            const parent_tweet_ids = tweets
-                .filter((t) => (t.type === 'reply' || t.type === 'quote') && t.parent_id)
-                .map((t) => t.parent_id);
-
-            const conversation_tweet_ids = tweets
-                .filter((t) => t.type === 'reply' && t.conversation_id)
-                .map((t) => t.conversation_id);
-
-            let parent_map = new Map();
-            let conversation_map = new Map();
-
-            if (parent_tweet_ids.length > 0 || conversation_tweet_ids.length > 0) {
-                const ids_to_fetch = [...new Set([...parent_tweet_ids, ...conversation_tweet_ids])];
-
-                const fetched_tweets = await this.elasticsearch_service.mget({
-                    index: ELASTICSEARCH_INDICES.TWEETS,
-                    body: { ids: ids_to_fetch },
-                });
-
-                const tweets_data = new Map(
-                    fetched_tweets.docs
-                        .filter((doc: any) => doc.found === true)
-                        .map((doc: any) => [doc._id, doc._source])
-                );
-
-                parent_map = new Map(
-                    parent_tweet_ids
-                        .filter((id) => tweets_data.has(id))
-                        .map((id) => [id, tweets_data.get(id)])
-                );
-
-                conversation_map = new Map(
-                    conversation_tweet_ids
-                        .filter((id) => tweets_data.has(id))
-                        .map((id) => [id, tweets_data.get(id)])
-                );
-            }
-
-            const mapped_tweets = items.map((hit) => {
-                const s = hit._source as any;
-
-                const parent_tweet =
-                    (s.type === 'reply' || s.type === 'quote') && s.parent_id
-                        ? parent_map.get(s.parent_id)
-                        : undefined;
-
-                const conversation_tweet =
-                    s.type === 'reply' && s.conversation_id
-                        ? conversation_map.get(s.conversation_id)
-                        : undefined;
-
-                return this.mapTweet(hit, parent_tweet, conversation_tweet);
-            });
+            const mapped_tweets = await this.attachRelatedTweets(items);
 
             return {
                 data: mapped_tweets,
@@ -329,7 +221,92 @@ export class SearchService {
         }
     }
 
-    async searchLatestPosts(current_user_id: string, query_dto: SearchQueryDto) {}
+    async searchLatestPosts(
+        current_user_id: string,
+        query_dto: SearchQueryDto
+    ): Promise<TweetListResponseDto> {
+        const { query, cursor, limit = 20 } = query_dto;
+
+        if (!query || query.trim().length === 0) {
+            return {
+                data: [],
+                pagination: {
+                    next_cursor: null,
+                    has_more: false,
+                },
+            };
+        }
+
+        try {
+            const search_body: any = {
+                query: {
+                    bool: {
+                        must: [],
+                        should: [],
+                    },
+                },
+                size: limit + 1,
+                sort: [
+                    { created_at: { order: 'desc' } },
+                    { _score: { order: 'desc' } },
+                    { tweet_id: { order: 'desc' } },
+                ],
+            };
+
+            if (cursor) {
+                search_body.search_after = this.decodeCursor(cursor);
+            }
+
+            search_body.query.bool.must.push({
+                multi_match: {
+                    query: query.trim(),
+                    fields: ['content^3', 'username^2', 'name'],
+                    type: 'best_fields',
+                    fuzziness: 'AUTO',
+                    prefix_length: 1,
+                    operator: 'or',
+                },
+            });
+
+            this.applyTweetsBoosting(search_body);
+
+            const result = await this.elasticsearch_service.search({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: search_body,
+            });
+
+            const hits = result.hits.hits;
+
+            const has_more = hits.length > limit;
+            const items = has_more ? hits.slice(0, limit) : hits;
+
+            let next_cursor: string | null = null;
+
+            if (has_more) {
+                const last_hit = hits[limit - 1];
+                next_cursor = this.encodeCursor(last_hit.sort) ?? null;
+            }
+
+            const mapped_tweets = await this.attachRelatedTweets(items);
+
+            return {
+                data: mapped_tweets,
+                pagination: {
+                    next_cursor,
+                    has_more,
+                },
+            };
+        } catch (error) {
+            console.log(error);
+            return {
+                data: [],
+                pagination: {
+                    next_cursor: null,
+                    has_more: false,
+                },
+            };
+        }
+    }
 
     private mapTweet(hit: any, parent_source?: any, conversation_source?: any) {
         const s = hit._source;
@@ -423,5 +400,96 @@ export class SearchService {
         } catch (error) {
             return null;
         }
+    }
+
+    private applyTweetsBoosting(search_body: any): void {
+        const boosting_factors = [
+            { field: 'num_likes', factor: 0.01 },
+            { field: 'num_reposts', factor: 0.02 },
+            { field: 'num_quotes', factor: 0.02 },
+            { field: 'num_replies', factor: 0.02 },
+            { field: 'num_views', factor: 0.001 },
+            { field: 'followers', factor: 0.001 },
+        ];
+
+        const boost_queries = boosting_factors.map(({ field, factor }) => ({
+            function_score: {
+                field_value_factor: {
+                    field,
+                    factor,
+                    modifier: 'log1p',
+                    missing: 0,
+                },
+            },
+        }));
+
+        search_body.query.bool.should.push(...boost_queries);
+    }
+
+    private async attachRelatedTweets(items: any[]): Promise<any[]> {
+        const tweets = items.map((hit) => hit._source);
+
+        const { parent_map, conversation_map } = await this.fetchRelatedTweets(tweets);
+
+        return items.map((hit) => {
+            const s = hit._source;
+
+            const parent_tweet =
+                (s.type === 'reply' || s.type === 'quote') && s.parent_id
+                    ? parent_map.get(s.parent_id)
+                    : undefined;
+
+            const conversation_tweet =
+                s.type === 'reply' && s.conversation_id
+                    ? conversation_map.get(s.conversation_id)
+                    : undefined;
+
+            return this.mapTweet(hit, parent_tweet, conversation_tweet);
+        });
+    }
+
+    private async fetchRelatedTweets(tweets: any[]): Promise<{
+        parent_map: Map<string, any>;
+        conversation_map: Map<string, any>;
+    }> {
+        const parent_tweet_ids = tweets
+            .filter((t) => (t.type === 'reply' || t.type === 'quote') && t.parent_id)
+            .map((t) => t.parent_id);
+
+        const conversation_tweet_ids = tweets
+            .filter((t) => t.type === 'reply' && t.conversation_id)
+            .map((t) => t.conversation_id);
+
+        let parent_map = new Map();
+        let conversation_map = new Map();
+
+        if (parent_tweet_ids.length > 0 || conversation_tweet_ids.length > 0) {
+            const ids_to_fetch = [...new Set([...parent_tweet_ids, ...conversation_tweet_ids])];
+
+            const fetched_tweets = await this.elasticsearch_service.mget({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: { ids: ids_to_fetch },
+            });
+
+            const tweets_data = new Map(
+                fetched_tweets.docs
+                    .filter((doc: any) => doc.found === true)
+                    .map((doc: any) => [doc._id, doc._source])
+            );
+
+            parent_map = new Map(
+                parent_tweet_ids
+                    .filter((id) => tweets_data.has(id))
+                    .map((id) => [id, tweets_data.get(id)])
+            );
+
+            conversation_map = new Map(
+                conversation_tweet_ids
+                    .filter((id) => tweets_data.has(id))
+                    .map((id) => [id, tweets_data.get(id)])
+            );
+        }
+
+        return { parent_map, conversation_map };
     }
 }

@@ -15,24 +15,6 @@ export enum LocationFilter {
 
 export class SearchQueryDto extends BasicQueryDto {
     @ApiPropertyOptional({
-        description: 'Filter by people (anyone or only people you follow)',
-        enum: PeopleFilter,
-        example: PeopleFilter.ANYONE,
-    })
-    @IsOptional()
-    @IsEnum(PeopleFilter)
-    people?: PeopleFilter;
-
-    @ApiPropertyOptional({
-        description: 'Filter by location (anywhere or near your current location)',
-        enum: LocationFilter,
-        example: LocationFilter.ANYWHERE,
-    })
-    @IsOptional()
-    @IsEnum(LocationFilter)
-    location?: LocationFilter;
-
-    @ApiPropertyOptional({
         description: 'Cursor for pagination (format: "timestamp_userId")',
         required: false,
         example: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
