@@ -3,7 +3,7 @@ import { Tweet } from './tweet.entity';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('tweet_bookmarks')
-@Index('IDX_USER', ['user_id', 'created_at'])
+@Index('IDX_USER_BOOKMARKS', ['user_id', 'created_at'])
 export class TweetBookmark {
     @PrimaryColumn({ type: 'uuid' })
     user_id: string;

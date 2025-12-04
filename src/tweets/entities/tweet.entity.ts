@@ -21,7 +21,7 @@ import { TweetType } from '../../shared/enums/tweet-types.enum';
 
 // removed conversation_id
 @Entity('tweets')
-@Index('IDX_USER', ['user_id', 'created_at'])
+@Index('IDX_USER_TWEETS', ['user_id', 'created_at'])
 export class Tweet {
     @PrimaryGeneratedColumn('uuid')
     tweet_id: string;
