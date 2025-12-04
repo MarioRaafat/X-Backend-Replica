@@ -180,7 +180,8 @@ describe('MessagesService', () => {
             expect(message_repository.createMessage).toHaveBeenCalledWith(
                 mock_user_id,
                 mock_chat_id,
-                send_dto
+                send_dto,
+                false
             );
             expect(chat_repository.increment).toHaveBeenCalledWith(
                 { id: mock_chat_id },

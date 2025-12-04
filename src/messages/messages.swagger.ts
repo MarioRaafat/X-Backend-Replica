@@ -94,32 +94,39 @@ Get a paginated list of messages from a specific chat, ordered by creation time.
             schema: {
                 example: {
                     data: {
-                        sender: {
-                            id: 'user_456def-789abc-012ghi',
-                            username: 'mariooo',
-                            name: 'Mario Raafat',
-                            avatar_url: 'https://wqjblkqbw.jpg',
+                        data: {
+                            chat_id: 'chat_123abc-def456-789ghi',
+                            sender: {
+                                id: 'user_456def-789abc-012ghi',
+                                username: 'mariooo',
+                                name: 'Mario Raafat',
+                                avatar_url: 'https://wqjblkqbw.jpg',
+                            },
+                            messages: [
+                                {
+                                    id: 'msg_789def-012abc-345ghi',
+                                    content: 'take a kiss my friend 😘',
+                                    message_type: 'text',
+                                    reply_to: null,
+                                    is_read: false,
+                                    created_at: '2025-10-16T10:45:00.000Z',
+                                    updated_at: '2025-10-16T10:45:00.000Z',
+                                },
+                                {
+                                    id: 'msg_456abc-789def-012ghi',
+                                    content: 'el back team is top el top',
+                                    message_type: 'reply',
+                                    reply_to: 'msg_789def-012abc-345ghi',
+                                    is_read: true,
+                                    created_at: '2025-10-16T10:46:00.000Z',
+                                    updated_at: '2025-10-16T10:46:00.000Z',
+                                },
+                            ],
                         },
-                        messages: [
-                            {
-                                id: 'msg_789def-012abc-345ghi',
-                                content: 'take a kiss my friend 😘',
-                                message_type: 'text',
-                                reply_to: null,
-                                is_read: false,
-                                created_at: '2025-10-16T10:45:00.000Z',
-                                updated_at: '2025-10-16T10:45:00.000Z',
-                            },
-                            {
-                                id: 'msg_456abc-789def-012ghi',
-                                content: 'el back team is top el top',
-                                message_type: 'reply',
-                                reply_to: 'msg_789def-012abc-345ghi',
-                                is_read: true,
-                                created_at: '2025-10-16T10:46:00.000Z',
-                                updated_at: '2025-10-16T10:46:00.000Z',
-                            },
-                        ],
+                        pagination: {
+                            has_more: true,
+                            next_cursor: 'msg_456abc-789def-012ghi',
+                        },
                     },
                     count: 2,
                     message: SUCCESS_MESSAGES.MESSAGES_RETRIEVED,
