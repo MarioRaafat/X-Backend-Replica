@@ -52,6 +52,7 @@ export class MessagesController {
                     'delete_message',
                     'typing_start',
                     'typing_stop',
+                    'get_messages',
                 ],
                 server_to_client: [
                     'unread_chats_summary',
@@ -63,6 +64,7 @@ export class MessagesController {
                     'joined_chat',
                     'left_chat',
                     'message_sent',
+                    'messages_retrieved',
                     'error',
                 ],
             },
@@ -99,7 +101,19 @@ export class MessagesController {
         @Query() query: GetMessagesQueryDto,
         @GetUserId() user_id: string
     ) {
-        return this.messages_service.getMessages(user_id, chat_id, query);
+        const result = await this.messages_service.getMessages(user_id, chat_id, query);
+        const { next_cursor, has_more, ...response_data } = result;
+
+        return {
+            data: {
+                chat_id,
+                ...response_data,
+            },
+            pagination: {
+                next_cursor,
+                has_more,
+            },
+        };
     }
 
     @ApiOperation(update_message_swagger.operation)

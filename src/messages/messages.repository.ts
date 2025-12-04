@@ -56,26 +56,25 @@ export class MessageRepository extends Repository<Message> {
 
     async findMessagesByChatId(chat_id: string, query: GetMessagesQueryDto): Promise<Message[]> {
         try {
-            const { limit = 50, before } = query;
+            const { limit = 50, cursor } = query;
 
-            const query_builder = this.createQueryBuilder('message')
+            let query_builder = this.createQueryBuilder('message')
                 .leftJoinAndSelect('message.sender', 'sender')
                 .leftJoinAndSelect('message.reply_to', 'reply_to')
                 .leftJoinAndSelect('reply_to.sender', 'reply_sender')
                 .where('message.chat_id = :chat_id', { chat_id })
                 // .andWhere('message.is_deleted = :is_deleted', { is_deleted: false }) // commented until see if we want to hide deleted messages or show "This message was deleted"
                 .orderBy('message.created_at', 'DESC')
-                .take(limit);
+                .take(limit + 1); // Fetch one extra to check if there's a next page
 
-            if (before) {
-                // Get messages before a specific message (for pagination)
-                const before_message = await this.findOne({ where: { id: before } });
-                if (before_message) {
-                    query_builder.andWhere('message.created_at < :before_date', {
-                        before_date: before_message.created_at,
-                    });
-                }
-            }
+            // Apply cursor-based pagination using PaginationService
+            query_builder = this.pagination_service.applyCursorPagination(
+                query_builder,
+                cursor,
+                'message',
+                'created_at',
+                'id'
+            );
 
             const messages = await query_builder.getMany();
 

@@ -94,32 +94,39 @@ Get a paginated list of messages from a specific chat, ordered by creation time.
             schema: {
                 example: {
                     data: {
-                        sender: {
-                            id: 'user_456def-789abc-012ghi',
-                            username: 'mariooo',
-                            name: 'Mario Raafat',
-                            avatar_url: 'https://wqjblkqbw.jpg',
+                        data: {
+                            chat_id: 'chat_123abc-def456-789ghi',
+                            sender: {
+                                id: 'user_456def-789abc-012ghi',
+                                username: 'mariooo',
+                                name: 'Mario Raafat',
+                                avatar_url: 'https://wqjblkqbw.jpg',
+                            },
+                            messages: [
+                                {
+                                    id: 'msg_789def-012abc-345ghi',
+                                    content: 'take a kiss my friend 😘',
+                                    message_type: 'text',
+                                    reply_to: null,
+                                    is_read: false,
+                                    created_at: '2025-10-16T10:45:00.000Z',
+                                    updated_at: '2025-10-16T10:45:00.000Z',
+                                },
+                                {
+                                    id: 'msg_456abc-789def-012ghi',
+                                    content: 'el back team is top el top',
+                                    message_type: 'reply',
+                                    reply_to: 'msg_789def-012abc-345ghi',
+                                    is_read: true,
+                                    created_at: '2025-10-16T10:46:00.000Z',
+                                    updated_at: '2025-10-16T10:46:00.000Z',
+                                },
+                            ],
                         },
-                        messages: [
-                            {
-                                id: 'msg_789def-012abc-345ghi',
-                                content: 'take a kiss my friend 😘',
-                                message_type: 'text',
-                                reply_to: null,
-                                is_read: false,
-                                created_at: '2025-10-16T10:45:00.000Z',
-                                updated_at: '2025-10-16T10:45:00.000Z',
-                            },
-                            {
-                                id: 'msg_456abc-789def-012ghi',
-                                content: 'el back team is top el top',
-                                message_type: 'reply',
-                                reply_to: 'msg_789def-012abc-345ghi',
-                                is_read: true,
-                                created_at: '2025-10-16T10:46:00.000Z',
-                                updated_at: '2025-10-16T10:46:00.000Z',
-                            },
-                        ],
+                        pagination: {
+                            has_more: true,
+                            next_cursor: 'msg_456abc-789def-012ghi',
+                        },
                     },
                     count: 2,
                     message: SUCCESS_MESSAGES.MESSAGES_RETRIEVED,
@@ -551,6 +558,72 @@ Event: "user_stopped_typing"
 
 ---
 
+### 8. **get_messages**
+Retrieve paginated messages from a chat using cursor-based pagination.
+
+**Emit:**
+\`\`\`json
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "limit": 50,
+  "before": "msg_456abc-789def-012ghi"
+}
+\`\`\`
+
+**Parameters:**
+- \`chat_id\` (required): The chat ID to retrieve messages from
+- \`limit\` (optional): Number of messages to retrieve (default: 50, max: 100)
+- \`before\` (optional): Message ID cursor for pagination (get messages before this message)
+
+**Response:**
+\`\`\`json
+{
+  "event": "messages_retrieved",
+  "data": {
+    "chat_id": "chat_123abc-def456-789ghi",
+    "sender": {
+      "id": "user_456def-789abc-012ghi",
+      "username": "mariooo",
+      "name": "Mario Raafat",
+      "avatar_url": "https://example.com/avatar.jpg"
+    },
+    "messages": [
+      {
+        "id": "msg_789def-012abc-345ghi",
+        "content": "Hello!",
+        "message_type": "text",
+        "reply_to": null,
+        "is_read": true,
+        "is_edited": false,
+        "created_at": "2025-11-29T10:45:00.000Z",
+        "updated_at": "2025-11-29T10:45:00.000Z",
+        "sender": {
+          "id": "user_123abc",
+          "username": "john_doe",
+          "name": "John Doe",
+          "avatar_url": "https://example.com/john.jpg"
+        }
+      }
+    ],
+    "has_more": true,
+    "next_cursor": "msg_789def-012abc-345ghi"
+  }
+}
+\`\`\`
+
+**Pagination:**
+- Messages are returned in chronological order (oldest first)
+- Use \`next_cursor\` in the \`before\` field to load older messages
+- \`has_more\` indicates if there are more messages to load
+- If \`has_more\` is false, you've reached the beginning of the chat
+
+**Example Pagination Flow:**
+1. Initial load: \`{ "chat_id": "chat_123", "limit": 50 }\`
+2. Load older: \`{ "chat_id": "chat_123", "limit": 50, "before": "msg_last_id" }\`
+3. Continue until \`has_more\` is false
+
+---
+
 ## 📬 Server Events (Server → Client)
 
 ### **unread_chats_summary**
@@ -579,6 +652,9 @@ Confirmation that you successfully left a chat room.
 
 ### **message_sent**
 Confirmation that your message was sent successfully.
+
+### **messages_retrieved**
+Response containing paginated messages from a chat.
 
 ### **error**
 Sent when an error occurs during any operation.
@@ -610,6 +686,7 @@ Sent when an error occurs during any operation.
                             'delete_message',
                             'typing_start',
                             'typing_stop',
+                            'get_messages',
                         ],
                         server_to_client: [
                             'unread_chats_summary',
@@ -621,6 +698,7 @@ Sent when an error occurs during any operation.
                             'joined_chat',
                             'left_chat',
                             'message_sent',
+                            'messages_retrieved',
                             'error',
                         ],
                     },

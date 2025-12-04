@@ -6,12 +6,13 @@ import { Chat } from './entities/chat.entity';
 import { ChatRepository } from './chat.repository';
 import { PaginationService } from '../shared/services/pagination/pagination.service';
 import { Message } from '../messages/entities/message.entity';
+import { UserRepository } from 'src/user/user.repository';
 
 @Module({
     imports: [TypeOrmModule.forFeature([Chat, Message])],
 
     controllers: [ChatController],
-    providers: [ChatService, ChatRepository, PaginationService],
+    providers: [ChatService, ChatRepository, PaginationService, UserRepository],
     exports: [ChatRepository],
 })
 export class ChatModule {}
