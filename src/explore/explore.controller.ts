@@ -1,8 +1,17 @@
-import { Controller, Get, Query } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
-import { ApiBadRequestErrorResponse, ApiInternalServerError } from 'src/decorators/swagger-error-responses.decorator';
+import { Controller, Get, Query, Param } from '@nestjs/common';
+import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags, ApiParam } from '@nestjs/swagger';
+import {
+    ApiBadRequestErrorResponse,
+    ApiInternalServerError,
+} from 'src/decorators/swagger-error-responses.decorator';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
-import { explore_root_swagger, search_latest_posts, trending_swagger, who_to_follow_swagger } from './explore.swagger';
+import {
+    explore_root_swagger,
+    search_latest_posts,
+    trending_swagger,
+    who_to_follow_swagger,
+    category_wise_trending_swagger,
+} from './explore.swagger';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import { ExploreService } from './explore.service';
 import { GetUserId } from 'src/decorators/get-userId.decorator';
@@ -42,6 +51,18 @@ export class ExploreController {
     @Get('who-to-follow')
     async getWhoToFollow() {
         return await this.explore_service.getWhoToFollow();
+    }
+    @ApiOperation(category_wise_trending_swagger.operation)
+    @ApiOkResponse(category_wise_trending_swagger.responses.success)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
+    @ApiParam(category_wise_trending_swagger.params.category_id)
+    @Get('category/:category_id')
+    async getCategoryWiseTrending(
+        @Param('category_id') category_id: string,
+        @GetUserId() user_id: string
+    ) {
+        return await this.explore_service.getCategoryTrending(category_id, user_id);
     }
 
     // @ApiOperation(search_latest_posts.operation)

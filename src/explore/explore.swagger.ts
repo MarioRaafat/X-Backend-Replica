@@ -83,7 +83,8 @@ export const explore_root_swagger = {
                                 {
                                     tweet_id: '550e8400-e29b-41d4-a716-446655440000',
                                     type: 'tweet',
-                                    content: 'Just scored the winning goal! ⚽ What an incredible match! #Football #Victory',
+                                    content:
+                                        'Just scored the winning goal! ⚽ What an incredible match! #Football #Victory',
                                     images: ['https://cdn.example.com/images/goal-celebration.jpg'],
                                     videos: [],
                                     likes_count: 1247,
@@ -114,9 +115,12 @@ export const explore_root_swagger = {
                                 {
                                     tweet_id: '770f0600-g41d-63f6-c938-668877662222',
                                     type: 'tweet',
-                                    content: 'Breaking: Championship finals set for next week! 🏆 #Sports #Championship',
+                                    content:
+                                        'Breaking: Championship finals set for next week! 🏆 #Sports #Championship',
                                     images: [],
-                                    videos: ['https://cdn.example.com/videos/championship-preview.mp4'],
+                                    videos: [
+                                        'https://cdn.example.com/videos/championship-preview.mp4',
+                                    ],
                                     likes_count: 892,
                                     reposts_count: 156,
                                     views_count: 3421,
@@ -132,7 +136,8 @@ export const explore_root_swagger = {
                                         id: 'd9e3f1a4-5h6c-6f4d-1h2g-345678901ghi',
                                         username: 'sportsnews',
                                         name: 'Sports News',
-                                        avatar_url: 'https://cdn.example.com/profiles/sportsnews.jpg',
+                                        avatar_url:
+                                            'https://cdn.example.com/profiles/sportsnews.jpg',
                                         verified: true,
                                         bio: 'Breaking sports news and updates 🏆 | Official sports media',
                                         cover_url: 'https://cdn.example.com/covers/sportsnews.jpg',
@@ -153,7 +158,8 @@ export const explore_root_swagger = {
                                 {
                                     tweet_id: '660e9500-f30c-52e5-b827-557766551111',
                                     type: 'tweet',
-                                    content: 'New album dropping tonight at midnight! 🎵 Get ready! #NewMusic #AlbumRelease',
+                                    content:
+                                        'New album dropping tonight at midnight! 🎵 Get ready! #NewMusic #AlbumRelease',
                                     images: ['https://cdn.example.com/images/album-cover.jpg'],
                                     videos: [],
                                     likes_count: 3421,
@@ -192,7 +198,8 @@ export const explore_root_swagger = {
                                 {
                                     tweet_id: '880g1711-h52e-74g7-d049-779988773333',
                                     type: 'tweet',
-                                    content: 'I dont think the casual Hunger Games films fans realise how deeply traumatising and genuinely heartbreaking Sunrise on the Reaping is about to be. 🎬',
+                                    content:
+                                        'I dont think the casual Hunger Games films fans realise how deeply traumatising and genuinely heartbreaking Sunrise on the Reaping is about to be. 🎬',
                                     images: [],
                                     videos: [],
                                     likes_count: 5621,
@@ -210,7 +217,8 @@ export const explore_root_swagger = {
                                         id: 'e0f4g2b5-6i7d-7g5e-2i3h-456789012jkl',
                                         username: 'moviebuff',
                                         name: 'Cinema Enthusiast',
-                                        avatar_url: 'https://cdn.example.com/profiles/moviebuff.jpg',
+                                        avatar_url:
+                                            'https://cdn.example.com/profiles/moviebuff.jpg',
                                         verified: false,
                                         bio: '🎬 Film critic | Movie reviews | Hunger Games superfan',
                                         cover_url: 'https://cdn.example.com/covers/moviebuff.jpg',
@@ -272,7 +280,8 @@ export const search_latest_posts = {
                             {
                                 tweet_id: '550e8400-e29b-41d4-a716-446655440000',
                                 type: 'tweet',
-                                content: 'Just scored the winning goal! ⚽ What an incredible match! #Football #Victory',
+                                content:
+                                    'Just scored the winning goal! ⚽ What an incredible match! #Football #Victory',
                                 images: ['https://cdn.example.com/images/goal-celebration.jpg'],
                                 videos: [],
                                 likes_count: 1247,
@@ -311,7 +320,8 @@ export const search_latest_posts = {
                             {
                                 tweet_id: '660e9500-f30c-52e5-b827-557766551111',
                                 type: 'tweet',
-                                content: 'New album dropping tonight at midnight! 🎵 Get ready! #NewMusic #AlbumRelease',
+                                content:
+                                    'New album dropping tonight at midnight! 🎵 Get ready! #NewMusic #AlbumRelease',
                                 images: ['https://cdn.example.com/images/album-cover.jpg'],
                                 videos: [],
                                 likes_count: 3421,
@@ -374,7 +384,8 @@ export const trending_swagger = {
         category: {
             name: 'category',
             required: false,
-            description: 'Filter trending items by category. Select a category to see trends in that specific area, or choose "none" for general trends.',
+            description:
+                'Filter trending items by category. Select a category to see trends in that specific area, or choose "none" for general trends.',
             enum: ['none', 'sports', 'entertainment'],
             example: 'sports',
             schema: {
@@ -386,7 +397,8 @@ export const trending_swagger = {
         country: {
             name: 'country',
             required: false,
-            description: 'Filter by country code using ISO 3166-1 alpha-2 format. Leave empty for global trends. Examples: US (United States), GB (United Kingdom), EG (Egypt), AE (UAE), SA (Saudi Arabia), CA (Canada), AU (Australia), IN (India), BR (Brazil), FR (France), DE (Germany), JP (Japan)',
+            description:
+                'Filter by country code using ISO 3166-1 alpha-2 format. Leave empty for global trends. Examples: US (United States), GB (United Kingdom), EG (Egypt), AE (UAE), SA (Saudi Arabia), CA (Canada), AU (Australia), IN (India), BR (Brazil), FR (France), DE (Germany), JP (Japan)',
             example: 'US',
             schema: {
                 type: 'string',
@@ -401,44 +413,44 @@ export const trending_swagger = {
             description: 'Trending items retrieved successfully',
             example: {
                 data: [
-                        {
-                            text: '#WorldCup2026',
-                            posts_count: 45678,
-                            reference_id: 'worldcup2026',
-                            category: 'sports',
-                            trend_rank: 1,
-                        },
-                        {
-                            text: '#TechConference',
-                            posts_count: 23456,
-                            reference_id: 'techconference',
-                            category: 'none',
-                            trend_rank: 2,
-                        },
-                        {
-                            text: 'New Movie Release',
-                            posts_count: 18234,
-                            reference_id: 'new-movie-release',
-                            category: 'entertainment',
-                            trend_rank: 3,
-                        },
-                        {
-                            text: '#ClimateAction',
-                            posts_count: 15890,
-                            reference_id: 'climateaction',
-                            category: 'news',
-                            trend_rank: 4,
-                        },
-                        {
-                            text: 'Champions League',
-                            posts_count: 12567,
-                            reference_id: 'champions-league',
-                            category: 'sports',
-                            trend_rank: 5,
-                        },
-                    ],
-                    count: 5,
-                    message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED,
+                    {
+                        text: '#WorldCup2026',
+                        posts_count: 45678,
+                        reference_id: 'worldcup2026',
+                        category: 'sports',
+                        trend_rank: 1,
+                    },
+                    {
+                        text: '#TechConference',
+                        posts_count: 23456,
+                        reference_id: 'techconference',
+                        category: 'none',
+                        trend_rank: 2,
+                    },
+                    {
+                        text: 'New Movie Release',
+                        posts_count: 18234,
+                        reference_id: 'new-movie-release',
+                        category: 'entertainment',
+                        trend_rank: 3,
+                    },
+                    {
+                        text: '#ClimateAction',
+                        posts_count: 15890,
+                        reference_id: 'climateaction',
+                        category: 'news',
+                        trend_rank: 4,
+                    },
+                    {
+                        text: 'Champions League',
+                        posts_count: 12567,
+                        reference_id: 'champions-league',
+                        category: 'sports',
+                        trend_rank: 5,
+                    },
+                ],
+                count: 5,
+                message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED,
             },
         },
         bad_request: {
@@ -458,7 +470,6 @@ export const trending_swagger = {
             },
         },
     },
-    
 };
 
 export const who_to_follow_swagger = {
@@ -472,71 +483,138 @@ export const who_to_follow_swagger = {
             type: User,
             example: {
                 data: [
-                        {
-                            id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                            name: 'Tech Enthusiast',
-                            username: 'techenthusiast',
-                            bio: 'Passionate about technology, AI, and innovation. Sharing the latest tech news and insights.',
-                            avatar_url: 'https://cdn.example.com/avatars/techenthusiast.jpg',
-                            verified: true,
-                            followers: 45678,
-                            following: 892,
-                            is_following: false,
-                            is_followed_by: false,
-                        },
-                        {
-                            id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
-                            name: 'Sports Analyst',
-                            username: 'sportsanalyst',
-                            bio: 'Breaking down the game | Sports statistics and analysis | Former athlete',
-                            avatar_url: 'https://cdn.example.com/avatars/sportsanalyst.jpg',
-                            verified: true,
-                            followers: 32145,
-                            following: 543,
-                            is_following: false,
-                            is_followed_by: true,
-                        },
-                        {
-                            id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
-                            name: 'Music Lover',
-                            username: 'musiclover',
-                            bio: '🎵 Music is life | Playlist curator | Concert photographer',
-                            avatar_url: 'https://cdn.example.com/avatars/musiclover.jpg',
-                            verified: false,
-                            followers: 8234,
-                            following: 1205,
-                            is_following: false,
-                            is_followed_by: false,
-                        },
-                        {
-                            id: 'd4e5f6a7-b8c9-0123-def1-234567890123',
-                            name: 'News Reporter',
-                            username: 'newsreporter',
-                            bio: 'Journalist | Breaking news and investigative reporting | Truth matters',
-                            avatar_url: 'https://cdn.example.com/avatars/newsreporter.jpg',
-                            verified: true,
-                            followers: 67890,
-                            following: 321,
-                            is_following: true,
-                            is_followed_by: false,
-                        },
-                        {
-                            id: 'e5f6a7b8-c9d0-1234-ef12-345678901234',
-                            name: 'Comedy Central',
-                            username: 'comedycentral',
-                            bio: 'Daily laughs and entertainment 😂 | Memes | Comedy clips',
-                            avatar_url: 'https://cdn.example.com/avatars/comedycentral.jpg',
-                            verified: false,
-                            followers: 15432,
-                            following: 678,
-                            is_following: false,
-                            is_followed_by: false,
-                        },
-                    ],
-                    count: 5,
-                    message: SUCCESS_MESSAGES.EXPLORE_WHO_TO_FOLLOW_RETRIEVED,
-                },
+                    {
+                        id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                        name: 'Tech Enthusiast',
+                        username: 'techenthusiast',
+                        bio: 'Passionate about technology, AI, and innovation. Sharing the latest tech news and insights.',
+                        avatar_url: 'https://cdn.example.com/avatars/techenthusiast.jpg',
+                        verified: true,
+                        followers: 45678,
+                        following: 892,
+                        is_following: false,
+                        is_followed_by: false,
+                    },
+                    {
+                        id: 'b2c3d4e5-f6a7-8901-bcde-f12345678901',
+                        name: 'Sports Analyst',
+                        username: 'sportsanalyst',
+                        bio: 'Breaking down the game | Sports statistics and analysis | Former athlete',
+                        avatar_url: 'https://cdn.example.com/avatars/sportsanalyst.jpg',
+                        verified: true,
+                        followers: 32145,
+                        following: 543,
+                        is_following: false,
+                        is_followed_by: true,
+                    },
+                    {
+                        id: 'c3d4e5f6-a7b8-9012-cdef-123456789012',
+                        name: 'Music Lover',
+                        username: 'musiclover',
+                        bio: '🎵 Music is life | Playlist curator | Concert photographer',
+                        avatar_url: 'https://cdn.example.com/avatars/musiclover.jpg',
+                        verified: false,
+                        followers: 8234,
+                        following: 1205,
+                        is_following: false,
+                        is_followed_by: false,
+                    },
+                    {
+                        id: 'd4e5f6a7-b8c9-0123-def1-234567890123',
+                        name: 'News Reporter',
+                        username: 'newsreporter',
+                        bio: 'Journalist | Breaking news and investigative reporting | Truth matters',
+                        avatar_url: 'https://cdn.example.com/avatars/newsreporter.jpg',
+                        verified: true,
+                        followers: 67890,
+                        following: 321,
+                        is_following: true,
+                        is_followed_by: false,
+                    },
+                    {
+                        id: 'e5f6a7b8-c9d0-1234-ef12-345678901234',
+                        name: 'Comedy Central',
+                        username: 'comedycentral',
+                        bio: 'Daily laughs and entertainment 😂 | Memes | Comedy clips',
+                        avatar_url: 'https://cdn.example.com/avatars/comedycentral.jpg',
+                        verified: false,
+                        followers: 15432,
+                        following: 678,
+                        is_following: false,
+                        is_followed_by: false,
+                    },
+                ],
+                count: 5,
+                message: SUCCESS_MESSAGES.EXPLORE_WHO_TO_FOLLOW_RETRIEVED,
             },
+        },
+        internal_error: {
+            description: 'Internal server error',
+            example: {
+                message: 'Internal server error',
+                error: 'Internal Server Error',
+                status_code: 500,
+            },
+        },
+    },
+};
+export const category_wise_trending_swagger = {
+    operation: {
+        summary: 'Get trending posts for a specific category',
+        description:
+            'Retrieve trending posts for a specific category based on the category ID. Returns a list of tweets sorted by trending score.',
+    },
+    params: {
+        category_id: {
+            name: 'category_id',
+            required: true,
+            description: 'The ID of the category to fetch trending posts for',
+            example: '1',
+            schema: { type: 'string' },
+        },
+    },
+    responses: {
+        success: {
+            description: 'Category trending posts retrieved successfully',
+            type: Tweet,
+            example: {
+                data: [
+                    {
+                        tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                        type: 'tweet',
+                        content: 'Breaking news! Just witnessed an incredible moment! 🔥 #Trending',
+                        images: ['https://cdn.example.com/images/tweet1.jpg'],
+                        videos: [],
+                        likes_count: 2345,
+                        reposts_count: 567,
+                        views_count: 12340,
+                        quotes_count: 89,
+                        replies_count: 234,
+                        bookmarks_count: 156,
+                        is_liked: false,
+                        is_reposted: false,
+                        is_bookmarked: false,
+                        created_at: '2025-12-04T10:30:00.000Z',
+                        updated_at: '2025-12-04T10:30:00.000Z',
+                        user: {
+                            id: 'd9e3f1a4-5h6c-6f4d-1h2g-345678901ghi',
+                            username: 'trendingsource',
+                            name: 'Trending News',
+                            avatar_url: 'https://cdn.example.com/profiles/trendingsource.jpg',
+                            verified: true,
+                            bio: 'Your source for trending content 🌟',
+                            cover_url: 'https://cdn.example.com/covers/trendingsource.jpg',
+                            followers: 125678,
+                            following: 456,
+                            is_following: false,
+                            is_followed_by: false,
+                        },
+                    },
+                ],
+                count: 20,
+                message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED,
+            },
+        },
         internal_error: {
             description: 'Internal server error',
             example: {

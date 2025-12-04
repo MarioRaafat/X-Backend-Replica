@@ -28,6 +28,26 @@ export class ExploreService {
         return [];
     }
 
+    async getCategoryTrending(category_id: string, current_user_id?: string) {
+        const [trending_items, category] = await Promise.all([
+            this.getTrendingWithScores(category_id, 20),
+            this.category_repository.findOne({ where: { id: parseInt(category_id) } }),
+        ]);
+
+        if (!category) {
+            return [];
+        }
+        if (trending_items.length === 0) return [];
+
+        const tweet_ids = trending_items.map((item) => item.tweet_id);
+        const tweets = await this.tweets_service.getTweetsByIds(tweet_ids, current_user_id);
+        const tweets_map = new Map(tweets.map((t) => [t.tweet_id, t]));
+
+        return trending_items
+            .map((item) => tweets_map.get(item.tweet_id))
+            .filter((t) => t !== undefined);
+    }
+
     async getTrendingWithScores(
         category_id: string = 'global',
         limit: number = 50
@@ -50,14 +70,15 @@ export class ExploreService {
     }
 
     async getForYouPosts(current_user_id?: string) {
-        const categories = await this.category_repository.find();
         const all_tweet_ids = new Set<string>();
+        const categories = await this.category_repository.find();
 
         const keys = categories.map((cat) => `trending:category:${cat.id}`);
         const results = await this.redis_service.zrevrangeMultiple(keys, 0, 4);
 
         const feed_structure: Array<{
             category: string;
+            category_id: number;
             items: { tweet_id: string; score: number }[];
         }> = [];
 
@@ -76,6 +97,7 @@ export class ExploreService {
             if (tweets.length > 0) {
                 feed_structure.push({
                     category: categories[index].name,
+                    category_id: categories[index].id,
                     items: tweets,
                 });
             }
@@ -92,7 +114,7 @@ export class ExploreService {
         const tweets_map = new Map(tweets.map((t) => [t.tweet_id, t]));
 
         return feed_structure.map((item) => ({
-            category: item.category,
+            category: { name: item.category, id: item.category_id },
             tweets: item.items
                 .map((i) => {
                     const tweet = tweets_map.get(i.tweet_id);
