@@ -17,6 +17,9 @@ import { ReplyJobService } from './notifications/reply/reply.service';
 import { ReplyProcessor } from './notifications/reply/reply.processor';
 import { LikeJobService } from './notifications/like/like.service';
 import { LikeProcessor } from './notifications/like/like.processor';
+import { HashtagJobService } from './hashtag/hashtag.service';
+import { HashtagProcessor } from './hashtag/hashtag.processor';
+import { TrendModule } from 'src/trend/trend.module';
 
 @Module({
     imports: [
@@ -56,9 +59,20 @@ import { LikeProcessor } from './notifications/like/like.processor';
                 },
             },
         }),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.HASHTAG,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 2000,
+                },
+            },
+        }),
         TypeOrmModule.forFeature([User]),
         CommunicationModule,
         NotificationsModule,
+        TrendModule,
     ],
     controllers: [EmailJobsController],
     providers: [
@@ -70,7 +84,16 @@ import { LikeProcessor } from './notifications/like/like.processor';
         ReplyProcessor,
         LikeJobService,
         LikeProcessor,
+        HashtagJobService,
+        HashtagProcessor,
     ],
-    exports: [EmailJobsService, FollowJobService, BullModule, ReplyJobService, LikeJobService],
+    exports: [
+        EmailJobsService,
+        FollowJobService,
+        BullModule,
+        ReplyJobService,
+        LikeJobService,
+        HashtagJobService,
+    ],
 })
 export class BackgroundJobsModule {}

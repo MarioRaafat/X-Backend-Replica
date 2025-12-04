@@ -6,5 +6,6 @@ import { RedisService } from 'src/redis/redis.service';
 @Module({
     controllers: [TrendController],
     providers: [TrendService, RedisService],
+    exports: [TrendService],
 })
 export class TrendModule {}

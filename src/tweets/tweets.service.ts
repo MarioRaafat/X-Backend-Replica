@@ -51,6 +51,7 @@ import { categorize_prompt, TOPICS } from './constants';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
 import { TrendService } from 'src/trend/trend.service';
+import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 
 @Injectable()
 export class TweetsService {
@@ -77,7 +78,7 @@ export class TweetsService {
         private readonly azure_storage_service: AzureStorageService,
         private readonly reply_job_service: ReplyJobService,
         private readonly like_job_service: LikeJobService,
-        private readonly trend_service: TrendService
+        private readonly hashtag_job_service: HashtagJobService
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
@@ -981,9 +982,10 @@ export class TweetsService {
         await this.updateHashtags(hashtags, user_id, query_runner);
 
         //Insert Hashtag with Topics in redis
-        // await this.trend_service.insertCandidateHashtags(hashtags, Date.now());
-        // //Update Hashtag Counters
-        // await this.trend_service.updateHashtagCounts(hashtags, Date.now());
+        await this.hashtag_job_service.queueHashtag({
+            hashtags: hashtags,
+            timestamp: Date.now(),
+        });
         // Extract topics using Gemini AI
         const topics = await this.extractTopics(content);
         console.log('Extracted topics:', topics);

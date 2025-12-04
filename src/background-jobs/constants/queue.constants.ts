@@ -3,6 +3,8 @@ export const QUEUE_NAMES = {
     TIMELINE: 'timeline-queue',
     FEED: 'feed-queue',
     NOTIFICATION: 'notification-queue',
+
+    HASHTAG: 'hashtag-queue',
 } as const;
 
 export const JOB_NAMES = {
@@ -19,6 +21,9 @@ export const JOB_NAMES = {
         FOLLOW: 'follow-notification',
         REPLY: 'reply-notification',
         LIKE: 'like-notification',
+    },
+    HASHTAG: {
+        UPDATE_HASHTAG: 'update-hashtag',
     },
 } as const;
 
