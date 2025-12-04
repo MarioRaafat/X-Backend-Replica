@@ -11,13 +11,15 @@ import { Chat } from 'src/chat/entities/chat.entity';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { MessageType } from './entities/message.entity';
 import { ChatRepository } from 'src/chat/chat.repository';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 @Injectable()
 export class MessagesService {
     constructor(
         private readonly message_repository: MessageRepository,
         @InjectRepository(Chat)
-        private readonly chat_repository: ChatRepository
+        private readonly chat_repository: ChatRepository,
+        private readonly pagination_service: PaginationService
     ) {}
 
     async validateChatParticipation(
@@ -28,6 +30,7 @@ export class MessagesService {
     ) {
         const chat = await this.chat_repository.findOne({
             where: { id: chat_id },
+            relations: ['user1', 'user2'],
         });
 
         if (!chat) throw new NotFoundException(ERROR_MESSAGES.CHAT_NOT_FOUND);
@@ -53,7 +56,12 @@ export class MessagesService {
         return chat;
     }
 
-    async sendMessage(user_id: string, chat_id: string, dto: SendMessageDto) {
+    async sendMessage(
+        user_id: string,
+        chat_id: string,
+        dto: SendMessageDto,
+        is_recipient_in_room: boolean = false
+    ) {
         const chat = await this.validateChatParticipation(user_id, chat_id, dto.content);
 
         // If it's a reply, validate the message being replied to
@@ -67,14 +75,21 @@ export class MessagesService {
             }
         }
 
-        const message = await this.message_repository.createMessage(user_id, chat_id, dto);
-        const recipient_unread_field =
-            chat.user1_id === user_id ? 'unread_count_user2' : 'unread_count_user1';
-        await this.chat_repository.increment({ id: chat_id }, recipient_unread_field, 1);
+        const message = await this.message_repository.createMessage(
+            user_id,
+            chat_id,
+            dto,
+            is_recipient_in_room
+        );
 
-        // Determine the recipient_id for direct notification
+        // Only increment unread count if recipient is NOT in the room
+        if (!is_recipient_in_room) {
+            const recipient_unread_field =
+                chat.user1_id === user_id ? 'unread_count_user2' : 'unread_count_user1';
+            await this.chat_repository.increment({ id: chat_id }, recipient_unread_field, 1);
+        }
+
         const recipient_id = chat.user1_id === user_id ? chat.user2_id : chat.user1_id;
-
         return {
             ...message,
             recipient_id,
@@ -84,10 +99,21 @@ export class MessagesService {
     async getMessages(user_id: string, chat_id: string, query: GetMessagesQueryDto) {
         const chat = await this.validateChatParticipation(user_id, chat_id);
         const messages = await this.message_repository.findMessagesByChatId(chat_id, query);
-
         const other_user = chat.user1_id === user_id ? chat.user2 : chat.user1;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            messages,
+            'created_at',
+            'id'
+        );
+        let has_more = false;
+        if (messages.length > query.limit) {
+            has_more = true;
+            messages.pop(); // Remove the extra message used to check for next page
+        }
 
         return {
+            next_cursor,
+            has_more,
             sender: {
                 id: other_user.id,
                 username: other_user.username,
@@ -154,5 +180,38 @@ export class MessagesService {
             deleted_at: deleted_message.deleted_at,
             recipient_id,
         };
+    }
+
+    async getUnreadChatsForUser(user_id: string) {
+        const chats = await this.chat_repository.find({
+            where: [{ user1_id: user_id }, { user2_id: user_id }],
+            relations: ['user1', 'user2'],
+        });
+
+        const unread_chats = chats
+            .filter((chat) => {
+                const unread_count =
+                    chat.user1_id === user_id ? chat.unread_count_user1 : chat.unread_count_user2;
+                return unread_count > 0;
+            })
+            .map((chat) => {
+                const other_user = chat.user1_id === user_id ? chat.user2 : chat.user1;
+                const unread_count =
+                    chat.user1_id === user_id ? chat.unread_count_user1 : chat.unread_count_user2;
+
+                return {
+                    chat_id: chat.id,
+                    unread_count,
+                    other_user: {
+                        id: other_user.id,
+                        username: other_user.username,
+                        name: other_user.name,
+                        avatar_url: other_user.avatar_url,
+                    },
+                    last_message_at: chat.updated_at,
+                };
+            });
+
+        return unread_chats;
     }
 }

@@ -114,6 +114,7 @@ export class AuthService {
             if (!unverified_user) {
                 throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
             } else {
+                console.log(`pass ${password} vs ${unverified_user.password}`);
                 const is_password_valid = await bcrypt.compare(password, unverified_user.password);
                 if (!is_password_valid) {
                     throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
@@ -1085,9 +1086,9 @@ export class AuthService {
                 confirm_password_dto.password,
                 user.password
             );
-            if (!is_password_valid) throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
+            if (!is_password_valid) throw new ForbiddenException(ERROR_MESSAGES.WRONG_PASSWORD);
         } else {
-            throw new UnauthorizedException(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED);
+            throw new ConflictException(ERROR_MESSAGES.ACCOUNT_HAS_NO_PASSWORD);
         }
 
         return { valid: true };

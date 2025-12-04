@@ -8,6 +8,7 @@ import { Message } from './entities/message.entity';
 import { Chat } from 'src/chat/entities/chat.entity';
 import { MessagesGateway } from './messages.gateway';
 import { JwtModule } from '@nestjs/jwt';
+import { ChatModule } from 'src/chat/chat.module';
 
 @Module({
     imports: [
@@ -16,6 +17,7 @@ import { JwtModule } from '@nestjs/jwt';
             secret: process.env.JWT_TOKEN_SECRET,
             signOptions: { expiresIn: '7d' },
         }),
+        ChatModule,
     ],
     providers: [MessagesService, MessageRepository, PaginationService, MessagesGateway],
     controllers: [MessagesController],
