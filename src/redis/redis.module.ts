@@ -17,5 +17,6 @@ import { RedisService } from './redis.service';
         }),
     ],
     providers: [ConfigService, RedisService],
+    exports: [RedisService],
 })
 export class RedisModuleConfig {}

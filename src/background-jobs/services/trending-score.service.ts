@@ -28,7 +28,6 @@ export class TrendingScoreService {
         private readonly redis_service: RedisService
     ) {}
 
-   
     calculateScore(tweet: TweetScoreData): number {
         const { num_likes, num_reposts, num_quotes, num_replies, created_at } = tweet;
 
@@ -42,7 +41,7 @@ export class TrendingScoreService {
         // Calculate age in hours
         const now = new Date();
         const age_ms = now.getTime() - new Date(created_at).getTime();
-        const age_hours = Math.max(0, age_ms / (1000 * 60 * 60)); 
+        const age_hours = Math.max(0, age_ms / (1000 * 60 * 60));
 
         // Apply gravity formula
         const denominator = Math.pow(
@@ -50,13 +49,11 @@ export class TrendingScoreService {
             TRENDING_CONFIG.GRAVITY
         );
 
-     
         if (denominator === 0) return 0;
 
         return weighted_engagement / denominator;
     }
 
- 
     private getRecalculationQueryBuilder(
         since_hours: number,
         max_age_hours: number,
@@ -80,6 +77,7 @@ export class TrendingScoreService {
                 'tweet.num_quotes',
                 'tweet.num_replies',
                 'tweet.created_at',
+                'tweet.updated_at',
                 'tc.category_id',
                 'tc.percentage',
             ])
@@ -101,7 +99,7 @@ export class TrendingScoreService {
                 { sinceDate }
             );
         }
-        
+
         return query;
     }
 
@@ -125,18 +123,22 @@ export class TrendingScoreService {
 
         // Order by updated_at to prioritize recently active tweets
         query.orderBy('tweet.updated_at', 'DESC');
-        
+
         query.skip(skip).take(take);
 
         const tweets = await query.getMany();
-        this.logger.log(`Fetched ${tweets.length} tweets for recalculation (skip: ${skip}, take: ${take})`);
+        this.logger.log(
+            `Fetched ${tweets.length} tweets for recalculation (skip: ${skip}, take: ${take})`
+        );
         return tweets as any as TweetScoreData[];
     }
 
-
-
     async updateRedisCategoryScores(
-        tweets: { tweet_id: string; score: number; categories: { category_id: string; percentage: number }[] }[]
+        tweets: {
+            tweet_id: string;
+            score: number;
+            categories: { category_id: string; percentage: number }[];
+        }[]
     ): Promise<number> {
         if (tweets.length === 0) return 0;
 
@@ -162,9 +164,8 @@ export class TrendingScoreService {
         return categories_updated.size;
     }
 
-    
     //Keeps only top N tweets per category
-  
+
     private async trimCategoryZSets(category_ids: string[]): Promise<void> {
         if (category_ids.length === 0) return;
 
@@ -175,7 +176,7 @@ export class TrendingScoreService {
             const redis_key = `trending:category:${category_id}`;
 
             // Keep top MAX_CATEGORY_SIZE tweets
-    
+
             pipeline.zremrangebyrank(redis_key, 0, -(TRENDING_CONFIG.MAX_CATEGORY_SIZE + 1));
 
             // Category automatic expiration

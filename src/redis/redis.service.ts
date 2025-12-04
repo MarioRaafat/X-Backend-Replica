@@ -70,16 +70,29 @@ export class RedisService {
     }
 
     //get with scores (in case needed)
-    async zrevrangeWithScores(
-        key: string,
-        start: number,
-        stop: number
-    ): Promise<Array<string>> {
+    async zrevrangeWithScores(key: string, start: number, stop: number): Promise<Array<string>> {
         return this.redis_client.zrevrange(key, start, stop, 'WITHSCORES');
     }
     //set range the one ranked stop + 1 will be excluded
     async zremrangebyrank(key: string, start: number, stop: number): Promise<number> {
         return this.redis_client.zremrangebyrank(key, start, stop);
+    }
+
+    async zrevrangeMultiple(keys: string[], start: number, stop: number): Promise<Array<string[]>> {
+        const pipeline = this.redis_client.pipeline();
+        keys.forEach((key) => {
+            pipeline.zrevrange(key, start, stop, 'WITHSCORES');
+        });
+
+        const results = await pipeline.exec();
+        if (!results) return [];
+
+        return results.map(([err, result]) => {
+            if (err) {
+                return [];
+            }
+            return result as string[];
+        });
     }
 
     pipeline() {

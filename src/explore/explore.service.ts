@@ -25,7 +25,7 @@ export class ExploreService {
     }
 
     async getTrending(category: string = '', country: string = 'global'): Promise<string[]> {
-       return [];
+        return [];
     }
 
     async getTrendingWithScores(
@@ -45,24 +45,41 @@ export class ExploreService {
         return trending;
     }
 
-    async getWhoToFollow() {}
+    async getWhoToFollow() {
+        return [];
+    }
 
     async getForYouPosts(current_user_id?: string) {
         const categories = await this.category_repository.find();
-        const feed_structure: Array<{ category: string; items: { tweet_id: string; score: number }[] }> = [];
         const all_tweet_ids = new Set<string>();
 
-        // Get Category Trending IDs
-        for (const cat of categories) {
-            const tweets = await this.getTrendingWithScores(String(cat.id),5);
+        const keys = categories.map((cat) => `trending:category:${cat.id}`);
+        const results = await this.redis_service.zrevrangeMultiple(keys, 0, 4);
+
+        const feed_structure: Array<{
+            category: string;
+            items: { tweet_id: string; score: number }[];
+        }> = [];
+
+        results.forEach((raw_tweets, index) => {
+            if (raw_tweets.length === 0) return;
+
+            const tweets: { tweet_id: string; score: number }[] = [];
+            for (let i = 0; i < raw_tweets.length; i += 2) {
+                tweets.push({
+                    tweet_id: raw_tweets[i],
+                    score: parseFloat(raw_tweets[i + 1]),
+                });
+                all_tweet_ids.add(raw_tweets[i]);
+            }
+
             if (tweets.length > 0) {
                 feed_structure.push({
-                    category: cat.name,
-                    items: tweets
+                    category: categories[index].name,
+                    items: tweets,
                 });
-                tweets.forEach(t => all_tweet_ids.add(t.tweet_id));
             }
-        }
+        });
 
         if (all_tweet_ids.size === 0) return [];
 
@@ -72,17 +89,17 @@ export class ExploreService {
             current_user_id
         );
 
-        const tweets_map = new Map(tweets.map(t => [t.tweet_id, t]));
+        const tweets_map = new Map(tweets.map((t) => [t.tweet_id, t]));
 
-        return feed_structure.map(item => ({
+        return feed_structure.map((item) => ({
             category: item.category,
             tweets: item.items
-                .map(i => {
+                .map((i) => {
                     const tweet = tweets_map.get(i.tweet_id);
                     if (!tweet) return undefined;
                     return { ...tweet, score: i.score };
                 })
-                .filter(t => t !== undefined) 
+                .filter((t) => t !== undefined),
         }));
     }
 }

@@ -53,7 +53,7 @@ export const TRENDING_CONFIG = {
     MAX_CATEGORY_SIZE: 20,
 } as const;
 
-export const TRENDING_CRON_SCHEDULE = '0 * * * *'; // Every hour
+export const TRENDING_CRON_SCHEDULE = '0 * * * *'; // Every minute
 
 export const TRENDING_JOB_PRIORITIES = {
     HIGH: 1,
@@ -68,5 +68,3 @@ export const TRENDING_JOB_RETRY = {
         delay: 5000,
     },
 };
-
-
