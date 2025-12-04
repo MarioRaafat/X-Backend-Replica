@@ -16,6 +16,7 @@ import { ChatRepository } from 'src/chat/chat.repository';
 import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
 import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { path } from '@ffmpeg-installer/ffmpeg';
 
 interface IAuthenticatedSocket extends Socket {
     user?: {
@@ -25,6 +26,7 @@ interface IAuthenticatedSocket extends Socket {
 
 @WebSocketGateway({
     namespace: '/messages',
+    path: process.env.SOCKET_IO || '/socket.io',
     cors: {
         origin: true,
         credentials: true,
