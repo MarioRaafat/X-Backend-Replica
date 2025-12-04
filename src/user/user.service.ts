@@ -118,6 +118,11 @@ export class UserService {
     }
 
     async getMe(user_id: string): Promise<UserProfileDto> {
+        const user = await this.user_repository.findOne({ where: { id: user_id } });
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const result = await this.user_repository.getMyProfile(user_id);
 
         return plainToInstance(UserProfileDto, result, {

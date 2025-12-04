@@ -1,4 +1,5 @@
 import {
+    BadRequestException,
     Body,
     Controller,
     Delete,
@@ -7,10 +8,13 @@ import {
     Patch,
     Post,
     Query,
+    Req,
+    Res,
     UploadedFile,
     UseGuards,
     UseInterceptors,
 } from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { UserService } from './user.service';
 import {
     ApiBearerAuth,
@@ -119,7 +123,14 @@ export class UserController {
     @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
     @ResponseMessage(SUCCESS_MESSAGES.USER_RETRIEVED)
     @Get('me')
-    async getMe(@GetUserId() user_id: string) {
+    async getMe(
+        @GetUserId() user_id: string,
+        @Req() req: Request,
+        @Query('refresh_token') refresh_token_query?: string
+    ) {
+        const refresh_token = refresh_token_query || req.cookies['refresh_token'];
+        if (!refresh_token) throw new BadRequestException('No refresh token provided');
+
         return await this.user_service.getMe(user_id);
     }
 
