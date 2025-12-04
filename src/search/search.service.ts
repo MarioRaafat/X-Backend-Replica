@@ -6,10 +6,10 @@ import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { UserListResponseDto } from 'src/user/dto/user-list-response.dto';
 import { UserRepository } from 'src/user/user.repository';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
-import { TweetResponseDTO } from 'src/tweets/dto';
-import { SortResults } from 'node_modules/@elastic/elasticsearch/lib/api/types';
-import { map } from 'rxjs';
 import { TweetListResponseDto } from './dto/tweet-list-response.dto';
+import { Brackets } from 'typeorm';
+import { UserListItemDto } from 'src/user/dto/user-list-item.dto';
+import { plainToInstance } from 'class-transformer';
 
 @Injectable()
 export class SearchService {
@@ -21,6 +21,137 @@ export class SearchService {
     async getSuggestions(current_user_id: string, query_dto: BasicQueryDto) {}
 
     async searchUsers(
+        current_user_id: string,
+        query_dto: SearchQueryDto
+    ): Promise<UserListResponseDto> {
+        const { query, cursor, limit = 20 } = query_dto;
+
+        const sanitized_query = query.replace(/[^\w\s]/gi, '');
+
+        if (!sanitized_query.trim()) {
+            return { data: [], pagination: { next_cursor: null, has_more: false } };
+        }
+
+        const prefix_query = sanitized_query
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((term) => `${term}:*`)
+            .join(' & ');
+
+        let cursor_score: number | null = null;
+        let cursor_id: string | null = null;
+
+        if (cursor) {
+            try {
+                const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf-8'));
+                cursor_score = decoded.score;
+                cursor_id = decoded.id;
+            } catch (error) {
+                throw new Error('Invalid cursor');
+            }
+        }
+
+        const fetch_limit = limit + 1;
+
+        const query_builder = this.user_repository
+            .createQueryBuilder('user')
+            .select([
+                '"user".id AS id',
+                '"user".name AS name',
+                '"user".username AS username',
+                '"user".bio AS bio',
+                '"user".avatar_url AS avatar_url',
+                '"user".cover_url AS cover_url',
+                '"user".verified AS verified',
+                '"user".followers AS followers',
+                '"user".following AS following',
+            ])
+            .addSelect(
+                `EXISTS(SELECT 1 FROM user_follows WHERE followed_id = "user".id AND follower_id = :current_user_id)`,
+                'is_following'
+            )
+            .addSelect(
+                `EXISTS(SELECT 1 FROM user_follows WHERE follower_id = "user".id AND followed_id = :current_user_id)`,
+                'is_follower'
+            )
+            .addSelect(
+                `(
+                  (CASE WHEN EXISTS(SELECT 1 FROM user_follows WHERE followed_id = "user".id AND follower_id = :current_user_id) THEN 1000000 ELSE 0 END) +
+                  (ts_rank("user".search_vector, to_tsquery('simple', :prefix_query)) * 1000) +
+                  ("user".followers::float / 1000000)
+                )`,
+                'total_score'
+            )
+            .where(
+                new Brackets((qb) => {
+                    qb.where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, {
+                        prefix_query,
+                    })
+                        .orWhere('"user".username ILIKE :like_query', {
+                            like_query: `${sanitized_query}%`,
+                        })
+                        .orWhere('"user".name ILIKE :like_query', {
+                            like_query: `${sanitized_query}%`,
+                        });
+                })
+            );
+
+        if (cursor && cursor_score !== null && cursor_id !== null) {
+            query_builder.andWhere(
+                new Brackets((qb) => {
+                    qb.where('total_score < :cursor_score', { cursor_score }).orWhere(
+                        new Brackets((qb2) => {
+                            qb2.where('total_score = :cursor_score', { cursor_score }).andWhere(
+                                '"user".id > :cursor_id',
+                                { cursor_id }
+                            );
+                        })
+                    );
+                })
+            );
+        }
+
+        query_builder.setParameters({
+            current_user_id,
+            prefix_query,
+            like_query: `${sanitized_query}%`,
+        });
+
+        const results = await query_builder
+            .orderBy('total_score', 'DESC')
+            .addOrderBy('user.id', 'ASC')
+            .limit(fetch_limit)
+            .getRawMany();
+
+        const has_more = results.length > limit;
+        const users = has_more ? results.slice(0, limit) : results;
+
+        let next_cursor: string | null = null;
+        if (has_more && users.length > 0) {
+            const last_user = users[users.length - 1];
+            const cursor_data = {
+                score: last_user.total_score,
+                id: last_user.id,
+            };
+            next_cursor = Buffer.from(JSON.stringify(cursor_data)).toString('base64');
+        }
+
+        const users_list = users.map((user) =>
+            plainToInstance(UserListItemDto, user, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        return {
+            data: users_list,
+            pagination: {
+                next_cursor,
+                has_more,
+            },
+        };
+    }
+
+    async searchUsers2(
         current_user_id: string,
         query_dto: SearchQueryDto
     ): Promise<UserListResponseDto> {
