@@ -13,10 +13,18 @@ import { NotificationsModule } from 'src/notifications/notifications.module';
 import { NotificationsGateway } from 'src/notifications/gateway';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
+import { TweetReply } from 'src/tweets/entities/tweet-reply.entity';
+import { TweetQuote } from 'src/tweets/entities/tweet-quote.entity';
 import { ReplyJobService } from './notifications/reply/reply.service';
 import { ReplyProcessor } from './notifications/reply/reply.processor';
 import { LikeJobService } from './notifications/like/like.service';
 import { LikeProcessor } from './notifications/like/like.processor';
+import { RepostJobService } from './notifications/repost/repost.service';
+import { RepostProcessor } from './notifications/repost/repost.processor';
+import { QuoteJobService } from './notifications/quote/quote.service';
+import { QuoteProcessor } from './notifications/quote/quote.processor';
+import { ClearJobService } from './notifications/clear/clear.service';
+import { ClearProcessor } from './notifications/clear/clear.processor';
 import { EsIndexTweetJobService } from './elasticsearch/es-index-tweet.service';
 import { EsDeleteTweetJobService } from './elasticsearch/es-delete-tweet.service';
 import { EsSyncProcessor } from './elasticsearch/es-sync.processor';
@@ -76,6 +84,7 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         }),
         TypeOrmModule.forFeature([User]),
         TypeOrmModule.forFeature([Tweet]),
+        TypeOrmModule.forFeature([TweetReply, TweetQuote]),
         CommunicationModule,
         NotificationsModule,
         ElasticsearchModule,
@@ -88,8 +97,14 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         FollowJobService,
         ReplyJobService,
         ReplyProcessor,
+        RepostJobService,
+        RepostProcessor,
         LikeJobService,
         LikeProcessor,
+        QuoteJobService,
+        QuoteProcessor,
+        ClearJobService,
+        ClearProcessor,
         EsIndexTweetJobService,
         EsDeleteTweetJobService,
         EsSyncProcessor,
@@ -103,6 +118,9 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         BullModule,
         ReplyJobService,
         LikeJobService,
+        RepostJobService,
+        QuoteJobService,
+        ClearJobService,
         EsIndexTweetJobService,
         EsDeleteTweetJobService,
         EsUpdateUserJobService,

@@ -95,7 +95,6 @@ export class TweetsService {
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
     private readonly TWEET_VIDEOS_CONTAINER = 'post-videos';
 
-    private readonly API_KEY = process.env.GROQ_API_KEY ?? '';
     private readonly groq = new Groq({
         apiKey: process.env.GROQ_API_KEY ?? '',
     });
