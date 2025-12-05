@@ -29,7 +29,7 @@ export class SearchService {
         const { query } = query_dto;
 
         const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
 
         if (!sanitized_query.trim()) {
             return { suggested_queries: [], suggested_users: [] };
@@ -87,7 +87,7 @@ export class SearchService {
         const { query, cursor, limit = 20 } = query_dto;
 
         const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
 
         if (!sanitized_query.trim()) {
             return { data: [], pagination: { next_cursor: null, has_more: false } };
@@ -308,7 +308,7 @@ export class SearchService {
         const { query, cursor, limit = 20, has_media, username } = query_dto;
 
         const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
 
         if (!sanitized_query || sanitized_query.trim().length === 0) {
             return {
@@ -345,16 +345,16 @@ export class SearchService {
 
             if (is_hashtag) {
                 search_body.query.bool.must.push({
-                    match_phrase: {
-                        'content.keyword': {
-                            query: sanitized_query.trim(),
+                    term: {
+                        hashtags: {
+                            value: sanitized_query.trim().toLowerCase(),
                             boost: 10,
                         },
                     },
                 });
+            } else {
+                this.buildTweetsSearchQuery(search_body, sanitized_query);
             }
-
-            this.buildTweetsSearchQuery(search_body, sanitized_query);
 
             this.applyTweetsBoosting(search_body);
 
@@ -423,7 +423,7 @@ export class SearchService {
         const { query, cursor, limit = 20, username } = query_dto;
 
         const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
 
         if (!sanitized_query || sanitized_query.trim().length === 0) {
             return {
@@ -455,7 +455,20 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
-            this.buildTweetsSearchQuery(search_body, sanitized_query);
+            const is_hashtag = sanitized_query.trim().startsWith('#');
+
+            if (is_hashtag) {
+                search_body.query.bool.must.push({
+                    term: {
+                        hashtags: {
+                            value: sanitized_query.trim().toLowerCase(),
+                            boost: 10,
+                        },
+                    },
+                });
+            } else {
+                this.buildTweetsSearchQuery(search_body, sanitized_query);
+            }
 
             this.applyTweetsBoosting(search_body);
 
