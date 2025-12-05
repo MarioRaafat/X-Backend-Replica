@@ -7,9 +7,12 @@ import { UserListResponseDto } from 'src/user/dto/user-list-response.dto';
 import { UserRepository } from 'src/user/user.repository';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
 import { TweetListResponseDto } from './dto/tweet-list-response.dto';
-import { Brackets, DataSource } from 'typeorm';
+import { Brackets, DataSource, SelectQueryBuilder } from 'typeorm';
 import { UserListItemDto } from 'src/user/dto/user-list-item.dto';
 import { plainToInstance } from 'class-transformer';
+import { User } from 'src/user/entities';
+import { SuggestionsResponseDto } from './dto/suggestions-response.dto';
+import { SuggestedUserDto } from './dto/suggested-user.dto';
 
 @Injectable()
 export class SearchService {
@@ -19,7 +22,61 @@ export class SearchService {
         private readonly data_source: DataSource
     ) {}
 
-    async getSuggestions(current_user_id: string, query_dto: BasicQueryDto) {}
+    async getSuggestions(
+        current_user_id: string,
+        query_dto: BasicQueryDto
+    ): Promise<SuggestionsResponseDto> {
+        const { query } = query_dto;
+
+        const sanitized_query = query.replace(/[^\w\s]/gi, '');
+
+        if (!sanitized_query.trim()) {
+            return { suggested_queries: [], suggested_users: [] };
+        }
+
+        const prefix_query = sanitized_query
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((term) => `${term}:*`)
+            .join(' & ');
+
+        let query_builder = this.user_repository.createQueryBuilder('user');
+
+        query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
+
+        query_builder.setParameters({
+            current_user_id,
+            prefix_query,
+        });
+
+        const [users_result, queries_result] = await Promise.all([
+            query_builder
+                .orderBy('total_score', 'DESC')
+                .addOrderBy('user.id', 'ASC')
+                .limit(10)
+                .getRawMany(),
+
+            this.elasticsearch_service.search(this.buildEsSuggestionsQuery(sanitized_query)),
+        ]);
+
+        const users_list = users_result.map((user) =>
+            plainToInstance(SuggestedUserDto, user, {
+                enableImplicitConversion: true,
+            })
+        );
+
+        const suggestions = this.extractSuggestionsFromHits(queries_result.hits.hits, query, 3);
+
+        const suggested_queries = suggestions.map((query) => ({
+            query,
+            is_trending: false,
+        }));
+
+        return {
+            suggested_queries: suggested_queries,
+            suggested_users: users_list,
+        };
+    }
 
     async searchUsers(
         current_user_id: string,
@@ -54,66 +111,18 @@ export class SearchService {
 
         const fetch_limit = limit + 1;
 
-        const total_score_expression = `
-            (COALESCE(uf_following.boost, 0))
-            +
-            (ts_rank("user".search_vector, to_tsquery('simple', :prefix_query)) * 1000)
-            +
-            (LOG(GREATEST("user".followers, 1) + 1) * 100)
-        `;
+        let query_builder = this.user_repository.createQueryBuilder('user');
 
-        const query_builder = this.user_repository
-            .createQueryBuilder('user')
-            .select([
-                '"user".id AS id',
-                '"user".name AS name',
-                '"user".username AS username',
-                '"user".bio AS bio',
-                '"user".avatar_url AS avatar_url',
-                '"user".cover_url AS cover_url',
-                '"user".verified AS verified',
-                '"user".followers AS followers',
-                '"user".following AS following',
-            ])
-            .leftJoin(
-                (qb) => {
-                    return qb
-                        .select('followed_id', 'followed_id')
-                        .addSelect('1000000', 'boost')
-                        .from('user_follows', 'uf')
-                        .where('uf.follower_id = :current_user_id');
-                },
-                'uf_following',
-                '"uf_following".followed_id = "user".id'
-            )
-            .leftJoin(
-                (qb) => {
-                    return qb
-                        .select('follower_id', 'follower_id')
-                        .addSelect('TRUE', 'is_follower')
-                        .from('user_follows', 'uf')
-                        .where('uf.followed_id = :current_user_id');
-                },
-                'uf_follower',
-                '"uf_follower".follower_id = "user".id'
-            )
-            .addSelect(
-                'CASE WHEN uf_following.followed_id IS NOT NULL THEN TRUE ELSE FALSE END',
-                'is_following'
-            )
-            .addSelect(
-                'CASE WHEN uf_follower.follower_id IS NOT NULL THEN TRUE ELSE FALSE END',
-                'is_follower'
-            )
-            .addSelect(total_score_expression, 'total_score')
-            .where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, { prefix_query });
+        query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
 
         if (cursor && cursor_score !== null && cursor_id !== null) {
             query_builder.andWhere(
                 new Brackets((qb) => {
-                    qb.where(`${total_score_expression} < :cursor_score`, { cursor_score }).orWhere(
+                    qb.where(`${this.getUserScoreExpression()} < :cursor_score`, {
+                        cursor_score,
+                    }).orWhere(
                         new Brackets((qb2) => {
-                            qb2.where(`${total_score_expression} = :cursor_score`, {
+                            qb2.where(`${this.getUserScoreExpression()} = :cursor_score`, {
                                 cursor_score,
                             }).andWhere('"user".id > :cursor_id', { cursor_id });
                         })
@@ -125,7 +134,6 @@ export class SearchService {
         query_builder.setParameters({
             current_user_id,
             prefix_query,
-            like_query: `${sanitized_query}%`,
         });
 
         const results = await query_builder
@@ -295,7 +303,9 @@ export class SearchService {
     ): Promise<TweetListResponseDto> {
         const { query, cursor, limit = 20, has_media } = query_dto;
 
-        if (!query || query.trim().length === 0) {
+        const sanitized_query = query.replace(/[^\w\s]/gi, '');
+
+        if (!sanitized_query || sanitized_query.trim().length === 0) {
             return {
                 data: [],
                 pagination: {
@@ -327,7 +337,7 @@ export class SearchService {
 
             search_body.query.bool.must.push({
                 multi_match: {
-                    query: query.trim(),
+                    query: sanitized_query.trim(),
                     fields: ['content^3', 'username^2', 'name'],
                     type: 'best_fields',
                     fuzziness: 'AUTO',
@@ -657,5 +667,131 @@ export class SearchService {
         }
 
         return { parent_map, conversation_map };
+    }
+
+    private attachUserSearchQuery(
+        query_builder: SelectQueryBuilder<User>,
+        prefix_query: string
+    ): SelectQueryBuilder<User> {
+        query_builder
+            .select([
+                '"user".id AS id',
+                '"user".name AS name',
+                '"user".username AS username',
+                '"user".bio AS bio',
+                '"user".avatar_url AS avatar_url',
+                '"user".cover_url AS cover_url',
+                '"user".verified AS verified',
+                '"user".followers AS followers',
+                '"user".following AS following',
+            ])
+            .leftJoin(
+                (qb) => {
+                    return qb
+                        .select('followed_id', 'followed_id')
+                        .addSelect('1000000', 'boost')
+                        .from('user_follows', 'uf')
+                        .where('uf.follower_id = :current_user_id');
+                },
+                'uf_following',
+                '"uf_following".followed_id = "user".id'
+            )
+            .leftJoin(
+                (qb) => {
+                    return qb
+                        .select('follower_id', 'follower_id')
+                        .addSelect('TRUE', 'is_follower')
+                        .from('user_follows', 'uf')
+                        .where('uf.followed_id = :current_user_id');
+                },
+                'uf_follower',
+                '"uf_follower".follower_id = "user".id'
+            )
+            .addSelect(
+                'CASE WHEN uf_following.followed_id IS NOT NULL THEN TRUE ELSE FALSE END',
+                'is_following'
+            )
+            .addSelect(
+                'CASE WHEN uf_follower.follower_id IS NOT NULL THEN TRUE ELSE FALSE END',
+                'is_follower'
+            )
+            .addSelect(this.getUserScoreExpression(), 'total_score')
+            .where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, { prefix_query });
+
+        return query_builder;
+    }
+
+    private getUserScoreExpression(): string {
+        return `
+            (COALESCE(uf_following.boost, 0))
+            +
+            (ts_rank("user".search_vector, to_tsquery('simple', :prefix_query)) * 1000)
+            +
+            (LOG(GREATEST("user".followers, 1) + 1) * 100)
+        `;
+    }
+
+    private extractSuggestionsFromHits(hits: any[], query: string, max_suggestions = 3): string[] {
+        const suggestions = new Set<string>();
+        const query_lower = query.toLowerCase().trim();
+
+        hits.forEach((hit) => {
+            let text = hit.highlight?.content?.[0] || hit._source?.content;
+            if (!text) return;
+
+            text = text.replace(/<\/?MARK>/g, '');
+
+            const lower_text = text.toLowerCase();
+            const query_index = lower_text.indexOf(query_lower);
+            if (query_index === -1) return;
+
+            const from_query = text.substring(query_index);
+            const sentence_end_match = from_query.match(/[.!?\n]/);
+            const end_index = sentence_end_match
+                ? sentence_end_match.index
+                : Math.min(from_query.length, 100);
+            let completion = from_query.substring(0, end_index).trim();
+
+            completion = completion.replace(/[,;:]+$/, '').trim();
+
+            if (completion.length < query.length + 3) return;
+            if (completion.length > 100) return;
+            if (!completion.toLowerCase().startsWith(query_lower)) return;
+            const middle_content = completion.substring(0, completion.length - 1);
+            if (/[.!?]/.test(middle_content)) return;
+
+            suggestions.add(completion);
+        });
+
+        return Array.from(suggestions)
+            .sort((a, b) => a.length - b.length)
+            .slice(0, max_suggestions);
+    }
+
+    private buildEsSuggestionsQuery(sanitized_query: string) {
+        return {
+            index: 'tweets',
+            size: 20,
+            _source: ['content'],
+            query: {
+                match_phrase_prefix: {
+                    content: {
+                        query: sanitized_query,
+                        slop: 0,
+                    },
+                },
+            },
+            highlight: {
+                fields: {
+                    content: {
+                        type: 'plain',
+                        fragment_size: 150,
+                        number_of_fragments: 1,
+                        pre_tags: ['<MARK>'],
+                        post_tags: ['</MARK>'],
+                    },
+                },
+            },
+        };
     }
 }
