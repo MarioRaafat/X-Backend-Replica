@@ -83,6 +83,7 @@ describe('TweetsRepository', () => {
 
     const MOCK_TWEET_REPOSITORY = {
         createQueryBuilder: jest.fn(() => MOCK_QUERY_BUILDER),
+        findOne: jest.fn(),
     };
 
     const MOCK_TWEET_LIKE_REPOSITORY = {
