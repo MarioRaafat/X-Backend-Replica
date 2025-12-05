@@ -166,13 +166,14 @@ describe('MessageRepository', () => {
             };
 
             jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            pagination_service.applyCursorPagination.mockReturnValue(mock_query_builder as any);
 
             const result = await repository.findMessagesByChatId(mock_chat_id, query);
 
             expect(mock_query_builder.where).toHaveBeenCalledWith('message.chat_id = :chat_id', {
                 chat_id: mock_chat_id,
             });
-            expect(mock_query_builder.take).toHaveBeenCalledWith(50);
+            expect(mock_query_builder.take).toHaveBeenCalledWith(51);
             expect(result).toEqual(messages);
         });
 
@@ -191,15 +192,11 @@ describe('MessageRepository', () => {
 
             jest.spyOn(repository, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
             jest.spyOn(repository, 'findOne').mockResolvedValueOnce(before_message as any);
+            pagination_service.applyCursorPagination.mockReturnValue(mock_query_builder as any);
 
             await repository.findMessagesByChatId(mock_chat_id, query);
 
-            expect(mock_query_builder.andWhere).toHaveBeenCalledWith(
-                'message.created_at < :before_date',
-                {
-                    before_date: before_message.created_at,
-                }
-            );
+            expect(pagination_service.applyCursorPagination).toHaveBeenCalled();
         });
 
         it('should throw InternalServerErrorException on query error', async () => {

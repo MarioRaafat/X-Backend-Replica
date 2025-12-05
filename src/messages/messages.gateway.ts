@@ -17,6 +17,7 @@ import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
 import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { path } from '@ffmpeg-installer/ffmpeg';
+import { MESSAGE_CONTENT_LENGTH } from 'src/constants/variables';
 
 interface IAuthenticatedSocket extends Socket {
     user?: {
@@ -160,6 +161,16 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         try {
             const user_id = client.user!.user_id;
             const { chat_id, message } = data;
+
+            // Validate message content length
+            if (message.content.length > MESSAGE_CONTENT_LENGTH) {
+                return {
+                    event: 'error',
+                    data: {
+                        message: `Message content exceeds maximum length of ${MESSAGE_CONTENT_LENGTH} characters`,
+                    },
+                };
+            }
 
             // Check if recipient is actively in the chat room
             const chat = await this.messages_service.validateChatParticipation(user_id, chat_id);

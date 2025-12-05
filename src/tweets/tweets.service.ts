@@ -264,7 +264,11 @@ export class TweetsService {
                 excludeExtraneousValues: true,
             });
         } catch (error) {
-            await query_runner.rollbackTransaction();
+            console.error('Error in createTweet:', error);
+            // Check if transaction is still active before rolling back
+            if (query_runner.isTransactionActive) {
+                await query_runner.rollbackTransaction();
+            }
             throw error;
         } finally {
             await query_runner.release();
@@ -307,7 +311,9 @@ export class TweetsService {
                 excludeExtraneousValues: true,
             });
         } catch (error) {
-            await query_runner.rollbackTransaction();
+            if (query_runner.isTransactionActive) {
+                await query_runner.rollbackTransaction();
+            }
             throw error;
         } finally {
             await query_runner.release();
@@ -1040,11 +1046,11 @@ export class TweetsService {
         const mentions = content.match(/@([a-zA-Z0-9_]+)/g) || [];
         this.mentionNotification(mentions, user_id);
 
-        // Extract hashtags
+        // Extract hashtags and remove duplicates
         const hashtags =
             content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
-
-        await this.updateHashtags(hashtags, user_id, query_runner);
+        const unique_hashtags = [...new Set(hashtags)];
+        await this.updateHashtags(unique_hashtags, user_id, query_runner);
 
         // Extract topics using Groq AI
         const topics = await this.extractTopics(content);
@@ -1117,19 +1123,14 @@ export class TweetsService {
         user_id: string,
         query_runner: QueryRunner
     ): Promise<void> {
-        try {
-            const hashtags = names.map(
-                (name) => ({ name, created_by: { id: user_id } }) as Hashtag
-            );
-            await query_runner.manager.upsert(Hashtag, hashtags, {
-                conflictPaths: ['name'],
-                upsertType: 'on-conflict-do-update',
-            });
-            await query_runner.manager.increment(Hashtag, { name: In(names) }, 'usage_count', 1);
-        } catch (error) {
-            await query_runner.rollbackTransaction();
-            throw error;
-        }
+        if (names.length === 0) return;
+
+        const hashtags = names.map((name) => ({ name, created_by: { id: user_id } }) as Hashtag);
+        await query_runner.manager.upsert(Hashtag, hashtags, {
+            conflictPaths: ['name'],
+            upsertType: 'on-conflict-do-update',
+        });
+        await query_runner.manager.increment(Hashtag, { name: In(names) }, 'usage_count', 1);
     }
 
     async getTweetReplies(

@@ -5,6 +5,7 @@ import { Chat } from './entities/chat.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateChatDto, GetChatsQueryDto } from './dto';
+import { UserRepository } from 'src/user/user.repository';
 
 describe('ChatRepository', () => {
     let chat_repository: ChatRepository;
@@ -40,6 +41,7 @@ describe('ChatRepository', () => {
 
         const mock_user_repository = {
             findOne: jest.fn(),
+            findById: jest.fn(),
         };
 
         mock_data_source = {
@@ -60,6 +62,10 @@ describe('ChatRepository', () => {
                         applyCursorPagination: jest.fn(),
                         generateNextCursor: jest.fn(),
                     },
+                },
+                {
+                    provide: UserRepository,
+                    useValue: mock_user_repository,
                 },
             ],
         }).compile();
@@ -84,7 +90,7 @@ describe('ChatRepository', () => {
 
             // Mock user repository to find recipient
             const mock_user_repository = mock_data_source.getRepository();
-            mock_user_repository.findOne.mockResolvedValue({ id: 'user-2', username: 'user2' });
+            mock_user_repository.findById.mockResolvedValue({ id: 'user-2', username: 'user2' });
 
             jest.spyOn(chat_repository, 'findOne').mockResolvedValue(null);
 
@@ -103,7 +109,7 @@ describe('ChatRepository', () => {
 
             // Mock user repository to find recipient
             const mock_user_repository = mock_data_source.getRepository();
-            mock_user_repository.findOne.mockResolvedValue({ id: 'user-2', username: 'user2' });
+            mock_user_repository.findById.mockResolvedValue({ id: 'user-2', username: 'user2' });
 
             jest.spyOn(chat_repository, 'findOne').mockResolvedValue(mock_chat as any);
 
@@ -118,7 +124,7 @@ describe('ChatRepository', () => {
 
             // Mock user repository to not find recipient
             const mock_user_repository = mock_data_source.getRepository();
-            mock_user_repository.findOne.mockResolvedValue(null);
+            mock_user_repository.findById.mockResolvedValue(null);
 
             await expect(chat_repository.createChat('user-1', create_dto)).rejects.toThrow(
                 NotFoundException
@@ -130,7 +136,7 @@ describe('ChatRepository', () => {
 
             // Mock user repository to throw error
             const mock_user_repository = mock_data_source.getRepository();
-            mock_user_repository.findOne.mockRejectedValue(new Error('DB error'));
+            mock_user_repository.findById.mockRejectedValue(new Error('DB error'));
 
             await expect(chat_repository.createChat('user-1', create_dto)).rejects.toThrow(
                 InternalServerErrorException

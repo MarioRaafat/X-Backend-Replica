@@ -98,7 +98,12 @@ export class TweetsController {
     @UseGuards(JwtAuthGuard)
     @Post()
     async createTweet(@Body() create_tweet_dto: CreateTweetDTO, @GetUserId() user_id: string) {
-        return await this.tweets_service.createTweet(create_tweet_dto, user_id);
+        try {
+            return await this.tweets_service.createTweet(create_tweet_dto, user_id);
+        } catch (error) {
+            console.error('Error creating tweet:', error);
+            throw error;
+        }
     }
 
     @ApiOperation(get_all_tweets_swagger.operation)
