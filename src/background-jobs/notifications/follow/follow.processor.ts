@@ -15,7 +15,7 @@ export class FollowProcessor {
     private readonly logger = new Logger(FollowProcessor.name);
 
     constructor(
-        private readonly notificationsService: NotificationsService,
+        private readonly notifications_service: NotificationsService,
         @InjectRepository(User) private readonly user_repository: Repository<User>
     ) {}
 
@@ -26,14 +26,14 @@ export class FollowProcessor {
 
             if (action === 'remove') {
                 // Remove the notification from MongoDB
-                const was_deleted = await this.notificationsService.removeFollowNotification(
+                const was_deleted = await this.notifications_service.removeFollowNotification(
                     followed_id,
                     follower_id
                 );
 
                 // Only send socket notification if deletion succeeded
                 if (was_deleted) {
-                    this.notificationsService.sendNotificationOnly(
+                    this.notifications_service.sendNotificationOnly(
                         NotificationType.FOLLOW,
                         followed_id,
                         {
@@ -52,7 +52,7 @@ export class FollowProcessor {
                     }
                 );
 
-                await this.notificationsService.saveNotificationAndSend(
+                await this.notifications_service.saveNotificationAndSend(
                     followed_id,
                     notification_entity,
                     {

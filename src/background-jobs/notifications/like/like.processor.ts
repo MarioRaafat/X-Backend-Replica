@@ -16,7 +16,7 @@ export class LikeProcessor {
     private readonly logger = new Logger(LikeProcessor.name);
 
     constructor(
-        private readonly notificationsService: NotificationsService,
+        private readonly notifications_service: NotificationsService,
         @InjectRepository(User) private readonly user_repository: Repository<User>,
         @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>
     ) {}
@@ -30,7 +30,7 @@ export class LikeProcessor {
                 // Remove the notification from MongoDB
                 let was_deleted = false;
                 if (tweet_id) {
-                    was_deleted = await this.notificationsService.removeLikeNotification(
+                    was_deleted = await this.notifications_service.removeLikeNotification(
                         like_to,
                         tweet_id,
                         liked_by
@@ -38,10 +38,14 @@ export class LikeProcessor {
                 }
 
                 if (was_deleted) {
-                    this.notificationsService.sendNotificationOnly(NotificationType.LIKE, like_to, {
-                        ...job.data,
-                        liked_by,
-                    });
+                    this.notifications_service.sendNotificationOnly(
+                        NotificationType.LIKE,
+                        like_to,
+                        {
+                            ...job.data,
+                            liked_by,
+                        }
+                    );
                 }
             } else {
                 const liker = await this.user_repository.findOne({
@@ -64,7 +68,7 @@ export class LikeProcessor {
                     }
                 );
 
-                await this.notificationsService.saveNotificationAndSend(
+                await this.notifications_service.saveNotificationAndSend(
                     like_to,
                     notification_entity,
                     {

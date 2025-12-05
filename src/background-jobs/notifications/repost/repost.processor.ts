@@ -16,7 +16,7 @@ export class RepostProcessor {
     private readonly logger = new Logger(RepostProcessor.name);
 
     constructor(
-        private readonly notificationsService: NotificationsService,
+        private readonly notifications_service: NotificationsService,
         @InjectRepository(User) private readonly user_repository: Repository<User>,
         @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>
     ) {}
@@ -40,7 +40,7 @@ export class RepostProcessor {
 
                 let was_deleted = false;
                 if (tweet_id) {
-                    was_deleted = await this.notificationsService.removeRepostNotification(
+                    was_deleted = await this.notifications_service.removeRepostNotification(
                         tweet_owner_id,
                         tweet_id,
                         reposted_by
@@ -48,7 +48,7 @@ export class RepostProcessor {
                 }
 
                 if (was_deleted) {
-                    this.notificationsService.sendNotificationOnly(
+                    this.notifications_service.sendNotificationOnly(
                         NotificationType.REPOST,
                         tweet_owner_id,
                         {
@@ -85,7 +85,7 @@ export class RepostProcessor {
                     }
                 );
 
-                await this.notificationsService.saveNotificationAndSend(
+                await this.notifications_service.saveNotificationAndSend(
                     repost_to,
                     notification_entity,
                     {

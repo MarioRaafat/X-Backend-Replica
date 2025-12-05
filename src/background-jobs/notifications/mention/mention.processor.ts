@@ -20,7 +20,7 @@ export class MentionProcessor {
     private readonly logger = new Logger(MentionProcessor.name);
 
     constructor(
-        private readonly notificationsService: NotificationsService,
+        private readonly notifications_service: NotificationsService,
         @InjectRepository(User) private readonly user_repository: Repository<User>,
         @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>,
         @InjectRepository(TweetQuote)
@@ -32,7 +32,6 @@ export class MentionProcessor {
         try {
             const {
                 mentioned_usernames,
-                mentioned_user_id,
                 mentioned_by,
                 tweet_id,
                 tweet,
@@ -55,14 +54,14 @@ export class MentionProcessor {
                 for (const user of users) {
                     if (user.id === mentioned_by) continue;
 
-                    const was_deleted = await this.notificationsService.removeMentionNotification(
+                    const was_deleted = await this.notifications_service.removeMentionNotification(
                         user.id,
                         tweet_id,
                         mentioned_by
                     );
 
                     if (was_deleted) {
-                        this.notificationsService.sendNotificationOnly(
+                        this.notifications_service.sendNotificationOnly(
                             NotificationType.MENTION,
                             user.id,
                             {
@@ -79,16 +78,6 @@ export class MentionProcessor {
                     return;
                 }
 
-                // For add action with specific user ID (used when we already know the user)
-                if (mentioned_user_id) {
-                    await this.processMentionForUser(
-                        mentioned_user_id,
-                        mentioned_by,
-                        tweet,
-                        parent_tweet,
-                        tweet_type
-                    );
-                }
                 // For add action with usernames (batch processing)
                 else if (mentioned_usernames && mentioned_usernames.length > 0) {
                     // Fetch user IDs from usernames
@@ -173,7 +162,7 @@ export class MentionProcessor {
             }
         );
 
-        await this.notificationsService.saveNotificationAndSend(
+        await this.notifications_service.saveNotificationAndSend(
             mentioned_user_id,
             notification_entity,
             payload

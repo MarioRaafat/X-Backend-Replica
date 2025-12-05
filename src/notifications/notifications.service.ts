@@ -860,7 +860,6 @@ export class NotificationsService implements OnModuleInit {
         has_previous: boolean;
     }> {
         const page_size = 10;
-        const all_notifications_result = await this.getUserNotifications(user_id, 1);
 
         // Get all notifications first (fetch all pages)
         const user_notifications = await this.notificationModel

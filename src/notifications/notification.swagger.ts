@@ -426,3 +426,85 @@ Each notification has a \`type\` field that indicates its type, and the remainin
         },
     },
 };
+
+export const notifications_websocket = {
+    connection: {
+        url: 'ws://server/notifications',
+        auth: 'JWT token required in connection handshake',
+        protocol: 'WebSocket (Socket.IO)',
+    },
+    client_events: {
+        subscribe_all: {
+            event: 'subscribe:all',
+            description: 'Subscribe to all notifications (default view)',
+            payload: null,
+            response_event: 'notifications:all',
+        },
+        subscribe_mentions: {
+            event: 'subscribe:mentions',
+            description: 'Subscribe to mentions-only view',
+            payload: null,
+            response_event: 'notifications:mentions',
+        },
+        mark_seen: {
+            event: 'mark:seen',
+            description: 'Mark all notifications as seen',
+            payload: null,
+            response_event: 'notifications:count',
+        },
+        request_count: {
+            event: 'get:count',
+            description: 'Request count of unseen notifications',
+            payload: null,
+            response_event: 'notifications:count',
+        },
+    },
+    server_events: {
+        notifications_all: {
+            event: 'notifications:all',
+            description: 'Server sends all notifications',
+            payload_structure: {
+                notifications: 'Array<Notification>',
+                total: 'number',
+                unseenCount: 'number',
+            },
+            example: {
+                notifications: [
+                    {
+                        id: 'uuid',
+                        type: 'like',
+                        actors: [],
+                        targetId: 'tweet-id',
+                        createdAt: '2025-10-17T10:00:00Z',
+                        seen: false,
+                    },
+                ],
+                total: 42,
+                unseenCount: 5,
+                newestData: '2025-10-17T10:00:00Z',
+            },
+        },
+        notifications_mentions: {
+            event: 'notifications:mentions',
+            description: 'Server sends mentions-only notifications',
+            payload_structure: {
+                notifications: 'Array<Notification>',
+                total: 'number',
+                unseenCount: 'number',
+            },
+            example: {
+                notifications: [],
+                total: 0,
+                unseenCount: 0,
+            },
+        },
+        notification_new: {
+            event: 'notifications:new',
+            description: 'Real-time push of new notification',
+            payload_structure: {
+                notification: 'Notification',
+                unseenCount: 'number (updated count)',
+            },
+        },
+    },
+};

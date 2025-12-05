@@ -9,7 +9,7 @@ import { ClearBackGroundNotificationJobDTO } from './clear.dto';
 export class ClearProcessor {
     private readonly logger = new Logger(ClearProcessor.name);
 
-    constructor(private readonly notificationsService: NotificationsService) {}
+    constructor(private readonly notifications_service: NotificationsService) {}
 
     @Process(JOB_NAMES.NOTIFICATION.CLEAR)
     async handleClearNotification(job: Job<ClearBackGroundNotificationJobDTO>) {
@@ -25,7 +25,7 @@ export class ClearProcessor {
 
             console.log('Clearing notifications for user:', user_id, 'Tweet IDs:', tweet_ids);
 
-            await this.notificationsService.deleteNotificationsByTweetIds(user_id, tweet_ids);
+            await this.notifications_service.deleteNotificationsByTweetIds(user_id, tweet_ids);
 
             this.logger.log(
                 `Successfully cleared ${tweet_ids.length} notification(s) for user ${user_id}`

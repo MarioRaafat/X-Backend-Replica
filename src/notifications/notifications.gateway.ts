@@ -6,12 +6,12 @@ import { NotificationType } from './enums/notification-types';
 export class NotificationsGateway {
     server: Server<any, any>; // the first is from client to server, the second is from server to client
 
-    private notificationsService: any;
+    private notifications_service: any;
 
     constructor() {}
 
     setNotificationsService(service: any) {
-        this.notificationsService = service;
+        this.notifications_service = service;
     }
 
     setServer(server: Server) {
@@ -22,9 +22,9 @@ export class NotificationsGateway {
         console.log('NotificationsGateway: New connection:', user_id);
 
         // Send newest_count on connection
-        if (this.notificationsService) {
+        if (this.notifications_service) {
             try {
-                const newest_count = await this.notificationsService.getNewestCount(user_id);
+                const newest_count = await this.notifications_service.getNewestCount(user_id);
                 console.log(
                     `Sending newest_count ${newest_count} to user ${user_id} on connection`
                 );
@@ -42,8 +42,8 @@ export class NotificationsGateway {
                 return { success: false, message: 'User not authenticated' };
             }
 
-            if (this.notificationsService) {
-                await this.notificationsService.clearNewestCount(user_id);
+            if (this.notifications_service) {
+                await this.notifications_service.clearNewestCount(user_id);
             }
 
             this.sendToUser(NotificationType.NEWEST_COUNT, user_id, { newest_count: 0 });

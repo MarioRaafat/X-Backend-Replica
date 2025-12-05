@@ -39,7 +39,7 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 )
 @Controller('notifications')
 export class NotificationsController {
-    constructor(private readonly notificationsService: NotificationsService) {}
+    constructor(private readonly notifications_service: NotificationsService) {}
 
     @UseGuards(JwtAuthGuard)
     @ApiBearerAuth('JWT-auth')
@@ -58,7 +58,7 @@ export class NotificationsController {
         @GetUserId() user_id: string,
         @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
     ): Promise<NotificationsResponseDto> {
-        return await this.notificationsService.getUserNotifications(user_id, page);
+        return await this.notifications_service.getUserNotifications(user_id, page);
     }
 
     @UseGuards(JwtAuthGuard)
@@ -78,6 +78,6 @@ export class NotificationsController {
         @GetUserId() user_id: string,
         @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
     ): Promise<NotificationsResponseDto> {
-        return await this.notificationsService.getMentionsAndReplies(user_id, page);
+        return await this.notifications_service.getMentionsAndReplies(user_id, page);
     }
 }

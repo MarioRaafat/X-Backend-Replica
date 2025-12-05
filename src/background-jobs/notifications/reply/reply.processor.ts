@@ -17,7 +17,7 @@ export class ReplyProcessor {
     private readonly logger = new Logger(ReplyProcessor.name);
 
     constructor(
-        private readonly notificationsService: NotificationsService,
+        private readonly notifications_service: NotificationsService,
         @InjectRepository(User) private readonly user_repository: Repository<User>,
         @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>,
         @InjectRepository(TweetReply)
@@ -41,7 +41,7 @@ export class ReplyProcessor {
             if (action === 'remove') {
                 let was_deleted = false;
                 if (reply_to && reply_tweet_id) {
-                    was_deleted = await this.notificationsService.removeReplyNotification(
+                    was_deleted = await this.notifications_service.removeReplyNotification(
                         reply_to,
                         reply_tweet_id,
                         replied_by
@@ -54,7 +54,7 @@ export class ReplyProcessor {
                         replied_by,
                     };
 
-                    this.notificationsService.sendNotificationOnly(
+                    this.notifications_service.sendNotificationOnly(
                         NotificationType.REPLY,
                         reply_to,
                         payload
@@ -90,7 +90,7 @@ export class ReplyProcessor {
                     }
                 );
 
-                await this.notificationsService.saveNotificationAndSend(
+                await this.notifications_service.saveNotificationAndSend(
                     reply_to,
                     notification_entity,
                     {

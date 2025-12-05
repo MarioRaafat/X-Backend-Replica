@@ -20,7 +20,7 @@ export class QuoteProcessor {
     private readonly logger = new Logger(QuoteProcessor.name);
 
     constructor(
-        private readonly notificationsService: NotificationsService,
+        private readonly notifications_service: NotificationsService,
         @InjectRepository(User) private readonly user_repository: Repository<User>,
         @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>,
         @InjectRepository(TweetQuote)
@@ -36,7 +36,7 @@ export class QuoteProcessor {
             if (action === 'remove') {
                 let was_deleted = false;
                 if (quote_to && quote_tweet_id) {
-                    was_deleted = await this.notificationsService.removeQuoteNotification(
+                    was_deleted = await this.notifications_service.removeQuoteNotification(
                         quote_to,
                         quote_tweet_id,
                         quoted_by
@@ -44,7 +44,7 @@ export class QuoteProcessor {
                 }
 
                 if (was_deleted) {
-                    this.notificationsService.sendNotificationOnly(
+                    this.notifications_service.sendNotificationOnly(
                         NotificationType.QUOTE,
                         quote_to,
                         {
@@ -98,7 +98,7 @@ export class QuoteProcessor {
                     }
                 );
 
-                await this.notificationsService.saveNotificationAndSend(
+                await this.notifications_service.saveNotificationAndSend(
                     quote_to,
                     notification_entity,
                     {
