@@ -82,6 +82,11 @@ if (process.env.DATABASE_CA) {
     base_config.ssl = {
         rejectUnauthorized: false,
     };
+} else if (process.env.PGSSLMODE === 'require') {
+    // Enable SSL for databases that require it (like DigitalOcean)
+    base_config.ssl = {
+        rejectUnauthorized: false,
+    };
 }
 
 export default new DataSource(base_config);

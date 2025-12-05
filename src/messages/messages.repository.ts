@@ -78,8 +78,7 @@ export class MessageRepository extends Repository<Message> {
 
             const messages = await query_builder.getMany();
 
-            // Return messages in chronological order (oldest first)
-            return messages.reverse();
+            return messages;
         } catch (error) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_FETCH_FROM_DB);
         }

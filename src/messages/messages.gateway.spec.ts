@@ -6,6 +6,7 @@ import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
 import { ChatRepository } from 'src/chat/chat.repository';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 interface IAuthenticatedSocket extends Socket {
     user?: {
@@ -54,6 +55,12 @@ describe('MessagesGateway', () => {
                     provide: ConfigService,
                     useValue: {
                         get: jest.fn(),
+                    },
+                },
+                {
+                    provide: PaginationService,
+                    useValue: {
+                        applyCursorPagination: jest.fn(),
                     },
                 },
             ],

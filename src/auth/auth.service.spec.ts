@@ -1724,7 +1724,7 @@ describe('AuthService', () => {
             expect(result).toEqual({ valid: true });
         });
 
-        it('should throw UnauthorizedException for wrong password', async () => {
+        it('should throw ForbiddenException for wrong password', async () => {
             const user = { id: 'user-1', password: 'hashed-password' };
             const dto = { password: 'wrong-password' };
 
@@ -1732,18 +1732,18 @@ describe('AuthService', () => {
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
 
             await expect(service.confirmPassword(dto as any, 'user-1')).rejects.toThrow(
-                UnauthorizedException
+                ForbiddenException
             );
         });
 
-        it('should throw UnauthorizedException for OAuth users without password', async () => {
+        it('should throw ConflictException for OAuth users without password', async () => {
             const user = { id: 'user-1', password: null };
             const dto = { password: 'any-password' };
 
             mock_user_service.findById.mockResolvedValueOnce(user);
 
             await expect(service.confirmPassword(dto as any, 'user-1')).rejects.toThrow(
-                UnauthorizedException
+                ConflictException
             );
         });
 

@@ -36,7 +36,7 @@ jobs:
         run: npx prettier --write "src/**/*.ts"
 
       # - name: Run unit tests
-      #   run: npm run test:cov
+        run: npm run test:cov
 
       - name: Upload coverage to PR
         uses: romeovs/lcov-reporter-action@v0.3.1

@@ -44,6 +44,9 @@ export class ChatRepository extends Repository<Chat> {
             }
         } catch (error) {
             console.error('Error in createChat repository method:', error);
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB);
         }
     }
@@ -76,22 +79,57 @@ export class ChatRepository extends Repository<Chat> {
                 .leftJoinAndSelect('chat.user1', 'user1')
                 .leftJoinAndSelect('chat.user2', 'user2')
                 .leftJoinAndSelect('chat.last_message', 'last_message')
-                .where('chat.user1_id = :user_id OR chat.user2_id = :user_id', { user_id })
-                .orderBy('chat.updated_at', 'DESC')
+                .where('(chat.user1_id = :user_id OR chat.user2_id = :user_id)', { user_id })
+                .orderBy('last_message.created_at', 'DESC', 'NULLS LAST')
                 .addOrderBy('chat.id', 'DESC')
                 .take(query.limit + 1);
 
-            this.pagination_service.applyCursorPagination(
-                qb,
-                query?.cursor,
-                'chat',
-                'updated_at',
-                'id'
-            );
+            // Apply cursor pagination manually to handle nullable last_message
+            // Cursor format: last_message.created_at_chat.id (matching the ORDER BY)
+            if (query?.cursor) {
+                const [cursor_timestamp, cursor_chat_id] = query.cursor.split('_');
+                if (cursor_timestamp && cursor_chat_id) {
+                    const cursor_date = new Date(cursor_timestamp);
+                    qb.andWhere(
+                        `(
+                            (date_trunc('milliseconds', last_message.created_at) < :cursor_date) OR
+                            (date_trunc('milliseconds', last_message.created_at) = :cursor_date AND chat.id < :cursor_chat_id) OR
+                            (last_message.created_at IS NULL AND date_trunc('milliseconds', chat.created_at) < :cursor_date) OR
+                            (last_message.created_at IS NULL AND date_trunc('milliseconds', chat.created_at) = :cursor_date AND chat.id < :cursor_chat_id)
+                          )`,
+                        {
+                            cursor_date,
+                            cursor_chat_id,
+                        }
+                    );
+                }
+            }
 
             const chats = await qb.getMany();
 
-            // Map chats to response format
+            let has_more = false;
+            if (chats.length > query.limit) {
+                has_more = true;
+                chats.pop();
+            }
+
+            // Generate cursor using last_message.created_at and chat.id (not last_message.id)
+            const next_cursor =
+                has_more && chats.length > 0
+                    ? (() => {
+                          const last_chat = chats[chats.length - 1];
+                          let timestamp = last_chat.last_message?.created_at;
+                          if (!timestamp) timestamp = last_chat.created_at;
+                          const chat_id = last_chat.id;
+                          if (!timestamp) return null;
+                          const timestamp_iso =
+                              timestamp instanceof Date
+                                  ? timestamp.toISOString()
+                                  : new Date(timestamp).toISOString();
+                          return `${timestamp_iso}_${chat_id}`;
+                      })()
+                    : null;
+
             const result = chats.map((chat) => {
                 const participant = chat.user1_id === user_id ? chat.user2 : chat.user1;
                 const unread_count =
@@ -122,19 +160,6 @@ export class ChatRepository extends Repository<Chat> {
                     updated_at: chat.updated_at,
                 };
             });
-
-            // Generate next cursor using PaginationService
-            const next_cursor = this.pagination_service.generateNextCursor(
-                chats,
-                'updated_at',
-                'id'
-            );
-
-            let has_more = false;
-            if (chats.length > query.limit) {
-                has_more = true;
-                chats.pop();
-            }
 
             return {
                 data: result,
