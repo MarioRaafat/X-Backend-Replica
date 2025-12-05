@@ -59,6 +59,12 @@ export class RedisService {
         return await this.redis_client.smembers(key);
     }
 
+    async acquireLock(key: string, ttlms: number): Promise<boolean> {
+        const lockKey = `lock:tweet_summary${key}`;
+        const result = await this.redis_client.set(lockKey, 'locked', 'PX', ttlms, 'NX');
+        return result === 'OK';
+    }
+
     pipeline() {
         return this.redis_client.pipeline();
     }
