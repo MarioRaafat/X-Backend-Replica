@@ -28,7 +28,8 @@ export class SearchService {
     ): Promise<SuggestionsResponseDto> {
         const { query } = query_dto;
 
-        const sanitized_query = query.replace(/[^\w\s]/gi, '');
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
 
         if (!sanitized_query.trim()) {
             return { suggested_queries: [], suggested_users: [] };
@@ -62,6 +63,7 @@ export class SearchService {
         const users_list = users_result.map((user) =>
             plainToInstance(SuggestedUserDto, user, {
                 enableImplicitConversion: true,
+                excludeExtraneousValues: true,
             })
         );
 
@@ -84,7 +86,8 @@ export class SearchService {
     ): Promise<UserListResponseDto> {
         const { query, cursor, limit = 20 } = query_dto;
 
-        const sanitized_query = query.replace(/[^\w\s]/gi, '');
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
 
         if (!sanitized_query.trim()) {
             return { data: [], pagination: { next_cursor: null, has_more: false } };
@@ -158,6 +161,7 @@ export class SearchService {
         const users_list = users.map((user) =>
             plainToInstance(UserListItemDto, user, {
                 enableImplicitConversion: true,
+                excludeExtraneousValues: true,
             })
         );
 
@@ -303,7 +307,8 @@ export class SearchService {
     ): Promise<TweetListResponseDto> {
         const { query, cursor, limit = 20, has_media } = query_dto;
 
-        const sanitized_query = query.replace(/[^\w\s]/gi, '');
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
 
         if (!sanitized_query || sanitized_query.trim().length === 0) {
             return {
@@ -403,7 +408,10 @@ export class SearchService {
     ): Promise<TweetListResponseDto> {
         const { query, cursor, limit = 20 } = query_dto;
 
-        if (!query || query.trim().length === 0) {
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
+
+        if (!sanitized_query || sanitized_query.trim().length === 0) {
             return {
                 data: [],
                 pagination: {
@@ -435,7 +443,7 @@ export class SearchService {
 
             search_body.query.bool.must.push({
                 multi_match: {
-                    query: query.trim(),
+                    query: sanitized_query.trim(),
                     fields: ['content^3', 'username^2', 'name'],
                     type: 'best_fields',
                     fuzziness: 'AUTO',
@@ -734,6 +742,7 @@ export class SearchService {
     private extractSuggestionsFromHits(hits: any[], query: string, max_suggestions = 3): string[] {
         const suggestions = new Set<string>();
         const query_lower = query.toLowerCase().trim();
+        const is_hashtag = query_lower.startsWith('#');
 
         hits.forEach((hit) => {
             let text = hit.highlight?.content?.[0] || hit._source?.content;
@@ -746,20 +755,27 @@ export class SearchService {
             if (query_index === -1) return;
 
             const from_query = text.substring(query_index);
-            const sentence_end_match = from_query.match(/[.!?\n]/);
-            const end_index = sentence_end_match
-                ? sentence_end_match.index
-                : Math.min(from_query.length, 100);
-            let completion = from_query.substring(0, end_index).trim();
 
-            completion = completion.replace(/[,;:]+$/, '').trim();
+            let completion: string;
+            if (is_hashtag) {
+                const hashtag_match = from_query.match(/^#\w+/);
+                if (!hashtag_match) return;
+                completion = hashtag_match[0];
+            } else {
+                const sentence_end_match = from_query.match(/[.!?\n]/);
+                const end_index = sentence_end_match
+                    ? sentence_end_match.index
+                    : Math.min(from_query.length, 100);
+                completion = from_query.substring(0, end_index).trim();
 
-            if (completion.length < query.length + 3) return;
-            if (completion.length > 100) return;
-            if (!completion.toLowerCase().startsWith(query_lower)) return;
-            const middle_content = completion.substring(0, completion.length - 1);
-            if (/[.!?]/.test(middle_content)) return;
+                completion = completion.replace(/[,;:]+$/, '').trim();
 
+                if (completion.length < query.length + 3) return;
+                if (completion.length > 100) return;
+                if (!completion.toLowerCase().startsWith(query_lower)) return;
+                const middle_content = completion.substring(0, completion.length - 1);
+                if (/[.!?]/.test(middle_content)) return;
+            }
             suggestions.add(completion);
         });
 
