@@ -151,6 +151,13 @@ describe('TweetsRepository', () => {
         // Reset all mocks
         jest.clearAllMocks();
 
+        // Restore mock implementations after clearAllMocks
+        MOCK_TWEET_REPOSITORY.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_TWEET_LIKE_REPOSITORY.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_TWEET_REPOST_REPOSITORY.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_TWEET_CATEGORY_REPOSITORY.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_DATA_SOURCE.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
+
         // Mock repository helper methods to return the query builder
         jest.spyOn(repository as any, 'attachParentTweetQuery').mockImplementation((q) => q);
         jest.spyOn(repository as any, 'attachConversationTweetQuery').mockImplementation((q) => q);
