@@ -31,10 +31,10 @@ export class TrendService {
     private readonly MIN_BUCKETS = 5 * 60 * 1000;
     private readonly CATEGORY_THRESHOLD = 30;
 
-    async getTrending(category?: string) {
+    async getTrending(category?: string, limit: number = 30) {
         const key = category ? `trending:${category}` : 'trending:global';
 
-        const trending = await this.redis_service.zrevrange(key, 0, this.TOP_N - 1, 'WITHSCORES');
+        const trending = await this.redis_service.zrevrange(key, 0, limit - 1, 'WITHSCORES');
 
         const result: any[] = [];
         const hashtag_names: string[] = [];
