@@ -13,6 +13,7 @@ import { plainToInstance } from 'class-transformer';
 import { User } from 'src/user/entities';
 import { SuggestionsResponseDto } from './dto/suggestions-response.dto';
 import { SuggestedUserDto } from './dto/suggested-user.dto';
+import { bool } from 'sharp';
 
 @Injectable()
 export class SearchService {
@@ -807,16 +808,38 @@ export class SearchService {
     }
 
     private buildEsSuggestionsQuery(sanitized_query: string) {
+        const is_hashtag = sanitized_query.startsWith('#');
+
         return {
             index: 'tweets',
             size: 20,
             _source: ['content'],
             query: {
-                match_phrase_prefix: {
-                    content: {
-                        query: sanitized_query,
-                        slop: 0,
-                    },
+                bool: {
+                    should: [
+                        ...(!is_hashtag
+                            ? [
+                                  {
+                                      prefix: {
+                                          hashtags: {
+                                              value: `#${sanitized_query.toLowerCase()}`,
+                                              boost: 3,
+                                          },
+                                      },
+                                  },
+                              ]
+                            : []),
+                        {
+                            match_phrase_prefix: {
+                                content: {
+                                    query: sanitized_query,
+                                    slop: 0,
+                                    boost: 2,
+                                },
+                            },
+                        },
+                    ],
+                    minimum_should_match: 1,
                 },
             },
             highlight: {
@@ -836,16 +859,36 @@ export class SearchService {
     private extractSuggestionsFromHits(hits: any[], query: string, max_suggestions = 3): string[] {
         const suggestions = new Set<string>();
         const query_lower = query.toLowerCase().trim();
-        const is_hashtag = query_lower.startsWith('#');
+        const is_hashtag_query = query_lower.startsWith('#');
 
         hits.forEach((hit) => {
             let text = hit.highlight?.content?.[0] || hit._source?.content;
             if (!text) return;
 
+            const text_with_marks = text;
             text = text.replace(/<\/?MARK>/g, '');
 
             const lower_text = text.toLowerCase();
-            const query_index = lower_text.indexOf(query_lower);
+
+            const mark_index = text_with_marks.indexOf('<MARK>');
+            let query_index: number;
+            let is_hashtag = is_hashtag_query;
+
+            if (mark_index !== -1) {
+                const before_mark = text_with_marks.substring(0, mark_index);
+                const has_hash_before_mark = before_mark.endsWith('#');
+
+                if (has_hash_before_mark && !is_hashtag_query) {
+                    is_hashtag = true;
+                    const actual_position = before_mark.replace(/<\/?MARK>/g, '').length;
+                    query_index = actual_position - 1;
+                } else {
+                    query_index = lower_text.indexOf(query_lower);
+                }
+            } else {
+                query_index = lower_text.indexOf(query_lower);
+            }
+
             if (query_index === -1) return;
 
             const from_query = text.substring(query_index);
