@@ -1,4 +1,13 @@
-import { Column, Entity, Index, JoinColumn, ManyToOne, OneToOne, PrimaryColumn } from 'typeorm';
+import {
+    Column,
+    Entity,
+    Index,
+    JoinColumn,
+    ManyToOne,
+    OneToOne,
+    PrimaryColumn,
+    UpdateDateColumn,
+} from 'typeorm';
 import { Tweet } from './tweet.entity';
 
 @Entity('tweet_summaries')
@@ -7,7 +16,8 @@ export class TweetSummary {
     tweet_id: string;
     @Column({ type: 'text' })
     summary: string;
-
+    @UpdateDateColumn({ type: 'timestamptz' })
+    updated_at: Date;
     @OneToOne(() => Tweet, (tweet) => tweet.summary, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'tweet_id' })
     tweet: Tweet;

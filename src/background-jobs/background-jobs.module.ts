@@ -25,6 +25,9 @@ import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
 import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from './elasticsearch/es-follow.service';
+import { AiSummaryJobService } from './ai-summary/ai-summary.service';
+import { AiSummaryProcessor } from './ai-summary/ai-summary.processor';
+import { TweetSummary } from 'src/tweets/entities/tweet-summary.entity';
 
 @Module({
     imports: [
@@ -74,8 +77,19 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
                 },
             },
         }),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.AI_SUMMARY,
+            defaultJobOptions: {
+                attempts: 2,
+                backoff: {
+                    type: 'exponential',
+                    delay: 3000,
+                },
+            },
+        }),
         TypeOrmModule.forFeature([User]),
         TypeOrmModule.forFeature([Tweet]),
+        TypeOrmModule.forFeature([TweetSummary]),
         CommunicationModule,
         NotificationsModule,
         ElasticsearchModule,
@@ -96,6 +110,8 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        AiSummaryJobService,
+        AiSummaryProcessor,
     ],
     exports: [
         EmailJobsService,
@@ -108,6 +124,7 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        AiSummaryJobService,
     ],
 })
 export class BackgroundJobsModule {}

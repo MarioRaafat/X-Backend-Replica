@@ -11,6 +11,7 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import { TweetCategory } from './entities/tweet-category.entity';
+import { TweetSummary } from './entities/tweet-summary.entity';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 
@@ -27,6 +28,7 @@ import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.s
             UserFollows,
             UserPostsView,
             TweetCategory,
+            TweetSummary,
         ]),
         BackgroundJobsModule,
     ],
