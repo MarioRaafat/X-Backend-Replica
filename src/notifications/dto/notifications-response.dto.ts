@@ -4,13 +4,15 @@ import { LikeNotificationDto } from './like-notification.dto';
 import { ReplyNotificationDto } from './reply-notification.dto';
 import { RepostNotificationDto } from './repost-notification.dto';
 import { QuoteNotificationDto } from './quote-notification.dto';
+import { MentionNotificationDto } from './mention-notification.dto';
 
 export type NotificationDto =
     | FollowNotificationDto
     | LikeNotificationDto
     | ReplyNotificationDto
     | RepostNotificationDto
-    | QuoteNotificationDto;
+    | QuoteNotificationDto
+    | MentionNotificationDto;
 
 export class NotificationsResponseDto {
     @ApiProperty({
@@ -23,6 +25,7 @@ export class NotificationsResponseDto {
                 { $ref: '#/components/schemas/ReplyNotificationDto' },
                 { $ref: '#/components/schemas/RepostNotificationDto' },
                 { $ref: '#/components/schemas/QuoteNotificationDto' },
+                { $ref: '#/components/schemas/MentionNotificationDto' },
             ],
         },
         example: [
@@ -193,4 +196,40 @@ export class NotificationsResponseDto {
         ],
     })
     notifications: NotificationDto[];
+
+    @ApiProperty({
+        example: 1,
+        description: 'Current page number (1-indexed)',
+    })
+    page: number;
+
+    @ApiProperty({
+        example: 10,
+        description: 'Number of notifications per page',
+    })
+    page_size: number;
+
+    @ApiProperty({
+        example: 45,
+        description: 'Total number of notifications',
+    })
+    total: number;
+
+    @ApiProperty({
+        example: 5,
+        description: 'Total number of pages',
+    })
+    total_pages: number;
+
+    @ApiProperty({
+        example: true,
+        description: 'Whether there is a next page',
+    })
+    has_next: boolean;
+
+    @ApiProperty({
+        example: false,
+        description: 'Whether there is a previous page',
+    })
+    has_previous: boolean;
 }

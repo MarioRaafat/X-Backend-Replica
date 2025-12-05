@@ -23,6 +23,8 @@ import { RepostJobService } from './notifications/repost/repost.service';
 import { RepostProcessor } from './notifications/repost/repost.processor';
 import { QuoteJobService } from './notifications/quote/quote.service';
 import { QuoteProcessor } from './notifications/quote/quote.processor';
+import { MentionJobService } from './notifications/mention/mention.service';
+import { MentionProcessor } from './notifications/mention/mention.processor';
 import { ClearJobService } from './notifications/clear/clear.service';
 import { ClearProcessor } from './notifications/clear/clear.processor';
 import { EsIndexTweetJobService } from './elasticsearch/es-index-tweet.service';
@@ -103,6 +105,8 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         LikeProcessor,
         QuoteJobService,
         QuoteProcessor,
+        MentionJobService,
+        MentionProcessor,
         ClearJobService,
         ClearProcessor,
         EsIndexTweetJobService,
@@ -120,6 +124,7 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         LikeJobService,
         RepostJobService,
         QuoteJobService,
+        MentionJobService,
         ClearJobService,
         EsIndexTweetJobService,
         EsDeleteTweetJobService,

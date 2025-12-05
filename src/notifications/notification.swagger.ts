@@ -33,12 +33,29 @@ Retrieves all notifications for the authenticated user in reverse chronological 
    - Triggered when someone quotes your tweet
    - Contains: \`quoter\` (User object), \`quote_tweet\` (Tweet object with nested \`parent_tweet\`)
 
-**Response Structure:**
-The response contains an array of notification objects. Each notification has a \`type\` field that indicates its type, and the remaining fields depend on that type.
+6. **Mention Notification** (\`type: "mention"\`)
+   - Triggered when someone mentions you in a tweet
+   - Contains: \`mentioner\` (User object), \`tweet\` (Tweet object), \`tweet_type\` ('tweet' | 'quote' | 'reply')
 
-**Limits:**
-- Maximum: 50 most recent notifications
-- Order: Reverse chronological (newest first)
+**Pagination:**
+- Query Parameter: \`page\` (optional, default: 1)
+- Page Size: 10 notifications per page
+- Response includes: \`page\`, \`page_size\`, \`total\`, \`total_pages\`, \`has_next\`, \`has_previous\`
+
+**Response Structure:**
+The response contains:
+- \`notifications\`: Array of notification objects (max 10 per page)
+- \`page\`: Current page number
+- \`page_size\`: Number of items per page (10)
+- \`total\`: Total number of notifications
+- \`total_pages\`: Total number of pages
+- \`has_next\`: Whether there is a next page
+- \`has_previous\`: Whether there is a previous page
+
+Each notification has a \`type\` field that indicates its type, and the remaining fields depend on that type.
+
+**Order:**
+- Reverse chronological (newest first)
         `,
     },
     responses: {
@@ -358,6 +375,53 @@ The response contains an array of notification objects. Each notification has a 
                         },
                     ],
                 },
+            },
+        },
+    },
+};
+
+export const get_mentions_and_replies_swagger = {
+    operation: {
+        summary: 'Get mentions and replies notifications',
+        description: `
+Retrieves only mentions and replies notifications for the authenticated user in reverse chronological order (newest first).
+
+**Notification Types Included:**
+
+1. **Mention Notification** (\`type: "mention"\`)
+   - Triggered when someone mentions you in a tweet
+   - Contains: \`mentioner\` (User object), \`tweet\` (Tweet object), \`tweet_type\` ('tweet' | 'quote' | 'reply')
+
+2. **Reply Notification** (\`type: "reply"\`)
+   - Triggered when someone replies to your tweet
+   - Contains: \`replier\` (User object), \`reply_tweet\` (Tweet object), \`original_tweet\` (Tweet object), \`conversation_id\` (optional string)
+
+**Pagination:**
+- Query Parameter: \`page\` (optional, default: 1)
+- Page Size: 10 notifications per page
+- Response includes: \`page\`, \`page_size\`, \`total\`, \`total_pages\`, \`has_next\`, \`has_previous\`
+
+**Response Structure:**
+The response contains:
+- \`notifications\`: Array of notification objects (max 10 per page)
+- \`page\`: Current page number
+- \`page_size\`: Number of items per page (10)
+- \`total\`: Total number of mentions and replies
+- \`total_pages\`: Total number of pages
+- \`has_next\`: Whether there is a next page
+- \`has_previous\`: Whether there is a previous page
+
+Each notification has a \`type\` field that indicates its type, and the remaining fields depend on that type.
+
+**Order:**
+- Reverse chronological (newest first)
+        `,
+    },
+    responses: {
+        ok: {
+            description: 'Successfully retrieved mentions and replies notifications',
+            schema: {
+                $ref: '#/components/schemas/NotificationsResponseDto',
             },
         },
     },

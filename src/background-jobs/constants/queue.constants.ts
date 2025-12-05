@@ -22,6 +22,7 @@ export const JOB_NAMES = {
         LIKE: 'like-notification',
         REPOST: 'repost-notification',
         QUOTE: 'quote-notification',
+        MENTION: 'mention-notification',
         CLEAR: 'clear-notifications',
     },
     ELASTICSEARCH: {

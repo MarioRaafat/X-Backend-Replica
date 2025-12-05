@@ -1,9 +1,10 @@
-import { Controller, Get, UseGuards } from '@nestjs/common';
+import { Controller, DefaultValuePipe, Get, ParseIntPipe, Query, UseGuards } from '@nestjs/common';
 import {
     ApiBearerAuth,
     ApiExtraModels,
     ApiOkResponse,
     ApiOperation,
+    ApiQuery,
     ApiTags,
 } from '@nestjs/swagger';
 import { NotificationsService } from './notifications.service';
@@ -15,7 +16,11 @@ import { LikeNotificationDto } from './dto/like-notification.dto';
 import { ReplyNotificationDto } from './dto/reply-notification.dto';
 import { RepostNotificationDto } from './dto/repost-notification.dto';
 import { QuoteNotificationDto } from './dto/quote-notification.dto';
-import { get_user_notifications_swagger } from './notification.swagger';
+import { MentionNotificationDto } from './dto/mention-notification.dto';
+import {
+    get_mentions_and_replies_swagger,
+    get_user_notifications_swagger,
+} from './notification.swagger';
 import {
     ApiInternalServerError,
     ApiUnauthorizedErrorResponse,
@@ -29,7 +34,8 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
     LikeNotificationDto,
     ReplyNotificationDto,
     RepostNotificationDto,
-    QuoteNotificationDto
+    QuoteNotificationDto,
+    MentionNotificationDto
 )
 @Controller('notifications')
 export class NotificationsController {
@@ -39,46 +45,39 @@ export class NotificationsController {
     @ApiBearerAuth('JWT-auth')
     @ApiOperation(get_user_notifications_swagger.operation)
     @ApiOkResponse(get_user_notifications_swagger.responses.ok)
+    @ApiQuery({
+        name: 'page',
+        required: false,
+        type: Number,
+        description: 'Page number (default: 1)',
+    })
     @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @Get()
-    async getUserNotifications(@GetUserId() user_id: string): Promise<NotificationsResponseDto> {
-        const notifications = await this.notificationsService.getUserNotifications(user_id);
-        return { notifications };
+    async getUserNotifications(
+        @GetUserId() user_id: string,
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
+    ): Promise<NotificationsResponseDto> {
+        return await this.notificationsService.getUserNotifications(user_id, page);
     }
 
-    // @ApiOperation({
-    //     summary: 'WebSocket API Documentation',
-    //     description: `
-    //     WebSocket Only - No REST endpoints available.
-    //     Server Events
-    //     - "notifications:all" - All notifications list
-    //     - "notifications:mentions" - Mentions list
-    //     - "notifications:new" - Real-time push
-    //     - "notifications:count" - Unseen count update
-    //     newestData Field
-    //     - Type: "string | null"
-    //     - Value: ISO8601 timestamp of last unseen notification
-    //     - "null" when all seen
-    //     Example
-    //     const socket = io('ws://server/notifications', {
-    //         auth: { token: jwt }
-    //     });
-    //     socket.on('notifications:all', (data) => {
-    //         data.notifications, data.unseenCount, data.newestData
-    //     });
-    // `,
-    // })
-    // @ApiResponse({
-    //     status: 200,
-    //     description: 'WebSocket event structure',
-    //     schema: {
-    //         type: 'object',
-    //         example: notifications_websocket,
-    //     },
-    // })
-    // @Get('docs')
-    // getDocs() {
-    //     return notifications_websocket;
-    // }
+    @UseGuards(JwtAuthGuard)
+    @ApiBearerAuth('JWT-auth')
+    @ApiOperation(get_mentions_and_replies_swagger.operation)
+    @ApiOkResponse(get_mentions_and_replies_swagger.responses.ok)
+    @ApiQuery({
+        name: 'page',
+        required: false,
+        type: Number,
+        description: 'Page number (default: 1)',
+    })
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @Get('mentions')
+    async getMentions(
+        @GetUserId() user_id: string,
+        @Query('page', new DefaultValuePipe(1), ParseIntPipe) page: number
+    ): Promise<NotificationsResponseDto> {
+        return await this.notificationsService.getMentionsAndReplies(user_id, page);
+    }
 }
