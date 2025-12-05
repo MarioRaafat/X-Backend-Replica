@@ -860,9 +860,8 @@ export class NotificationsService implements OnModuleInit {
         has_previous: boolean;
     }> {
         const page_size = 10;
-        const all_notifications_result = await this.getUserNotifications(user_id, 1);
 
-        // Get all notifications first (fetch all pages)
+        // Get all notifications from MongoDB
         const user_notifications = await this.notificationModel
             .findOne({ user: user_id })
             .lean()
@@ -884,31 +883,165 @@ export class NotificationsService implements OnModuleInit {
             };
         }
 
-        // Process all notifications to get filtered list
-        const all_processed = await this.getUserNotifications(user_id, 1);
-
-        // Get all pages to build complete filtered list
-        const all_items: NotificationDto[] = [];
-        for (let p = 1; p <= all_processed.total_pages; p++) {
-            const page_result = await this.getUserNotifications(user_id, p);
-            all_items.push(...page_result.notifications);
-        }
-
-        // Filter to only include mentions and replies
-        const filtered = all_items.filter(
-            (notification) =>
+        // Filter to only include mentions and replies from raw MongoDB data
+        const filtered_notifications = user_notifications.notifications.filter(
+            (notification: any) =>
                 notification.type === NotificationType.MENTION ||
                 notification.type === NotificationType.REPLY
         );
 
-        // Apply pagination to filtered results
-        const total = filtered.length;
+        if (filtered_notifications.length === 0) {
+            return {
+                notifications: [],
+                page,
+                page_size,
+                total: 0,
+                total_pages: 0,
+                has_next: false,
+                has_previous: false,
+            };
+        }
+
+        // Collect user IDs and tweet IDs from filtered notifications
+        const user_ids = new Set<string>();
+        const tweet_ids = new Set<string>();
+
+        filtered_notifications.forEach((notification: any) => {
+            if (notification.type === NotificationType.MENTION) {
+                const mention_notification = notification as MentionNotificationEntity;
+                if (mention_notification.mentioned_by) {
+                    user_ids.add(mention_notification.mentioned_by);
+                }
+                if (mention_notification.tweet_id) {
+                    tweet_ids.add(mention_notification.tweet_id);
+                }
+                if (mention_notification.parent_tweet_id) {
+                    tweet_ids.add(mention_notification.parent_tweet_id);
+                }
+            } else if (notification.type === NotificationType.REPLY) {
+                const reply_notification = notification as ReplyNotificationEntity;
+                if (reply_notification.replied_by) {
+                    user_ids.add(reply_notification.replied_by);
+                }
+                if (reply_notification.reply_tweet_id) {
+                    tweet_ids.add(reply_notification.reply_tweet_id);
+                }
+                if (reply_notification.original_tweet_id) {
+                    tweet_ids.add(reply_notification.original_tweet_id);
+                }
+            }
+        });
+
+        // Fetch all required data in parallel
+        const [users, tweets] = await Promise.all([
+            user_ids.size > 0
+                ? this.userRepository.find({
+                      where: { id: In(Array.from(user_ids)) },
+                      select: ['id', 'username', 'name', 'avatar_url', 'email'],
+                  })
+                : [],
+            tweet_ids.size > 0
+                ? this.tweetRepository.find({
+                      where: { tweet_id: In(Array.from(tweet_ids)) },
+                  })
+                : [],
+        ]);
+
+        const user_map = new Map<string, User>(
+            users.map((user) => [user.id, user] as [string, User])
+        );
+        const tweet_map = new Map<string, Tweet>(
+            tweets.map((tweet) => [tweet.tweet_id, tweet] as [string, Tweet])
+        );
+
+        const missing_tweet_ids = new Set<string>();
+
+        // Process filtered notifications
+        const response_notifications: NotificationDto[] = filtered_notifications
+            .map((notification: any) => {
+                if (notification.type === NotificationType.MENTION) {
+                    const mention_notification = notification as MentionNotificationEntity;
+                    const mentioner = user_map.get(mention_notification.mentioned_by);
+                    const tweet = tweet_map.get(mention_notification.tweet_id);
+
+                    if (!mentioner || !tweet) {
+                        if (!tweet && mention_notification.tweet_id) {
+                            missing_tweet_ids.add(mention_notification.tweet_id);
+                        }
+                        return null;
+                    }
+
+                    // For quote tweets, include parent_tweet if available
+                    let mention_tweet = tweet;
+                    if (
+                        mention_notification.tweet_type === 'quote' &&
+                        mention_notification.parent_tweet_id
+                    ) {
+                        const parent_tweet = tweet_map.get(mention_notification.parent_tweet_id);
+                        if (parent_tweet) {
+                            mention_tweet = {
+                                ...tweet,
+                                parent_tweet,
+                            } as any;
+                        } else {
+                            missing_tweet_ids.add(mention_notification.parent_tweet_id);
+                        }
+                    }
+
+                    return {
+                        type: notification.type,
+                        created_at: notification.created_at,
+                        mentioner,
+                        tweet: mention_tweet,
+                        tweet_type: mention_notification.tweet_type,
+                    };
+                } else if (notification.type === NotificationType.REPLY) {
+                    const reply_notification = notification as ReplyNotificationEntity;
+                    const replier = user_map.get(reply_notification.replied_by);
+                    const reply_tweet = reply_notification.reply_tweet_id
+                        ? tweet_map.get(reply_notification.reply_tweet_id)
+                        : null;
+                    const original_tweet = tweet_map.get(reply_notification.original_tweet_id);
+
+                    if (!replier || !original_tweet) {
+                        if (!original_tweet && reply_notification.original_tweet_id) {
+                            missing_tweet_ids.add(reply_notification.original_tweet_id);
+                        }
+                        if (reply_notification.reply_tweet_id && !reply_tweet) {
+                            missing_tweet_ids.add(reply_notification.reply_tweet_id);
+                        }
+                        return null;
+                    }
+
+                    return {
+                        type: notification.type,
+                        created_at: notification.created_at,
+                        replier,
+                        reply_tweet,
+                        original_tweet,
+                        conversation_id: reply_notification.conversation_id,
+                    } as NotificationDto;
+                }
+                return null;
+            })
+            .filter((notification): notification is NotificationDto => notification !== null);
+
+        // Clean up notifications with missing tweets
+        if (missing_tweet_ids.size > 0) {
+            await this.clear_jobs_service.queueClearNotification({
+                user_id,
+                tweet_ids: Array.from(missing_tweet_ids),
+            });
+        }
+
+        // Apply pagination
+        const total = response_notifications.length;
         const total_pages = Math.ceil(total / page_size);
         const skip = (page - 1) * page_size;
-        const paginated = filtered.slice(skip, skip + page_size);
+        const paginated_notifications = response_notifications.slice(skip, skip + page_size);
 
         return {
-            notifications: paginated,
+            notifications: paginated_notifications,
             page,
             page_size,
             total,

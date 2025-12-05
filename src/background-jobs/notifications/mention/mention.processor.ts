@@ -78,16 +78,6 @@ export class MentionProcessor {
                     return;
                 }
 
-                // For add action with specific user ID (used when we already know the user)
-                // if (mentioned_user_id) {
-                //     await this.processMentionForUser(
-                //         mentioned_user_id,
-                //         mentioned_by,
-                //         tweet,
-                //         parent_tweet,
-                //         tweet_type
-                //     );
-                // }
                 // For add action with usernames (batch processing)
                 else if (mentioned_usernames && mentioned_usernames.length > 0) {
                     // Fetch user IDs from usernames
