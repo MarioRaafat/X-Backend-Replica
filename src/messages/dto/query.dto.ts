@@ -23,6 +23,5 @@ export class GetMessagesQueryDto {
     })
     @IsOptional()
     @IsString()
-    @IsUUID()
     cursor?: string;
 }
