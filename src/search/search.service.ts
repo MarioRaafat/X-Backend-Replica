@@ -107,7 +107,7 @@ export class SearchService {
             try {
                 const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf-8'));
                 cursor_score = decoded.score;
-                cursor_id = decoded.id;
+                cursor_id = decoded.user_id;
             } catch (error) {
                 throw new Error('Invalid cursor');
             }
@@ -154,7 +154,7 @@ export class SearchService {
             const last_user = users[users.length - 1];
             const cursor_data = {
                 score: last_user.total_score,
-                id: last_user.id,
+                user_id: last_user.user_id,
             };
             next_cursor = Buffer.from(JSON.stringify(cursor_data)).toString('base64');
         }
@@ -751,7 +751,7 @@ export class SearchService {
     ): SelectQueryBuilder<User> {
         query_builder
             .select([
-                '"user".id AS id',
+                '"user".id AS user_id',
                 '"user".name AS name',
                 '"user".username AS username',
                 '"user".bio AS bio',
