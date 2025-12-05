@@ -20,6 +20,10 @@ export const JOB_NAMES = {
         FOLLOW: 'follow-notification',
         REPLY: 'reply-notification',
         LIKE: 'like-notification',
+        REPOST: 'repost-notification',
+        QUOTE: 'quote-notification',
+        MENTION: 'mention-notification',
+        CLEAR: 'clear-notifications',
     },
     ELASTICSEARCH: {
         INDEX_TWEET: 'index-tweet',

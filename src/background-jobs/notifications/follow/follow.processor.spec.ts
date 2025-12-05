@@ -2,19 +2,21 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
 import { FollowProcessor } from './follow.processor';
-import { NotificationsGateway } from 'src/notifications/gateway';
+import { NotificationsService } from 'src/notifications/notifications.service';
 import { FollowBackGroundNotificationJobDTO } from './follow.dto';
 import { NotificationType } from 'src/notifications/enums/notification-types';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { User } from 'src/user/entities';
+import { NotificationsGateway } from 'src/notifications/notifications.gateway';
 
 describe('FollowProcessor', () => {
     let processor: FollowProcessor;
-    let notifications_gateway: jest.Mocked<NotificationsGateway>;
+    let notifications_service: jest.Mocked<NotificationsService>;
     let logger_spy: jest.SpyInstance;
 
     const mock_job_data: FollowBackGroundNotificationJobDTO = {
         followed_id: 'user-123',
         follower_id: 'user-456',
-        followed_avatar_url: 'https://example.com/avatar.jpg',
         follower_name: 'John Doe',
         action: 'add',
     };
@@ -24,16 +26,24 @@ describe('FollowProcessor', () => {
             providers: [
                 FollowProcessor,
                 {
-                    provide: NotificationsGateway,
+                    provide: NotificationsService,
                     useValue: {
-                        sendToUser: jest.fn(),
+                        removeFollowNotification: jest.fn().mockResolvedValue(true),
+                        sendNotificationOnly: jest.fn(),
+                        saveNotificationAndSend: jest.fn(),
+                    },
+                },
+                {
+                    provide: getRepositoryToken(User),
+                    useValue: {
+                        findOne: jest.fn(),
                     },
                 },
             ],
         }).compile();
 
         processor = module.get<FollowProcessor>(FollowProcessor);
-        notifications_gateway = module.get(NotificationsGateway);
+        notifications_service = module.get(NotificationsService);
 
         logger_spy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
     });
@@ -58,24 +68,23 @@ describe('FollowProcessor', () => {
                 mock_job as Job<FollowBackGroundNotificationJobDTO>
             );
 
-            expect(notifications_gateway.sendToUser).toHaveBeenCalledWith(
-                NotificationType.FOLLOW,
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledWith(
                 mock_job_data.followed_id,
-                {
-                    type: 'follow',
+                expect.objectContaining({
+                    type: NotificationType.FOLLOW,
+                    follower_id: mock_job_data.follower_id,
+                }),
+                expect.objectContaining({
+                    type: NotificationType.FOLLOW,
                     action: mock_job_data.action,
                     follower_id: mock_job_data.follower_id,
-                    follower_name: mock_job_data.follower_name,
-                    followed_avatar_url: mock_job_data.followed_avatar_url,
-                }
+                })
             );
         });
 
         it('should handle errors and log them', async () => {
             const error = new Error('Notification gateway error');
-            notifications_gateway.sendToUser.mockImplementation(() => {
-                throw error;
-            });
+            notifications_service.saveNotificationAndSend.mockRejectedValueOnce(error);
 
             const mock_job: Partial<Job<FollowBackGroundNotificationJobDTO>> = {
                 id: 'job-123',
@@ -89,7 +98,7 @@ describe('FollowProcessor', () => {
             ).rejects.toThrow(error);
 
             expect(logger_spy).toHaveBeenCalledWith(
-                `Error processing OTP email job ${mock_job.id}:`,
+                `Error processing follow notification job ${mock_job.id}:`,
                 error
             );
         });
@@ -109,16 +118,17 @@ describe('FollowProcessor', () => {
                 mock_job as Job<FollowBackGroundNotificationJobDTO>
             );
 
-            expect(notifications_gateway.sendToUser).toHaveBeenCalledWith(
+            expect(notifications_service.removeFollowNotification).toHaveBeenCalledWith(
+                unfollow_data.followed_id,
+                unfollow_data.follower_id
+            );
+            expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
                 NotificationType.FOLLOW,
                 unfollow_data.followed_id,
-                {
-                    type: 'follow',
+                expect.objectContaining({
+                    type: NotificationType.FOLLOW,
                     action: 'remove',
-                    follower_id: unfollow_data.follower_id,
-                    follower_name: unfollow_data.follower_name,
-                    followed_avatar_url: unfollow_data.followed_avatar_url,
-                }
+                })
             );
         });
 
@@ -126,7 +136,6 @@ describe('FollowProcessor', () => {
             const minimal_data: FollowBackGroundNotificationJobDTO = {
                 followed_id: 'user-123',
                 follower_id: 'user-456',
-                followed_avatar_url: undefined,
                 follower_name: 'Jane Doe',
                 action: 'add',
             };
@@ -140,11 +149,14 @@ describe('FollowProcessor', () => {
                 mock_job as Job<FollowBackGroundNotificationJobDTO>
             );
 
-            expect(notifications_gateway.sendToUser).toHaveBeenCalledWith(
-                NotificationType.FOLLOW,
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledWith(
                 minimal_data.followed_id,
                 expect.objectContaining({
-                    type: 'follow',
+                    type: NotificationType.FOLLOW,
+                    follower_id: minimal_data.follower_id,
+                }),
+                expect.objectContaining({
+                    type: NotificationType.FOLLOW,
                     action: minimal_data.action,
                     follower_id: minimal_data.follower_id,
                     follower_name: minimal_data.follower_name,

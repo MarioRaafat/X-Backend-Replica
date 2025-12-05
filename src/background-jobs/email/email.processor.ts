@@ -25,20 +25,22 @@ export class EmailProcessor {
             let subtitle_description: string;
 
             switch (email_type) {
-                case 'verification':
+                case 'verification': {
                     ({ subject, title, description, subtitle, subtitle_description } =
                         verification_email_object(otp, not_me_link ?? ''));
                     break;
-
-                case 'reset_password':
+                }
+                case 'reset_password': {
                     ({ subject, title, description, subtitle, subtitle_description } =
                         reset_password_email_object(username));
                     break;
+                }
 
-                case 'update_email':
+                case 'update_email': {
                     ({ subject, title, description, subtitle, subtitle_description } =
                         reset_password_email_object(username));
                     break;
+                }
 
                 default:
                     throw new Error(`Unknown email type: ${String(email_type)}`);
