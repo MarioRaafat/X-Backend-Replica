@@ -13,9 +13,8 @@ export class TrendController {
     @ApiOkResponse(trending_swagger.responses.success)
     @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
     @ApiQuery(trending_swagger.queries.category)
-    @ApiQuery(trending_swagger.queries.country)
     @Get('')
-    async getTrending(@Query('category') category?: string, @Query('country') country?: string) {
+    async getTrending(@Query('category') category?: string) {
         return await this.trend_service.getTrending(category);
     }
 }

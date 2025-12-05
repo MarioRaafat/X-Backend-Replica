@@ -1,3 +1,4 @@
+import { HashtagResponseDto } from 'src/trend/dto/hashtag-response.dto';
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import { Tweet } from '../tweets/entities/tweet.entity';
 import { User } from '../user/entities/user.entity';
@@ -59,12 +60,7 @@ export const trending_swagger = {
             name: 'category',
             required: false,
             description: 'Trending category filter',
-            enum: ['none', 'sports', 'entertainment'],
-        },
-        country: {
-            name: 'country',
-            required: false,
-            description: 'Country code filter',
+            enum: ['none', 'sports', 'entertainment', 'news'],
         },
     },
     responses: {
@@ -73,8 +69,8 @@ export const trending_swagger = {
             schema: {
                 example: {
                     data: [
-                        { text: 'Topic A', posts_count: 123, reference_id: 'topic-a' },
-                        { text: 'Topic B', posts_count: 45, reference_id: 'topic-b' },
+                        { hashtag: 'Topic A', posts_count: 123, category: 'sports' },
+                        { hashtag: 'Topic B', posts_count: 45, category: 'news' },
                     ],
                     count: 2,
                     message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED,
