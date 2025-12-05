@@ -292,15 +292,25 @@ describe('UserController', () => {
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
                 birth_date: new Date('2025-10-21T09:26:17.432Z'),
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const mock_req = {
+                cookies: {
+                    refresh_token: 'mock_refresh_token',
+                },
+            } as any;
 
             const get_me_spy = jest
                 .spyOn(user_service, 'getMe')
                 .mockResolvedValueOnce(mock_response);
 
-            const result = await controller.getMe(user_id);
+            const result = await controller.getMe(user_id, mock_req);
 
             expect(get_me_spy).toHaveBeenCalledWith(user_id);
             expect(get_me_spy).toHaveBeenCalledTimes(1);
@@ -310,11 +320,19 @@ describe('UserController', () => {
         it('should throw if service throws', async () => {
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
 
+            const mock_req = {
+                cookies: {
+                    refresh_token: 'mock_refresh_token',
+                },
+            } as any;
+
             const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
 
             const get_me_spy = jest.spyOn(user_service, 'getMe').mockRejectedValueOnce(error);
 
-            await expect(controller.getMe(user_id)).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
+            await expect(controller.getMe(user_id, mock_req)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
+            );
 
             expect(get_me_spy).toHaveBeenCalledWith(user_id);
             expect(get_me_spy).toHaveBeenCalledTimes(1);
@@ -350,6 +368,10 @@ describe('UserController', () => {
                     },
                 ],
                 mutual_followers_count: 5,
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -379,6 +401,10 @@ describe('UserController', () => {
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
                 birth_date: new Date('2025-10-21T09:26:17.432Z'),
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const current_user_id = null;
@@ -443,6 +469,10 @@ describe('UserController', () => {
                     },
                 ],
                 mutual_followers_count: 5,
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -472,6 +502,10 @@ describe('UserController', () => {
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
                 birth_date: new Date('2025-10-21T09:26:17.432Z'),
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const current_user_id = null;
@@ -1686,6 +1720,10 @@ describe('UserController', () => {
                 birth_date: new Date('2025-10-21T09:26:17.432Z'),
                 followers_count: 5,
                 following_count: 10,
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';

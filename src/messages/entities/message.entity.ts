@@ -2,6 +2,7 @@ import {
     Column,
     CreateDateColumn,
     Entity,
+    Index,
     JoinColumn,
     ManyToOne,
     PrimaryGeneratedColumn,
@@ -16,6 +17,7 @@ export enum MessageType {
 }
 
 @Entity('messages')
+@Index('IDX_CHAT_CREATED_AT', ['chat_id', 'created_at'])
 export class Message {
     @PrimaryGeneratedColumn('uuid')
     id: string;
@@ -60,12 +62,12 @@ export class Message {
     @Column({ default: false })
     is_deleted: boolean;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
-    @UpdateDateColumn({ type: 'timestamp' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     updated_at: Date;
 
-    @Column({ type: 'timestamp', nullable: true })
+    @Column({ type: 'timestamptz', nullable: true })
     deleted_at: Date | null;
 }

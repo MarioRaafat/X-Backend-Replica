@@ -135,12 +135,21 @@ describe('MessagesController', () => {
                 mock_chat_id,
                 query
             );
-            expect(result).toEqual(mock_result);
-            expect(result.messages).toHaveLength(1);
+            expect(result).toEqual({
+                data: {
+                    chat_id: mock_chat_id,
+                    ...mock_result,
+                },
+                pagination: {
+                    next_cursor: undefined,
+                    has_more: undefined,
+                },
+            });
+            expect(result.data.messages).toHaveLength(1);
         });
 
         it('should handle pagination with before cursor', async () => {
-            const query: GetMessagesQueryDto = { limit: 20, before: '2024-01-01T00:00:00Z' };
+            const query: GetMessagesQueryDto = { limit: 20, cursor: '2024-01-01T00:00:00Z' };
             const mock_result = {
                 sender: {
                     id: 'other-user',

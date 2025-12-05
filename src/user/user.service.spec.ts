@@ -36,6 +36,9 @@ import { UsernameService } from 'src/auth/username.service';
 import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
+import { EsUpdateUserJobService } from 'src/background-jobs/elasticsearch/es-update-user.service';
+import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-delete-user.service';
+import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
 
 describe('UserService', () => {
     let service: UserService;
@@ -93,6 +96,22 @@ describe('UserService', () => {
             queueFollowNotification: jest.fn(),
         };
 
+        const mock_es_update_user_job_service = {
+            addUpdateUserJob: jest.fn(),
+            queueUpdateUser: jest.fn(),
+        };
+
+        const mock_es_delete_user_job_service = {
+            addDeleteUserJob: jest.fn(),
+            queueDeleteUser: jest.fn(),
+        };
+
+        const mock_es_follow_job_service = {
+            addFollowJob: jest.fn(),
+            queueFollow: jest.fn(),
+            queueEsFollow: jest.fn(),
+        };
+
         const mock_azure_storage_service = {
             uploadFile: jest.fn(),
             deleteFile: jest.fn(),
@@ -122,6 +141,9 @@ describe('UserService', () => {
                 { provide: UsernameService, useValue: mock_username_service },
                 { provide: PaginationService, useValue: mock_pagination_service },
                 { provide: FollowJobService, useValue: mock_follow_job_service },
+                { provide: EsUpdateUserJobService, useValue: mock_es_update_user_job_service },
+                { provide: EsDeleteUserJobService, useValue: mock_es_delete_user_job_service },
+                { provide: EsFollowJobService, useValue: mock_es_follow_job_service },
             ],
         }).compile();
 
@@ -594,9 +616,14 @@ describe('UserService', () => {
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
                 birth_date: new Date('2025-10-30'),
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({ id: user_id } as any);
 
             const get_my_profile_spy = jest
                 .spyOn(user_repository, 'getMyProfile')
@@ -639,6 +666,9 @@ describe('UserService', () => {
                     },
                 ],
                 mutual_followers_count: 5,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -674,6 +704,9 @@ describe('UserService', () => {
                 is_blocked: false,
                 top_mutual_followers: [],
                 mutual_followers_count: 0,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
@@ -736,6 +769,9 @@ describe('UserService', () => {
                     },
                 ],
                 mutual_followers_count: 5,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -774,6 +810,9 @@ describe('UserService', () => {
                 is_blocked: false,
                 top_mutual_followers: [],
                 mutual_followers_count: 0,
+                num_posts: 0,
+                num_replies: 0,
+                num_media: 0,
             };
 
             const target_username = 'Alyaa242';
@@ -1875,7 +1914,7 @@ describe('UserService', () => {
                 tweets: [],
             };
 
-            const mock_response: UserProfileDto = {
+            const mock_response = {
                 user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 name: 'Updated Name',
                 username: 'Alyaa242',
@@ -1887,6 +1926,11 @@ describe('UserService', () => {
                 birth_date: new Date('2003-05-14'),
                 followers_count: 10,
                 following_count: 15,
+                email: 'example@gmail.com',
+                num_likes: undefined,
+                num_media: undefined,
+                num_posts: undefined,
+                num_replies: undefined,
             };
 
             const find_one_spy = jest
