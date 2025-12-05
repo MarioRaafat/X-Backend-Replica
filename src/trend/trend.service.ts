@@ -182,28 +182,74 @@ export class TrendService {
                 '+inf'
             );
 
-            const scored_hashtags: IHashtagScore[] = [];
+            // 2. Calculate base scores once for all hashtags
+            const hashtag_scores: Map<string, IHashtagScore> = new Map();
 
             for (const hashtag of active_hashtags) {
                 const score_data = await this.calculateHashtagScore(hashtag);
                 if (score_data !== null) {
-                    scored_hashtags.push(score_data);
+                    hashtag_scores.set(hashtag, score_data);
                 }
             }
 
-            // 3. Sort by score (descending)
-            scored_hashtags.sort((a, b) => b.score - a.score);
+            // 3. Calculate global trending
+            const global_scored = Array.from(hashtag_scores.values());
+            global_scored.sort((a, b) => b.score - a.score);
+            const global_top_30 = global_scored.slice(0, this.TOP_N);
+            await this.updateTrendingList('trending:global', global_top_30);
+            await this.calculateCategoryTrendsFromScores(hashtag_scores, one_hour_ago);
 
-            // 4. Take top 30
-            const top_30 = scored_hashtags.slice(0, this.TOP_N);
-
-            // 5. Update Trending List
-
-            await this.updateTrendingList('trending:global', top_30);
-            console.log(top_30);
+            console.log(global_top_30);
         } catch (err) {
             console.log(err);
             throw err;
+        }
+    }
+
+    private async calculateCategoryTrendsFromScores(
+        hashtag_scores: Map<string, IHashtagScore>,
+        one_hour_ago: number
+    ) {
+        for (const category of this.CATEGORIES) {
+            try {
+                // Get category candidates with percentages
+                const category_candidates = await this.redis_service.zrevrange(
+                    `candidates:${category}`,
+                    0,
+                    -1,
+                    'WITHSCORES'
+                );
+
+                if (!category_candidates || category_candidates.length === 0) {
+                    continue;
+                }
+
+                const scored_hashtags: IHashtagScore[] = [];
+
+                for (let i = 0; i < category_candidates.length; i += 2) {
+                    const hashtag = category_candidates[i];
+                    const category_percent = parseFloat(category_candidates[i + 1]);
+
+                    // Use pre-calculated score
+                    const base_score_data = hashtag_scores.get(hashtag);
+
+                    if (base_score_data) {
+                        const category_boost = category_percent / 100;
+                        const final_score = base_score_data.score * (1 + category_boost);
+
+                        scored_hashtags.push({
+                            ...base_score_data,
+                            score: final_score,
+                        });
+                    }
+                }
+
+                scored_hashtags.sort((a, b) => b.score - a.score);
+                const top_30 = scored_hashtags.slice(0, this.TOP_N);
+                await this.updateTrendingList(`trending:${category}`, top_30);
+            } catch (err) {
+                console.log(`Error calculating ${category} trend:`, err);
+            }
         }
     }
 
