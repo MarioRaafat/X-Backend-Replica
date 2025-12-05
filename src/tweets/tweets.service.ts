@@ -46,16 +46,19 @@ import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
-import { categorize_prompt, TOPICS } from './constants';
+import { categorize_prompt, summarize_prompt, TOPICS } from './constants';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
 import { EsIndexTweetJobService } from 'src/background-jobs/elasticsearch/es-index-tweet.service';
 import { EsDeleteTweetJobService } from 'src/background-jobs/elasticsearch/es-delete-tweet.service';
+import { AiSummaryJobService } from 'src/background-jobs/ai-summary/ai-summary.service';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { Readable } from 'stream';
 import Groq from 'groq-sdk';
+import { TweetSummary } from './entities/tweet-summary.entity';
+import { TweetSummaryResponseDTO } from './dto/tweet-summary-response.dto';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
 
@@ -78,6 +81,8 @@ export class TweetsService {
         private readonly user_follows_repository: Repository<UserFollows>,
         @InjectRepository(UserPostsView)
         private readonly user_posts_view_repository: Repository<UserPostsView>,
+        @InjectRepository(TweetSummary)
+        private readonly tweet_summary_repository: Repository<TweetSummary>,
         private data_source: DataSource,
         private readonly paginate_service: PaginationService,
         private readonly tweets_repository: TweetsRepository,
@@ -85,13 +90,13 @@ export class TweetsService {
         private readonly reply_job_service: ReplyJobService,
         private readonly like_job_service: LikeJobService,
         private readonly es_index_tweet_service: EsIndexTweetJobService,
-        private readonly es_delete_tweet_service: EsDeleteTweetJobService
+        private readonly es_delete_tweet_service: EsDeleteTweetJobService,
+        private readonly ai_summary_job_service: AiSummaryJobService
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
     private readonly TWEET_VIDEOS_CONTAINER = 'post-videos';
 
-    private readonly API_KEY = process.env.GROQ_API_KEY ?? '';
     private readonly groq = new Groq({
         apiKey: process.env.GROQ_API_KEY ?? '',
     });
@@ -341,6 +346,58 @@ export class TweetsService {
             });
         } catch (error) {
             console.error(error);
+            throw error;
+        }
+    }
+
+    async getTweetSummary(tweet_id: string): Promise<TweetSummaryResponseDTO> {
+        try {
+            const tweet = await this.tweet_repository.findOne({
+                where: { tweet_id },
+                select: ['content', 'tweet_id'],
+            });
+            if (!tweet) throw new NotFoundException('Tweet not found');
+
+            const cleanedContent = tweet.content
+                .replace(/#[a-zA-Z0-9_]+/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (cleanedContent.length < 120) {
+                throw new BadRequestException('Tweet content too short for summary generation.');
+            }
+
+            let tweet_summary = await this.tweet_summary_repository.findOne({
+                where: { tweet_id },
+            });
+
+            if (!tweet_summary) {
+                // Queue the summary generation job
+                await this.ai_summary_job_service.queueGenerateSummary({
+                    tweet_id,
+                    content: tweet.content,
+                });
+
+                // Wait for the job to complete (with polling)
+                for (let i = 0; i < 15; i++) {
+                    await new Promise((resolve) => setTimeout(resolve, 250));
+                    tweet_summary = await this.tweet_summary_repository.findOne({
+                        where: { tweet_id },
+                    });
+                    if (tweet_summary) {
+                        return {
+                            tweet_id,
+                            summary: tweet_summary.summary,
+                        };
+                    }
+                }
+                throw new NotFoundException('Failed to generate summary after retry.');
+            }
+            return {
+                tweet_id,
+                summary: tweet_summary.summary,
+            };
+        } catch (error) {
             throw error;
         }
     }

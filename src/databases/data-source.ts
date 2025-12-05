@@ -5,7 +5,14 @@ import { ConfigService } from '@nestjs/config';
 import { User } from '../user/entities/user.entity';
 import { Verification } from '../verification/entities/verification.entity';
 import { Category } from '../category/entities';
-import { Tweet, TweetLike, TweetQuote, TweetReply, TweetRepost } from '../tweets/entities';
+import {
+    Tweet,
+    TweetLike,
+    TweetQuote,
+    TweetReply,
+    TweetRepost,
+    TweetSummary,
+} from '../tweets/entities';
 import { TweetBookmark } from '../tweets/entities/tweet-bookmark.entity';
 import { Hashtag } from '../tweets/entities/hashtags.entity';
 import { UserPostsView } from '../tweets/entities/user-posts-view.entity';
@@ -66,9 +73,10 @@ const base_config: any = {
         TweetCategory,
         Chat,
         Message,
+        TweetSummary,
     ],
 
-    migrations: ['src/migrations/*{.ts,.js}'],
+    migrations: ['src/databases/migrations/*{.ts,.js}'],
     synchronize: false,
     uuidExtension: 'pgcrypto',
 };

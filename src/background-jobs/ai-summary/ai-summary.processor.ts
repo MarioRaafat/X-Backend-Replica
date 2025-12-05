@@ -45,13 +45,7 @@ export class AiSummaryProcessor {
                 return { success: false, reason: 'Groq disabled' };
             }
 
-            // Clean content
-            const cleanedContent = content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            const prompt = summarize_prompt(cleanedContent);
+            const prompt = summarize_prompt(content);
 
             // Generate summary using Groq
             const response = await this.groq.chat.completions.create({
