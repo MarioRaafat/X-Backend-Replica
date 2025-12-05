@@ -7,7 +7,7 @@ import { UserListResponseDto } from 'src/user/dto/user-list-response.dto';
 import { UserRepository } from 'src/user/user.repository';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
 import { TweetListResponseDto } from './dto/tweet-list-response.dto';
-import { Brackets } from 'typeorm';
+import { Brackets, DataSource } from 'typeorm';
 import { UserListItemDto } from 'src/user/dto/user-list-item.dto';
 import { plainToInstance } from 'class-transformer';
 
@@ -15,7 +15,8 @@ import { plainToInstance } from 'class-transformer';
 export class SearchService {
     constructor(
         private readonly elasticsearch_service: ElasticsearchService,
-        private readonly user_repository: UserRepository
+        private readonly user_repository: UserRepository,
+        private readonly data_source: DataSource
     ) {}
 
     async getSuggestions(current_user_id: string, query_dto: BasicQueryDto) {}
@@ -53,6 +54,14 @@ export class SearchService {
 
         const fetch_limit = limit + 1;
 
+        const total_score_expression = `
+            (COALESCE(uf_following.boost, 0))
+            +
+            (ts_rank("user".search_vector, to_tsquery('simple', :prefix_query)) * 1000)
+            +
+            (LOG(GREATEST("user".followers, 1) + 1) * 100)
+        `;
+
         const query_builder = this.user_repository
             .createQueryBuilder('user')
             .select([
@@ -66,45 +75,47 @@ export class SearchService {
                 '"user".followers AS followers',
                 '"user".following AS following',
             ])
+            .leftJoin(
+                (qb) => {
+                    return qb
+                        .select('followed_id', 'followed_id')
+                        .addSelect('1000000', 'boost')
+                        .from('user_follows', 'uf')
+                        .where('uf.follower_id = :current_user_id');
+                },
+                'uf_following',
+                '"uf_following".followed_id = "user".id'
+            )
+            .leftJoin(
+                (qb) => {
+                    return qb
+                        .select('follower_id', 'follower_id')
+                        .addSelect('TRUE', 'is_follower')
+                        .from('user_follows', 'uf')
+                        .where('uf.followed_id = :current_user_id');
+                },
+                'uf_follower',
+                '"uf_follower".follower_id = "user".id'
+            )
             .addSelect(
-                `EXISTS(SELECT 1 FROM user_follows WHERE followed_id = "user".id AND follower_id = :current_user_id)`,
+                'CASE WHEN uf_following.followed_id IS NOT NULL THEN TRUE ELSE FALSE END',
                 'is_following'
             )
             .addSelect(
-                `EXISTS(SELECT 1 FROM user_follows WHERE follower_id = "user".id AND followed_id = :current_user_id)`,
+                'CASE WHEN uf_follower.follower_id IS NOT NULL THEN TRUE ELSE FALSE END',
                 'is_follower'
             )
-            .addSelect(
-                `(
-                  (CASE WHEN EXISTS(SELECT 1 FROM user_follows WHERE followed_id = "user".id AND follower_id = :current_user_id) THEN 1000000 ELSE 0 END) +
-                  (ts_rank("user".search_vector, to_tsquery('simple', :prefix_query)) * 1000) +
-                  ("user".followers::float / 1000000)
-                )`,
-                'total_score'
-            )
-            .where(
-                new Brackets((qb) => {
-                    qb.where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, {
-                        prefix_query,
-                    })
-                        .orWhere('"user".username ILIKE :like_query', {
-                            like_query: `${sanitized_query}%`,
-                        })
-                        .orWhere('"user".name ILIKE :like_query', {
-                            like_query: `${sanitized_query}%`,
-                        });
-                })
-            );
+            .addSelect(total_score_expression, 'total_score')
+            .where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, { prefix_query });
 
         if (cursor && cursor_score !== null && cursor_id !== null) {
             query_builder.andWhere(
                 new Brackets((qb) => {
-                    qb.where('total_score < :cursor_score', { cursor_score }).orWhere(
+                    qb.where(`${total_score_expression} < :cursor_score`, { cursor_score }).orWhere(
                         new Brackets((qb2) => {
-                            qb2.where('total_score = :cursor_score', { cursor_score }).andWhere(
-                                '"user".id > :cursor_id',
-                                { cursor_id }
-                            );
+                            qb2.where(`${total_score_expression} = :cursor_score`, {
+                                cursor_score,
+                            }).andWhere('"user".id > :cursor_id', { cursor_id });
                         })
                     );
                 })
@@ -151,7 +162,7 @@ export class SearchService {
         };
     }
 
-    async searchUsers2(
+    async elasticSearchUsers(
         current_user_id: string,
         query_dto: SearchQueryDto
     ): Promise<UserListResponseDto> {
@@ -170,41 +181,65 @@ export class SearchService {
         }
 
         try {
+            const following_rows = await this.data_source.query(
+                `SELECT followed_id
+                FROM user_follows
+                WHERE follower_id = $1`,
+                [current_user_id]
+            );
+
+            const following_ids = following_rows.map((row) => row.followed_id);
+
             const search_body: any = {
                 query: {
-                    bool: {
-                        must: [],
-                        filter: [],
+                    function_score: {
+                        query: {
+                            bool: {
+                                must: [
+                                    {
+                                        multi_match: {
+                                            query: query.trim(),
+                                            fields: ['username^3', 'name^2', 'bio'],
+                                            type: 'best_fields',
+                                            fuzziness: 'AUTO',
+                                            prefix_length: 1,
+                                            operator: 'or',
+                                        },
+                                    },
+                                ],
+                                filter: [],
+                            },
+                        },
+                        functions: [
+                            {
+                                filter: {
+                                    terms: {
+                                        user_id: following_ids,
+                                    },
+                                },
+                                weight: 1000000,
+                            },
+                            {
+                                field_value_factor: {
+                                    field: 'followers',
+                                    factor: 1,
+                                    modifier: 'log1p',
+                                    missing: 0,
+                                },
+                                weight: 100,
+                            },
+                        ],
+                        score_mode: 'sum',
+                        boost_mode: 'sum',
                     },
                 },
                 size: limit + 1,
-                sort: [
-                    { _score: { order: 'desc' } },
-                    { followers: { order: 'desc' } },
-                    { user_id: { order: 'desc' } },
-                ],
+                sort: [{ _score: { order: 'desc' } }, { user_id: { order: 'asc' } }],
             };
 
             if (cursor) {
                 search_body.search_after = this.decodeCursor(cursor);
             }
-
-            search_body.query.bool.must.push({
-                multi_match: {
-                    query: query.trim(),
-                    fields: [
-                        'username^3',
-                        'username.autocomplete^2',
-                        'name^2',
-                        'name.autocomplete',
-                        'bio',
-                    ],
-                    type: 'best_fields',
-                    fuzziness: 'AUTO',
-                    prefix_length: 1,
-                    operator: 'or',
-                },
-            });
 
             const result = await this.elasticsearch_service.search({
                 index: 'users',
