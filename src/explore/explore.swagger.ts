@@ -62,6 +62,13 @@ export const trending_swagger = {
             description: 'Trending category filter',
             enum: ['none', 'sports', 'entertainment', 'news'],
         },
+        limit: {
+            name: 'limit',
+            required: false,
+            type: Number,
+            example: 30,
+            description: 'Number of hashtags to return (1-30)',
+        },
     },
     responses: {
         success: {
