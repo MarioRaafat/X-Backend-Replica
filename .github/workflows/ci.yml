@@ -35,7 +35,7 @@ jobs:
       - name: Check Prettier format
         run: npx prettier --write "src/**/*.ts"
 
-      # - name: Run unit tests
+       - name: Run unit tests
         run: npm run test:cov
 
       - name: Upload coverage to PR
