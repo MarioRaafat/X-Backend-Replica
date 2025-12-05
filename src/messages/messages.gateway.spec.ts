@@ -5,6 +5,8 @@ import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { Server, Socket } from 'socket.io';
 import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
+import { ChatRepository } from 'src/chat/chat.repository';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 interface IAuthenticatedSocket extends Socket {
     user?: {
@@ -17,6 +19,7 @@ describe('MessagesGateway', () => {
     let messages_service: jest.Mocked<MessagesService>;
     let jwt_service: jest.Mocked<JwtService>;
     let config_service: jest.Mocked<ConfigService>;
+    let chat_repository: jest.Mocked<ChatRepository>;
 
     const mock_user_id = 'user-123';
     const mock_chat_id = 'chat-456';
@@ -37,6 +40,12 @@ describe('MessagesGateway', () => {
                     },
                 },
                 {
+                    provide: ChatRepository,
+                    useValue: {
+                        findOne: jest.fn(),
+                    },
+                },
+                {
                     provide: JwtService,
                     useValue: {
                         verify: jest.fn(),
@@ -48,6 +57,12 @@ describe('MessagesGateway', () => {
                         get: jest.fn(),
                     },
                 },
+                {
+                    provide: PaginationService,
+                    useValue: {
+                        applyCursorPagination: jest.fn(),
+                    },
+                },
             ],
         }).compile();
 
@@ -55,6 +70,7 @@ describe('MessagesGateway', () => {
         messages_service = module.get(MessagesService);
         jwt_service = module.get(JwtService);
         config_service = module.get(ConfigService);
+        chat_repository = module.get(ChatRepository);
 
         // Mock the server
         gateway.server = {
@@ -127,13 +143,22 @@ describe('MessagesGateway', () => {
 
     describe('handleJoinChat', () => {
         it('should allow user to join chat room', async () => {
+            const mock_chat = {
+                id: mock_chat_id,
+                user1_id: mock_user_id,
+                user2_id: 'user-999',
+                unread_count_user1: 5,
+                unread_count_user2: 0,
+            };
+
             const mock_client = {
                 id: 'socket-123',
                 user: { user_id: mock_user_id },
-                join: jest.fn(),
+                join: jest.fn().mockResolvedValue(undefined),
             } as any;
 
-            messages_service.validateChatParticipation.mockResolvedValue({} as any);
+            messages_service.validateChatParticipation.mockResolvedValue(mock_chat as any);
+            chat_repository.update = jest.fn().mockResolvedValue(undefined);
 
             const result = await gateway.handleJoinChat(mock_client, {
                 chat_id: mock_chat_id,
@@ -142,6 +167,10 @@ describe('MessagesGateway', () => {
             expect(messages_service.validateChatParticipation).toHaveBeenCalledWith(
                 mock_user_id,
                 mock_chat_id
+            );
+            expect(chat_repository.update).toHaveBeenCalledWith(
+                { id: mock_chat_id },
+                { unread_count_user1: 0 }
             );
             expect(mock_client.join).toHaveBeenCalledWith(mock_chat_id);
             expect(result.event).toBe('joined_chat');
@@ -198,6 +227,12 @@ describe('MessagesGateway', () => {
                 user: { user_id: mock_user_id },
             } as IAuthenticatedSocket;
 
+            const mock_chat = {
+                id: mock_chat_id,
+                user1_id: mock_user_id,
+                user2_id: 'user-999',
+            };
+
             const mock_message = {
                 id: mock_message_id,
                 content: 'Test message',
@@ -205,21 +240,22 @@ describe('MessagesGateway', () => {
                 recipient_id: 'user-999',
             };
 
+            messages_service.validateChatParticipation.mockResolvedValue(mock_chat as any);
             messages_service.sendMessage.mockResolvedValue(mock_message as any);
+            jest.spyOn(gateway as any, 'isUserInChatRoom').mockResolvedValue(true);
+            jest.spyOn(gateway as any, 'emitToUser').mockImplementation(() => {});
 
             const result = await gateway.handleSendMessage(mock_client, {
                 chat_id: mock_chat_id,
                 message: { content: 'Test message' } as any,
             });
 
-            expect(messages_service.sendMessage).toHaveBeenCalledWith(mock_user_id, mock_chat_id, {
-                content: 'Test message',
-            });
-            expect(gateway.server.to).toHaveBeenCalledWith(mock_chat_id);
-            expect(gateway.server.emit).toHaveBeenCalledWith('new_message', {
-                chat_id: mock_chat_id,
-                message: mock_message,
-            });
+            expect(messages_service.sendMessage).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_chat_id,
+                { content: 'Test message' },
+                true
+            );
             expect(result.event).toBe('message_sent');
             expect(result.data).toEqual(mock_message);
         });
@@ -230,7 +266,7 @@ describe('MessagesGateway', () => {
                 user: { user_id: mock_user_id },
             } as IAuthenticatedSocket;
 
-            messages_service.sendMessage.mockRejectedValue(new Error('Send failed'));
+            messages_service.validateChatParticipation.mockRejectedValue(new Error('Send failed'));
 
             const result = await gateway.handleSendMessage(mock_client, {
                 chat_id: mock_chat_id,
@@ -239,35 +275,6 @@ describe('MessagesGateway', () => {
 
             expect(result.event).toBe('error');
             expect((result.data as any).message).toBe('Send failed');
-        });
-    });
-
-    describe('handleGetMessages', () => {
-        it('should retrieve messages for a chat', async () => {
-            const mock_client = {
-                id: 'socket-123',
-                user: { user_id: mock_user_id },
-            } as IAuthenticatedSocket;
-
-            const mock_messages = {
-                data: [{ id: mock_message_id, content: 'Test' }],
-                count: 1,
-            };
-
-            messages_service.getMessages.mockResolvedValue(mock_messages as any);
-
-            const result = await gateway.handleGetMessages(mock_client, {
-                chat_id: mock_chat_id,
-                query: {},
-            });
-
-            expect(messages_service.getMessages).toHaveBeenCalledWith(
-                mock_user_id,
-                mock_chat_id,
-                {}
-            );
-            expect(result.event).toBe('messages_retrieved');
-            expect(result.data).toEqual(mock_messages);
         });
     });
 

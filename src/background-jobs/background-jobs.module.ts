@@ -17,6 +17,14 @@ import { ReplyJobService } from './notifications/reply/reply.service';
 import { ReplyProcessor } from './notifications/reply/reply.processor';
 import { LikeJobService } from './notifications/like/like.service';
 import { LikeProcessor } from './notifications/like/like.processor';
+import { EsIndexTweetJobService } from './elasticsearch/es-index-tweet.service';
+import { EsDeleteTweetJobService } from './elasticsearch/es-delete-tweet.service';
+import { EsSyncProcessor } from './elasticsearch/es-sync.processor';
+import { Tweet } from 'src/tweets/entities';
+import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
+import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
+import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
+import { EsFollowJobService } from './elasticsearch/es-follow.service';
 import { HashtagJobService } from './hashtag/hashtag.service';
 import { HashtagProcessor } from './hashtag/hashtag.processor';
 import { TrendModule } from 'src/trend/trend.module';
@@ -60,6 +68,16 @@ import { TrendModule } from 'src/trend/trend.module';
             },
         }),
         BullModule.registerQueue({
+            name: QUEUE_NAMES.ELASTICSEARCH,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 2000,
+                },
+            },
+        }),
+        BullModule.registerQueue({
             name: QUEUE_NAMES.HASHTAG,
             defaultJobOptions: {
                 attempts: 3,
@@ -70,8 +88,10 @@ import { TrendModule } from 'src/trend/trend.module';
             },
         }),
         TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([Tweet]),
         CommunicationModule,
         NotificationsModule,
+        ElasticsearchModule,
         TrendModule,
     ],
     controllers: [EmailJobsController],
@@ -84,16 +104,32 @@ import { TrendModule } from 'src/trend/trend.module';
         ReplyProcessor,
         LikeJobService,
         LikeProcessor,
+        EsIndexTweetJobService,
+        EsDeleteTweetJobService,
+        EsSyncProcessor,
+        EsUpdateUserJobService,
+        EsDeleteUserJobService,
+        EsFollowJobService,
         HashtagJobService,
         HashtagProcessor,
     ],
     exports: [
         EmailJobsService,
+
         FollowJobService,
+
         BullModule,
+
         ReplyJobService,
+
         LikeJobService,
         HashtagJobService,
+
+        EsIndexTweetJobService,
+        EsDeleteTweetJobService,
+        EsUpdateUserJobService,
+        EsDeleteUserJobService,
+        EsFollowJobService,
     ],
 })
 export class BackgroundJobsModule {}

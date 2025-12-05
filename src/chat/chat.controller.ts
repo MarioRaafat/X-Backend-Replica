@@ -44,7 +44,12 @@ export class ChatController {
     @ResponseMessage(SUCCESS_MESSAGES.CHAT_CREATED)
     @Post()
     async createChat(@Body() create_chat_dto: CreateChatDto, @GetUserId() user_id: string) {
-        return this.chat_service.createChat(user_id, create_chat_dto);
+        try {
+            return this.chat_service.createChat(user_id, create_chat_dto);
+        } catch (error) {
+            console.error('Error in ChatController.createChat:', error);
+            throw error;
+        }
     }
 
     @ApiOperation(get_chats_swagger.operation)

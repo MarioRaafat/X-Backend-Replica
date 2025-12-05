@@ -3,6 +3,7 @@ import {
     CreateDateColumn,
     DeleteDateColumn,
     Entity,
+    Index,
     JoinColumn,
     ManyToOne,
     OneToMany,
@@ -20,6 +21,7 @@ import { TweetType } from '../../shared/enums/tweet-types.enum';
 
 // removed conversation_id
 @Entity('tweets')
+@Index('IDX_USER_TWEETS', ['user_id', 'created_at'])
 export class Tweet {
     @PrimaryGeneratedColumn('uuid')
     tweet_id: string;
@@ -58,10 +60,10 @@ export class Tweet {
     @Column({ name: 'num_bookmarks', type: 'int', default: 0 })
     num_bookmarks: number;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
-    @UpdateDateColumn({ type: 'timestamp' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     updated_at: Date;
 
     @DeleteDateColumn({ name: 'deleted_at' })

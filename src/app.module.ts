@@ -1,5 +1,5 @@
 import { MiddlewareConsumer, Module, NestModule } from '@nestjs/common';
-import { AppController } from './app.controller';
+import { AppController, TestController } from './app.controller';
 import { AppService } from './app.service';
 import { ConfigModule } from '@nestjs/config';
 import { PostgreSQLModule } from './databases/postgresql.module';
@@ -18,7 +18,14 @@ import { ChatModule } from './chat/chat.module';
 import { CategoryModule } from './category/category.module';
 import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { AzureStorageModule } from './azure-storage/azure-storage.module';
+import { ElasticsearchModule } from './elasticsearch/elasticsearch.module';
 import { MessagesModule } from './messages/messages.module';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { User } from './user/entities/user.entity';
+import { Tweet } from './tweets/entities/tweet.entity';
+import { UserFollows } from './user/entities/user-follows.entity';
+import { TweetLike } from './tweets/entities/tweet-like.entity';
+import { TweetReply } from './tweets/entities/tweet-reply.entity';
 import { TrendModule } from './trend/trend.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
@@ -45,11 +52,13 @@ import { ScheduleModule } from '@nestjs/schedule';
         CategoryModule,
         BackgroundJobsModule,
         AzureStorageModule,
+        ElasticsearchModule,
         MessagesModule,
+        TypeOrmModule.forFeature([User, Tweet, UserFollows, TweetLike, TweetReply]),
         TrendModule,
         ScheduleModule.forRoot(),
     ],
-    controllers: [AppController],
+    controllers: [AppController, TestController],
     providers: [AppService],
 })
 export class AppModule implements NestModule {

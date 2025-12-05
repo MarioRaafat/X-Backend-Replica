@@ -3,8 +3,9 @@ import { DataSource } from 'typeorm';
 import { ChatRepository } from './chat.repository';
 import { Chat } from './entities/chat.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
-import { InternalServerErrorException } from '@nestjs/common';
+import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateChatDto, GetChatsQueryDto } from './dto';
+import { UserRepository } from 'src/user/user.repository';
 
 describe('ChatRepository', () => {
     let chat_repository: ChatRepository;
@@ -33,17 +34,27 @@ describe('ChatRepository', () => {
         last_message: null,
     };
 
+    let mock_data_source: any;
+
     beforeEach(async () => {
         const mock_entity_manager = {} as any;
+
+        const mock_user_repository = {
+            findOne: jest.fn(),
+            findById: jest.fn(),
+        };
+
+        mock_data_source = {
+            createEntityManager: jest.fn(() => mock_entity_manager),
+            getRepository: jest.fn(() => mock_user_repository),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ChatRepository,
                 {
                     provide: DataSource,
-                    useValue: {
-                        createEntityManager: jest.fn(() => mock_entity_manager),
-                    },
+                    useValue: mock_data_source,
                 },
                 {
                     provide: PaginationService,
@@ -51,6 +62,10 @@ describe('ChatRepository', () => {
                         applyCursorPagination: jest.fn(),
                         generateNextCursor: jest.fn(),
                     },
+                },
+                {
+                    provide: UserRepository,
+                    useValue: mock_user_repository,
                 },
             ],
         }).compile();
@@ -72,6 +87,11 @@ describe('ChatRepository', () => {
     describe('createChat', () => {
         it('should create a new chat successfully', async () => {
             const create_dto: CreateChatDto = { recipient_id: 'user-2' };
+
+            // Mock user repository to find recipient
+            const mock_user_repository = mock_data_source.getRepository();
+            mock_user_repository.findById.mockResolvedValue({ id: 'user-2', username: 'user2' });
+
             jest.spyOn(chat_repository, 'findOne').mockResolvedValue(null);
 
             const result = await chat_repository.createChat('user-1', create_dto);
@@ -86,6 +106,11 @@ describe('ChatRepository', () => {
 
         it('should return existing chat if it exists', async () => {
             const create_dto: CreateChatDto = { recipient_id: 'user-2' };
+
+            // Mock user repository to find recipient
+            const mock_user_repository = mock_data_source.getRepository();
+            mock_user_repository.findById.mockResolvedValue({ id: 'user-2', username: 'user2' });
+
             jest.spyOn(chat_repository, 'findOne').mockResolvedValue(mock_chat as any);
 
             const result = await chat_repository.createChat('user-1', create_dto);
@@ -94,9 +119,24 @@ describe('ChatRepository', () => {
             expect(chat_repository.create).not.toHaveBeenCalled();
         });
 
+        it('should throw NotFoundException if recipient does not exist', async () => {
+            const create_dto: CreateChatDto = { recipient_id: 'non-existent-user' };
+
+            // Mock user repository to not find recipient
+            const mock_user_repository = mock_data_source.getRepository();
+            mock_user_repository.findById.mockResolvedValue(null);
+
+            await expect(chat_repository.createChat('user-1', create_dto)).rejects.toThrow(
+                NotFoundException
+            );
+        });
+
         it('should throw InternalServerErrorException on error', async () => {
             const create_dto: CreateChatDto = { recipient_id: 'user-2' };
-            jest.spyOn(chat_repository, 'findOne').mockRejectedValue(new Error('DB error'));
+
+            // Mock user repository to throw error
+            const mock_user_repository = mock_data_source.getRepository();
+            mock_user_repository.findById.mockRejectedValue(new Error('DB error'));
 
             await expect(chat_repository.createChat('user-1', create_dto)).rejects.toThrow(
                 InternalServerErrorException

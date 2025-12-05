@@ -11,12 +11,11 @@ export class GetMessagesQueryDto {
         maximum: 100,
         example: 20,
     })
-    @IsOptional()
     @Type(() => Number)
     @IsInt()
     @Min(1)
     @Max(100)
-    limit?: number = 50;
+    limit: number = 50;
 
     @ApiPropertyOptional({
         description: 'Get messages before this message ID (for loading older messages)',
@@ -24,6 +23,5 @@ export class GetMessagesQueryDto {
     })
     @IsOptional()
     @IsString()
-    @IsUUID()
-    before?: string;
+    cursor?: string;
 }

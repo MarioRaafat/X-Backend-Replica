@@ -4,6 +4,7 @@ import { MessageRepository } from './messages.repository';
 import { ChatRepository } from '../chat/chat.repository';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Chat } from '../chat/entities/chat.entity';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ERROR_MESSAGES } from '../constants/swagger-messages';
 import { MessageType } from './entities/message.entity';
@@ -71,6 +72,13 @@ describe('MessagesService', () => {
                     useValue: {
                         findOne: jest.fn(),
                         increment: jest.fn(),
+                    },
+                },
+                {
+                    provide: PaginationService,
+                    useValue: {
+                        applyCursorPagination: jest.fn((qb) => qb),
+                        generateNextCursor: jest.fn(),
                     },
                 },
             ],
@@ -180,7 +188,8 @@ describe('MessagesService', () => {
             expect(message_repository.createMessage).toHaveBeenCalledWith(
                 mock_user_id,
                 mock_chat_id,
-                send_dto
+                send_dto,
+                false
             );
             expect(chat_repository.increment).toHaveBeenCalledWith(
                 { id: mock_chat_id },

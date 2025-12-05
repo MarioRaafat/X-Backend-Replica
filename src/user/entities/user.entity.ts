@@ -61,11 +61,11 @@ export class User {
     @Column({ type: 'boolean', default: false })
     online: boolean;
 
-    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
 
     @Column({
-        type: 'timestamp',
+        type: 'timestamptz',
         default: () => 'CURRENT_TIMESTAMP',
         onUpdate: 'CURRENT_TIMESTAMP',
     })
