@@ -341,6 +341,19 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
+            const is_hashtag = sanitized_query.trim().startsWith('#');
+
+            if (is_hashtag) {
+                search_body.query.bool.must.push({
+                    match_phrase: {
+                        'content.keyword': {
+                            query: sanitized_query.trim(),
+                            boost: 10,
+                        },
+                    },
+                });
+            }
+
             this.buildTweetsSearchQuery(search_body, sanitized_query);
 
             this.applyTweetsBoosting(search_body);
@@ -780,6 +793,33 @@ export class SearchService {
         `;
     }
 
+    private buildEsSuggestionsQuery(sanitized_query: string) {
+        return {
+            index: 'tweets',
+            size: 20,
+            _source: ['content'],
+            query: {
+                match_phrase_prefix: {
+                    content: {
+                        query: sanitized_query,
+                        slop: 0,
+                    },
+                },
+            },
+            highlight: {
+                fields: {
+                    content: {
+                        type: 'plain',
+                        fragment_size: 150,
+                        number_of_fragments: 1,
+                        pre_tags: ['<MARK>'],
+                        post_tags: ['</MARK>'],
+                    },
+                },
+            },
+        };
+    }
+
     private extractSuggestionsFromHits(hits: any[], query: string, max_suggestions = 3): string[] {
         const suggestions = new Set<string>();
         const query_lower = query.toLowerCase().trim();
@@ -823,32 +863,5 @@ export class SearchService {
         return Array.from(suggestions)
             .sort((a, b) => a.length - b.length)
             .slice(0, max_suggestions);
-    }
-
-    private buildEsSuggestionsQuery(sanitized_query: string) {
-        return {
-            index: 'tweets',
-            size: 20,
-            _source: ['content'],
-            query: {
-                match_phrase_prefix: {
-                    content: {
-                        query: sanitized_query,
-                        slop: 0,
-                    },
-                },
-            },
-            highlight: {
-                fields: {
-                    content: {
-                        type: 'plain',
-                        fragment_size: 150,
-                        number_of_fragments: 1,
-                        pre_tags: ['<MARK>'],
-                        post_tags: ['</MARK>'],
-                    },
-                },
-            },
-        };
     }
 }
