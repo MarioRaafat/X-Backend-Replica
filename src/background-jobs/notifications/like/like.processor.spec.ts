@@ -4,14 +4,15 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bull';
 import { LikeProcessor } from './like.processor';
-import { NotificationsGateway } from 'src/notifications/notifications.gateway';
+import { NotificationsService } from 'src/notifications/notifications.service';
 import { User } from 'src/user/entities';
+import { Tweet } from 'src/tweets/entities';
 import { LikeBackGroundNotificationJobDTO } from './like.dto';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 
 describe('LikeProcessor', () => {
     let processor: LikeProcessor;
-    let notifications_gateway: jest.Mocked<NotificationsGateway>;
+    let notifications_service: jest.Mocked<NotificationsService>;
     let user_repository: jest.Mocked<Repository<User>>;
     let logger_spy: jest.SpyInstance;
     let logger_warn_spy: jest.SpyInstance;
@@ -28,6 +29,8 @@ describe('LikeProcessor', () => {
         like_to: 'user-123',
         liked_by: 'user-456',
         tweet: {} as any,
+        tweet_id: 'tweet-123',
+        action: 'add',
     };
 
     beforeEach(async () => {
@@ -35,9 +38,9 @@ describe('LikeProcessor', () => {
             providers: [
                 LikeProcessor,
                 {
-                    provide: NotificationsGateway,
+                    provide: NotificationsService,
                     useValue: {
-                        sendToUser: jest.fn(),
+                        saveNotificationAndSend: jest.fn(),
                     },
                 },
                 {
@@ -46,11 +49,17 @@ describe('LikeProcessor', () => {
                         findOne: jest.fn(),
                     },
                 },
+                {
+                    provide: getRepositoryToken(Tweet),
+                    useValue: {
+                        findOne: jest.fn(),
+                    },
+                },
             ],
         }).compile();
 
         processor = module.get<LikeProcessor>(LikeProcessor);
-        notifications_gateway = module.get(NotificationsGateway);
+        notifications_service = module.get(NotificationsService);
         user_repository = module.get(getRepositoryToken(User));
 
         logger_spy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
@@ -85,14 +94,16 @@ describe('LikeProcessor', () => {
                 select: ['id', 'username', 'email', 'name', 'avatar_url'],
             });
 
-            expect(notifications_gateway.sendToUser).toHaveBeenCalledWith(
-                NotificationType.LIKE,
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledWith(
                 mock_job_data.like_to,
-                {
+                expect.objectContaining({
                     type: NotificationType.LIKE,
-                    ...mock_job_data,
+                    liked_by: mock_job_data.liked_by,
+                }),
+                expect.objectContaining({
+                    type: NotificationType.LIKE,
                     liker: mock_user,
-                }
+                })
             );
         });
 
@@ -111,7 +122,7 @@ describe('LikeProcessor', () => {
             expect(logger_warn_spy).toHaveBeenCalledWith(
                 `Liker with ID ${mock_job_data.liked_by} not found.`
             );
-            expect(notifications_gateway.sendToUser).not.toHaveBeenCalled();
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
 
         it('should handle errors and log them', async () => {
@@ -130,7 +141,7 @@ describe('LikeProcessor', () => {
             ).rejects.toThrow(error);
 
             expect(logger_spy).toHaveBeenCalledWith(
-                `Error processing reply job ${mock_job.id}:`,
+                `Error processing like job ${mock_job.id}:`,
                 error
             );
         });
@@ -138,9 +149,7 @@ describe('LikeProcessor', () => {
         it('should handle notification gateway errors', async () => {
             user_repository.findOne.mockResolvedValueOnce(mock_user as User);
             const error = new Error('Gateway error');
-            notifications_gateway.sendToUser.mockImplementation(() => {
-                throw error;
-            });
+            notifications_service.saveNotificationAndSend.mockRejectedValueOnce(error);
 
             const mock_job: Partial<Job<LikeBackGroundNotificationJobDTO>> = {
                 id: 'job-456',

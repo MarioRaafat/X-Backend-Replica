@@ -8,17 +8,9 @@ import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
 import { ChatRepository } from 'src/chat/chat.repository';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
-interface IAuthenticatedSocket extends Socket {
-    user?: {
-        user_id: string;
-    };
-}
-
 describe('MessagesGateway', () => {
     let gateway: MessagesGateway;
     let messages_service: jest.Mocked<MessagesService>;
-    let jwt_service: jest.Mocked<JwtService>;
-    let config_service: jest.Mocked<ConfigService>;
     let chat_repository: jest.Mocked<ChatRepository>;
 
     const mock_user_id = 'user-123';
@@ -68,8 +60,6 @@ describe('MessagesGateway', () => {
 
         gateway = module.get<MessagesGateway>(MessagesGateway);
         messages_service = module.get(MessagesService);
-        jwt_service = module.get(JwtService);
-        config_service = module.get(ConfigService);
         chat_repository = module.get(ChatRepository);
 
         // Mock the server
@@ -87,32 +77,13 @@ describe('MessagesGateway', () => {
         it('should add user socket to userSockets map', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
-            } as IAuthenticatedSocket;
-
-            jest.spyOn(WsJwtGuard, 'validateToken').mockReturnValue({
-                user_id: mock_user_id,
-            });
-
-            await gateway.handleConnection(mock_client);
-
-            expect(mock_client.user).toBeDefined();
-            expect(mock_client.user?.user_id).toBe(mock_user_id);
-        });
-
-        it('should disconnect client on authentication error', async () => {
-            const mock_client = {
-                id: 'socket-123',
-                disconnect: jest.fn(),
+                user: { id: mock_user_id },
             } as any;
 
-            jest.spyOn(WsJwtGuard, 'validateToken').mockImplementation(() => {
-                throw new Error('Invalid token');
-            });
+            await gateway.onConnection(mock_client, mock_client.user.id);
 
-            await gateway.handleConnection(mock_client);
-
-            expect(mock_client.disconnect).toHaveBeenCalled();
+            expect(mock_client.user).toBeDefined();
+            expect(mock_client.user?.id).toBe(mock_user_id);
         });
     });
 
@@ -120,13 +91,13 @@ describe('MessagesGateway', () => {
         it('should remove socket from userSockets map', () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
-            } as IAuthenticatedSocket;
+                data: { user: { id: mock_user_id } },
+            } as any;
 
             // First add the socket
             gateway['userSockets'].set(mock_user_id, new Set(['socket-123']));
 
-            gateway.handleDisconnect(mock_client);
+            gateway.onDisconnect(mock_client, mock_user_id);
 
             const user_sockets = gateway['userSockets'].get(mock_user_id);
             expect(user_sockets).toBeUndefined();
@@ -135,9 +106,10 @@ describe('MessagesGateway', () => {
         it('should not throw error if user is not found', () => {
             const mock_client = {
                 id: 'socket-123',
-            } as IAuthenticatedSocket;
+                data: {},
+            } as any;
 
-            expect(() => gateway.handleDisconnect(mock_client)).not.toThrow();
+            expect(() => gateway.onDisconnect(mock_client, 'unknown-user-id')).not.toThrow();
         });
     });
 
@@ -153,7 +125,7 @@ describe('MessagesGateway', () => {
 
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
+                data: { user: { id: mock_user_id } },
                 join: jest.fn().mockResolvedValue(undefined),
             } as any;
 
@@ -180,7 +152,7 @@ describe('MessagesGateway', () => {
         it('should return error if validation fails', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
+                data: { user: { id: mock_user_id } },
                 join: jest.fn(),
             } as any;
 
@@ -201,7 +173,7 @@ describe('MessagesGateway', () => {
         it('should allow user to leave chat room', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
+                data: { user: { id: mock_user_id } },
                 leave: jest.fn(),
             } as any;
 
@@ -224,8 +196,8 @@ describe('MessagesGateway', () => {
         it('should send message and emit to chat room', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
-            } as IAuthenticatedSocket;
+                data: { user: { id: mock_user_id } },
+            } as any;
 
             const mock_chat = {
                 id: mock_chat_id,
@@ -263,8 +235,8 @@ describe('MessagesGateway', () => {
         it('should return error if send fails', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
-            } as IAuthenticatedSocket;
+                data: { user: { id: mock_user_id } },
+            } as any;
 
             messages_service.validateChatParticipation.mockRejectedValue(new Error('Send failed'));
 
@@ -282,8 +254,8 @@ describe('MessagesGateway', () => {
         it('should update message and emit to chat room', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
-            } as IAuthenticatedSocket;
+                data: { user: { id: mock_user_id } },
+            } as any;
 
             const mock_updated_message = {
                 id: mock_message_id,
@@ -314,8 +286,8 @@ describe('MessagesGateway', () => {
         it('should delete message and emit to chat room', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
-            } as IAuthenticatedSocket;
+                data: { user: { id: mock_user_id } },
+            } as any;
 
             const mock_deleted_message = {
                 id: mock_message_id,
@@ -343,7 +315,7 @@ describe('MessagesGateway', () => {
         it('should emit typing indicator to other users in chat', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
+                data: { user: { id: mock_user_id } },
                 to: jest.fn().mockReturnThis(),
                 emit: jest.fn(),
             } as any;
@@ -367,7 +339,7 @@ describe('MessagesGateway', () => {
         it('should emit typing stop indicator to other users in chat', async () => {
             const mock_client = {
                 id: 'socket-123',
-                user: { user_id: mock_user_id },
+                data: { user: { id: mock_user_id } },
                 to: jest.fn().mockReturnThis(),
                 emit: jest.fn(),
             } as any;
