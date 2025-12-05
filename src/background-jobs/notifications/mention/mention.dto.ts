@@ -9,7 +9,6 @@ export class MentionBackGroundNotificationJobDTO {
 
     mentioned_by: string;
     mentioned_usernames?: string[];
-    mentioned_user_id?: string;
 
     tweet_type: 'tweet' | 'quote' | 'reply';
 
