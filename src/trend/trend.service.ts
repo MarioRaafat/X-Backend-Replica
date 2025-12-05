@@ -25,6 +25,7 @@ export class TrendService {
     };
 
     private readonly CATEGORIES = ['Sports', 'News', 'Entertainment'];
+    private readonly GENERAL_CATEGORY = 'Only on Yapper';
 
     private readonly TOP_N = 30;
     private readonly MIN_BUCKETS = 5 * 60 * 1000;
@@ -50,6 +51,9 @@ export class TrendService {
             where: { name: In(hashtag_names) },
             select: ['name', 'usage_count'],
         });
+        const hashtag_categories = await this.getHashtagCategories(hashtag_names);
+        console.log(hashtag_categories);
+
         const trends: HashtagResponseDto[] = result.map((item, index) => {
             const hashtag_data = hashtags.find((h) => h.name === item.hashtag);
 
@@ -57,6 +61,7 @@ export class TrendService {
                 hashtags: item.hashtag,
                 posts_count: hashtag_data ? hashtag_data.usage_count : 0,
                 rank: index + 1,
+                category: hashtag_categories[item.hashtag] || this.GENERAL_CATEGORY,
             };
         });
 
@@ -67,6 +72,53 @@ export class TrendService {
     ////////////////////////////Helper Functions////////////////////////////////
     ///////////////////////////////////////////////////////////////////////////
 
+    async getHashtagCategories(hashtag_names: string[]): Promise<Record<string, string>> {
+        const pipeline = this.redis_service.pipeline();
+
+        for (const hashtag of hashtag_names) {
+            for (const category of this.CATEGORIES) {
+                console.log(hashtag, category);
+                pipeline.zscore(`candidates:${category}`, hashtag);
+            }
+        }
+        const results = await pipeline.exec();
+
+        const hashtag_categories: Record<string, string> = {};
+        console.log(results);
+
+        if (!results) {
+            // Return default categories if pipeline fails
+            return hashtag_names.reduce(
+                (acc, hashtag) => {
+                    acc[hashtag] = this.GENERAL_CATEGORY;
+                    return acc;
+                },
+                {} as Record<string, string>
+            );
+        }
+        let result_index = 0;
+        for (const hashtag of hashtag_names) {
+            let max_score = -1;
+            let max_category = this.GENERAL_CATEGORY;
+
+            for (const category of this.CATEGORIES) {
+                const result = results[result_index];
+                // Check if result exists and has valid data
+                if (result && result[1] !== null && result[1] !== undefined) {
+                    const score = parseFloat(result[1] as string);
+                    if (score > max_score) {
+                        max_score = score;
+                        max_category = category;
+                    }
+                }
+                result_index++;
+            }
+
+            hashtag_categories[hashtag] = max_category;
+        }
+
+        return hashtag_categories;
+    }
     // One call per tweet
     async insertCandidateHashtags(hashtags: HashtagJobDto) {
         const hashtag_names = Object.keys(hashtags.hashtags);
@@ -116,7 +168,7 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    @Cron('0 * * * *')
+    @Cron('*/1 * * * *')
     async calculateTrend() {
         try {
             console.log('Calculate Trend.....');
@@ -197,7 +249,6 @@ export class TrendService {
                 volume: volume_score,
                 acceleration: acceleration_score,
                 recency: recency_score,
-                // last_seen: last_seen,
             };
         } catch (err) {
             return null;
