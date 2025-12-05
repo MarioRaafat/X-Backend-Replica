@@ -158,6 +158,25 @@ describe('TweetsRepository', () => {
         MOCK_TWEET_CATEGORY_REPOSITORY.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
         MOCK_DATA_SOURCE.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
 
+        // Restore query builder chainable methods
+        MOCK_QUERY_BUILDER.leftJoinAndSelect.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.leftJoin.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.innerJoin.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.innerJoinAndSelect.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.leftJoinAndMapOne.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.select.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.addSelect.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.where.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.andWhere.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.orderBy.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.addOrderBy.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.limit.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.take.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.setParameter.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.setParameters.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.addCommonTableExpression.mockReturnValue(MOCK_QUERY_BUILDER);
+        MOCK_QUERY_BUILDER.from.mockReturnValue(MOCK_QUERY_BUILDER);
+
         // Mock repository helper methods to return the query builder
         jest.spyOn(repository as any, 'attachParentTweetQuery').mockImplementation((q) => q);
         jest.spyOn(repository as any, 'attachConversationTweetQuery').mockImplementation((q) => q);
