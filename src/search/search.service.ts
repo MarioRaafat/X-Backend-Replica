@@ -305,7 +305,7 @@ export class SearchService {
         current_user_id: string,
         query_dto: PostsSearchDto
     ): Promise<TweetListResponseDto> {
-        const { query, cursor, limit = 20, has_media } = query_dto;
+        const { query, cursor, limit = 20, has_media, username } = query_dto;
 
         const decoded_query = decodeURIComponent(query);
         const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
@@ -326,6 +326,7 @@ export class SearchService {
                     bool: {
                         must: [],
                         should: [],
+                        minimum_should_match: 1,
                     },
                 },
                 size: limit + 1,
@@ -340,16 +341,7 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
-            search_body.query.bool.must.push({
-                multi_match: {
-                    query: sanitized_query.trim(),
-                    fields: ['content^3', 'username^2', 'name'],
-                    type: 'best_fields',
-                    fuzziness: 'AUTO',
-                    prefix_length: 1,
-                    operator: 'or',
-                },
-            });
+            this.buildTweetsSearchQuery(search_body, sanitized_query);
 
             this.applyTweetsBoosting(search_body);
 
@@ -360,6 +352,15 @@ export class SearchService {
                         script: {
                             source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
                         },
+                    },
+                });
+            }
+
+            if (username) {
+                search_body.query.bool.filter = search_body.query.bool.filter || [];
+                search_body.query.bool.filter.push({
+                    term: {
+                        username,
                     },
                 });
             }
@@ -406,7 +407,7 @@ export class SearchService {
         current_user_id: string,
         query_dto: SearchQueryDto
     ): Promise<TweetListResponseDto> {
-        const { query, cursor, limit = 20 } = query_dto;
+        const { query, cursor, limit = 20, username } = query_dto;
 
         const decoded_query = decodeURIComponent(query);
         const sanitized_query = decoded_query.replace(/[^\w\s]/gi, '');
@@ -441,18 +442,18 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
-            search_body.query.bool.must.push({
-                multi_match: {
-                    query: sanitized_query.trim(),
-                    fields: ['content^3', 'username^2', 'name'],
-                    type: 'best_fields',
-                    fuzziness: 'AUTO',
-                    prefix_length: 1,
-                    operator: 'or',
-                },
-            });
+            this.buildTweetsSearchQuery(search_body, sanitized_query);
 
             this.applyTweetsBoosting(search_body);
+
+            if (username) {
+                search_body.query.bool.filter = search_body.query.bool.filter || [];
+                search_body.query.bool.filter.push({
+                    term: {
+                        username,
+                    },
+                });
+            }
 
             const result = await this.elasticsearch_service.search({
                 index: ELASTICSEARCH_INDICES.TWEETS,
@@ -584,6 +585,46 @@ export class SearchService {
         } catch (error) {
             return null;
         }
+    }
+
+    private buildTweetsSearchQuery(search_body: any, sanitized_query: string): void {
+        search_body.query.bool.should.push(
+            {
+                multi_match: {
+                    query: sanitized_query.trim(),
+                    fields: ['content^3', 'username^2', 'name'],
+                    type: 'best_fields',
+                    fuzziness: 'AUTO',
+                    prefix_length: 1,
+                    operator: 'or',
+                    boost: 10,
+                },
+            },
+            {
+                match: {
+                    'content.autocomplete': {
+                        query: sanitized_query.trim(),
+                        boost: 5,
+                    },
+                },
+            },
+            {
+                prefix: {
+                    username: {
+                        value: sanitized_query.trim().toLowerCase(),
+                        boost: 3,
+                    },
+                },
+            },
+            {
+                match_phrase_prefix: {
+                    name: {
+                        query: sanitized_query.trim(),
+                        boost: 2,
+                    },
+                },
+            }
+        );
     }
 
     private applyTweetsBoosting(search_body: any): void {
