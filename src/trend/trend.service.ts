@@ -2,21 +2,65 @@ import { Injectable } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { IHashtagScore } from './hashtag-score.interface';
 import { Cron } from '@nestjs/schedule';
+import { Hashtag } from 'src/tweets/entities/hashtags.entity';
+import { InjectRepository } from '@nestjs/typeorm';
+import { In, Repository } from 'typeorm';
+import { VelocityExponentialDetector } from './velocity-exponential-detector';
+import { HashtagResponseDto } from './dto/hashtag-response.dto';
 
 @Injectable()
 export class TrendService {
-    constructor(private readonly redis_service: RedisService) {}
+    constructor(
+        private readonly redis_service: RedisService,
+        private readonly velocity_calculator: VelocityExponentialDetector,
+        @InjectRepository(Hashtag)
+        private readonly hashtag_repository: Repository<Hashtag>
+    ) {}
 
     private readonly WEIGHTS = {
-        VOLUME: 0.4,
-        ACCELERATION: 0.35,
+        VOLUME: 0.35,
+        ACCELERATION: 0.4,
         RECENCY: 0.25,
     };
 
+    private readonly CATEGORIES = ['Sports', 'News', 'Entertainment'];
+
     private readonly TOP_N = 30;
     private readonly MIN_BUCKETS = 5 * 60 * 1000;
+    private readonly CATEGORY_THRESHOLD = 30;
 
-    async getTrending(country?: string, category?: string) {}
+    async getTrending(category?: string) {
+        const key = category ? `trending:${category}` : 'trending:global';
+
+        const trending = await this.redis_service.zrevrange(key, 0, this.TOP_N - 1, 'WITHSCORES');
+
+        const result: any[] = [];
+        const hashtag_names: string[] = [];
+
+        for (let i = 0; i < trending.length; i += 2) {
+            result.push({
+                hashtag: trending[i],
+                score: parseFloat(trending[i + 1]),
+            });
+            hashtag_names.push(trending[i]);
+        }
+
+        const hashtags = await this.hashtag_repository.find({
+            where: { name: In(hashtag_names) },
+            select: ['name', 'usage_count'],
+        });
+        const trends: HashtagResponseDto[] = result.map((item, index) => {
+            const hashtag_data = hashtags.find((h) => h.name === item.hashtag);
+
+            return {
+                hashtags: item.hashtag,
+                posts_count: hashtag_data ? hashtag_data.usage_count : 0,
+                rank: index + 1,
+            };
+        });
+
+        return { data: trends };
+    }
 
     ////////////////////////////////////////////////////////////////////////////
     ////////////////////////////Helper Functions////////////////////////////////
@@ -30,6 +74,25 @@ export class TrendService {
         //Expire after 2 hours
         // We may delegate it to trend worker
         await this.redis_service.expire('candidates:active', 2 * 60 * 60);
+    }
+    async insertCandidateCategories(
+        hashtags: string[],
+        categories: { name: string; percent: number }[]
+    ) {
+        const pipeline = this.redis_service.pipeline();
+
+        for (const hashtag of hashtags) {
+            for (const category of categories) {
+                // Only add to category if percentage meets threshold
+                if (category.percent >= this.CATEGORY_THRESHOLD) {
+                    // Store hashtag with its category percentage as score
+                    pipeline.zadd(`candidates:${category.name}`, category.percent, hashtag);
+                    pipeline.expire(`candidates:${category.name}`, 2 * 60 * 60);
+                }
+            }
+        }
+
+        await pipeline.exec();
     }
 
     async updateHashtagCounts(hashtags: string[], time: number) {
@@ -48,10 +111,10 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    @Cron('*/20 * * * * *')
-    async calcTrend() {
+    @Cron('0 * * * *')
+    async calculateTrend() {
         try {
-            console.log('Calc Trend');
+            console.log('Calculate Trend.....');
             const now = Date.now();
             const one_hour_ago = now - 60 * 60 * 1000;
 
@@ -109,7 +172,9 @@ export class TrendService {
 
             // Calculate individual scores
             const volume_score = this.calculateTweetVolume(bucket_data);
-            const acceleration_score = this.calculateAccelerationScore(bucket_data);
+            // const acceleration_score = this.calculateAccelerationScore(bucket_data);
+            const acceleration_score = this.velocity_calculator.calculateFinalMomentum(bucket_data);
+            console.log(acceleration_score);
 
             const last_seen = await this.redis_service.zscore('candidates:active', hashtag);
             const last_seen_time = last_seen ? parseInt(last_seen) : null;
@@ -135,6 +200,7 @@ export class TrendService {
     }
 
     async updateTrendingList(key: string, hashtags: Array<{ hashtag: string; score: number }>) {
+        if (!hashtags.length) return;
         const pipeline = this.redis_service.pipeline();
 
         // Delete old list

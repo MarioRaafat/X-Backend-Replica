@@ -15,6 +15,7 @@ export class HashtagProcessor {
     async handleUpdateHashtags(job: bull.Job<HashtagJobDto>) {
         const { hashtags, timestamp, categories } = job.data;
         await this.trend_service.insertCandidateHashtags(hashtags, timestamp);
+        await this.trend_service.insertCandidateCategories(hashtags, categories);
 
         await this.trend_service.updateHashtagCounts(hashtags, timestamp);
     }

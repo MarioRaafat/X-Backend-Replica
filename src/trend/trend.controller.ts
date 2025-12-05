@@ -7,13 +7,15 @@ import { trending_swagger } from 'src/explore/explore.swagger';
 
 @Controller('trend')
 export class TrendController {
-    constructor(private readonly trendService: TrendService) {}
+    constructor(private readonly trend_service: TrendService) {}
 
     @ApiOperation(trending_swagger.operation)
     @ApiOkResponse(trending_swagger.responses.success)
     @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
     @ApiQuery(trending_swagger.queries.category)
     @ApiQuery(trending_swagger.queries.country)
-    @Get('trending')
-    async getTrending(@Query('category') category?: string, @Query('country') country?: string) {}
+    @Get('')
+    async getTrending(@Query('category') category?: string, @Query('country') country?: string) {
+        return await this.trend_service.getTrending(category);
+    }
 }

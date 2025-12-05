@@ -985,6 +985,11 @@ export class TweetsService {
         await this.hashtag_job_service.queueHashtag({
             hashtags: hashtags,
             timestamp: Date.now(),
+            //Hardcoded till the model works
+            categories: [
+                { name: 'sports', percent: 88 },
+                { name: 'news', percent: 60 },
+            ],
         });
         // Extract topics using Gemini AI
         const topics = await this.extractTopics(content);
