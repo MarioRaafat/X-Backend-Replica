@@ -4,7 +4,7 @@ import { Model } from 'mongoose';
 import { Notification } from './entities/notifications.entity';
 import { BaseNotificationEntity } from './entities/base-notification.entity';
 import { NotificationType } from './enums/notification-types';
-import { NotificationsGateway } from './gateway';
+import { NotificationsGateway } from './notifications.gateway';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
 import { Tweet } from 'src/tweets/entities';

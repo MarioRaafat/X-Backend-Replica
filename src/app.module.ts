@@ -20,6 +20,7 @@ import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { AzureStorageModule } from './azure-storage/azure-storage.module';
 import { ElasticsearchModule } from './elasticsearch/elasticsearch.module';
 import { MessagesModule } from './messages/messages.module';
+import { GatewayModule } from './gateway/gateway.module';
 
 @Module({
     imports: [
@@ -46,6 +47,7 @@ import { MessagesModule } from './messages/messages.module';
         AzureStorageModule,
         ElasticsearchModule,
         MessagesModule,
+        GatewayModule,
     ],
     controllers: [AppController],
     providers: [AppService],

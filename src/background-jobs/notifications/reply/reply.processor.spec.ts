@@ -4,7 +4,7 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bull';
 import { ReplyProcessor } from './reply.processor';
-import { NotificationsGateway } from 'src/notifications/gateway';
+import { NotificationsGateway } from 'src/notifications/notifications.gateway';
 import { User } from 'src/user/entities';
 import { ReplyBackGroundNotificationJobDTO } from './reply.dto';
 import { NotificationType } from 'src/notifications/enums/notification-types';

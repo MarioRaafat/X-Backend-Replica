@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { NotificationsGateway } from './gateway';
+import { NotificationsGateway } from './notifications.gateway';
 import { Server, Socket } from 'socket.io';
 import { NotificationType } from './enums/notification-types';
 

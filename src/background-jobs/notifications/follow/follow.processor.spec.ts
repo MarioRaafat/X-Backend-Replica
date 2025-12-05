@@ -2,7 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { Logger } from '@nestjs/common';
 import { Job } from 'bull';
 import { FollowProcessor } from './follow.processor';
-import { NotificationsGateway } from 'src/notifications/gateway';
+import { NotificationsGateway } from 'src/notifications/notifications.gateway';
 import { FollowBackGroundNotificationJobDTO } from './follow.dto';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 

@@ -10,7 +10,7 @@ import { EmailJobsService } from './email/email.service';
 import { FollowJobService } from './notifications/follow/follow.service';
 import { FollowProcessor } from './notifications/follow/follow.processor';
 import { NotificationsModule } from 'src/notifications/notifications.module';
-import { NotificationsGateway } from 'src/notifications/gateway';
+import { NotificationsGateway } from 'src/notifications/notifications.gateway';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
 import { TweetReply } from 'src/tweets/entities/tweet-reply.entity';
