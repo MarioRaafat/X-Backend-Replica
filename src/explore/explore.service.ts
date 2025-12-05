@@ -98,12 +98,10 @@ export class ExploreService {
     async getForYouPosts(current_user_id?: string) {
         const all_tweet_ids = new Set<string>();
         const time_before = Date.now();
-
         const user_interests = current_user_id
             ? await this.user_interests_repository
                   .createQueryBuilder('ui')
-                  .innerJoin('ui.category', 'c')
-                  .select(['c.id AS category_id', 'c.name AS category_name', 'ui.score AS score'])
+                  .innerJoinAndSelect('ui.category', 'c')
                   .where('ui.user_id = :uid', { uid: current_user_id })
                   .orderBy('ui.score', 'DESC')
                   .limit(5)
