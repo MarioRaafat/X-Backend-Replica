@@ -7,6 +7,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { VelocityExponentialDetector } from './velocity-exponential-detector';
 import { HashtagResponseDto } from './dto/hashtag-response.dto';
+import { HashtagJobDto } from 'src/background-jobs/hashtag/hashtag-job.dto';
 
 @Injectable()
 export class TrendService {
@@ -67,27 +68,28 @@ export class TrendService {
     ///////////////////////////////////////////////////////////////////////////
 
     // One call per tweet
-    async insertCandidateHashtags(hashtags: string[], last_seen: number) {
-        const args = hashtags.flatMap((hashtag) => [last_seen, hashtag]);
+    async insertCandidateHashtags(hashtags: HashtagJobDto) {
+        const hashtag_names = Object.keys(hashtags.hashtags);
+        const args = hashtag_names.flatMap((hashtag) => [hashtags.timestamp, hashtag]);
         await this.redis_service.zadd('candidates:active', ...args);
 
         //Expire after 2 hours
         // We may delegate it to trend worker
         await this.redis_service.expire('candidates:active', 2 * 60 * 60);
     }
-    async insertCandidateCategories(
-        hashtags: string[],
-        categories: { name: string; percent: number }[]
-    ) {
+    async insertCandidateCategories(hashtags: HashtagJobDto) {
         const pipeline = this.redis_service.pipeline();
+        const hashtag_names = Object.keys(hashtags.hashtags);
 
-        for (const hashtag of hashtags) {
-            for (const category of categories) {
+        for (const hashtag of hashtag_names) {
+            const categories = hashtags.hashtags[hashtag];
+
+            for (const [category_name, percent] of Object.entries(categories)) {
                 // Only add to category if percentage meets threshold
-                if (category.percent >= this.CATEGORY_THRESHOLD) {
+                if (percent >= this.CATEGORY_THRESHOLD) {
                     // Store hashtag with its category percentage as score
-                    pipeline.zadd(`candidates:${category.name}`, category.percent, hashtag);
-                    pipeline.expire(`candidates:${category.name}`, 2 * 60 * 60);
+                    pipeline.zadd(`candidates:${category_name}`, percent, hashtag);
+                    pipeline.expire(`candidates:${category_name}`, 2 * 60 * 60);
                 }
             }
         }
@@ -95,11 +97,14 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    async updateHashtagCounts(hashtags: string[], time: number) {
+    async updateHashtagCounts(hashtags: HashtagJobDto) {
         const pipeline = this.redis_service.pipeline();
-        for (const hashtag of hashtags) {
+        const hashtag_names = Object.keys(hashtags.hashtags);
+
+        for (const hashtag of hashtag_names) {
             //Every 5 mins mapped to same member
-            const time_bucket = Math.floor(time / this.MIN_BUCKETS) * this.MIN_BUCKETS;
+            const time_bucket =
+                Math.floor(hashtags.timestamp / this.MIN_BUCKETS) * this.MIN_BUCKETS;
 
             //Update hashtag
 

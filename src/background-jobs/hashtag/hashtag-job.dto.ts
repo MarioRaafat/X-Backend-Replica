@@ -1,5 +1,4 @@
 export class HashtagJobDto {
-    hashtags: string[];
+    hashtags: Record<string, Record<string, number>>;
     timestamp: number;
-    categories: { name: string; percent: number }[];
 }

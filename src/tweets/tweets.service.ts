@@ -1055,19 +1055,16 @@ export class TweetsService {
         const unique_hashtags = [...new Set(hashtags)];
         await this.updateHashtags(unique_hashtags, user_id, query_runner);
 
-        //Insert Hashtag with Topics in redis
-        await this.hashtag_job_service.queueHashtag({
-            hashtags: hashtags,
-            timestamp: Date.now(),
-            //Hardcoded till the model works
-            categories: [
-                { name: 'sports', percent: 88 },
-                { name: 'news', percent: 60 },
-            ],
-        });
         // Extract topics using Groq AI
         const topics = await this.extractTopics(content, unique_hashtags);
         console.log('Extracted topics:', topics);
+
+        //Insert Hashtag with Topics in redis
+
+        await this.hashtag_job_service.queueHashtag({
+            hashtags: topics.hashtags,
+            timestamp: Date.now(),
+        });
 
         // You can store topics in the tweet entity or use them for recommendations
         // For example, you could add a 'topics' field to your Tweet entity
