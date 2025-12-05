@@ -1,5 +1,12 @@
-import { Controller, Get, Query, Param } from '@nestjs/common';
-import { ApiOkResponse, ApiOperation, ApiQuery, ApiTags, ApiParam } from '@nestjs/swagger';
+import { Controller, Get, Query, Param, Optional, UseGuards } from '@nestjs/common';
+import {
+    ApiOkResponse,
+    ApiOperation,
+    ApiQuery,
+    ApiTags,
+    ApiParam,
+    ApiBearerAuth,
+} from '@nestjs/swagger';
 import {
     ApiBadRequestErrorResponse,
     ApiInternalServerError,
@@ -16,8 +23,12 @@ import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages
 import { ExploreService } from './explore.service';
 import { GetUserId } from 'src/decorators/get-userId.decorator';
 import { Public } from 'src/decorators/public.decorator';
+import { OptionalJwtAuthGuard } from 'src/auth/guards/optional-jwt.guard';
+import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
+import { JwtStrategy } from 'src/auth/strategies/jwt.strategy';
 
 @ApiTags('Explore')
+@ApiBearerAuth('JWT-auth')
 @Controller('explore')
 export class ExploreController {
     constructor(private readonly explore_service: ExploreService) {}
@@ -26,7 +37,8 @@ export class ExploreController {
     @ApiOkResponse(explore_root_swagger.responses.success)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_DATA_RETRIEVED)
-    @Public()
+    @ApiBearerAuth('JWT-auth')
+    @UseGuards(OptionalJwtAuthGuard)
     @Get()
     async getExploreData(@GetUserId() user_id: string) {
         return await this.explore_service.getExploreData(user_id);
@@ -59,6 +71,7 @@ export class ExploreController {
     @ApiParam(category_wise_trending_swagger.params.category_id)
     @ApiQuery(category_wise_trending_swagger.queries.page)
     @ApiQuery(category_wise_trending_swagger.queries.limit)
+    @UseGuards(OptionalJwtAuthGuard)
     @Get('category/:category_id')
     async getCategoryWiseTrending(
         @Param('category_id') category_id: string,

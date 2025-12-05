@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, In } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
 import { Category } from '../category/entities/category.entity';
 import { TweetsService } from '../tweets/tweets.service';
@@ -18,7 +18,7 @@ export class ExploreService {
         private readonly tweets_service: TweetsService
     ) {}
 
-    private readonly DEFAULT_CATEGORIES = [1, 2, 3, 4, 5];
+    private readonly DEFAULT_CATEGORIES = [21, 20, 3, 4, 5];
 
     async getExploreData(current_user_id?: string) {
         // This method would fetch all explore data in one go
@@ -98,22 +98,28 @@ export class ExploreService {
     async getForYouPosts(current_user_id?: string) {
         const all_tweet_ids = new Set<string>();
         const time_before = Date.now();
-        const user_interests = await this.user_interests_repository.find({
-            where: { user_id: current_user_id },
-            relations: ['category'],
-            order: { score: 'DESC' },
-            take: 5,
-        });
+
+        const user_interests = current_user_id
+            ? await this.user_interests_repository
+                  .createQueryBuilder('ui')
+                  .innerJoin('ui.category', 'c')
+                  .select(['c.id AS category_id', 'c.name AS category_name', 'ui.score AS score'])
+                  .where('ui.user_id = :uid', { uid: current_user_id })
+                  .orderBy('ui.score', 'DESC')
+                  .limit(5)
+                  .getMany()
+            : [];
         const time_after = Date.now();
         console.log('Time taken to fetch user interests:', time_after - time_before, 'ms');
 
         const categories = user_interests.map((interest) => interest.category);
         if (categories.length === 0) {
             // If no user interests, use default categories
-            const default_cats = await this.category_repository.findByIds(this.DEFAULT_CATEGORIES);
+            const default_cats = await this.category_repository.find({
+                where: { id: In(this.DEFAULT_CATEGORIES) },
+            });
             categories.push(...default_cats);
         }
-
         const keys = categories.map((cat) => `trending:category:${cat.id}`);
         const results = await this.redis_service.zrevrangeMultiple(keys, 0, 4);
 
@@ -126,14 +132,11 @@ export class ExploreService {
         results.forEach((raw_tweets, index) => {
             if (raw_tweets.length === 0) return;
 
-            const tweets: { tweet_id: string; score: number }[] = [];
-            for (let i = 0; i < raw_tweets.length; i += 2) {
-                tweets.push({
-                    tweet_id: raw_tweets[i],
-                    score: parseFloat(raw_tweets[i + 1]),
-                });
-                all_tweet_ids.add(raw_tweets[i]);
-            }
+            const tweets: { tweet_id: string }[] = [];
+            raw_tweets.forEach((tweet_id) => {
+                tweets.push({ tweet_id });
+                all_tweet_ids.add(tweet_id);
+            });
 
             if (tweets.length > 0) {
                 feed_structure.push({
