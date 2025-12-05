@@ -22,3 +22,12 @@ Text:
 Return ONLY the JSON object.
 `;
 };
+
+export const summarize_prompt = (content: string) => {
+    return `
+You are an expert text summarizer.
+Summarize the following text in 2-3 concise sentences, capturing the main points clearly and accurately.
+Text:
+"${content}"
+`;
+};
