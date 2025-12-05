@@ -45,7 +45,7 @@ export class BaseGateway {
         client.join(user_id);
 
         await this.notifications.onConnection(client, user_id);
-        // await this.messages.onConnection(client, user_id);
+        await this.messages.onConnection(client, user_id);
     }
 
     handleDisconnect(client: Socket) {
