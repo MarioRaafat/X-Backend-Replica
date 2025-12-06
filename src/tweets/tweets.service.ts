@@ -155,27 +155,13 @@ export class TweetsService {
     /**
      * Handles video upload processing
      * @param file - The uploaded video file (in memory, not saved to disk)
-     * @param user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
     async uploadVideo(file: Express.Multer.File): Promise<UploadMediaResponseDTO> {
         try {
             const video_name = `${Date.now()}-${file.originalname}`;
-            const final_name = video_name.replace(/\.[^/.]+$/, '') + '.mp4';
 
-            // Upload original video immediately (without compression)
-            const video_url = await this.uploadOriginalVideoToAzure(file.buffer, video_name);
-
-            // Queue compression job to run in background (non-blocking)
-            this.compress_video_job_service
-                .queueCompressVideo({
-                    video_url,
-                    video_name: final_name,
-                    container_name: this.TWEET_VIDEOS_CONTAINER,
-                })
-                .catch((error) => {
-                    console.error(`Failed to queue compression job for ${final_name}:`, error);
-                });
+            const video_url = await this.uploadVideoToAzure(file.buffer, video_name);
 
             return {
                 url: video_url,
@@ -190,31 +176,86 @@ export class TweetsService {
     }
 
     /**
-     * Uploads original video to Azure Blob Storage without compression
+     * Compresses video using pipe/stream (faster, no temp files)
+     * @param video_buffer - Raw video buffer
+     * @returns Compressed video buffer
+     */
+    private convertToCompressedMp4(video_buffer: Buffer): Promise<Buffer> {
+        return new Promise((resolve, reject) => {
+            const inputStream = new Readable();
+            inputStream.push(video_buffer);
+            inputStream.push(null);
+
+            const outputChunks: Buffer[] = [];
+
+            ffmpeg(inputStream)
+                .outputOptions([
+                    '-vcodec libx264',
+                    '-crf 28',
+                    '-preset veryfast',
+                    '-acodec aac',
+                    '-movflags +frag_keyframe+empty_moov+faststart',
+                ])
+                .toFormat('mp4')
+                .on('error', (error) => {
+                    console.error('FFmpeg error:', error);
+                    reject(error instanceof Error ? error : new Error(String(error)));
+                })
+                .on('end', () => {
+                    console.log('FFmpeg conversion completed');
+                    resolve(Buffer.concat(outputChunks));
+                })
+                .pipe()
+                .on('data', (chunk: Buffer) => {
+                    outputChunks.push(chunk);
+                })
+                .on('error', (error) => {
+                    console.error('Stream error:', error);
+                    reject(error instanceof Error ? error : new Error(String(error)));
+                });
+        });
+    }
+
+    /**
+     * Uploads video to Azure with compression.
+     * Tries fast pipe-based compression first, falls back to uploading original
+     * and queuing background job if pipe compression fails.
      * @param video_buffer - Raw video buffer
      * @param video_name - Original filename
      * @returns Azure Blob URL
      */
-    private async uploadOriginalVideoToAzure(
-        video_buffer: Buffer,
-        video_name: string
-    ): Promise<string> {
+    private async uploadVideoToAzure(video_buffer: Buffer, video_name: string): Promise<string> {
+        const container_name = this.TWEET_VIDEOS_CONTAINER;
+        const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+        if (!connection_string) {
+            throw new Error('AZURE_STORAGE_CONNECTION_STRING is not defined');
+        }
+
+        const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
+        const container_client = blob_service_client.getContainerClient(container_name);
+        await container_client.createIfNotExists({ access: 'blob' });
+
+        const final_name = video_name.replace(/\.[^/.]+$/, '') + '.mp4';
+        const block_blob_client = container_client.getBlockBlobClient(final_name);
+
         try {
-            const container_name = this.TWEET_VIDEOS_CONTAINER;
-            const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
+            // Try fast pipe-based compression (no temp files)
+            const compressed = await this.convertToCompressedMp4(video_buffer);
 
-            if (!connection_string) {
-                throw new Error('AZURE_STORAGE_CONNECTION_STRING is not defined');
-            }
+            await block_blob_client.upload(compressed, compressed.length, {
+                blobHTTPHeaders: {
+                    blobContentType: 'video/mp4',
+                },
+            });
 
-            const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
-            const container_client = blob_service_client.getContainerClient(container_name);
-            await container_client.createIfNotExists({ access: 'blob' });
-
-            // Convert to .mp4 extension for consistency
-            const final_name = video_name.replace(/\.[^/.]+$/, '') + '.mp4';
-
-            const block_blob_client = container_client.getBlockBlobClient(final_name);
+            return block_blob_client.url;
+        } catch (compressionError) {
+            // Pipe compression failed - upload original and queue background job
+            console.warn(
+                `Pipe compression failed for ${final_name}, uploading original and queuing background compression:`,
+                compressionError
+            );
 
             // Upload original video without compression
             await block_blob_client.upload(video_buffer, video_buffer.length, {
@@ -223,10 +264,20 @@ export class TweetsService {
                 },
             });
 
-            return block_blob_client.url;
-        } catch (error) {
-            console.error(error);
-            throw error;
+            const video_url = block_blob_client.url;
+
+            // Queue background job to compress using temp files (more compatible)
+            this.compress_video_job_service
+                .queueCompressVideo({
+                    video_url,
+                    video_name: final_name,
+                    container_name: this.TWEET_VIDEOS_CONTAINER,
+                })
+                .catch((error) => {
+                    console.error(`Failed to queue compression job for ${final_name}:`, error);
+                });
+
+            return video_url;
         }
     }
 
