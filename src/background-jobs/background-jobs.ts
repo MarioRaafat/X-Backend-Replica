@@ -1,5 +1,6 @@
 import { Logger } from '@nestjs/common';
 import type { Queue } from 'bull';
+import { JOB_NAMES } from './constants/queue.constants';
 
 export abstract class BackgroundJobsService<T> {
     private readonly logger = new Logger(BackgroundJobsService.name);
@@ -18,7 +19,12 @@ export abstract class BackgroundJobsService<T> {
         error_message_prefix: string
     ) {
         try {
+            let job_id: string | undefined = undefined;
+            if (this.job_name === JOB_NAMES.AI_SUMMARY.GENERATE_TWEET_SUMMARY) {
+                job_id = `tweet-summary:${dto['tweet_id']}`;
+            }
             const job = await this.queue.add(this.job_name, dto, {
+                jobId: job_id,
                 priority,
                 delay,
                 attempts: 3,

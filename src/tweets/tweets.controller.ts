@@ -76,6 +76,7 @@ import {
     update_tweet_swagger,
     upload_image_swagger,
     upload_video_swagger,
+    get_tweet_summary_swagger,
 } from './tweets.swagger';
 import { ImageUploadInterceptor, VideoUploadInterceptor } from './utils/upload.interceptors';
 import { QueryCursorPaginationDTO } from './dto/get-tweet-quotes-query.dto';
@@ -118,6 +119,18 @@ export class TweetsController {
     async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id?: string) {
         // return await this.tweets_service.getAllTweets(query, user_id);
         return;
+    }
+
+    @HttpCode(HttpStatus.OK)
+    @ApiOperation(get_tweet_summary_swagger.operation)
+    @ApiParam(get_tweet_summary_swagger.param)
+    @ApiOkResponse(get_tweet_summary_swagger.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
+    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
+    @ResponseMessage('Tweet summary retrieved successfully')
+    @Get(':id/summary')
+    async getTweetSummary(@Param('id', ParseUUIDPipe) id: string) {
+        return await this.tweets_service.getTweetSummary(id);
     }
 
     @HttpCode(HttpStatus.OK)

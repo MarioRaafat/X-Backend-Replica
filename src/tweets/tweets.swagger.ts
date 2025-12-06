@@ -1405,3 +1405,51 @@ export const get_user_bookmarks_swagger = {
         },
     },
 };
+
+export const get_tweet_summary_swagger = {
+    operation: {
+        summary: 'Get AI-generated summary of a tweet',
+        description:
+            "Retrieves or generates an AI-powered summary of a tweet's content.\n\n" +
+            '**How it works:**\n' +
+            '- First checks if a summary already exists in the database\n' +
+            '- If not found, queues an AI summary generation job\n' +
+            '- Waits up to 3.75 seconds (15 attempts × 250ms) for the summary to be generated\n' +
+            '- Returns the generated summary once available\n\n' +
+            '**Summary Generation:**\n' +
+            '- Uses AI (Groq API) to analyze tweet content\n' +
+            '- Generates concise, meaningful summaries\n' +
+            '- Summaries are cached for future requests\n\n' +
+            '**Response:**\n' +
+            '- Returns the summary as plain text\n' +
+            '- Summary is stored and reused for subsequent requests\n\n' +
+            '**Error Cases:**\n' +
+            '- 404: Tweet not found\n' +
+            '- 404: Failed to generate summary after retry attempts\n' +
+            '- 500: Internal server error during processing',
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'UUID of the tweet to summarize',
+        example: UUID_EXAMPLE,
+    },
+
+    responses: {
+        success: {
+            description: 'Tweet summary retrieved or generated successfully',
+            schema: {
+                example: {
+                    data: {
+                        tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                        summary:
+                            'This tweet discusses the latest advancements in AI technology, highlighting the importance of ethical considerations and responsible development.',
+                    },
+                    count: 1,
+                    message: 'Tweet summary retrieved successfully',
+                },
+            },
+        },
+    },
+};
