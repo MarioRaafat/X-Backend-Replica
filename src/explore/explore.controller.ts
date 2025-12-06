@@ -18,16 +18,6 @@ export class ExploreController {
         return this.explore_service.root();
     }
 
-    @ApiOperation(trending_swagger.operation)
-    @ApiOkResponse(trending_swagger.responses.success)
-    @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
-    @ApiQuery(trending_swagger.queries.category)
-    @ApiQuery(trending_swagger.queries.country)
-    @Get('trending')
-    async getTrending(@Query('category') category?: string, @Query('country') country?: string) {
-        return await this.explore_service.getTrending(category, country);
-    }
-
     @ApiOperation(who_to_follow_swagger.operation)
     @ApiOkResponse(who_to_follow_swagger.responses.success)
     @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_WHO_TO_FOLLOW_RETRIEVED)
