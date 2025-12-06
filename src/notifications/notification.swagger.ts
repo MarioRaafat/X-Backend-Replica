@@ -1,10 +1,438 @@
+export const get_user_notifications_swagger = {
+    operation: {
+        summary: 'Get user notifications',
+        description: `
+Retrieves all notifications for the authenticated user in reverse chronological order (newest first).
+
+**Notification Types:**
+
+1. **Follow Notification** (\`type: "follow"\`)
+   - Triggered when someone follows you
+   - Contains: \`followers\` (Array of User objects)
+   - **Aggregation**: Multiple follows from the same person within 24 hours are aggregated into a single notification
+
+2. **Like Notification** (\`type: "like"\`)
+   - Triggered when someone likes your tweet
+   - Contains: \`likers\` (Array of User objects), \`tweets\` (Array of Tweet objects)
+   - **Aggregation by tweet**: When multiple people like the same tweet within 24 hours, all users are shown with that one tweet
+   - **Aggregation by person**: When the same person likes multiple tweets within 24 hours, that person is shown with all liked tweets
+   - **Note**: Aggregation prioritizes by tweet first, then by person. Both types do not mix in a single notification
+
+3. **Reply Notification** (\`type: "reply"\`)
+   - Triggered when someone replies to your tweet
+   - Contains: \`replier\` (User object), \`reply_tweet\` (Tweet object), \`original_tweet\` (Tweet object), \`conversation_id\` (optional string)
+
+4. **Repost Notification** (\`type: "repost"\`)
+   - Triggered when someone reposts your tweet
+   - Contains: \`reposters\` (Array of User objects), \`tweets\` (Array of Tweet objects)
+   - **Aggregation by tweet**: When multiple people repost the same tweet within 24 hours, all users are shown with that one tweet
+   - **Aggregation by person**: When the same person reposts multiple tweets within 24 hours, that person is shown with all reposted tweets
+   - **Note**: Aggregation prioritizes by tweet first, then by person. Both types do not mix in a single notification
+
+5. **Quote Notification** (\`type: "quote"\`)
+   - Triggered when someone quotes your tweet
+   - Contains: \`quoter\` (User object), \`quote_tweet\` (Tweet object with nested \`parent_tweet\`)
+
+6. **Mention Notification** (\`type: "mention"\`)
+   - Triggered when someone mentions you in a tweet
+   - Contains: \`mentioner\` (User object), \`tweet\` (Tweet object), \`tweet_type\` ('tweet' | 'quote' | 'reply')
+
+**Pagination:**
+- Query Parameter: \`page\` (optional, default: 1)
+- Page Size: 10 notifications per page
+- Response includes: \`page\`, \`page_size\`, \`total\`, \`total_pages\`, \`has_next\`, \`has_previous\`
+
+**Response Structure:**
+The response contains:
+- \`notifications\`: Array of notification objects (max 10 per page)
+- \`page\`: Current page number
+- \`page_size\`: Number of items per page (10)
+- \`total\`: Total number of notifications
+- \`total_pages\`: Total number of pages
+- \`has_next\`: Whether there is a next page
+- \`has_previous\`: Whether there is a previous page
+
+Each notification has a \`type\` field that indicates its type, and the remaining fields depend on that type.
+
+**Order:**
+- Reverse chronological (newest first)
+        `,
+    },
+    responses: {
+        ok: {
+            description: 'Successfully retrieved user notifications',
+            schema: {
+                type: 'object',
+                properties: {
+                    notifications: {
+                        type: 'array',
+                        description: 'Array of notification objects',
+                        items: {
+                            oneOf: [
+                                {
+                                    type: 'object',
+                                    title: 'FollowNotification',
+                                    properties: {
+                                        type: {
+                                            type: 'string',
+                                            enum: ['follow'],
+                                            example: 'follow',
+                                        },
+                                        created_at: {
+                                            type: 'string',
+                                            format: 'date-time',
+                                            example: '2025-11-29T09:15:00.000Z',
+                                            description:
+                                                'Timestamp when the notification was created or last updated (aggregated)',
+                                        },
+                                        follower: {
+                                            type: 'array',
+                                            description:
+                                                'Users who followed you (aggregated by person within 24 hours)',
+                                            items: { type: 'object' },
+                                        },
+                                    },
+                                },
+                                {
+                                    type: 'object',
+                                    title: 'LikeNotification',
+                                    properties: {
+                                        type: { type: 'string', enum: ['like'], example: 'like' },
+                                        created_at: {
+                                            type: 'string',
+                                            format: 'date-time',
+                                            example: '2025-11-29T10:30:00.000Z',
+                                            description:
+                                                'Timestamp when the notification was created or last updated (aggregated)',
+                                        },
+                                        liker: {
+                                            type: 'array',
+                                            description:
+                                                'Users who liked your tweet(s) - may contain multiple people (aggregation by tweet) or one person (aggregation by person)',
+                                            items: { type: 'object' },
+                                        },
+                                        tweets: {
+                                            type: 'array',
+                                            description:
+                                                'The tweets that were liked - one tweet (aggregation by tweet) or multiple tweets (aggregation by person)',
+                                            items: { type: 'object' },
+                                        },
+                                    },
+                                },
+                                {
+                                    type: 'object',
+                                    title: 'ReplyNotification',
+                                    properties: {
+                                        type: { type: 'string', enum: ['reply'], example: 'reply' },
+                                        created_at: {
+                                            type: 'string',
+                                            format: 'date-time',
+                                            example: '2025-11-29T08:45:00.000Z',
+                                        },
+                                        replier: {
+                                            type: 'object',
+                                            description: 'User who replied to your tweet',
+                                        },
+                                        reply_tweet: {
+                                            type: 'object',
+                                            description: 'The reply tweet',
+                                        },
+                                        original_tweet: {
+                                            type: 'object',
+                                            description: 'Your original tweet that was replied to',
+                                        },
+                                        conversation_id: {
+                                            type: 'string',
+                                            nullable: true,
+                                            example: '623e4567-e89b-12d3-a456-426614174007',
+                                        },
+                                    },
+                                },
+                                {
+                                    type: 'object',
+                                    title: 'RepostNotification',
+                                    properties: {
+                                        type: {
+                                            type: 'string',
+                                            enum: ['repost'],
+                                            example: 'repost',
+                                        },
+                                        created_at: {
+                                            type: 'string',
+                                            format: 'date-time',
+                                            example: '2025-11-29T08:00:00.000Z',
+                                            description:
+                                                'Timestamp when the notification was created or last updated (aggregated)',
+                                        },
+                                        reposter: {
+                                            type: 'array',
+                                            description:
+                                                'Users who reposted your tweet(s) - may contain multiple people (aggregation by tweet) or one person (aggregation by person)',
+                                            items: { type: 'object' },
+                                        },
+                                        tweets: {
+                                            type: 'array',
+                                            description:
+                                                'The tweets that were reposted - one tweet (aggregation by tweet) or multiple tweets (aggregation by person)',
+                                            items: { type: 'object' },
+                                        },
+                                    },
+                                },
+                                {
+                                    type: 'object',
+                                    title: 'QuoteNotification',
+                                    properties: {
+                                        type: { type: 'string', enum: ['quote'], example: 'quote' },
+                                        created_at: {
+                                            type: 'string',
+                                            format: 'date-time',
+                                            example: '2025-11-29T07:30:00.000Z',
+                                        },
+                                        quoter: {
+                                            type: 'object',
+                                            description: 'User who quoted your tweet',
+                                        },
+                                        quote_tweet: {
+                                            type: 'object',
+                                            description:
+                                                'The quote tweet (new tweet with quoted content), includes parent_tweet nested inside',
+                                        },
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                },
+                example: {
+                    notifications: [
+                        {
+                            type: 'like',
+                            created_at: '2025-11-29T10:30:00.000Z',
+                            likers: [
+                                {
+                                    id: '123e4567-e89b-12d3-a456-426614174000',
+                                    email: 'john.doe@example.com',
+                                    name: 'John Doe',
+                                    username: 'johndoe',
+                                    avatar_url: 'https://example.com/avatar.jpg',
+                                },
+                            ],
+                            tweets: [
+                                {
+                                    tweet_id: '123e4567-e89b-12d3-a456-426614174001',
+                                    user_id: '958df17b-4921-45e7-9d03-99f6deeeb031',
+                                    type: 'original',
+                                    content: 'Example tweet (aggregated notification)',
+                                    images: [],
+                                    videos: [],
+                                    num_likes: 42,
+                                    num_reposts: 15,
+                                    num_replies: 8,
+                                    num_quotes: 3,
+                                    num_views: 0,
+                                    num_bookmarks: 0,
+                                    created_at: '2025-11-29T09:00:00.000Z',
+                                    updated_at: '2025-11-29T09:00:00.000Z',
+                                    deleted_at: null,
+                                },
+                            ],
+                        },
+                        {
+                            type: 'follow',
+                            created_at: '2025-11-29T09:15:00.000Z',
+                            followers: [
+                                {
+                                    id: '223e4567-e89b-12d3-a456-426614174003',
+                                    email: 'jane.smith@example.com',
+                                    name: 'Jane Smith',
+                                    username: 'janesmith',
+                                    avatar_url: 'https://example.com/avatar2.jpg',
+                                },
+                            ],
+                        },
+                        {
+                            type: 'reply',
+                            created_at: '2025-11-29T08:45:00.000Z',
+                            replier: {
+                                id: '323e4567-e89b-12d3-a456-426614174004',
+                                email: 'alice.j@example.com',
+                                name: 'Alice Johnson',
+                                username: 'alicej',
+                                avatar_url: 'https://example.com/avatar3.jpg',
+                            },
+                            reply_tweet: {
+                                tweet_id: '423e4567-e89b-12d3-a456-426614174005',
+                                user_id: '323e4567-e89b-12d3-a456-426614174004',
+                                type: 'reply',
+                                content: 'Great point!',
+                                images: [],
+                                videos: [],
+                                num_likes: 5,
+                                num_reposts: 1,
+                                num_replies: 0,
+                                num_quotes: 0,
+                                num_views: 0,
+                                num_bookmarks: 0,
+                                created_at: '2025-11-29T08:45:00.000Z',
+                                updated_at: '2025-11-29T08:45:00.000Z',
+                                deleted_at: null,
+                            },
+                            original_tweet: {
+                                tweet_id: '523e4567-e89b-12d3-a456-426614174006',
+                                user_id: '958df17b-4921-45e7-9d03-99f6deeeb031',
+                                type: 'original',
+                                content: 'What do you think about this?',
+                                images: [],
+                                videos: [],
+                                num_likes: 20,
+                                num_reposts: 5,
+                                num_replies: 3,
+                                num_quotes: 1,
+                                num_views: 0,
+                                num_bookmarks: 0,
+                                created_at: '2025-11-29T07:00:00.000Z',
+                                updated_at: '2025-11-29T07:00:00.000Z',
+                                deleted_at: null,
+                            },
+                            conversation_id: '623e4567-e89b-12d3-a456-426614174007',
+                        },
+                        {
+                            type: 'repost',
+                            created_at: '2025-11-29T08:00:00.000Z',
+                            reposters: [
+                                {
+                                    id: '723e4567-e89b-12d3-a456-426614174008',
+                                    email: 'bob.w@example.com',
+                                    name: 'Bob Williams',
+                                    username: 'bobw',
+                                    avatar_url: 'https://example.com/avatar4.jpg',
+                                },
+                            ],
+                            tweets: [
+                                {
+                                    tweet_id: '823e4567-e89b-12d3-a456-426614174009',
+                                    user_id: '958df17b-4921-45e7-9d03-99f6deeeb031',
+                                    type: 'original',
+                                    content: 'Example tweet (aggregated notification)',
+                                    images: [],
+                                    videos: [],
+                                    num_likes: 100,
+                                    num_reposts: 25,
+                                    num_replies: 12,
+                                    num_quotes: 5,
+                                    num_views: 0,
+                                    num_bookmarks: 0,
+                                    created_at: '2025-11-28T10:00:00.000Z',
+                                    updated_at: '2025-11-28T10:00:00.000Z',
+                                    deleted_at: null,
+                                },
+                            ],
+                        },
+                        {
+                            type: 'quote',
+                            created_at: '2025-11-29T07:30:00.000Z',
+                            quoter: {
+                                id: '923e4567-e89b-12d3-a456-426614174010',
+                                email: 'charlie.b@example.com',
+                                name: 'Charlie Brown',
+                                username: 'charlieb',
+                                avatar_url: 'https://example.com/avatar5.jpg',
+                            },
+                            quote_tweet: {
+                                tweet_id: 'a23e4567-e89b-12d3-a456-426614174011',
+                                user_id: '923e4567-e89b-12d3-a456-426614174010',
+                                type: 'quote',
+                                content: 'This is exactly what I was thinking!',
+                                images: [],
+                                videos: [],
+                                num_likes: 30,
+                                num_reposts: 8,
+                                num_replies: 4,
+                                num_quotes: 2,
+                                num_views: 0,
+                                num_bookmarks: 0,
+                                created_at: '2025-11-29T07:30:00.000Z',
+                                updated_at: '2025-11-29T07:30:00.000Z',
+                                deleted_at: null,
+                                parent_tweet: {
+                                    tweet_id: 'b23e4567-e89b-12d3-a456-426614174012',
+                                    user_id: '958df17b-4921-45e7-9d03-99f6deeeb031',
+                                    type: 'original',
+                                    content: 'Here are my thoughts on the topic...',
+                                    images: [],
+                                    videos: [],
+                                    num_likes: 50,
+                                    num_reposts: 10,
+                                    num_replies: 8,
+                                    num_quotes: 3,
+                                    num_views: 0,
+                                    num_bookmarks: 0,
+                                    created_at: '2025-11-29T06:00:00.000Z',
+                                    updated_at: '2025-11-29T06:00:00.000Z',
+                                    deleted_at: null,
+                                },
+                            },
+                        },
+                    ],
+                },
+            },
+        },
+    },
+};
+
+export const get_mentions_and_replies_swagger = {
+    operation: {
+        summary: 'Get mentions and replies notifications',
+        description: `
+Retrieves only mentions and replies notifications for the authenticated user in reverse chronological order (newest first).
+
+**Notification Types Included:**
+
+1. **Mention Notification** (\`type: "mention"\`)
+   - Triggered when someone mentions you in a tweet
+   - Contains: \`mentioner\` (User object), \`tweet\` (Tweet object), \`tweet_type\` ('tweet' | 'quote' | 'reply')
+
+2. **Reply Notification** (\`type: "reply"\`)
+   - Triggered when someone replies to your tweet
+   - Contains: \`replier\` (User object), \`reply_tweet\` (Tweet object), \`original_tweet\` (Tweet object), \`conversation_id\` (optional string)
+
+**Pagination:**
+- Query Parameter: \`page\` (optional, default: 1)
+- Page Size: 10 notifications per page
+- Response includes: \`page\`, \`page_size\`, \`total\`, \`total_pages\`, \`has_next\`, \`has_previous\`
+
+**Response Structure:**
+The response contains:
+- \`notifications\`: Array of notification objects (max 10 per page)
+- \`page\`: Current page number
+- \`page_size\`: Number of items per page (10)
+- \`total\`: Total number of mentions and replies
+- \`total_pages\`: Total number of pages
+- \`has_next\`: Whether there is a next page
+- \`has_previous\`: Whether there is a previous page
+
+Each notification has a \`type\` field that indicates its type, and the remaining fields depend on that type.
+
+**Order:**
+- Reverse chronological (newest first)
+        `,
+    },
+    responses: {
+        ok: {
+            description: 'Successfully retrieved mentions and replies notifications',
+            schema: {
+                $ref: '#/components/schemas/NotificationsResponseDto',
+            },
+        },
+    },
+};
+
 export const notifications_websocket = {
     connection: {
         url: 'ws://server/notifications',
         auth: 'JWT token required in connection handshake',
         protocol: 'WebSocket (Socket.IO)',
     },
-
     client_events: {
         subscribe_all: {
             event: 'subscribe:all',
@@ -14,14 +442,13 @@ export const notifications_websocket = {
         },
         subscribe_mentions: {
             event: 'subscribe:mentions',
-            description:
-                'Switch to mentions-only view. Uses same connection, no reconnection needed.',
+            description: 'Subscribe to mentions-only view',
             payload: null,
             response_event: 'notifications:mentions',
         },
         mark_seen: {
             event: 'mark:seen',
-            description: 'Mark all notifications as seen by the user',
+            description: 'Mark all notifications as seen',
             payload: null,
             response_event: 'notifications:count',
         },
@@ -32,23 +459,21 @@ export const notifications_websocket = {
             response_event: 'notifications:count',
         },
     },
-
     server_events: {
         notifications_all: {
             event: 'notifications:all',
-            description: 'Sends all notifications for the authenticated user',
+            description: 'Server sends all notifications',
             payload_structure: {
                 notifications: 'Array<Notification>',
                 total: 'number',
                 unseenCount: 'number',
-                newestData: 'ISO8601 timestamp of last unseen notification, null if all seen',
             },
             example: {
                 notifications: [
                     {
                         id: 'uuid',
                         type: 'like',
-                        actors: ['user1', 'user2'],
+                        actors: [],
                         targetId: 'tweet-id',
                         createdAt: '2025-10-17T10:00:00Z',
                         seen: false,
@@ -56,116 +481,30 @@ export const notifications_websocket = {
                 ],
                 total: 42,
                 unseenCount: 5,
-                newestData: '2025-10-17T10:00:00Z', // Last unseen notification timestamp
+                newestData: '2025-10-17T10:00:00Z',
             },
         },
         notifications_mentions: {
             event: 'notifications:mentions',
-            description:
-                'Sends mentions-only notifications. Client switches to this view without reconnecting.',
+            description: 'Server sends mentions-only notifications',
             payload_structure: {
-                notifications: 'Array<Notification> (mentions only)',
+                notifications: 'Array<Notification>',
                 total: 'number',
                 unseenCount: 'number',
-                newestData: 'ISO8601 timestamp of last unseen mention, null if all seen',
             },
             example: {
-                notifications: [
-                    {
-                        id: 'uuid',
-                        type: 'mention',
-                        actors: ['user3'],
-                        targetId: 'tweet-id',
-                        createdAt: '2025-10-17T09:30:00Z',
-                        seen: false,
-                    },
-                ],
-                total: 8,
-                unseenCount: 2,
-                newestData: '2025-10-17T09:30:00Z',
+                notifications: [],
+                total: 0,
+                unseenCount: 0,
             },
         },
         notification_new: {
             event: 'notifications:new',
-            description:
-                'Real-time push of a new notification. Sent immediately when notification occurs.',
+            description: 'Real-time push of new notification',
             payload_structure: {
                 notification: 'Notification',
                 unseenCount: 'number (updated count)',
-                newestData: 'ISO8601 timestamp (updated timestamp)',
-            },
-            example: {
-                notification: {
-                    id: 'uuid',
-                    type: 'retweet',
-                    actors: ['user4'],
-                    targetId: 'tweet-id',
-                    createdAt: '2025-10-17T11:00:00Z',
-                    seen: false,
-                },
-                unseenCount: 6,
-                newestData: '2025-10-17T11:00:00Z',
-            },
-        },
-        notification_count: {
-            event: 'notifications:count',
-            description: 'Sends updated count of unseen notifications and newestData timestamp',
-            payload_structure: {
-                unseenCount: 'number',
-                newestData: 'ISO8601 timestamp or null',
-            },
-            example: {
-                unseenCount: 3,
-                newestData: '2025-10-17T10:30:00Z',
             },
         },
     },
-
-    newest_data: {
-        description: 'Timestamp of the most recent unseen notification',
-        purpose: 'Client uses this to determine if there are new notifications since last check',
-        behavior: {
-            has_unseen: 'Contains ISO8601 timestamp of newest unseen notification',
-            all_seen: 'null - indicates all notifications have been seen',
-            updated_on: 'Every new notification, or when notifications are marked as seen',
-        },
-        usage: 'Client can compare newestData with locally stored timestamp to show "new" badge',
-        example_flow: [
-            '1. User connects → newestData: "2025-10-17T10:00:00Z" (5 unseen)',
-            '2. User marks as seen → newestData: null (0 unseen)',
-            '3. New notification arrives → newestData: "2025-10-17T11:00:00Z" (1 unseen)',
-            '4. User switches to mentions tab → same connection, filters data client-side or requests mentions',
-            '5. Another notification → newestData: "2025-10-17T11:05:00Z" (2 unseen)',
-        ],
-    },
-
-    // Connection Flow
-    connection_flow: {
-        step_1: 'Client connects to ws://server/notifications with JWT token',
-        step_2: 'Server authenticates and stores connection',
-        step_3: 'Server immediately sends "notifications:all" with initial data + newestData',
-        step_4: 'Client displays notifications (All tab is default)',
-        step_5: 'User switches to Mentions tab → Client emits "subscribe:mentions"',
-        step_6: 'Server sends "notifications:mentions" through SAME connection',
-        step_7: 'New notification happens → Server pushes "notifications:new" to client',
-        step_8: 'Client updates UI and newestData timestamp',
-        step_9: 'User marks as seen → Client emits "mark:seen"',
-        step_10: 'Server updates DB and sends "notifications:count" with newestData: null',
-    },
-
-    features: {
-        single_connection: 'One WebSocket connection handles all notification views (All/Mentions)',
-        real_time: 'New notifications pushed immediately via "notifications:new" event',
-        no_reconnection: 'Switching between All/Mentions tabs uses same connection',
-        newest_data_tracking:
-            'newestData timestamp tracks last unseen notification for badge display',
-        aggregation:
-            'Multiple users performing same action are aggregated (e.g., "User1, User2 liked your post")',
-        pagination: 'Initial load can be paginated, real-time updates are instant',
-    },
-};
-
-export const notifications_swagger = {
-    deprecated_note: 'This module uses WebSocket connections only. No REST endpoints available.',
-    see_instead: 'NOTIFICATIONS_WEBSOCKET for WebSocket documentation',
 };

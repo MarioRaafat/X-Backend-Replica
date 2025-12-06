@@ -98,18 +98,20 @@ export class MessagesService {
 
     async getMessages(user_id: string, chat_id: string, query: GetMessagesQueryDto) {
         const chat = await this.validateChatParticipation(user_id, chat_id);
-        const messages = await this.message_repository.findMessagesByChatId(chat_id, query);
+        let messages = await this.message_repository.findMessagesByChatId(chat_id, query);
         const other_user = chat.user1_id === user_id ? chat.user2 : chat.user1;
-        const next_cursor = this.pagination_service.generateNextCursor(
-            messages,
-            'created_at',
-            'id'
-        );
+
         let has_more = false;
         if (messages.length > query.limit) {
             has_more = true;
             messages.pop(); // Remove the extra message used to check for next page
         }
+
+        const next_cursor = has_more
+            ? this.pagination_service.generateNextCursor(messages, 'created_at', 'id')
+            : null;
+
+        messages = messages.reverse();
 
         return {
             next_cursor,

@@ -355,7 +355,7 @@ export class UserService {
             follower_id: current_user_id,
             followed_id: target_user_id,
             action: 'add',
-            followed_avatar_url: validation_result.avatar_url,
+            follower_avatar_url: validation_result.avatar_url,
             follower_name: validation_result.name,
         });
 
@@ -631,13 +631,14 @@ export class UserService {
     async deleteUser(current_user_id: string): Promise<void> {
         const user = await this.user_repository.findOne({
             where: { id: current_user_id },
+            withDeleted: true,
         });
 
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        await this.user_repository.delete(current_user_id);
+        await this.user_repository.softDelete(current_user_id);
 
         if (user.avatar_url) {
             const file_name = this.azure_storage_service.extractFileName(user.avatar_url);

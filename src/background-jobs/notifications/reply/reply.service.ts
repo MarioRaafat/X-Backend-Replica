@@ -25,7 +25,7 @@ export class ReplyJobService extends BackgroundJobsService<ReplyBackGroundNotifi
             dto,
             priority ?? this.priority,
             delay ?? this.delay,
-            'Failed to queue like notification job:'
+            'Failed to queue reply notification job:'
         );
     }
 }

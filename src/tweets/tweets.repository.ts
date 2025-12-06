@@ -354,6 +354,32 @@ export class TweetsRepository extends Repository<Tweet> {
                 };
             }
 
+            // Attach first nested reply from original tweet owner (if exists)
+            if (row.nested_reply && typeof row.nested_reply === 'object') {
+                tweet.replies = [
+                    {
+                        tweet_id: row.nested_reply.tweet_id,
+                        type: row.nested_reply.type as TweetType,
+                        content: row.nested_reply.content,
+                        images: row.nested_reply.images || [],
+                        videos: row.nested_reply.videos || [],
+                        parent_tweet_id: row.nested_reply.parent_tweet_id,
+                        user: row.nested_reply.user,
+                        likes_count: row.nested_reply.likes_count,
+                        reposts_count: row.nested_reply.reposts_count,
+                        quotes_count: row.nested_reply.quotes_count,
+                        replies_count: row.nested_reply.replies_count,
+                        views_count: row.nested_reply.views_count,
+                        bookmarks_count: row.nested_reply.bookmarks_count || 0,
+                        is_liked: row.nested_reply.nested_is_liked === true,
+                        is_reposted: row.nested_reply.nested_is_reposted === true,
+                        is_bookmarked: row.nested_reply.nested_is_bookmarked === true,
+                        created_at: row.nested_reply.created_at,
+                        updated_at: row.nested_reply.updated_at,
+                    },
+                ];
+            }
+
             return tweet;
         });
     }
@@ -363,6 +389,46 @@ export class TweetsRepository extends Repository<Tweet> {
         user_id: string | undefined,
         pagination: TimelinePaginationDto
     ): Promise<{ tweets: TweetResponseDTO[]; next_cursor: string | null }> {
+        // First get the original tweet owner
+        const original_tweet = await this.tweet_repository.findOne({
+            where: { tweet_id },
+            select: ['user_id'],
+        });
+
+        if (!original_tweet) {
+            return { tweets: [], next_cursor: null };
+        }
+
+        const original_tweet_owner_id = original_tweet.user_id;
+
+        // Build the nested replies subquery (second-level replies from owner)
+        const get_user_interactions = (prefix: string) => {
+            if (!user_id) {
+                return `
+                    '${prefix}_is_liked', FALSE,
+                    '${prefix}_is_reposted', FALSE,
+                    '${prefix}_is_bookmarked', FALSE,
+                `;
+            }
+            return `
+                '${prefix}_is_liked', EXISTS(
+                    SELECT 1 FROM tweet_likes 
+                    WHERE tweet_likes.tweet_id = ${prefix}_tweet.tweet_id 
+                    AND tweet_likes.user_id = :user_id
+                ),
+                '${prefix}_is_reposted', EXISTS(
+                    SELECT 1 FROM tweet_reposts 
+                    WHERE tweet_reposts.tweet_id = ${prefix}_tweet.tweet_id 
+                    AND tweet_reposts.user_id = :user_id
+                ),
+                '${prefix}_is_bookmarked', EXISTS(
+                    SELECT 1 FROM tweet_bookmarks 
+                    WHERE tweet_bookmarks.tweet_id = ${prefix}_tweet.tweet_id 
+                    AND tweet_bookmarks.user_id = :user_id
+                ),
+            `;
+        };
+
         // Note: I will skip parent object data for replies to keep response clean as the front will have that info already
         const query_builder = this.tweet_repository
             .createQueryBuilder('tweet')
@@ -405,8 +471,50 @@ export class TweetsRepository extends Repository<Tweet> {
             )`,
                 'conversation_root_id'
             )
+            // Add first nested reply from owner (if exists)
+            .addSelect(
+                `(
+                SELECT json_build_object(
+                    'tweet_id', nested_tweet.tweet_id,
+                    'type', 'reply',
+                    'content', nested_tweet.content,
+                    'images', nested_tweet.images,
+                    'videos', nested_tweet.videos,
+                    'parent_tweet_id', nested_reply.original_tweet_id,
+                    'user', json_build_object(
+                        'id', nested_user.id,
+                        'name', nested_user.name,
+                        'username', nested_user.username,
+                        'avatar_url', nested_user.avatar_url,
+                        'verified', nested_user.verified,
+                        'bio', nested_user.bio,
+                        'cover_url', nested_user.cover_url,
+                        'followers', nested_user.followers,
+                        'following', nested_user.following
+                    ),
+                    'likes_count', nested_tweet.num_likes,
+                    'reposts_count', nested_tweet.num_reposts,
+                    'quotes_count', nested_tweet.num_quotes,
+                    'replies_count', nested_tweet.num_replies,
+                    'views_count', nested_tweet.num_views,
+                    'bookmarks_count', nested_tweet.num_bookmarks,
+                    ${get_user_interactions('nested')}
+                    'created_at', nested_tweet.created_at,
+                    'updated_at', nested_tweet.updated_at
+                )
+                FROM tweet_replies nested_reply
+                INNER JOIN tweets nested_tweet ON nested_reply.reply_tweet_id = nested_tweet.tweet_id
+                INNER JOIN "user" nested_user ON nested_tweet.user_id = nested_user.id
+                WHERE nested_reply.original_tweet_id = tweet.tweet_id
+                AND nested_tweet.user_id = :original_tweet_owner_id
+                ORDER BY nested_tweet.created_at ASC
+                LIMIT 1
+            )`,
+                'nested_reply'
+            )
             .where('reply.original_tweet_id = :tweet_id')
             .setParameter('tweet_id', tweet_id)
+            .setParameter('original_tweet_owner_id', original_tweet_owner_id)
             .orderBy('tweet.created_at', 'DESC')
             .limit(pagination.limit);
 

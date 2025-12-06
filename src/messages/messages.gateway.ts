@@ -1,77 +1,45 @@
-import {
-    ConnectedSocket,
-    MessageBody,
-    OnGatewayConnection,
-    OnGatewayDisconnect,
-    SubscribeMessage,
-    WebSocketGateway,
-    WebSocketServer,
-} from '@nestjs/websockets';
 import { Server, Socket } from 'socket.io';
-import { UseGuards } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { ChatRepository } from 'src/chat/chat.repository';
 import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
-import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { path } from '@ffmpeg-installer/ffmpeg';
+import { MESSAGE_CONTENT_LENGTH } from 'src/constants/variables';
 
-interface IAuthenticatedSocket extends Socket {
-    user?: {
-        user_id: string;
-    };
-}
-
-@WebSocketGateway({
-    namespace: '/messages',
-    path: process.env.SOCKET_IO || '/socket.io',
-    cors: {
-        origin: true,
-        credentials: true,
-    },
-})
-@UseGuards(WsJwtGuard)
-export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect {
-    @WebSocketServer()
+@Injectable()
+export class MessagesGateway {
     server: Server;
     // Store active connections: user_id -> socket_id[]
     private userSockets = new Map<string, Set<string>>();
+
     constructor(
         private readonly messages_service: MessagesService,
         private readonly chat_repository: ChatRepository,
-        private readonly jwt_service: JwtService,
-        private readonly config_service: ConfigService,
         private readonly pagination_service: PaginationService
     ) {}
 
-    async handleConnection(client: IAuthenticatedSocket) {
-        try {
-            const user = WsJwtGuard.validateToken(client, this.jwt_service, this.config_service);
-            client.user = user;
-            const user_id = client.user.user_id;
+    setServer(server: Server) {
+        this.server = server;
+    }
 
-            if (!this.userSockets.has(user_id)) {
-                this.userSockets.set(user_id, new Set());
-            }
-            this.userSockets.get(user_id)?.add(client.id);
-
-            console.log(`Client connected: ${client.id} (User: ${user_id})`);
-
-            // Send unread messages count to newly connected client
-            await this.sendUnreadChatsOnConnection(client, user_id);
-        } catch (error) {
-            console.error('Connection error:', error);
-            client.disconnect();
+    async onConnection(client: Socket, user_id: string) {
+        if (!this.userSockets.has(user_id)) {
+            this.userSockets.set(user_id, new Set());
         }
+        this.userSockets.get(user_id)?.add(client.id);
+
+        console.log(`MessagesGateway - Client connected: ${client.id} (User: ${user_id})`);
+
+        // Send unread messages count to newly connected client
+        await this.sendUnreadChatsOnConnection(client, user_id);
     }
 
     /**
      * Notify client about chats with unread messages when they connect
      * Frontend should then request full message history for these chats
      */
-    private async sendUnreadChatsOnConnection(client: IAuthenticatedSocket, user_id: string) {
+    private async sendUnreadChatsOnConnection(client: Socket, user_id: string) {
         try {
             const unread_chats = await this.messages_service.getUnreadChatsForUser(user_id);
 
@@ -86,8 +54,7 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
     }
 
-    handleDisconnect(client: IAuthenticatedSocket) {
-        const user_id = client.user?.user_id;
+    onDisconnect(client: Socket, user_id: string | undefined) {
         if (user_id) {
             const user_socket_set = this.userSockets.get(user_id);
             if (user_socket_set) {
@@ -97,16 +64,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
                 }
             }
         }
-        console.log(`Client disconnected: ${client.id}`);
+        console.log(`MessagesGateway - Client disconnected: ${client.id}`);
     }
 
-    @SubscribeMessage('join_chat')
-    async handleJoinChat(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody() data: { chat_id: string }
-    ) {
+    async handleJoinChat(client: Socket, data: { chat_id: string }) {
         try {
-            const user_id = client.user!.user_id;
+            const user_id = client.data.user?.id;
             const { chat_id } = data;
 
             const chat = await this.messages_service.validateChatParticipation(user_id, chat_id);
@@ -129,14 +92,10 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
     }
 
-    @SubscribeMessage('leave_chat')
-    async handleLeaveChat(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody() data: { chat_id: string }
-    ) {
+    async handleLeaveChat(client: Socket, data: { chat_id: string }) {
         try {
             const { chat_id } = data;
-            const user_id = client.user!.user_id;
+            const user_id = client.data.user?.id;
             await this.messages_service.validateChatParticipation(user_id, chat_id);
 
             await client.leave(chat_id);
@@ -152,14 +111,20 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
     }
 
-    @SubscribeMessage('send_message')
-    async handleSendMessage(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody() data: { chat_id: string; message: SendMessageDto }
-    ) {
+    async handleSendMessage(client: Socket, data: { chat_id: string; message: SendMessageDto }) {
         try {
-            const user_id = client.user!.user_id;
+            const user_id = client.data.user?.id;
             const { chat_id, message } = data;
+
+            // Validate message content length
+            if (message.content.length > MESSAGE_CONTENT_LENGTH) {
+                return {
+                    event: 'error',
+                    data: {
+                        message: `Message content exceeds maximum length of ${MESSAGE_CONTENT_LENGTH} characters`,
+                    },
+                };
+            }
 
             // Check if recipient is actively in the chat room
             const chat = await this.messages_service.validateChatParticipation(user_id, chat_id);
@@ -198,14 +163,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
     }
 
-    @SubscribeMessage('update_message')
     async handleUpdateMessage(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody()
+        client: Socket,
         data: { chat_id: string; message_id: string; update: UpdateMessageDto }
     ) {
         try {
-            const user_id = client.user!.user_id;
+            const user_id = client.data.user?.id;
             const { chat_id, message_id, update } = data;
 
             const result = await this.messages_service.updateMessage(
@@ -242,13 +205,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
     }
 
-    @SubscribeMessage('delete_message')
-    async handleDeleteMessage(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody() data: { chat_id: string; message_id: string }
-    ) {
+    async handleDeleteMessage(client: Socket, data: { chat_id: string; message_id: string }) {
         try {
-            const user_id = client.user!.user_id;
+            const user_id = client.data.user?.id;
             const { chat_id, message_id } = data;
 
             const result = await this.messages_service.deleteMessage(user_id, chat_id, message_id);
@@ -279,13 +238,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
     }
 
-    @SubscribeMessage('typing_start')
-    async handleTypingStart(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody() data: { chat_id: string }
-    ) {
+    async handleTypingStart(client: Socket, data: { chat_id: string }) {
         try {
-            const user_id = client.user!.user_id;
+            const user_id = client.data.user?.id;
             const { chat_id } = data;
             await this.messages_service.validateChatParticipation(user_id, chat_id);
 
@@ -306,13 +261,9 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
     }
 
-    @SubscribeMessage('typing_stop')
-    async handleTypingStop(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody() data: { chat_id: string }
-    ) {
+    async handleTypingStop(client: Socket, data: { chat_id: string }) {
         try {
-            const user_id = client.user!.user_id;
+            const user_id = client.data.user?.id;
             const { chat_id } = data;
             await this.messages_service.validateChatParticipation(user_id, chat_id);
 
@@ -333,13 +284,12 @@ export class MessagesGateway implements OnGatewayConnection, OnGatewayDisconnect
         }
     }
 
-    @SubscribeMessage('get_messages')
     async handleGetMessages(
-        @ConnectedSocket() client: IAuthenticatedSocket,
-        @MessageBody() data: { chat_id: string; limit: number; cursor?: string }
+        client: Socket,
+        data: { chat_id: string; limit: number; cursor?: string }
     ) {
         try {
-            const user_id = client.user!.user_id;
+            const user_id = client.data.user?.id;
             const { chat_id, limit = 50, cursor } = data;
             const query: GetMessagesQueryDto = { limit, cursor };
 

@@ -8,7 +8,7 @@ import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Tweet } from 'src/tweets/entities';
 import { Repository } from 'typeorm';
-import { User } from 'src/user/entities';
+import { User, UserFollows } from 'src/user/entities';
 import { EsSyncUserDto } from './dtos/es-sync-user.dto';
 import { EsSyncFollowDto } from './dtos/es-sync-follow.dto';
 
@@ -21,7 +21,9 @@ export class EsSyncProcessor {
         private tweets_repository: Repository<Tweet>,
         @InjectRepository(User)
         private user_repository: Repository<User>,
-        private readonly elasticsearch_service: ElasticsearchService
+        private readonly elasticsearch_service: ElasticsearchService,
+        @InjectRepository(UserFollows)
+        private readonly user_follows_repository: Repository<UserFollows>
     ) {}
 
     @Process(JOB_NAMES.ELASTICSEARCH.INDEX_TWEET)
@@ -123,6 +125,28 @@ export class EsSyncProcessor {
     async handleDeleteAuthor(job: Job<EsSyncUserDto>) {
         const { user_id } = job.data;
 
+        let follows: { follower_id: string; followed_id: string }[] = [];
+        try {
+            follows = await this.user_follows_repository
+                .createQueryBuilder('uf')
+                .select(['uf.follower_id AS follower_id', 'uf.followed_id AS followed_id'])
+                .where('uf.followed_id = :id', { id: user_id })
+                .orWhere('uf.follower_id = :id', { id: user_id })
+                .getRawMany();
+        } catch (error) {
+            console.log(error);
+        }
+
+        await this.user_repository.delete(user_id);
+
+        const follower_ids = follows
+            .filter((r) => r.followed_id === user_id)
+            .map((r) => r.follower_id);
+
+        const followed_ids = follows
+            .filter((r) => r.follower_id === user_id)
+            .map((r) => r.followed_id);
+
         try {
             await this.elasticsearch_service.deleteByQuery({
                 index: ELASTICSEARCH_INDICES.TWEETS,
@@ -136,6 +160,11 @@ export class EsSyncProcessor {
             this.logger.error(`Failed to delete tweets with author ${user_id}:`, error);
             throw error;
         }
+
+        await Promise.all([
+            this.decrementFollowCountsForUsers(follower_ids, 'following'),
+            this.decrementFollowCountsForUsers(followed_ids, 'followers'),
+        ]);
     }
 
     @Process(JOB_NAMES.ELASTICSEARCH.FOLLOW)
@@ -240,5 +269,45 @@ export class EsSyncProcessor {
         }
 
         return base_transform;
+    }
+
+    private async decrementFollowCountsForUsers(
+        user_ids: string[],
+        field: 'followers' | 'following'
+    ) {
+        if (user_ids.length === 0) return;
+
+        const BATCH_SIZE = 1000;
+
+        for (let i = 0; i < user_ids.length; i += BATCH_SIZE) {
+            const batch = user_ids.slice(i, i + BATCH_SIZE);
+
+            try {
+                const result = await this.elasticsearch_service.updateByQuery({
+                    index: ELASTICSEARCH_INDICES.TWEETS,
+                    body: {
+                        query: {
+                            terms: { author_id: batch },
+                        },
+                        script: {
+                            source: `
+                                if (ctx._source.${field} > 0) {
+                                    ctx._source.${field} -= 1;
+                                }
+                            `,
+                        },
+                    },
+                    conflicts: 'proceed',
+                    refresh: false,
+                });
+
+                this.logger.log(`Decremented ${field} in ${result.updated} tweets`);
+            } catch (error) {
+                this.logger.error(
+                    `Failed to decrement ${field} for batch starting at ${i}:`,
+                    error
+                );
+            }
+        }
     }
 }
