@@ -4,14 +4,16 @@ import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Job } from 'bull';
 import { ReplyProcessor } from './reply.processor';
-import { NotificationsGateway } from 'src/notifications/gateway';
+import { NotificationsService } from 'src/notifications/notifications.service';
 import { User } from 'src/user/entities';
+import { Tweet } from 'src/tweets/entities';
+import { TweetReply } from 'src/tweets/entities/tweet-reply.entity';
 import { ReplyBackGroundNotificationJobDTO } from './reply.dto';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 
 describe('ReplyProcessor', () => {
     let processor: ReplyProcessor;
-    let notifications_gateway: jest.Mocked<NotificationsGateway>;
+    let notifications_service: jest.Mocked<NotificationsService>;
     let user_repository: jest.Mocked<Repository<User>>;
     let logger_spy: jest.SpyInstance;
     let logger_warn_spy: jest.SpyInstance;
@@ -24,13 +26,19 @@ describe('ReplyProcessor', () => {
         avatar_url: 'https://example.com/avatar.jpg',
     };
 
+    const mock_tweet = {
+        tweet_id: 'reply-tweet-123',
+        content: 'This is a reply',
+    } as any;
+
     const mock_job_data: ReplyBackGroundNotificationJobDTO = {
         reply_to: 'user-123',
         replied_by: 'user-456',
-        tweet: {} as any,
+        reply_tweet: mock_tweet,
         reply_tweet_id: 'reply-tweet-123',
         original_tweet_id: 'original-tweet-123',
         conversation_id: 'conversation-123',
+        action: 'add',
     };
 
     beforeEach(async () => {
@@ -38,9 +46,9 @@ describe('ReplyProcessor', () => {
             providers: [
                 ReplyProcessor,
                 {
-                    provide: NotificationsGateway,
+                    provide: NotificationsService,
                     useValue: {
-                        sendToUser: jest.fn(),
+                        saveNotificationAndSend: jest.fn(),
                     },
                 },
                 {
@@ -49,11 +57,23 @@ describe('ReplyProcessor', () => {
                         findOne: jest.fn(),
                     },
                 },
+                {
+                    provide: getRepositoryToken(Tweet),
+                    useValue: {
+                        findOne: jest.fn(),
+                    },
+                },
+                {
+                    provide: getRepositoryToken(TweetReply),
+                    useValue: {
+                        findOne: jest.fn(),
+                    },
+                },
             ],
         }).compile();
 
         processor = module.get<ReplyProcessor>(ReplyProcessor);
-        notifications_gateway = module.get(NotificationsGateway);
+        notifications_service = module.get(NotificationsService);
         user_repository = module.get(getRepositoryToken(User));
 
         logger_spy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
@@ -85,17 +105,21 @@ describe('ReplyProcessor', () => {
 
             expect(user_repository.findOne).toHaveBeenCalledWith({
                 where: { id: mock_job_data.replied_by },
-                select: ['id', 'username', 'email', 'name', 'avatar_url'],
+                select: ['username', 'email', 'name', 'avatar_url'],
             });
 
-            expect(notifications_gateway.sendToUser).toHaveBeenCalledWith(
-                NotificationType.REPLY,
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledWith(
                 mock_job_data.reply_to,
-                {
+                expect.objectContaining({
                     type: NotificationType.REPLY,
-                    ...mock_job_data,
-                    replier: mock_user,
-                }
+                    replied_by: mock_job_data.replied_by,
+                }),
+                expect.objectContaining({
+                    type: NotificationType.REPLY,
+                    replier: expect.objectContaining({
+                        id: mock_job_data.replied_by,
+                    }),
+                })
             );
         });
 
@@ -114,7 +138,7 @@ describe('ReplyProcessor', () => {
             expect(logger_warn_spy).toHaveBeenCalledWith(
                 `Replier with ID ${mock_job_data.replied_by} not found.`
             );
-            expect(notifications_gateway.sendToUser).not.toHaveBeenCalled();
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
 
         it('should handle errors and log them', async () => {
@@ -141,9 +165,7 @@ describe('ReplyProcessor', () => {
         it('should handle notification gateway errors', async () => {
             user_repository.findOne.mockResolvedValueOnce(mock_user as User);
             const error = new Error('Gateway error');
-            notifications_gateway.sendToUser.mockImplementation(() => {
-                throw error;
-            });
+            notifications_service.saveNotificationAndSend.mockRejectedValueOnce(error);
 
             const mock_job: Partial<Job<ReplyBackGroundNotificationJobDTO>> = {
                 id: 'job-456',
@@ -166,21 +188,30 @@ describe('ReplyProcessor', () => {
             };
             user_repository.findOne.mockResolvedValueOnce(incomplete_user as User);
 
+            const job_data_with_tweet = {
+                ...mock_job_data,
+                reply_tweet: mock_tweet,
+            };
+
             const mock_job: Partial<Job<ReplyBackGroundNotificationJobDTO>> = {
                 id: 'job-789',
-                data: mock_job_data,
+                data: job_data_with_tweet,
             };
 
             await processor.handleSendReplyNotification(
                 mock_job as Job<ReplyBackGroundNotificationJobDTO>
             );
 
-            expect(notifications_gateway.sendToUser).toHaveBeenCalledWith(
-                NotificationType.REPLY,
-                mock_job_data.reply_to,
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledWith(
+                job_data_with_tweet.reply_to,
                 expect.objectContaining({
                     type: NotificationType.REPLY,
-                    replier: incomplete_user,
+                }),
+                expect.objectContaining({
+                    type: NotificationType.REPLY,
+                    replier: expect.objectContaining({
+                        username: incomplete_user.username,
+                    }),
                 })
             );
         });

@@ -59,7 +59,7 @@ describe('WsAuthMiddleware', () => {
         const middleware = WsAuthMiddleware(jwt_service, config_service);
         middleware(mock_client, mock_next);
 
-        expect(mock_client.data.user).toEqual({ user_id: mock_user.id });
+        expect(mock_client.data.user).toEqual({ id: mock_user.id });
         expect(mock_next).toHaveBeenCalledWith();
         expect(mock_next).toHaveBeenCalledTimes(1);
     });
@@ -213,7 +213,7 @@ describe('WsAuthMiddleware', () => {
     });
 
     it('should authenticate and attach user to client on valid token', () => {
-        const mock_user = { user_id: '456', id: '456', username: 'testuser' };
+        const mock_user = { id: '456', username: 'testuser' };
         mock_client = {
             handshake: {
                 headers: {
@@ -320,7 +320,7 @@ describe('WsAuthMiddleware', () => {
 
         expect(mock_client.data).toEqual({
             otherData: 'preserved',
-            user: { user_id: mock_user.id },
+            user: { id: mock_user.id },
         });
     });
 });

@@ -60,7 +60,7 @@ export const trending_swagger = {
             name: 'category',
             required: false,
             description: 'Trending category filter',
-            enum: ['none', 'sports', 'entertainment', 'news'],
+            enum: ['Sports', 'Entertainment', 'News'],
         },
         limit: {
             name: 'limit',

@@ -33,7 +33,7 @@ export class TweetSeeder extends BaseSeeder {
 
         if (duplicates.length > 0) {
             this.logWarning(
-                `Found ${duplicates.length} duplicate tweetIds — removing duplicates: ${[...new Set(duplicates)].join(', ')}`
+                `Found ${duplicates.length} duplicate tweet_ids — removing duplicates: ${[...new Set(duplicates)].join(', ')}`
             );
         }
 

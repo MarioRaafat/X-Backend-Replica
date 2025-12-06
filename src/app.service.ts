@@ -402,7 +402,7 @@ export class AppService {
         try {
             const image_name = this.azure_storage_service.generateFileName(
                 user_identifier,
-                file.originalname
+                encodeURIComponent(file.originalname)
             );
 
             const container_name = this.config_service.get<string>(
