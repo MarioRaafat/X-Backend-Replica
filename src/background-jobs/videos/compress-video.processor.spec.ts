@@ -1,11 +1,24 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { CompressVideoProcessor } from './compress-video.processor';
 import type { Job } from 'bull';
 import { ICompressVideoJobDto } from './compress-video.dto';
-import { BlobServiceClient, BlockBlobClient, ContainerClient } from '@azure/storage-blob';
 
-jest.mock('@azure/storage-blob');
-jest.mock('fluent-ffmpeg');
+// Mock modules before importing the processor
+jest.mock('@azure/storage-blob', () => ({
+    BlobServiceClient: {
+        fromConnectionString: jest.fn(),
+    },
+}));
+
+jest.mock('fluent-ffmpeg', () => {
+    const mock_ffmpeg: any = jest.fn();
+    mock_ffmpeg.setFfmpegPath = jest.fn();
+    return mock_ffmpeg;
+});
+
+jest.mock('@ffmpeg-installer/ffmpeg', () => ({
+    path: '/mock/path/to/ffmpeg',
+}));
+
 jest.mock('fs', () => ({
     promises: {
         writeFile: jest.fn(),
@@ -13,6 +26,9 @@ jest.mock('fs', () => ({
         unlink: jest.fn(),
     },
 }));
+
+import { CompressVideoProcessor } from './compress-video.processor';
+import { BlobServiceClient } from '@azure/storage-blob';
 
 describe('CompressVideoProcessor', () => {
     let processor: CompressVideoProcessor;
