@@ -5,6 +5,8 @@ export const QUEUE_NAMES = {
     NOTIFICATION: 'notification-queue',
     ELASTICSEARCH: 'elasticsearch-queue',
     VIDEO: 'video-queue',
+
+    HASHTAG: 'hashtag-queue',
 } as const;
 
 export const JOB_NAMES = {
@@ -35,6 +37,9 @@ export const JOB_NAMES = {
     },
     VIDEO: {
         COMPRESS: 'compress-video',
+    },
+    HASHTAG: {
+        UPDATE_HASHTAG: 'update-hashtag',
     },
 } as const;
 

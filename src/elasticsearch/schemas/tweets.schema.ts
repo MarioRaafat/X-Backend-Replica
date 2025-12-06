@@ -53,6 +53,9 @@ export const tweets_index_config = {
                     },
                 },
             },
+            hashtags: {
+                type: 'keyword',
+            },
             created_at: {
                 type: 'date',
             },

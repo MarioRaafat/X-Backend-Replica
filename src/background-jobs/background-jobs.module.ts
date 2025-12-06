@@ -37,6 +37,9 @@ import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from './elasticsearch/es-follow.service';
 import { CompressVideoJobService } from './videos/compress-video.service';
 import { CompressVideoProcessor } from './videos/compress-video.processor';
+import { HashtagJobService } from './hashtag/hashtag.service';
+import { HashtagProcessor } from './hashtag/hashtag.processor';
+import { TrendModule } from 'src/trend/trend.module';
 
 @Module({
     imports: [
@@ -96,12 +99,23 @@ import { CompressVideoProcessor } from './videos/compress-video.processor';
                 },
             },
         }),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.HASHTAG,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 2000,
+                },
+            },
+        }),
         TypeOrmModule.forFeature([User]),
         TypeOrmModule.forFeature([Tweet]),
         TypeOrmModule.forFeature([TweetReply, TweetQuote]),
         CommunicationModule,
         NotificationsModule,
         ElasticsearchModule,
+        TrendModule,
     ],
     controllers: [EmailJobsController],
     providers: [
@@ -129,13 +143,21 @@ import { CompressVideoProcessor } from './videos/compress-video.processor';
         EsFollowJobService,
         CompressVideoJobService,
         CompressVideoProcessor,
+        HashtagJobService,
+        HashtagProcessor,
     ],
     exports: [
         EmailJobsService,
+
         FollowJobService,
+
         BullModule,
+
         ReplyJobService,
+
         LikeJobService,
+        HashtagJobService,
+
         RepostJobService,
         QuoteJobService,
         MentionJobService,
