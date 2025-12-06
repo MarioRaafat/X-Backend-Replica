@@ -45,7 +45,8 @@ describe('AiSummaryJobService', () => {
 
             expect(mockQueue.add).toHaveBeenCalled();
             expect(result).toBeDefined();
-            expect(result.id).toBe('1');
+            expect(result.success).toBe(true);
+            expect(result.job_id).toBe('1');
         });
 
         it('should handle queue errors gracefully', async () => {
@@ -56,7 +57,10 @@ describe('AiSummaryJobService', () => {
 
             mockQueue.add.mockRejectedValueOnce(new Error('Queue is full'));
 
-            await expect(service.queueGenerateSummary(dto)).rejects.toThrow();
+            const result = await service.queueGenerateSummary(dto);
+
+            expect(result.success).toBe(false);
+            expect(result.error).toBe('Queue is full');
         });
     });
 });

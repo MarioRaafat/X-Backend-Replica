@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -43,6 +44,19 @@ describe('TweetsService', () => {
     let tweets_repo: TweetsRepository;
     let data_source: DataSource;
     let mock_query_runner: any;
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeAll(() => {
+        originalEnv = { ...process.env };
+        process.env.AZURE_STORAGE_CONNECTION_STRING =
+            'DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net';
+        process.env.ENABLE_GROQ = 'true';
+        process.env.MODEL_NAME = 'test-model';
+    });
+
+    afterAll(() => {
+        process.env = originalEnv;
+    });
 
     beforeEach(async () => {
         const mock_repo = (): Record<string, jest.Mock> => ({
@@ -188,6 +202,26 @@ describe('TweetsService', () => {
         tweet_reply_repo = mock_tweet_reply_repo as unknown as Repository<TweetReply>;
         tweets_repo = mock_tweets_repository as unknown as TweetsRepository;
         data_source = mock_data_source as unknown as DataSource;
+
+        // Mock extractTopics to prevent real Groq API calls
+        jest.spyOn(tweets_service as any, 'extractTopics').mockResolvedValue({
+            Sports: 0,
+            Entertainment: 0,
+            News: 0,
+            Technology: 0,
+            Politics: 0,
+            Business: 0,
+            Health: 0,
+            Science: 0,
+            Education: 0,
+            Fashion: 0,
+            Food: 0,
+            Travel: 0,
+            Gaming: 0,
+            Music: 0,
+            Arts: 0,
+            Others: 100,
+        });
     });
 
     it('should be defined', () => {
@@ -843,7 +877,7 @@ describe('TweetsService', () => {
             jest.spyOn(mock_query_runner.manager, 'insert').mockResolvedValue({} as any);
             jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue({} as any);
 
-            await service.bookmarkTweet(tweet_id, user_id);
+            await tweets_service.bookmarkTweet(tweet_id, user_id);
 
             expect(mock_query_runner.manager.exists).toHaveBeenCalledWith(Tweet, {
                 where: { tweet_id },
@@ -863,7 +897,7 @@ describe('TweetsService', () => {
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(false);
 
-            await expect(service.bookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+            await expect(tweets_service.bookmarkTweet(tweet_id, user_id)).rejects.toThrow(
                 NotFoundException
             );
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
@@ -879,7 +913,7 @@ describe('TweetsService', () => {
                 code: '23505', // PostgreSQL unique constraint violation
             });
 
-            await expect(service.bookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+            await expect(tweets_service.bookmarkTweet(tweet_id, user_id)).rejects.toThrow(
                 BadRequestException
             );
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
@@ -897,7 +931,7 @@ describe('TweetsService', () => {
             } as any);
             jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue({} as any);
 
-            await service.unbookmarkTweet(tweet_id, user_id);
+            await tweets_service.unbookmarkTweet(tweet_id, user_id);
 
             expect(mock_query_runner.manager.delete).toHaveBeenCalled();
             expect(mock_query_runner.manager.decrement).toHaveBeenCalledWith(
@@ -915,7 +949,7 @@ describe('TweetsService', () => {
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(false);
 
-            await expect(service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
                 NotFoundException
             );
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
@@ -930,7 +964,7 @@ describe('TweetsService', () => {
                 affected: 0,
             } as any);
 
-            await expect(service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
                 BadRequestException
             );
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
@@ -945,7 +979,7 @@ describe('TweetsService', () => {
                 new Error('Database error')
             );
 
-            await expect(service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow();
+            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow();
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
     });
@@ -1561,9 +1595,6 @@ describe('TweetsService', () => {
             const mock_user_id = 'user-123';
             const mock_url = 'https://example.com/image.jpg';
 
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
-
             jest.spyOn(tweets_service as any, 'uploadImageToAzure').mockResolvedValue(mock_url);
 
             const result = await tweets_service.uploadImage(mock_file, mock_user_id);
@@ -1583,9 +1614,14 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
+            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             await expect(tweets_service.uploadImage(mock_file, mock_user_id)).rejects.toThrow();
+
+            if (originalConnectionString) {
+                process.env.AZURE_STORAGE_CONNECTION_STRING = originalConnectionString;
+            }
         });
 
         it('should throw error when Azure key is placeholder', async () => {
@@ -1597,9 +1633,14 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
+            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
             process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
 
             await expect(tweets_service.uploadImage(mock_file, mock_user_id)).rejects.toThrow();
+
+            if (originalConnectionString) {
+                process.env.AZURE_STORAGE_CONNECTION_STRING = originalConnectionString;
+            }
         });
 
         it('should call uploadImageToAzure with correct parameters', async () => {
@@ -1610,9 +1651,6 @@ describe('TweetsService', () => {
                 mimetype: 'image/png',
             } as Express.Multer.File;
             const mock_user_id = 'user-456';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=realkey456;EndpointSuffix=core.windows.net';
 
             const upload_spy = jest
                 .spyOn(tweets_service as any, 'uploadImageToAzure')
@@ -1635,9 +1673,6 @@ describe('TweetsService', () => {
                 mimetype: 'image/jpeg',
             } as Express.Multer.File;
             const mock_user_id = 'user-azure-123';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=validkey123;EndpointSuffix=core.windows.net';
 
             const mock_blob_url =
                 'https://testaccount.blob.core.windows.net/images/123-azure-test.jpg';
@@ -1679,9 +1714,6 @@ describe('TweetsService', () => {
             const mock_user_id = 'user-123';
             const mock_url = 'https://example.com/video.mp4';
 
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
-
             jest.spyOn(tweets_service as any, 'uploadVideoToAzure').mockResolvedValue(mock_url);
 
             const result = await tweets_service.uploadVideo(mock_file, mock_user_id);
@@ -1719,6 +1751,8 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
+            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
@@ -1732,9 +1766,6 @@ describe('TweetsService', () => {
                 mimetype: 'video/mp4',
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
-
             await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
         }, 15000);
 
@@ -1746,9 +1777,6 @@ describe('TweetsService', () => {
                 mimetype: 'video/mp4',
             } as Express.Multer.File;
             const mock_user_id = 'user-789';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=realkey789;EndpointSuffix=core.windows.net';
 
             const upload_spy = jest
                 .spyOn(tweets_service as any, 'uploadVideoToAzure')
@@ -1770,9 +1798,6 @@ describe('TweetsService', () => {
                 mimetype: 'video/mp4',
             } as Express.Multer.File;
             const mock_user_id = 'user-azure-456';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=testvideo;AccountKey=validkey456;EndpointSuffix=core.windows.net';
 
             const mock_blob_url =
                 'https://testvideo.blob.core.windows.net/videos/456-azure-video.mp4';
@@ -1837,7 +1862,13 @@ describe('TweetsService', () => {
     });
 
     describe('extractTopics', () => {
+        beforeEach(() => {
+            // Restore the real extractTopics implementation for these tests
+            jest.spyOn(tweets_service as any, 'extractTopics').mockRestore();
+        });
+
         it('should return empty topics when Groq is disabled', async () => {
+            const originalGroq = process.env.ENABLE_GROQ;
             delete process.env.ENABLE_GROQ;
 
             const result = await (tweets_service as any).extractTopics('Test content');
@@ -1846,12 +1877,13 @@ describe('TweetsService', () => {
             expect(result.Sports).toBe(0);
             expect(result.Entertainment).toBe(0);
             expect(result.News).toBe(0);
+
+            if (originalGroq) {
+                process.env.ENABLE_GROQ = originalGroq;
+            }
         });
 
         it('should handle Groq response with valid JSON', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1880,9 +1912,6 @@ describe('TweetsService', () => {
         });
 
         it('should handle Groq response with empty text', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1910,9 +1939,6 @@ describe('TweetsService', () => {
         });
 
         it('should extract JSON from text with extra content', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1940,9 +1966,6 @@ describe('TweetsService', () => {
         });
 
         it('should normalize topics when they do not sum to 100', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1974,9 +1997,6 @@ describe('TweetsService', () => {
         });
 
         it('should handle errors in Groq API', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -2003,9 +2023,6 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
             const mock_url = 'https://example.com/video.mp4';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
 
             jest.spyOn(tweets_service as any, 'uploadVideoToAzure').mockResolvedValue(mock_url);
 
@@ -2044,6 +2061,8 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
+            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
@@ -2057,9 +2076,6 @@ describe('TweetsService', () => {
                 mimetype: 'video/mp4',
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
-
             await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
         }, 15000);
 

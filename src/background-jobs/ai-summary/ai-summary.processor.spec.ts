@@ -7,6 +7,7 @@ import type { Job } from 'bull';
 describe('AiSummaryProcessor', () => {
     let processor: AiSummaryProcessor;
     let tweet_summary_repository: any;
+    let originalEnv: NodeJS.ProcessEnv;
 
     const mock_tweet_summary_repository = {
         findOne: jest.fn(),
@@ -21,8 +22,18 @@ describe('AiSummaryProcessor', () => {
         },
     } as Job<any>;
 
+    beforeAll(() => {
+        // Save original environment
+        originalEnv = { ...process.env };
+    });
+
+    afterAll(() => {
+        // Restore original environment
+        process.env = originalEnv;
+    });
+
     beforeEach(async () => {
-        // Store original env vars
+        // Set test env vars
         process.env.GROQ_API_KEY = 'test-api-key';
         process.env.ENABLE_GROQ = 'true';
         process.env.MODEL_NAME = 'llama-3.3-70b-versatile';
