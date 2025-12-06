@@ -76,7 +76,7 @@ const base_config: any = {
         TweetSummary,
     ],
 
-    migrations: ['src/databases/migrations/*{.ts,.js}'],
+    migrations: [__dirname + '/../migrations/*{.ts,.js}'],
     synchronize: false,
     uuidExtension: 'pgcrypto',
 };
