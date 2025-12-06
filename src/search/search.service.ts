@@ -6,21 +6,176 @@ import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { UserListResponseDto } from 'src/user/dto/user-list-response.dto';
 import { UserRepository } from 'src/user/user.repository';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
-import { TweetResponseDTO } from 'src/tweets/dto';
-import { SortResults } from 'node_modules/@elastic/elasticsearch/lib/api/types';
-import { map } from 'rxjs';
 import { TweetListResponseDto } from './dto/tweet-list-response.dto';
+import { Brackets, DataSource, SelectQueryBuilder } from 'typeorm';
+import { UserListItemDto } from 'src/user/dto/user-list-item.dto';
+import { plainToInstance } from 'class-transformer';
+import { User } from 'src/user/entities';
+import { SuggestionsResponseDto } from './dto/suggestions-response.dto';
+import { SuggestedUserDto } from './dto/suggested-user.dto';
+import { bool } from 'sharp';
 
 @Injectable()
 export class SearchService {
     constructor(
         private readonly elasticsearch_service: ElasticsearchService,
-        private readonly user_repository: UserRepository
+        private readonly user_repository: UserRepository,
+        private readonly data_source: DataSource
     ) {}
 
-    async getSuggestions(current_user_id: string, query_dto: BasicQueryDto) {}
+    async getSuggestions(
+        current_user_id: string,
+        query_dto: BasicQueryDto
+    ): Promise<SuggestionsResponseDto> {
+        const { query } = query_dto;
+
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+
+        if (!sanitized_query.trim()) {
+            return { suggested_queries: [], suggested_users: [] };
+        }
+
+        const prefix_query = sanitized_query
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((term) => `${term}:*`)
+            .join(' & ');
+
+        let query_builder = this.user_repository.createQueryBuilder('user');
+
+        query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
+
+        query_builder.setParameters({
+            current_user_id,
+            prefix_query,
+        });
+
+        const [users_result, queries_result] = await Promise.all([
+            query_builder
+                .orderBy('total_score', 'DESC')
+                .addOrderBy('user.id', 'ASC')
+                .limit(10)
+                .getRawMany(),
+
+            this.elasticsearch_service.search(this.buildEsSuggestionsQuery(sanitized_query)),
+        ]);
+
+        const users_list = users_result.map((user) =>
+            plainToInstance(SuggestedUserDto, user, {
+                enableImplicitConversion: true,
+                excludeExtraneousValues: true,
+            })
+        );
+
+        const suggestions = this.extractSuggestionsFromHits(queries_result.hits.hits, query, 3);
+
+        const suggested_queries = suggestions.map((query) => ({
+            query,
+            is_trending: false,
+        }));
+
+        return {
+            suggested_queries: suggested_queries,
+            suggested_users: users_list,
+        };
+    }
 
     async searchUsers(
+        current_user_id: string,
+        query_dto: SearchQueryDto
+    ): Promise<UserListResponseDto> {
+        const { query, cursor, limit = 20 } = query_dto;
+
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+
+        if (!sanitized_query.trim()) {
+            return { data: [], pagination: { next_cursor: null, has_more: false } };
+        }
+
+        const prefix_query = sanitized_query
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((term) => `${term}:*`)
+            .join(' & ');
+
+        let cursor_score: number | null = null;
+        let cursor_id: string | null = null;
+
+        if (cursor) {
+            try {
+                const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf-8'));
+                cursor_score = decoded.score;
+                cursor_id = decoded.user_id;
+            } catch (error) {
+                throw new Error('Invalid cursor');
+            }
+        }
+
+        const fetch_limit = limit + 1;
+
+        let query_builder = this.user_repository.createQueryBuilder('user');
+
+        query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
+
+        if (cursor && cursor_score !== null && cursor_id !== null) {
+            query_builder.andWhere(
+                new Brackets((qb) => {
+                    qb.where(`${this.getUserScoreExpression()} < :cursor_score`, {
+                        cursor_score,
+                    }).orWhere(
+                        new Brackets((qb2) => {
+                            qb2.where(`${this.getUserScoreExpression()} = :cursor_score`, {
+                                cursor_score,
+                            }).andWhere('"user".id > :cursor_id', { cursor_id });
+                        })
+                    );
+                })
+            );
+        }
+
+        query_builder.setParameters({
+            current_user_id,
+            prefix_query,
+        });
+
+        const results = await query_builder
+            .orderBy('total_score', 'DESC')
+            .addOrderBy('user.id', 'ASC')
+            .limit(fetch_limit)
+            .getRawMany();
+
+        const has_more = results.length > limit;
+        const users = has_more ? results.slice(0, limit) : results;
+
+        let next_cursor: string | null = null;
+        if (has_more && users.length > 0) {
+            const last_user = users[users.length - 1];
+            const cursor_data = {
+                score: last_user.total_score,
+                user_id: last_user.user_id,
+            };
+            next_cursor = Buffer.from(JSON.stringify(cursor_data)).toString('base64');
+        }
+
+        const users_list = users.map((user) =>
+            plainToInstance(UserListItemDto, user, {
+                enableImplicitConversion: true,
+                excludeExtraneousValues: true,
+            })
+        );
+
+        return {
+            data: users_list,
+            pagination: {
+                next_cursor,
+                has_more,
+            },
+        };
+    }
+
+    async elasticSearchUsers(
         current_user_id: string,
         query_dto: SearchQueryDto
     ): Promise<UserListResponseDto> {
@@ -39,41 +194,65 @@ export class SearchService {
         }
 
         try {
+            const following_rows = await this.data_source.query(
+                `SELECT followed_id
+                FROM user_follows
+                WHERE follower_id = $1`,
+                [current_user_id]
+            );
+
+            const following_ids = following_rows.map((row) => row.followed_id);
+
             const search_body: any = {
                 query: {
-                    bool: {
-                        must: [],
-                        filter: [],
+                    function_score: {
+                        query: {
+                            bool: {
+                                must: [
+                                    {
+                                        multi_match: {
+                                            query: query.trim(),
+                                            fields: ['username^3', 'name^2', 'bio'],
+                                            type: 'best_fields',
+                                            fuzziness: 'AUTO',
+                                            prefix_length: 1,
+                                            operator: 'or',
+                                        },
+                                    },
+                                ],
+                                filter: [],
+                            },
+                        },
+                        functions: [
+                            {
+                                filter: {
+                                    terms: {
+                                        user_id: following_ids,
+                                    },
+                                },
+                                weight: 1000000,
+                            },
+                            {
+                                field_value_factor: {
+                                    field: 'followers',
+                                    factor: 1,
+                                    modifier: 'log1p',
+                                    missing: 0,
+                                },
+                                weight: 100,
+                            },
+                        ],
+                        score_mode: 'sum',
+                        boost_mode: 'sum',
                     },
                 },
                 size: limit + 1,
-                sort: [
-                    { _score: { order: 'desc' } },
-                    { followers: { order: 'desc' } },
-                    { user_id: { order: 'desc' } },
-                ],
+                sort: [{ _score: { order: 'desc' } }, { user_id: { order: 'asc' } }],
             };
 
             if (cursor) {
                 search_body.search_after = this.decodeCursor(cursor);
             }
-
-            search_body.query.bool.must.push({
-                multi_match: {
-                    query: query.trim(),
-                    fields: [
-                        'username^3',
-                        'username.autocomplete^2',
-                        'name^2',
-                        'name.autocomplete',
-                        'bio',
-                    ],
-                    type: 'best_fields',
-                    fuzziness: 'AUTO',
-                    prefix_length: 1,
-                    operator: 'or',
-                },
-            });
 
             const result = await this.elasticsearch_service.search({
                 index: 'users',
@@ -127,9 +306,12 @@ export class SearchService {
         current_user_id: string,
         query_dto: PostsSearchDto
     ): Promise<TweetListResponseDto> {
-        const { query, cursor, limit = 20, has_media } = query_dto;
+        const { query, cursor, limit = 20, has_media, username } = query_dto;
 
-        if (!query || query.trim().length === 0) {
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+
+        if (!sanitized_query || sanitized_query.trim().length === 0) {
             return {
                 data: [],
                 pagination: {
@@ -145,6 +327,7 @@ export class SearchService {
                     bool: {
                         must: [],
                         should: [],
+                        minimum_should_match: 1,
                     },
                 },
                 size: limit + 1,
@@ -159,16 +342,20 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
-            search_body.query.bool.must.push({
-                multi_match: {
-                    query: query.trim(),
-                    fields: ['content^3', 'username^2', 'name'],
-                    type: 'best_fields',
-                    fuzziness: 'AUTO',
-                    prefix_length: 1,
-                    operator: 'or',
-                },
-            });
+            const is_hashtag = sanitized_query.trim().startsWith('#');
+
+            if (is_hashtag) {
+                search_body.query.bool.must.push({
+                    term: {
+                        hashtags: {
+                            value: sanitized_query.trim().toLowerCase(),
+                            boost: 10,
+                        },
+                    },
+                });
+            } else {
+                this.buildTweetsSearchQuery(search_body, sanitized_query);
+            }
 
             this.applyTweetsBoosting(search_body);
 
@@ -179,6 +366,15 @@ export class SearchService {
                         script: {
                             source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
                         },
+                    },
+                });
+            }
+
+            if (username) {
+                search_body.query.bool.filter = search_body.query.bool.filter || [];
+                search_body.query.bool.filter.push({
+                    term: {
+                        username,
                     },
                 });
             }
@@ -225,9 +421,12 @@ export class SearchService {
         current_user_id: string,
         query_dto: SearchQueryDto
     ): Promise<TweetListResponseDto> {
-        const { query, cursor, limit = 20 } = query_dto;
+        const { query, cursor, limit = 20, username } = query_dto;
 
-        if (!query || query.trim().length === 0) {
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+
+        if (!sanitized_query || sanitized_query.trim().length === 0) {
             return {
                 data: [],
                 pagination: {
@@ -257,18 +456,31 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
-            search_body.query.bool.must.push({
-                multi_match: {
-                    query: query.trim(),
-                    fields: ['content^3', 'username^2', 'name'],
-                    type: 'best_fields',
-                    fuzziness: 'AUTO',
-                    prefix_length: 1,
-                    operator: 'or',
-                },
-            });
+            const is_hashtag = sanitized_query.trim().startsWith('#');
+
+            if (is_hashtag) {
+                search_body.query.bool.must.push({
+                    term: {
+                        hashtags: {
+                            value: sanitized_query.trim().toLowerCase(),
+                            boost: 10,
+                        },
+                    },
+                });
+            } else {
+                this.buildTweetsSearchQuery(search_body, sanitized_query);
+            }
 
             this.applyTweetsBoosting(search_body);
+
+            if (username) {
+                search_body.query.bool.filter = search_body.query.bool.filter || [];
+                search_body.query.bool.filter.push({
+                    term: {
+                        username,
+                    },
+                });
+            }
 
             const result = await this.elasticsearch_service.search({
                 index: ELASTICSEARCH_INDICES.TWEETS,
@@ -402,6 +614,46 @@ export class SearchService {
         }
     }
 
+    private buildTweetsSearchQuery(search_body: any, sanitized_query: string): void {
+        search_body.query.bool.should.push(
+            {
+                multi_match: {
+                    query: sanitized_query.trim(),
+                    fields: ['content^3', 'username^2', 'name'],
+                    type: 'best_fields',
+                    fuzziness: 'AUTO',
+                    prefix_length: 1,
+                    operator: 'or',
+                    boost: 10,
+                },
+            },
+            {
+                match: {
+                    'content.autocomplete': {
+                        query: sanitized_query.trim(),
+                        boost: 5,
+                    },
+                },
+            },
+            {
+                prefix: {
+                    username: {
+                        value: sanitized_query.trim().toLowerCase(),
+                        boost: 3,
+                    },
+                },
+            },
+            {
+                match_phrase_prefix: {
+                    name: {
+                        query: sanitized_query.trim(),
+                        boost: 2,
+                    },
+                },
+            }
+        );
+    }
+
     private applyTweetsBoosting(search_body: any): void {
         const boosting_factors = [
             { field: 'num_likes', factor: 0.01 },
@@ -491,5 +743,181 @@ export class SearchService {
         }
 
         return { parent_map, conversation_map };
+    }
+
+    private attachUserSearchQuery(
+        query_builder: SelectQueryBuilder<User>,
+        prefix_query: string
+    ): SelectQueryBuilder<User> {
+        query_builder
+            .select([
+                '"user".id AS user_id',
+                '"user".name AS name',
+                '"user".username AS username',
+                '"user".bio AS bio',
+                '"user".avatar_url AS avatar_url',
+                '"user".cover_url AS cover_url',
+                '"user".verified AS verified',
+                '"user".followers AS followers',
+                '"user".following AS following',
+            ])
+            .leftJoin(
+                (qb) => {
+                    return qb
+                        .select('followed_id', 'followed_id')
+                        .addSelect('1000000', 'boost')
+                        .from('user_follows', 'uf')
+                        .where('uf.follower_id = :current_user_id');
+                },
+                'uf_following',
+                '"uf_following".followed_id = "user".id'
+            )
+            .leftJoin(
+                (qb) => {
+                    return qb
+                        .select('follower_id', 'follower_id')
+                        .addSelect('TRUE', 'is_follower')
+                        .from('user_follows', 'uf')
+                        .where('uf.followed_id = :current_user_id');
+                },
+                'uf_follower',
+                '"uf_follower".follower_id = "user".id'
+            )
+            .addSelect(
+                'CASE WHEN uf_following.followed_id IS NOT NULL THEN TRUE ELSE FALSE END',
+                'is_following'
+            )
+            .addSelect(
+                'CASE WHEN uf_follower.follower_id IS NOT NULL THEN TRUE ELSE FALSE END',
+                'is_follower'
+            )
+            .addSelect(this.getUserScoreExpression(), 'total_score')
+            .where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, { prefix_query });
+
+        return query_builder;
+    }
+
+    private getUserScoreExpression(): string {
+        return `
+            (COALESCE(uf_following.boost, 0))
+            +
+            (ts_rank("user".search_vector, to_tsquery('simple', :prefix_query)) * 1000)
+            +
+            (LOG(GREATEST("user".followers, 1) + 1) * 100)
+        `;
+    }
+
+    private buildEsSuggestionsQuery(sanitized_query: string) {
+        const is_hashtag = sanitized_query.startsWith('#');
+
+        return {
+            index: 'tweets',
+            size: 20,
+            _source: ['content'],
+            query: {
+                bool: {
+                    should: [
+                        ...(!is_hashtag
+                            ? [
+                                  {
+                                      prefix: {
+                                          hashtags: {
+                                              value: `#${sanitized_query.toLowerCase()}`,
+                                              boost: 3,
+                                          },
+                                      },
+                                  },
+                              ]
+                            : []),
+                        {
+                            match_phrase_prefix: {
+                                content: {
+                                    query: sanitized_query,
+                                    slop: 0,
+                                    boost: 2,
+                                },
+                            },
+                        },
+                    ],
+                    minimum_should_match: 1,
+                },
+            },
+            highlight: {
+                fields: {
+                    content: {
+                        type: 'plain',
+                        fragment_size: 150,
+                        number_of_fragments: 1,
+                        pre_tags: ['<MARK>'],
+                        post_tags: ['</MARK>'],
+                    },
+                },
+            },
+        };
+    }
+
+    private extractSuggestionsFromHits(hits: any[], query: string, max_suggestions = 3): string[] {
+        const suggestions = new Set<string>();
+        const query_lower = query.toLowerCase().trim();
+        const is_hashtag_query = query_lower.startsWith('#');
+
+        hits.forEach((hit) => {
+            let text = hit.highlight?.content?.[0] || hit._source?.content;
+            if (!text) return;
+
+            const text_with_marks = text;
+            text = text.replace(/<\/?MARK>/g, '');
+
+            const lower_text = text.toLowerCase();
+
+            const mark_index = text_with_marks.indexOf('<MARK>');
+            let query_index: number;
+            let is_hashtag = is_hashtag_query;
+
+            if (mark_index !== -1) {
+                const before_mark = text_with_marks.substring(0, mark_index);
+                const has_hash_before_mark = before_mark.endsWith('#');
+
+                if (has_hash_before_mark && !is_hashtag_query) {
+                    is_hashtag = true;
+                    const actual_position = before_mark.replace(/<\/?MARK>/g, '').length;
+                    query_index = actual_position - 1;
+                } else {
+                    query_index = lower_text.indexOf(query_lower);
+                }
+            } else {
+                query_index = lower_text.indexOf(query_lower);
+            }
+
+            if (query_index === -1) return;
+
+            const from_query = text.substring(query_index);
+
+            let completion: string;
+            if (is_hashtag) {
+                const hashtag_match = from_query.match(/^#\w+/);
+                if (!hashtag_match) return;
+                completion = hashtag_match[0];
+            } else {
+                const sentence_end_match = from_query.match(/[.!?\n]/);
+                const end_index = sentence_end_match
+                    ? sentence_end_match.index
+                    : Math.min(from_query.length, 100);
+                completion = from_query.substring(0, end_index).trim();
+
+                completion = completion.replace(/[,;:]+$/, '').trim();
+
+                if (completion.length < query.length + 3) return;
+                if (completion.length > 100) return;
+                if (!completion.toLowerCase().startsWith(query_lower)) return;
+                const middle_content = completion.substring(0, completion.length - 1);
+                if (/[.!?]/.test(middle_content)) return;
+            }
+            suggestions.add(completion);
+        });
+
+        return Array.from(suggestions)
+            .sort((a, b) => a.length - b.length)
+            .slice(0, max_suggestions);
     }
 }

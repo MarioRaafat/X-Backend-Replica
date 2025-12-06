@@ -24,6 +24,7 @@ import { AiSummaryJobService } from 'src/background-jobs/ai-summary/ai-summary.s
 import { RepostJobService } from 'src/background-jobs/notifications/repost/repost.service';
 import { QuoteJobService } from 'src/background-jobs/notifications/quote/quote.service';
 import { MentionJobService } from 'src/background-jobs/notifications/mention/mention.service';
+import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 import { BlobServiceClient } from '@azure/storage-blob';
 
 jest.mock('@azure/storage-blob');
@@ -142,6 +143,12 @@ describe('TweetsService', () => {
             queueMentionNotification: jest.fn(),
         };
 
+        const mock_hashtag_job_service = {
+            addHashtagJob: jest.fn(),
+            queueHashtagUpdate: jest.fn(),
+            queueHashtag: jest.fn(),
+        };
+
         mock_query_runner = {
             connect: jest.fn(),
             startTransaction: jest.fn(),
@@ -185,6 +192,7 @@ describe('TweetsService', () => {
                 { provide: AzureStorageService, useValue: mock_azure_storage_service },
                 { provide: ReplyJobService, useValue: mock_reply_job_service },
                 { provide: LikeJobService, useValue: mock_like_job_service },
+                { provide: HashtagJobService, useValue: mock_hashtag_job_service },
                 { provide: EsIndexTweetJobService, useValue: mock_es_index_tweet_service },
                 { provide: EsDeleteTweetJobService, useValue: mock_es_delete_tweet_service },
                 { provide: AiSummaryJobService, useValue: mock_ai_summary_job_service },
@@ -1871,7 +1879,9 @@ describe('TweetsService', () => {
             const originalGroq = process.env.ENABLE_GROQ;
             delete process.env.ENABLE_GROQ;
 
-            const result = await (tweets_service as any).extractTopics('Test content');
+            const result = await (tweets_service as any).extractTopics('Test content', [
+                'testHashtag',
+            ]);
 
             expect(result).toBeDefined();
             expect(result.Sports).toBe(0);
@@ -1892,7 +1902,7 @@ describe('TweetsService', () => {
                                 {
                                     message: {
                                         content:
-                                            '{ "Sports": 50, "Entertainment": 30, "News": 20 }',
+                                            '{ "text": { "Sports": 50, "Entertainment": 30, "News": 20 } }',
                                     },
                                 },
                             ],
@@ -1903,12 +1913,13 @@ describe('TweetsService', () => {
 
             (tweets_service as any).groq = mock_groq;
 
-            const result = await (tweets_service as any).extractTopics('Sports news today');
+            const result = await (tweets_service as any).extractTopics('Sports news today', []);
 
             expect(result).toBeDefined();
-            expect(result.Sports).toBe(50);
-            expect(result.Entertainment).toBe(30);
-            expect(result.News).toBe(20);
+            expect(result.tweet).toBeDefined();
+            expect(result.tweet.Sports).toBe(50);
+            expect(result.tweet.Entertainment).toBe(30);
+            expect(result.tweet.News).toBe(20);
         });
 
         it('should handle Groq response with empty text', async () => {
@@ -1930,12 +1941,13 @@ describe('TweetsService', () => {
 
             (tweets_service as any).groq = mock_groq;
 
-            const result = await (tweets_service as any).extractTopics('Test content');
+            const result = await (tweets_service as any).extractTopics('Test content', []);
 
             expect(result).toBeDefined();
-            expect(result.Sports).toBe(0);
-            expect(result.Entertainment).toBe(0);
-            expect(result.News).toBe(0);
+            expect(result.tweet).toBeDefined();
+            expect(result.tweet.Sports).toBe(0);
+            expect(result.tweet.Entertainment).toBe(0);
+            expect(result.tweet.News).toBe(0);
         });
 
         it('should extract JSON from text with extra content', async () => {
@@ -1947,7 +1959,7 @@ describe('TweetsService', () => {
                                 {
                                     message: {
                                         content:
-                                            'Here is the result: { "Sports": 60, "Entertainment": 40 }',
+                                            'Here is the result: { "text": { "Sports": 60, "Entertainment": 40 } }',
                                     },
                                 },
                             ],
@@ -1958,11 +1970,12 @@ describe('TweetsService', () => {
 
             (tweets_service as any).groq = mock_groq;
 
-            const result = await (tweets_service as any).extractTopics('Test content');
+            const result = await (tweets_service as any).extractTopics('Test content', []);
 
             expect(result).toBeDefined();
-            expect(result.Sports).toBe(60);
-            expect(result.Entertainment).toBe(40);
+            expect(result.tweet).toBeDefined();
+            expect(result.tweet.Sports).toBe(60);
+            expect(result.tweet.Entertainment).toBe(40);
         });
 
         it('should normalize topics when they do not sum to 100', async () => {
@@ -1974,7 +1987,7 @@ describe('TweetsService', () => {
                                 {
                                     message: {
                                         content:
-                                            '{ "Sports": 60, "Entertainment": 30, "News": 20 }',
+                                            '{ "text": { "Sports": 60, "Entertainment": 30, "News": 20 } }',
                                     },
                                 },
                             ],
@@ -1985,10 +1998,11 @@ describe('TweetsService', () => {
 
             (tweets_service as any).groq = mock_groq;
 
-            const result = await (tweets_service as any).extractTopics('Test content');
+            const result = await (tweets_service as any).extractTopics('Test content', []);
 
             expect(result).toBeDefined();
-            const total = Object.values(result).reduce(
+            expect(result.tweet).toBeDefined();
+            const total = Object.values(result.tweet).reduce(
                 (sum: number, val: unknown) => sum + (val as number),
                 0
             ) as number;
@@ -2007,7 +2021,7 @@ describe('TweetsService', () => {
 
             (tweets_service as any).groq = mock_groq;
 
-            await expect((tweets_service as any).extractTopics('Test content')).rejects.toThrow(
+            await expect((tweets_service as any).extractTopics('Test content', [])).rejects.toThrow(
                 'API Error'
             );
         });

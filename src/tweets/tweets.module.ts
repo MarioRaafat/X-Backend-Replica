@@ -14,6 +14,8 @@ import { TweetCategory } from './entities/tweet-category.entity';
 import { TweetSummary } from './entities/tweet-summary.entity';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
+import { TrendService } from 'src/trend/trend.service';
+import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 
 @Module({
     imports: [
@@ -33,7 +35,13 @@ import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.s
         BackgroundJobsModule,
     ],
     controllers: [TweetsController],
-    providers: [TweetsService, TweetsRepository, PaginationService, AzureStorageService],
+    providers: [
+        TweetsService,
+        TweetsRepository,
+        PaginationService,
+        AzureStorageService,
+        HashtagJobService,
+    ],
     exports: [TweetsService, TweetsRepository],
 })
 export class TweetsModule {}
