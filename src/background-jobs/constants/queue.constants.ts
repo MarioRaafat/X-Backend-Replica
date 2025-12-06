@@ -4,6 +4,8 @@ export const QUEUE_NAMES = {
     FEED: 'feed-queue',
     NOTIFICATION: 'notification-queue',
     ELASTICSEARCH: 'elasticsearch-queue',
+
+    HASHTAG: 'hashtag-queue',
 } as const;
 
 export const JOB_NAMES = {
@@ -31,6 +33,9 @@ export const JOB_NAMES = {
         UPDATE_USER: 'update-user',
         DELETE_USER: 'delete-user',
         FOLLOW: 'follow',
+    },
+    HASHTAG: {
+        UPDATE_HASHTAG: 'update-hashtag',
     },
 } as const;
 
