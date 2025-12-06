@@ -72,22 +72,22 @@ describe('TrendService', () => {
     describe('getTrending', () => {
         it('should return trending hashtags for global category', async () => {
             const mock_trending_data = [
-                '#javascript',
+                'javascript',
                 '100.5',
-                '#typescript',
+                'typescript',
                 '95.3',
-                '#nestjs',
+                'nestjs',
                 '89.2',
             ];
             const mock_hashtags = [
-                { name: '#javascript', usage_count: 1500 },
-                { name: '#typescript', usage_count: 1200 },
-                { name: '#nestjs', usage_count: 980 },
+                { name: 'javascript', usage_count: 1500 },
+                { name: 'typescript', usage_count: 1200 },
+                { name: 'nestjs', usage_count: 980 },
             ];
             const mock_categories = {
-                '#javascript': 'News',
-                '#typescript': 'Entertainment',
-                '#nestjs': 'Only on Yapper',
+                javascript: 'News',
+                typescript: 'Entertainment',
+                nestjs: 'Only on Yapper',
             };
 
             jest.spyOn(redis_service, 'zrevrange').mockResolvedValue(mock_trending_data as any);
@@ -110,9 +110,11 @@ describe('TrendService', () => {
             });
             expect(result).toHaveProperty('data');
             expect(result.data).toHaveLength(3);
-            expect(result.data[0]).toHaveProperty('hashtag', '#javascript');
-            expect(result.data[0]).toHaveProperty('rank', 1);
+            expect(result.data[0]).toHaveProperty('text', '#javascript');
+            expect(result.data[0]).toHaveProperty('trend_rank', 1);
             expect(result.data[0]).toHaveProperty('posts_count', 1500);
+            expect(result.data[0]).toHaveProperty('category', 'News');
+            expect(result.data[0]).toHaveProperty('reference_id');
         });
 
         it('should return trending hashtags for specific category', async () => {
