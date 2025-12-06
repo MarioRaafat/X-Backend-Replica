@@ -14,6 +14,7 @@ import { User } from 'src/user/entities';
 import { SuggestionsResponseDto } from './dto/suggestions-response.dto';
 import { SuggestedUserDto } from './dto/suggested-user.dto';
 import { bool } from 'sharp';
+import { TweetResponseDTO } from 'src/tweets/dto';
 
 @Injectable()
 export class SearchService {
@@ -398,8 +399,13 @@ export class SearchService {
 
             const mapped_tweets = await this.attachRelatedTweets(items);
 
+            const tweets_with_interactions = await this.attachUserInteractions(
+                mapped_tweets,
+                current_user_id
+            );
+
             return {
-                data: mapped_tweets,
+                data: tweets_with_interactions,
                 pagination: {
                     next_cursor,
                     has_more,
@@ -501,8 +507,13 @@ export class SearchService {
 
             const mapped_tweets = await this.attachRelatedTweets(items);
 
+            const tweets_with_interactions = await this.attachUserInteractions(
+                mapped_tweets,
+                current_user_id
+            );
+
             return {
-                data: mapped_tweets,
+                data: tweets_with_interactions,
                 pagination: {
                     next_cursor,
                     has_more,
@@ -520,7 +531,7 @@ export class SearchService {
         }
     }
 
-    private mapTweet(hit: any, parent_source?: any, conversation_source?: any) {
+    private mapTweet(hit: any, parent_source?: any, conversation_source?: any): TweetResponseDTO {
         const s = hit._source;
 
         const tweet = {
@@ -678,7 +689,7 @@ export class SearchService {
         search_body.query.bool.should.push(...boost_queries);
     }
 
-    private async attachRelatedTweets(items: any[]): Promise<any[]> {
+    private async attachRelatedTweets(items: any[]): Promise<TweetResponseDTO[]> {
         const tweets = items.map((hit) => hit._source);
 
         const { parent_map, conversation_map } = await this.fetchRelatedTweets(tweets);
@@ -743,6 +754,99 @@ export class SearchService {
         }
 
         return { parent_map, conversation_map };
+    }
+
+    private async attachUserInteractions(
+        tweets: TweetResponseDTO[],
+        current_user_id: string
+    ): Promise<TweetResponseDTO[]> {
+        if (!tweets.length) {
+            return tweets;
+        }
+
+        const tweet_values = tweets
+            .map((_, idx) => `($${idx * 2 + 1}::uuid, $${idx * 2 + 2}::uuid)`)
+            .join(', ');
+
+        const tweet_params_count = tweets.length * 2;
+        const liked_param = `$${tweet_params_count + 1}`;
+        const reposted_param = `$${tweet_params_count + 2}`;
+        const following_param = `$${tweet_params_count + 3}`;
+        const follower_param = `$${tweet_params_count + 4}`;
+
+        const query = `
+        SELECT 
+            t.tweet_id,
+            t.user_id,
+            (EXISTS(
+                SELECT 1 FROM tweet_likes 
+                WHERE tweet_id = t.tweet_id 
+                AND user_id = ${liked_param}::uuid
+            ))::int as is_liked,
+            (EXISTS(
+                SELECT 1 FROM tweet_reposts 
+                WHERE tweet_id = t.tweet_id 
+                AND user_id = ${reposted_param}::uuid
+            ))::int as is_reposted,
+            (EXISTS(
+                SELECT 1 FROM user_follows 
+                WHERE followed_id = t.user_id 
+                AND follower_id = ${following_param}::uuid
+            ))::int as is_following,
+            (EXISTS(
+                SELECT 1 FROM user_follows 
+                WHERE follower_id = t.user_id 
+                AND followed_id = ${follower_param}::uuid
+            ))::int as is_follower
+        FROM (VALUES ${tweet_values}) AS t(tweet_id, user_id)
+        `;
+
+        const tweet_params = tweets.flatMap((t) => [t.tweet_id, t.user?.id]);
+        const params = [
+            ...tweet_params,
+            current_user_id,
+            current_user_id,
+            current_user_id,
+            current_user_id,
+        ];
+
+        interface IInteractionResult {
+            tweet_id: string;
+            user_id: string;
+            is_liked: number;
+            is_reposted: number;
+            is_following: number;
+            is_follower: number;
+        }
+
+        const interactions: IInteractionResult[] = await this.data_source.query(query, params);
+
+        const interactions_map = new Map(
+            interactions.map((i: any) => [
+                i.tweet_id,
+                {
+                    is_liked: Boolean(i.is_liked),
+                    is_reposted: Boolean(i.is_reposted),
+                    is_following: Boolean(i.is_following),
+                    is_follower: Boolean(i.is_follower),
+                },
+            ])
+        );
+
+        return tweets.map((tweet) => {
+            const interaction = interactions_map.get(tweet.tweet_id);
+
+            return {
+                ...tweet,
+                is_liked: interaction?.is_liked ?? false,
+                is_reposted: interaction?.is_reposted ?? false,
+                user: {
+                    ...tweet.user,
+                    is_following: interaction?.is_following ?? false,
+                    is_follower: interaction?.is_follower ?? false,
+                },
+            };
+        });
     }
 
     private attachUserSearchQuery(
