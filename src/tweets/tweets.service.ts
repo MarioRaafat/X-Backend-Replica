@@ -94,7 +94,7 @@ export class TweetsService {
         private readonly like_job_service: LikeJobService,
         private readonly es_index_tweet_service: EsIndexTweetJobService,
         private readonly es_delete_tweet_service: EsDeleteTweetJobService,
-        private readonly ai_summary_job_service: AiSummaryJobService
+        private readonly ai_summary_job_service: AiSummaryJobService,
         private readonly repost_job_service: RepostJobService,
         private readonly quote_job_service: QuoteJobService,
         private readonly mention_job_service: MentionJobService
