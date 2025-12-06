@@ -21,7 +21,8 @@ import {
     PaginatedTweetRepostsResponseDTO,
     UpdateTweetDTO,
 } from './dto';
-import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { PostgresErrorCodes } from '../shared/enums/postgres-error-codes';
 import { Tweet } from './entities/tweet.entity';
@@ -47,6 +48,7 @@ import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 import { categorize_prompt, TOPICS } from './constants';
+import { CompressVideoJobService } from 'src/background-jobs/videos/compress-video.service';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
 import { RepostJobService } from 'src/background-jobs/notifications/repost/repost.service';
@@ -91,7 +93,8 @@ export class TweetsService {
         private readonly es_delete_tweet_service: EsDeleteTweetJobService,
         private readonly repost_job_service: RepostJobService,
         private readonly quote_job_service: QuoteJobService,
-        private readonly mention_job_service: MentionJobService
+        private readonly mention_job_service: MentionJobService,
+        private readonly compress_video_job_service: CompressVideoJobService
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
@@ -104,7 +107,7 @@ export class TweetsService {
     /**
      * Handles image upload processing
      * @param file - The uploaded image file (in memory, not saved to disk)
-     * @param _user_id - The authenticated user's ID
+     * @param user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
     async uploadImage(file: Express.Multer.File, user_id: string) {
@@ -152,17 +155,27 @@ export class TweetsService {
     /**
      * Handles video upload processing
      * @param file - The uploaded video file (in memory, not saved to disk)
-     * @param _user_id - The authenticated user's ID
+     * @param user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
-    async uploadVideo(
-        file: Express.Multer.File,
-        _user_id: string
-    ): Promise<UploadMediaResponseDTO> {
+    async uploadVideo(file: Express.Multer.File): Promise<UploadMediaResponseDTO> {
         try {
             const video_name = `${Date.now()}-${file.originalname}`;
+            const final_name = video_name.replace(/\.[^/.]+$/, '') + '.mp4';
 
-            const video_url = await this.uploadVideoToAzure(file.buffer, video_name);
+            // Upload original video immediately (without compression)
+            const video_url = await this.uploadOriginalVideoToAzure(file.buffer, video_name);
+
+            // Queue compression job to run in background (non-blocking)
+            this.compress_video_job_service
+                .queueCompressVideo({
+                    video_url,
+                    video_name: final_name,
+                    container_name: this.TWEET_VIDEOS_CONTAINER,
+                })
+                .catch((error) => {
+                    console.error(`Failed to queue compression job for ${final_name}:`, error);
+                });
 
             return {
                 url: video_url,
@@ -176,43 +189,16 @@ export class TweetsService {
         }
     }
 
-    private convertToCompressedMp4(video_buffer: Buffer): Promise<Buffer> {
-        return new Promise((resolve, reject) => {
-            const inputStream = new Readable();
-            inputStream.push(video_buffer);
-            inputStream.push(null);
-
-            const outputChunks: Buffer[] = [];
-
-            ffmpeg(inputStream)
-                .outputOptions([
-                    '-vcodec libx264',
-                    '-crf 28',
-                    '-preset veryfast',
-                    '-acodec aac',
-                    '-movflags +frag_keyframe+empty_moov+faststart',
-                ])
-                .toFormat('mp4')
-                .on('error', (error) => {
-                    console.error('FFmpeg error:', error);
-                    reject(error);
-                })
-                .on('end', () => {
-                    console.log('FFmpeg conversion completed');
-                    resolve(Buffer.concat(outputChunks));
-                })
-                .pipe()
-                .on('data', (chunk: Buffer) => {
-                    outputChunks.push(chunk);
-                })
-                .on('error', (error) => {
-                    console.error('Stream error:', error);
-                    reject(error);
-                });
-        });
-    }
-
-    private async uploadVideoToAzure(video_buffer: Buffer, video_name: string): Promise<string> {
+    /**
+     * Uploads original video to Azure Blob Storage without compression
+     * @param video_buffer - Raw video buffer
+     * @param video_name - Original filename
+     * @returns Azure Blob URL
+     */
+    private async uploadOriginalVideoToAzure(
+        video_buffer: Buffer,
+        video_name: string
+    ): Promise<string> {
         try {
             const container_name = this.TWEET_VIDEOS_CONTAINER;
             const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
@@ -225,13 +211,13 @@ export class TweetsService {
             const container_client = blob_service_client.getContainerClient(container_name);
             await container_client.createIfNotExists({ access: 'blob' });
 
-            const compressed = await this.convertToCompressedMp4(video_buffer);
-
+            // Convert to .mp4 extension for consistency
             const final_name = video_name.replace(/\.[^/.]+$/, '') + '.mp4';
 
             const block_blob_client = container_client.getBlockBlobClient(final_name);
 
-            await block_blob_client.upload(compressed, compressed.length, {
+            // Upload original video without compression
+            await block_blob_client.upload(video_buffer, video_buffer.length, {
                 blobHTTPHeaders: {
                     blobContentType: 'video/mp4',
                 },

@@ -483,12 +483,12 @@ export class TweetsController {
     @UseInterceptors(VideoUploadInterceptor)
     @UseGuards(JwtAuthGuard)
     @Post('upload/video')
-    async uploadVideo(@UploadedFile() file: Express.Multer.File, @GetUserId() user_id: string) {
+    async uploadVideo(@UploadedFile() file: Express.Multer.File) {
         if (!file) {
             throw new BadRequestException(ERROR_MESSAGES.NO_FILE_PROVIDED);
         }
 
-        return this.tweets_service.uploadVideo(file, user_id);
+        return this.tweets_service.uploadVideo(file);
     }
 
     @HttpCode(HttpStatus.OK)

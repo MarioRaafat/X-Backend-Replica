@@ -35,6 +35,8 @@ import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
 import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from './elasticsearch/es-follow.service';
+import { CompressVideoJobService } from './videos/compress-video.service';
+import { CompressVideoProcessor } from './videos/compress-video.processor';
 
 @Module({
     imports: [
@@ -84,6 +86,16 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
                 },
             },
         }),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.VIDEO,
+            defaultJobOptions: {
+                attempts: 2,
+                backoff: {
+                    type: 'exponential',
+                    delay: 5000,
+                },
+            },
+        }),
         TypeOrmModule.forFeature([User]),
         TypeOrmModule.forFeature([Tweet]),
         TypeOrmModule.forFeature([TweetReply, TweetQuote]),
@@ -115,6 +127,8 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        CompressVideoJobService,
+        CompressVideoProcessor,
     ],
     exports: [
         EmailJobsService,
@@ -131,6 +145,7 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        CompressVideoJobService,
     ],
 })
 export class BackgroundJobsModule {}
