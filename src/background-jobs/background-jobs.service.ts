@@ -10,34 +10,8 @@ export class BackgroundJobsService {
 
     constructor(
         @InjectQueue(QUEUE_NAMES.EMAIL) private email_queue: Queue,
-        @InjectQueue(QUEUE_NAMES.TRENDING) private trending_queue: Queue
+        @InjectQueue(QUEUE_NAMES.EXPLORE) private explore_queue: Queue
     ) {}
-
-    async triggerTrendingScoreRecalculation(
-        since_hours?: number,
-        max_age_hours?: number,
-        force_all: boolean = false
-    ) {
-        try {
-        await this.trending_queue.add(
-            JOB_NAMES.TRENDING.RECALCULATE_SCORES,
-            {
-                since_hours,
-                max_age_hours,
-                force_all,
-            },
-            {
-                attempts: 3,
-                removeOnComplete: true,
-            }
-        );
-        this.logger.log('Triggered trending score recalculation job');
-    }catch (error) {
-        this.logger.error('Failed to trigger trending score recalculation job:', error);
-
-        }
-    }   
-
 
     async queueOtpEmail(
         otp_data: OtpEmailJobDto,

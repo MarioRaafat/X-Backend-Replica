@@ -1,10 +1,13 @@
 import { Injectable, Logger } from '@nestjs/common';
+import { InjectQueue } from '@nestjs/bull';
+import type { Queue } from 'bull';
+import { JOB_DELAYS, JOB_NAMES, JOB_PRIORITIES, QUEUE_NAMES } from '../constants/queue.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { TweetCategory } from '../../tweets/entities/tweet-category.entity';
 import { RedisService } from '../../redis/redis.service';
-import { TRENDING_CONFIG } from '../constants/queue.constants';
+import { EXPLORE_CONFIG } from '../constants/queue.constants';
 
 interface TweetScoreData {
     tweet_id: string;
@@ -17,26 +20,47 @@ interface TweetScoreData {
 }
 
 @Injectable()
-export class TrendingScoreService {
-    private readonly logger = new Logger(TrendingScoreService.name);
-
+export class ExploreJobsService {
+    private readonly logger = new Logger(ExploreJobsService.name);
     constructor(
-        @InjectRepository(Tweet)
-        private readonly tweet_repository: Repository<Tweet>,
-        @InjectRepository(TweetCategory)
-        private readonly tweet_category_repository: Repository<TweetCategory>,
-        private readonly redis_service: RedisService
+        @InjectQueue(QUEUE_NAMES.EXPLORE) private explore_queue: Queue,
+        @InjectRepository(Tweet) private tweet_repository: Repository<Tweet>,
+        private redis_service: RedisService
     ) {}
+
+    async triggerExploreScoreRecalculation(
+        since_hours?: number,
+        max_age_hours?: number,
+        force_all: boolean = false
+    ) {
+        try {
+            await this.explore_queue.add(
+                JOB_NAMES.EXPLORE.RECALCULATE_SCORES,
+                {
+                    since_hours,
+                    max_age_hours,
+                    force_all,
+                },
+                {
+                    attempts: 3,
+                    removeOnComplete: true,
+                }
+            );
+            this.logger.log('Triggered explore score recalculation job');
+        } catch (error) {
+            this.logger.error('Failed to trigger explore score recalculation job:', error);
+        }
+    }
 
     calculateScore(tweet: TweetScoreData): number {
         const { num_likes, num_reposts, num_quotes, num_replies, created_at } = tweet;
 
         // Calculate weighted engagement
         const weighted_engagement =
-            num_likes * TRENDING_CONFIG.ENGAGEMENT_WEIGHTS.LIKE +
-            num_reposts * TRENDING_CONFIG.ENGAGEMENT_WEIGHTS.REPOST +
-            num_quotes * TRENDING_CONFIG.ENGAGEMENT_WEIGHTS.QUOTE +
-            num_replies * TRENDING_CONFIG.ENGAGEMENT_WEIGHTS.REPLY;
+            num_likes * EXPLORE_CONFIG.ENGAGEMENT_WEIGHTS.LIKE +
+            num_reposts * EXPLORE_CONFIG.ENGAGEMENT_WEIGHTS.REPOST +
+            num_quotes * EXPLORE_CONFIG.ENGAGEMENT_WEIGHTS.QUOTE +
+            num_replies * EXPLORE_CONFIG.ENGAGEMENT_WEIGHTS.REPLY;
 
         // Calculate age in hours
         const now = new Date();
@@ -45,8 +69,8 @@ export class TrendingScoreService {
 
         // Apply gravity formula
         const denominator = Math.pow(
-            age_hours + TRENDING_CONFIG.TIME_OFFSET,
-            TRENDING_CONFIG.GRAVITY
+            age_hours + EXPLORE_CONFIG.TIME_OFFSET,
+            EXPLORE_CONFIG.GRAVITY
         );
 
         if (denominator === 0) return 0;
@@ -93,9 +117,9 @@ export class TrendingScoreService {
             // Only process tweets with recent engagement activity
             query.andWhere(
                 `(
-                    tweet.updated_at > :sinceDate
-                    OR tweet.created_at > :sinceDate
-                )`,
+                            tweet.updated_at > :sinceDate
+                            OR tweet.created_at > :sinceDate
+                        )`,
                 { sinceDate }
             );
         }
@@ -148,8 +172,8 @@ export class TrendingScoreService {
         for (const tweet of tweets) {
             for (const cat of tweet.categories) {
                 const weighted_score = tweet.score * (cat.percentage / 100);
-                if (weighted_score >= TRENDING_CONFIG.MIN_SCORE_THRESHOLD) {
-                    const redis_key = `trending:category:${cat.category_id}`;
+                if (weighted_score >= EXPLORE_CONFIG.MIN_SCORE_THRESHOLD) {
+                    const redis_key = `explore:category:${cat.category_id}`;
                     pipeline.zadd(redis_key, weighted_score, tweet.tweet_id);
                     categories_updated.add(cat.category_id);
                 }
@@ -173,11 +197,11 @@ export class TrendingScoreService {
         const pipeline = this.redis_service.pipeline();
 
         for (const category_id of category_ids) {
-            const redis_key = `trending:category:${category_id}`;
+            const redis_key = `explore:category:${category_id}`;
 
             // Keep top MAX_CATEGORY_SIZE tweets
 
-            pipeline.zremrangebyrank(redis_key, 0, -(TRENDING_CONFIG.MAX_CATEGORY_SIZE + 1));
+            pipeline.zremrangebyrank(redis_key, 0, -(EXPLORE_CONFIG.MAX_CATEGORY_SIZE + 1));
 
             // Category automatic expiration
             pipeline.expire(redis_key, 48 * 60 * 60);

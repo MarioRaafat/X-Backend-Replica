@@ -7,11 +7,12 @@ import { CommunicationModule } from '../communication/communication.module';
 import { RedisModuleConfig } from '../redis/redis.module';
 import { QUEUE_NAMES } from './constants/queue.constants';
 import { EmailProcessor } from './email/email.processor';
-import { TrendingScoreProcessor } from './processors/trending-score.processor';
+import { ExploreJobsProcessor } from './explore/explore-jobs.processor';
 import { BackgroundJobsService } from './background-jobs.service';
-import { TrendingScoreService } from './services/trending-score.service';
-import { TrendingScoreCron } from './cron/trending-score.cron';
+import { ExploreJobsCron } from './explore/explore-jobs.cron';
 import { BackgroundJobsController } from './background-jobs.controller';
+import { ExploreController } from './explore/explore.controller';
+import { ExploreJobsService } from './explore/explore-jobs.service';
 import { Tweet } from '../tweets/entities/tweet.entity';
 import { TweetCategory } from '../tweets/entities/tweet-category.entity';
 
@@ -46,7 +47,7 @@ import { TweetCategory } from '../tweets/entities/tweet-category.entity';
             },
         }),
         BullModule.registerQueue({
-            name: QUEUE_NAMES.TRENDING,
+            name: QUEUE_NAMES.EXPLORE,
             defaultJobOptions: {
                 attempts: 3,
                 backoff: {
@@ -58,14 +59,14 @@ import { TweetCategory } from '../tweets/entities/tweet-category.entity';
         CommunicationModule,
         RedisModuleConfig,
     ],
-    controllers: [BackgroundJobsController],
+    controllers: [BackgroundJobsController, ExploreController],
     providers: [
         EmailProcessor,
-        TrendingScoreProcessor,
+        ExploreJobsProcessor,
         BackgroundJobsService,
-        TrendingScoreService,
-        TrendingScoreCron,
+        ExploreJobsCron,
+        ExploreJobsService,
     ],
-    exports: [BackgroundJobsService, TrendingScoreService, TrendingScoreCron, BullModule],
+    exports: [BackgroundJobsService, ExploreJobsCron, ExploreJobsService, BullModule],
 })
 export class BackgroundJobsModule {}

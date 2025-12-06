@@ -3,7 +3,7 @@ export const QUEUE_NAMES = {
     TIMELINE: 'timeline-queue',
     FEED: 'feed-queue',
     NOTIFICATION: 'notification-queue',
-    TRENDING: 'trending-score-updates',
+    EXPLORE: 'explore-score-updates',
 } as const;
 
 export const JOB_NAMES = {
@@ -19,8 +19,8 @@ export const JOB_NAMES = {
     NOTIFICATION: {
         SEND_BULK: 'send-bulk-notifications',
     },
-    TRENDING: {
-        RECALCULATE_SCORES: 'recalculate-trending-scores',
+    EXPLORE: {
+        RECALCULATE_SCORES: 'recalculate-explore-scores',
     },
 } as const;
 
@@ -37,7 +37,7 @@ export const JOB_DELAYS = {
     LONG: 300000, // 5 minutes
 } as const;
 
-export const TRENDING_CONFIG = {
+export const EXPLORE_CONFIG = {
     ENGAGEMENT_WEIGHTS: {
         LIKE: 1,
         REPOST: 2,
@@ -53,15 +53,15 @@ export const TRENDING_CONFIG = {
     MAX_CATEGORY_SIZE: 20,
 } as const;
 
-export const TRENDING_CRON_SCHEDULE = '0 * * * *'; // Every minute
+export const EXPLORE_CRON_SCHEDULE = '0 * * * *'; // Every minute
 
-export const TRENDING_JOB_PRIORITIES = {
+export const EXPLORE_JOB_PRIORITIES = {
     HIGH: 1,
     NORMAL: 2,
     LOW: 3,
 };
 
-export const TRENDING_JOB_RETRY = {
+export const EXPLORE_JOB_RETRY = {
     attempts: 3,
     backoff: {
         type: 'exponential' as const,

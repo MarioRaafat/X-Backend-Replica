@@ -1,39 +1,35 @@
 import { Process, Processor } from '@nestjs/bull';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
-import {
-    TRENDING_CONFIG,
-    JOB_NAMES,
-    QUEUE_NAMES,
-} from '../constants/queue.constants';
-import { TrendingScoreJobDto, TrendingScoreResultDto } from '../dto/trending-job.dto';
-import { TrendingScoreService } from '../services/trending-score.service';
+import { EXPLORE_CONFIG, JOB_NAMES, QUEUE_NAMES } from '../constants/queue.constants';
+import { ExploreScoreJobDto, ExploreScoreResultDto } from './explore-job.dto';
+import { ExploreJobsService } from './explore-jobs.service';
 
-@Processor(QUEUE_NAMES.TRENDING)
-export class TrendingScoreProcessor {
-    private readonly logger = new Logger(TrendingScoreProcessor.name);
+@Processor(QUEUE_NAMES.EXPLORE)
+export class ExploreJobsProcessor {
+    private readonly logger = new Logger(ExploreJobsProcessor.name);
 
-    constructor(private readonly trending_score_service: TrendingScoreService) {}
+    constructor(private readonly exploreJobsService: ExploreJobsService) {}
 
-    // Handle trending score recalculation job
-    @Process(JOB_NAMES.TRENDING.RECALCULATE_SCORES)
-    async handleRecalculateTrendingScores(
-        job: Job<TrendingScoreJobDto>
-    ): Promise<TrendingScoreResultDto> {
+    // Handle explore score recalculation job
+    @Process(JOB_NAMES.EXPLORE.RECALCULATE_SCORES)
+    async handleRecalculateExploreScores(
+        job: Job<ExploreScoreJobDto>
+    ): Promise<ExploreScoreResultDto> {
         const start_time = Date.now();
         const {
-            since_hours = TRENDING_CONFIG.DEFAULT_SINCE_HOURS,
-            max_age_hours = TRENDING_CONFIG.DEFAULT_MAX_AGE_HOURS,
-            batch_size = TRENDING_CONFIG.DEFAULT_BATCH_SIZE,
+            since_hours = EXPLORE_CONFIG.DEFAULT_SINCE_HOURS,
+            max_age_hours = EXPLORE_CONFIG.DEFAULT_MAX_AGE_HOURS,
+            batch_size = EXPLORE_CONFIG.DEFAULT_BATCH_SIZE,
             force_all = false,
         } = job.data;
 
         this.logger.log(
-            `[Job ${job.id}] Starting trending score recalculation - ` +
+            `[Job ${job.id}] Starting explore score recalculation - ` +
                 `since: ${since_hours}h, max_age: ${max_age_hours}h, batch: ${batch_size}, force: ${force_all}`
         );
 
-        const result: TrendingScoreResultDto = {
+        const result: ExploreScoreResultDto = {
             tweets_processed: 0,
             tweets_updated: 0,
             categories_updated: 0,
@@ -44,7 +40,7 @@ export class TrendingScoreProcessor {
         try {
             //count total tweets to process
             await job.progress(5);
-            const total_tweets = await this.trending_score_service.countTweetsForRecalculation(
+            const total_tweets = await this.exploreJobsService.countTweetsForRecalculation(
                 since_hours,
                 max_age_hours,
                 force_all
@@ -64,9 +60,9 @@ export class TrendingScoreProcessor {
 
             while (processed_count < total_tweets) {
                 const skip = page * batch_size;
-                
+
                 // Fetch one page
-                const batch = await this.trending_score_service.fetchTweetsForRecalculation(
+                const batch = await this.exploreJobsService.fetchTweetsForRecalculation(
                     since_hours,
                     max_age_hours,
                     force_all,
@@ -75,14 +71,14 @@ export class TrendingScoreProcessor {
                 );
 
                 if (batch.length === 0) {
-                    break; 
+                    break;
                 }
 
                 try {
                     // calculate scores for batch
                     const tweet_scores = batch.map((tweet) => ({
                         tweet_id: tweet.tweet_id,
-                        score: this.trending_score_service.calculateScore(tweet),
+                        score: this.exploreJobsService.calculateScore(tweet),
                     }));
 
                     // update Redis with new scores
@@ -93,7 +89,7 @@ export class TrendingScoreProcessor {
                     }));
 
                     const categories_updated =
-                        await this.trending_score_service.updateRedisCategoryScores(
+                        await this.exploreJobsService.updateRedisCategoryScores(
                             tweets_with_categories
                         );
                     result.categories_updated = Math.max(
@@ -117,7 +113,7 @@ export class TrendingScoreProcessor {
                     this.logger.error(`[Job ${job.id}] ${error_msg}`, error.stack);
                     result.errors.push(error_msg);
                 }
-                
+
                 page++;
             }
 
@@ -137,7 +133,7 @@ export class TrendingScoreProcessor {
             result.errors = result.errors || [];
             result.errors.push(`Fatal: ${error.message}`);
             result.duration_ms = Date.now() - start_time;
-            throw error; 
+            throw error;
         }
     }
 }

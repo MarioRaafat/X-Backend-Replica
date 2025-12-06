@@ -15,9 +15,9 @@ import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
     explore_root_swagger,
     search_latest_posts,
-    trending_swagger,
+    explore_items_swagger,
     who_to_follow_swagger,
-    category_wise_trending_swagger,
+    category_wise_explore_items_swagger,
 } from './explore.swagger';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import { ExploreService } from './explore.service';
@@ -44,16 +44,19 @@ export class ExploreController {
         return await this.explore_service.getExploreData(user_id);
     }
 
-    @ApiOperation(trending_swagger.operation)
-    @ApiOkResponse(trending_swagger.responses.success)
+    @ApiOperation(explore_items_swagger.operation)
+    @ApiOkResponse(explore_items_swagger.responses.success)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_CATEGORY_PARAMETER)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
-    @ApiQuery(trending_swagger.queries.category)
-    @ApiQuery(trending_swagger.queries.country)
-    @Get('trending')
-    async getTrending(@Query('category') category?: string, @Query('country') country?: string) {
-        return await this.explore_service.getTrending(category, country);
+    @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_ITEMS_RETRIEVED)
+    @ApiQuery(explore_items_swagger.queries.category)
+    @ApiQuery(explore_items_swagger.queries.country)
+    @Get('items')
+    async getExploreItems(
+        @Query('category') category?: string,
+        @Query('country') country?: string
+    ) {
+        return await this.explore_service.getExploreItems(category, country);
     }
 
     @ApiOperation(who_to_follow_swagger.operation)
@@ -64,16 +67,16 @@ export class ExploreController {
     async getWhoToFollow() {
         return await this.explore_service.getWhoToFollow();
     }
-    @ApiOperation(category_wise_trending_swagger.operation)
-    @ApiOkResponse(category_wise_trending_swagger.responses.success)
+    @ApiOperation(category_wise_explore_items_swagger.operation)
+    @ApiOkResponse(category_wise_explore_items_swagger.responses.success)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED)
-    @ApiParam(category_wise_trending_swagger.params.category_id)
-    @ApiQuery(category_wise_trending_swagger.queries.page)
-    @ApiQuery(category_wise_trending_swagger.queries.limit)
+    @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_ITEMS_RETRIEVED)
+    @ApiParam(category_wise_explore_items_swagger.params.category_id)
+    @ApiQuery(category_wise_explore_items_swagger.queries.page)
+    @ApiQuery(category_wise_explore_items_swagger.queries.limit)
     @UseGuards(OptionalJwtAuthGuard)
     @Get('category/:category_id')
-    async getCategoryWiseTrending(
+    async getCategoryWiseExploreItems(
         @Param('category_id') category_id: string,
         @GetUserId() user_id: string,
         @Query('page') page?: string,
@@ -81,7 +84,7 @@ export class ExploreController {
     ) {
         const parsedPage = page ? parseInt(page, 10) : 1;
         const parsedLimit = limit ? parseInt(limit, 10) : 20;
-        return await this.explore_service.getCategoryTrending(
+        return await this.explore_service.getCategoryExploreItems(
             category_id,
             user_id,
             parsedPage,
