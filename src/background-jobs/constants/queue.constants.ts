@@ -38,6 +38,7 @@ export const JOB_NAMES = {
     },
     VIDEO: {
         COMPRESS: 'compress-video',
+    },
     AI_SUMMARY: {
         GENERATE_TWEET_SUMMARY: 'generate-tweet-summary',
     },
