@@ -956,7 +956,7 @@ export class SearchService {
     private buildEsSuggestionsQuery(sanitized_query: string) {
         const is_hashtag = sanitized_query.startsWith('#');
 
-        return {
+        const search_body = {
             index: 'tweets',
             size: 20,
             _source: ['content'],
@@ -1000,6 +1000,10 @@ export class SearchService {
                 },
             },
         };
+
+        this.applyTweetsBoosting(search_body);
+
+        return search_body;
     }
 
     private extractSuggestionsFromHits(hits: any[], query: string, max_suggestions = 3): string[] {
