@@ -41,6 +41,9 @@ import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from './elasticsearch/es-follow.service';
 import { ExploreController } from './explore/explore-jobs.controller';
+import { HashtagJobService } from './hashtag/hashtag.service';
+import { HashtagProcessor } from './hashtag/hashtag.processor';
+import { TrendModule } from 'src/trend/trend.module';
 
 @Module({
     imports: [
@@ -102,11 +105,23 @@ import { ExploreController } from './explore/explore-jobs.controller';
                 },
             },
         }),
-        TypeOrmModule.forFeature([User, TweetReply, TweetQuote]),
+        TypeOrmModule.forFeature([User, TweetReply, TweetQuote,Tweet]),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.HASHTAG,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 2000,
+                },
+            },
+        }),
+  
         CommunicationModule,
         RedisModuleConfig,
         NotificationsModule,
         ElasticsearchModule,
+        TrendModule,
     ],
     controllers: [ExploreController, EmailJobsController],
     providers: [
@@ -135,16 +150,24 @@ import { ExploreController } from './explore/explore-jobs.controller';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        HashtagJobService,
+        HashtagProcessor,
     ],
 
     exports: [
         EmailJobsService,
         ExploreJobsService,
         ExploreJobsCron,
+
         FollowJobService,
+
         BullModule,
+
         ReplyJobService,
+
         LikeJobService,
+        HashtagJobService,
+
         RepostJobService,
         QuoteJobService,
         MentionJobService,

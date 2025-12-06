@@ -61,14 +61,14 @@ export class RedisService {
 
     // Sorted Set  operations for trending
     //push tweet_id with score to  redis  to its category sorted set
-    async zadd(key: string, score: number, member: string): Promise<number> {
-        return this.redis_client.zadd(key, score, member);
-    }
+//     async zadd(key: string, score: number, member: string): Promise<number> {
+//         return this.redis_client.zadd(key, score, member);
+//     }
     //get range from sorted set with offset and limit
-    async zrevrange(key: string, offset: number, limit: number): Promise<string[]> {
-        const stop = offset + limit - 1;
-        return this.redis_client.zrevrange(key, offset, stop);
-    }
+//     async zrevrange(key: string, offset: number, limit: number): Promise<string[]> {
+//         const stop = offset + limit - 1;
+//         return this.redis_client.zrevrange(key, offset, stop);
+//     }
 
     //set range the one ranked stop + 1 will be excluded
     async zremrangebyrank(key: string, start: number, stop: number): Promise<number> {
@@ -95,6 +95,37 @@ export class RedisService {
             }
             return result as string[];
         });
+    }
+
+    async zadd(key: string, ...args: any[]): Promise<number> {
+        return this.redis_client.zadd(key, ...args);
+    }
+
+    async zincrby(key: string, increment: number, member: string): Promise<string> {
+        return this.redis_client.zincrby(key, increment, member);
+    }
+    async zrangebyscore(
+        key: string,
+        min: number | string,
+        max: number | string
+    ): Promise<string[]> {
+        return this.redis_client.zrangebyscore(key, min, max);
+    }
+    async zscore(key: string, member: string): Promise<string | null> {
+        return this.redis_client.zscore(key, member);
+    }
+      async zrevrange(
+        key: string,
+        start: number,
+        limit: number,
+        with_scores?: 'WITHSCORES'
+    ): Promise<string[]> {
+        if (!with_scores) {
+            const stop = limit - 1 + start; // limit → stop
+            return this.redis_client.zrevrange(key, start, stop);
+        }
+
+        return this.redis_client.zrevrange(key, start, limit, with_scores);
     }
 
     pipeline() {

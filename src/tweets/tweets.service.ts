@@ -61,6 +61,8 @@ import { Readable } from 'stream';
 import Groq from 'groq-sdk';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+import { TrendService } from 'src/trend/trend.service';
+import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 
 @Injectable()
 export class TweetsService {
@@ -87,6 +89,7 @@ export class TweetsService {
         private readonly azure_storage_service: AzureStorageService,
         private readonly reply_job_service: ReplyJobService,
         private readonly like_job_service: LikeJobService,
+        private readonly hashtag_job_service: HashtagJobService,
         private readonly es_index_tweet_service: EsIndexTweetJobService,
         private readonly es_delete_tweet_service: EsDeleteTweetJobService,
         private readonly repost_job_service: RepostJobService,
@@ -408,6 +411,10 @@ export class TweetsService {
                     liked_by: user_id,
                     action: 'add',
                 });
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id,
+            });
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id,
@@ -1235,9 +1242,15 @@ export class TweetsService {
         await this.updateHashtags(unique_hashtags, user_id, query_runner);
 
         // Extract topics using Groq AI
-        // Extract topics using Groq AI
-        const topics = await this.extractTopics(content);
+        const topics = await this.extractTopics(content, unique_hashtags);
         console.log('Extracted topics:', topics);
+
+        //Insert Hashtag with Topics in redis
+
+        await this.hashtag_job_service.queueHashtag({
+            hashtags: topics.hashtags,
+            timestamp: Date.now(),
+        });
 
         // You can store topics in the tweet entity or use them for recommendations
         // For example, you could add a 'topics' field to your Tweet entity
@@ -1246,13 +1259,24 @@ export class TweetsService {
         return mentions;
     }
 
-    async extractTopics(content: string): Promise<Record<string, number>> {
+    async extractTopics(
+        content: string,
+        hashtags: string[]
+    ): Promise<{
+        tweet: Record<string, number>;
+        hashtags: Record<string, Record<string, number>>;
+    }> {
         try {
             if (!process.env.ENABLE_GROQ || !process.env.MODEL_NAME) {
                 console.warn('Groq is disabled, returning empty topics');
                 const empty: Record<string, number> = {};
                 TOPICS.forEach((t) => (empty[t] = 0));
-                return empty;
+                const result: Record<string, Record<string, number>> = {};
+                hashtags.forEach((h) => {
+                    result[h] = { ...empty };
+                });
+
+                return { tweet: empty, hashtags: result };
             }
 
             // remove hashtags and extra spaces
@@ -1260,20 +1284,8 @@ export class TweetsService {
                 .replace(/#[a-zA-Z0-9_]+/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
-            if (!process.env.ENABLE_GROQ || !process.env.MODEL_NAME) {
-                console.warn('Groq is disabled, returning empty topics');
-                const empty: Record<string, number> = {};
-                TOPICS.forEach((t) => (empty[t] = 0));
-                return empty;
-            }
 
-            // remove hashtags and extra spaces
-            content = content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            const prompt = categorize_prompt(content);
+            const prompt = categorize_prompt(content, hashtags);
 
             const response = await this.groq.chat.completions.create({
                 model: process.env.MODEL_NAME,
@@ -1286,31 +1298,61 @@ export class TweetsService {
                 console.warn('Groq returned empty response');
                 const empty: Record<string, number> = {};
                 TOPICS.forEach((t) => (empty[t] = 0));
-                return empty;
+                const result: Record<string, Record<string, number>> = {};
+                hashtags.forEach((h) => {
+                    result[h] = { ...empty };
+                });
+
+                return { tweet: empty, hashtags: result };
             }
 
             let jsonText = rawText;
-            const m = rawText.match(/\{[^}]+\}/);
+            const m = rawText.match(/\{[\s\S]*\}/);
             if (m) jsonText = m[0];
 
-            let topics = JSON.parse(jsonText);
+            let parsed = JSON.parse(jsonText);
 
-            const total = Object.values<number>(topics).reduce((a, b) => a + Number(b), 0);
-
-            if (Math.abs(total - 100) > 1) {
-                console.warn('Normalizing...');
-                for (const k of Object.keys(topics)) {
-                    topics[k] = Math.round((topics[k] / total) * 100);
-                }
-                console.warn('Normalizing...');
-                for (const k of Object.keys(topics)) {
-                    topics[k] = Math.round((topics[k] / total) * 100);
+            const text_total = Object.values<number>(parsed.text).reduce(
+                (a, b) => a + Number(b),
+                0
+            );
+            if (Math.abs(text_total - 100) > 1) {
+                console.warn('Normalizing tweet topics...');
+                for (const k of Object.keys(parsed.text)) {
+                    parsed.text[k] = Math.round((parsed.text[k] / text_total) * 100);
                 }
             }
 
-            return topics;
+            // Normalize each hashtag's topics
+            for (const hashtag_key of Object.keys(parsed).filter((k) => k !== 'text')) {
+                const hashtag_topics = parsed[hashtag_key];
+                const hashtag_total = Object.values<number>(hashtag_topics).reduce(
+                    (a, b) => a + Number(b),
+                    0
+                );
+
+                if (Math.abs(hashtag_total - 100) > 1) {
+                    console.warn(`Normalizing ${hashtag_key} topics...`);
+                    for (const k of Object.keys(hashtag_topics)) {
+                        hashtag_topics[k] = Math.round((hashtag_topics[k] / hashtag_total) * 100);
+                    }
+                }
+            }
+
+            // Restructure to match return type
+            return {
+                tweet: parsed.text,
+                hashtags: Object.keys(parsed)
+                    .filter((k) => k !== 'text')
+                    .reduce(
+                        (acc, key) => {
+                            acc[key] = parsed[key];
+                            return acc;
+                        },
+                        {} as Record<string, Record<string, number>>
+                    ),
+            };
         } catch (error) {
-            console.error('Error extracting topics with Groq:', error);
             console.error('Error extracting topics with Groq:', error);
             throw error;
         }

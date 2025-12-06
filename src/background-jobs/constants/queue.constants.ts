@@ -5,6 +5,8 @@ export const QUEUE_NAMES = {
     NOTIFICATION: 'notification-queue',
     EXPLORE: 'explore-score-updates',
     ELASTICSEARCH: 'elasticsearch-queue',
+
+    HASHTAG: 'hashtag-queue',
 } as const;
 
 export const JOB_NAMES = {
@@ -35,6 +37,9 @@ export const JOB_NAMES = {
     },
     EXPLORE: {
         RECALCULATE_SCORES: 'recalculate-explore-scores',
+    },
+    HASHTAG: {
+        UPDATE_HASHTAG: 'update-hashtag',
     },
 } as const;
 

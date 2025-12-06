@@ -54,6 +54,7 @@ describe('ExploreController', () => {
         });
     });
 
+<<<<<<< HEAD
     describe('getTrending', () => {
         it('should call explore_service.getTrending without parameters', async () => {
             const expected_result = [];
@@ -85,6 +86,8 @@ describe('ExploreController', () => {
         });
     });
 
+=======
+>>>>>>> origin/dev
     describe('getWhoToFollow', () => {
         it('should call explore_service.getWhoToFollow', async () => {
             const expected_result = [];

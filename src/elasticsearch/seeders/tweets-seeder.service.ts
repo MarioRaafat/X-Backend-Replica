@@ -106,6 +106,7 @@ export class TweetSeederService {
         const base_transform = {
             tweet_id: tweet.tweet_id,
             content: tweet.content,
+            hashtags: this.extractHashtags(tweet.content),
             created_at: tweet.created_at,
             updated_at: tweet.updated_at,
             type: tweet.type,
@@ -136,5 +137,16 @@ export class TweetSeederService {
         }
 
         return base_transform;
+    }
+
+    private extractHashtags(content: string): string[] {
+        if (!content) return [];
+
+        const regex = /#[\w]+/g;
+        const matches = content.match(regex);
+
+        if (!matches) return [];
+
+        return [...new Set(matches.map((tag) => tag.toLowerCase()))];
     }
 }

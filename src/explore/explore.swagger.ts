@@ -1,3 +1,4 @@
+import { HashtagResponseDto } from 'src/trend/dto/hashtag-response.dto';
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 import { Tweet } from '../tweets/entities/tweet.entity';
 import { User } from '../user/entities/user.entity';
@@ -394,79 +395,26 @@ export const trending_swagger = {
                 default: 'none',
             },
         },
-        country: {
-            name: 'country',
+        limit: {
+            name: 'limit',
             required: false,
-            description:
-                'Filter by country code using ISO 3166-1 alpha-2 format. Leave empty for global trends. Examples: US (United States), GB (United Kingdom), EG (Egypt), AE (UAE), SA (Saudi Arabia), CA (Canada), AU (Australia), IN (India), BR (Brazil), FR (France), DE (Germany), JP (Japan)',
-            example: 'US',
-            schema: {
-                type: 'string',
-                pattern: '^[A-Z]{2}$',
-                minLength: 2,
-                maxLength: 2,
-            },
+            type: Number,
+            example: 30,
+            description: 'Number of hashtags to return (1-30)',
         },
     },
     responses: {
         success: {
             description: 'Trending items retrieved successfully',
-            example: {
-                data: [
-                    {
-                        text: '#WorldCup2026',
-                        posts_count: 45678,
-                        reference_id: 'worldcup2026',
-                        category: 'sports',
-                        trend_rank: 1,
-                    },
-                    {
-                        text: '#TechConference',
-                        posts_count: 23456,
-                        reference_id: 'techconference',
-                        category: 'none',
-                        trend_rank: 2,
-                    },
-                    {
-                        text: 'New Movie Release',
-                        posts_count: 18234,
-                        reference_id: 'new-movie-release',
-                        category: 'entertainment',
-                        trend_rank: 3,
-                    },
-                    {
-                        text: '#ClimateAction',
-                        posts_count: 15890,
-                        reference_id: 'climateaction',
-                        category: 'news',
-                        trend_rank: 4,
-                    },
-                    {
-                        text: 'Champions League',
-                        posts_count: 12567,
-                        reference_id: 'champions-league',
-                        category: 'sports',
-                        trend_rank: 5,
-                    },
-                ],
-                count: 5,
-                message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED,
-            },
-        },
-        bad_request: {
-            description: 'Invalid query parameters',
-            example: {
-                message: 'Invalid query parameters',
-                error: 'Bad Request',
-                status_code: 400,
-            },
-        },
-        internal_error: {
-            description: 'Internal server error',
-            example: {
-                message: 'Internal server error',
-                error: 'Internal Server Error',
-                status_code: 500,
+            schema: {
+                example: {
+                    data: [
+                        { hashtag: 'Topic A', posts_count: 123, category: 'sports' },
+                        { hashtag: 'Topic B', posts_count: 45, category: 'news' },
+                    ],
+                    count: 2,
+                    message: SUCCESS_MESSAGES.EXPLORE_TRENDING_RETRIEVED,
+                },
             },
         },
     },
