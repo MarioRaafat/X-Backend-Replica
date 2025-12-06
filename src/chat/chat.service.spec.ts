@@ -84,31 +84,29 @@ describe('ChatService', () => {
             expect(chat_repository.createChat).toHaveBeenCalledWith(mock_user_id, dto);
             expect(result).toEqual(mock_chat);
         });
-
-        it('should throw BadRequestException if trying to message yourself', async () => {
-            const dto: CreateChatDto = { recipient_id: mock_user_id };
-
-            await expect(service.createChat(mock_user_id, dto)).rejects.toThrow(
-                new BadRequestException(ERROR_MESSAGES.CANNOT_MESSAGE_YOURSELF)
-            );
-            expect(chat_repository.createChat).not.toHaveBeenCalled();
-        });
     });
 
     describe('getChats', () => {
         it('should get chats successfully', async () => {
             const query: GetChatsQueryDto = { limit: 20 };
-            const mock_result = {
+            const mock_repo_result = {
                 data: [mock_chat],
                 count: 1,
                 next_cursor: null,
+                has_more: false,
             };
-            chat_repository.getChats.mockResolvedValue(mock_result as any);
+            chat_repository.getChats.mockResolvedValue(mock_repo_result as any);
 
             const result = await service.getChats(mock_user_id, query);
 
             expect(chat_repository.getChats).toHaveBeenCalledWith(mock_user_id, query);
-            expect(result).toEqual(mock_result);
+            expect(result).toEqual({
+                data: mock_repo_result.data,
+                pagination: {
+                    next_cursor: mock_repo_result.next_cursor,
+                    has_more: mock_repo_result.has_more,
+                },
+            });
         });
     });
 

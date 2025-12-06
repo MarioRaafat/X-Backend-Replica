@@ -5,6 +5,7 @@ import { Chat } from './entities/chat.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateChatDto, GetChatsQueryDto } from './dto';
+import { UserRepository } from 'src/user/user.repository';
 
 describe('ChatRepository', () => {
     let chat_repository: ChatRepository;
@@ -34,12 +35,14 @@ describe('ChatRepository', () => {
     };
 
     let mock_data_source: any;
+    let mock_user_repository: any;
 
     beforeEach(async () => {
         const mock_entity_manager = {} as any;
 
-        const mock_user_repository = {
+        mock_user_repository = {
             findOne: jest.fn(),
+            findById: jest.fn(),
         };
 
         mock_data_source = {
@@ -60,6 +63,10 @@ describe('ChatRepository', () => {
                         applyCursorPagination: jest.fn(),
                         generateNextCursor: jest.fn(),
                     },
+                },
+                {
+                    provide: UserRepository,
+                    useValue: mock_user_repository,
                 },
             ],
         }).compile();
@@ -83,8 +90,7 @@ describe('ChatRepository', () => {
             const create_dto: CreateChatDto = { recipient_id: 'user-2' };
 
             // Mock user repository to find recipient
-            const mock_user_repository = mock_data_source.getRepository();
-            mock_user_repository.findOne.mockResolvedValue({ id: 'user-2', username: 'user2' });
+            mock_user_repository.findById.mockResolvedValue({ id: 'user-2', username: 'user2' });
 
             jest.spyOn(chat_repository, 'findOne').mockResolvedValue(null);
 
@@ -102,8 +108,7 @@ describe('ChatRepository', () => {
             const create_dto: CreateChatDto = { recipient_id: 'user-2' };
 
             // Mock user repository to find recipient
-            const mock_user_repository = mock_data_source.getRepository();
-            mock_user_repository.findOne.mockResolvedValue({ id: 'user-2', username: 'user2' });
+            mock_user_repository.findById.mockResolvedValue({ id: 'user-2', username: 'user2' });
 
             jest.spyOn(chat_repository, 'findOne').mockResolvedValue(mock_chat as any);
 
@@ -117,8 +122,7 @@ describe('ChatRepository', () => {
             const create_dto: CreateChatDto = { recipient_id: 'non-existent-user' };
 
             // Mock user repository to not find recipient
-            const mock_user_repository = mock_data_source.getRepository();
-            mock_user_repository.findOne.mockResolvedValue(null);
+            mock_user_repository.findById.mockResolvedValue(null);
 
             await expect(chat_repository.createChat('user-1', create_dto)).rejects.toThrow(
                 NotFoundException
@@ -129,8 +133,7 @@ describe('ChatRepository', () => {
             const create_dto: CreateChatDto = { recipient_id: 'user-2' };
 
             // Mock user repository to throw error
-            const mock_user_repository = mock_data_source.getRepository();
-            mock_user_repository.findOne.mockRejectedValue(new Error('DB error'));
+            mock_user_repository.findById.mockRejectedValue(new Error('DB error'));
 
             await expect(chat_repository.createChat('user-1', create_dto)).rejects.toThrow(
                 InternalServerErrorException
@@ -202,8 +205,6 @@ describe('ChatRepository', () => {
             jest.spyOn(chat_repository, 'createQueryBuilder').mockReturnValue(
                 mock_query_builder as any
             );
-            pagination_service.applyCursorPagination.mockImplementation();
-            pagination_service.generateNextCursor.mockReturnValue('next-cursor-123');
 
             const result = await chat_repository.getChats('user-1', query);
 
@@ -216,9 +217,13 @@ describe('ChatRepository', () => {
                 'user2'
             );
             expect(mock_query_builder.where).toHaveBeenCalled();
-            expect(mock_query_builder.orderBy).toHaveBeenCalledWith('chat.updated_at', 'DESC');
+            expect(mock_query_builder.orderBy).toHaveBeenCalledWith(
+                'last_message.created_at',
+                'DESC',
+                'NULLS LAST'
+            );
             expect(result.data).toHaveLength(1);
-            expect(result.next_cursor).toBe('next-cursor-123');
+            expect(result.next_cursor).toBeNull();
         });
 
         it('should get chats for user2 perspective', async () => {
@@ -250,32 +255,27 @@ describe('ChatRepository', () => {
         it('should apply cursor pagination when cursor is provided', async () => {
             const query: GetChatsQueryDto = {
                 limit: 15,
-                cursor: 'cursor-abc',
+                cursor: '2024-01-01T00:00:00.000Z_chat-123',
             };
 
-            const mock_query_builder = {
+            const mock_query_builder_with_and = {
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
                 addOrderBy: jest.fn().mockReturnThis(),
                 take: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
                 getMany: jest.fn().mockResolvedValue([]),
             };
 
             jest.spyOn(chat_repository, 'createQueryBuilder').mockReturnValue(
-                mock_query_builder as any
+                mock_query_builder_with_and as any
             );
             pagination_service.generateNextCursor.mockReturnValue(null);
 
             const result = await chat_repository.getChats('user-1', query);
 
-            expect(pagination_service.applyCursorPagination).toHaveBeenCalledWith(
-                mock_query_builder,
-                'cursor-abc',
-                'chat',
-                'updated_at',
-                'id'
-            );
+            expect(mock_query_builder_with_and.andWhere).toHaveBeenCalled();
             expect(result.data).toHaveLength(0);
         });
 

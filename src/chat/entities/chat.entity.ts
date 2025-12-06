@@ -47,9 +47,9 @@ export class Chat {
     @Column({ type: 'int', default: 0 })
     unread_count_user2: number;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamptz' })
     updated_at: Date;
 }

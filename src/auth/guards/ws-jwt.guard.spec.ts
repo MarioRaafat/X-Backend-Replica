@@ -190,7 +190,7 @@ describe('WsJwtGuard', () => {
 
             const result = WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
 
-            expect(result).toEqual({ user_id: '123' });
+            expect(result).toEqual({ id: '123' });
             expect(jwt_service.verify).toHaveBeenCalledWith('valid-token', {
                 secret: 'test-secret',
             });
@@ -242,7 +242,7 @@ describe('WsJwtGuard', () => {
 
             const result = WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
 
-            expect(result).toEqual({ user_id: '123' });
+            expect(result).toEqual({ id: '123' });
             expect(jwt_service.verify).toHaveBeenCalledWith('auth-token', {
                 secret: 'test-secret',
             });
@@ -263,7 +263,7 @@ describe('WsJwtGuard', () => {
 
             const result = WsJwtGuard.validateToken(mock_client, jwt_service, config_service);
 
-            expect(result).toEqual({ user_id: '456' });
+            expect(result).toEqual({ id: '456' });
         });
     });
 });

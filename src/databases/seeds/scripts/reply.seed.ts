@@ -33,7 +33,7 @@ export class ReplySeeder extends BaseSeeder {
 
         if (duplicate_ids.length > 0) {
             this.logWarning(
-                `Found ${duplicate_ids.length} duplicate reply tweetIds — removing duplicates: ${[...new Set(duplicate_ids)].join(', ')}`
+                `Found ${duplicate_ids.length} duplicate reply tweet_ids — removing duplicates: ${[...new Set(duplicate_ids)].join(', ')}`
             );
         }
 
