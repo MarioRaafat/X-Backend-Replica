@@ -20,6 +20,7 @@ import { BackgroundJobsModule } from './background-jobs/background-jobs.module';
 import { AzureStorageModule } from './azure-storage/azure-storage.module';
 import { ElasticsearchModule } from './elasticsearch/elasticsearch.module';
 import { MessagesModule } from './messages/messages.module';
+import { GatewayModule } from './gateway/gateway.module';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from './user/entities/user.entity';
 import { Tweet } from './tweets/entities/tweet.entity';
@@ -52,6 +53,7 @@ import { TweetReply } from './tweets/entities/tweet-reply.entity';
         AzureStorageModule,
         ElasticsearchModule,
         MessagesModule,
+        GatewayModule,
         TypeOrmModule.forFeature([User, Tweet, UserFollows, TweetLike, TweetReply]),
     ],
     controllers: [AppController, TestController],

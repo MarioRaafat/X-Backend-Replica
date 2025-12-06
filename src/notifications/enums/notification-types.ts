@@ -5,5 +5,7 @@ export enum NotificationType {
     QUOTE = 'quote',
     FOLLOW = 'follow',
     MENTION = 'mention',
-    SYSTEM = 'system',
+
+    NEWEST_COUNT = 'newest_count',
+    // SYSTEM = 'system',
 }

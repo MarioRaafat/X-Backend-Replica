@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { NotificationsGateway } from './gateway';
+import { NotificationsGateway } from './notifications.gateway';
 import { Server, Socket } from 'socket.io';
 import { NotificationType } from './enums/notification-types';
 
@@ -52,78 +52,93 @@ describe('NotificationsGateway', () => {
         expect(gateway).toBeDefined();
     });
 
-    describe('afterInit', () => {
-        it('should set up WebSocket middleware', () => {
-            const mock_server = {
-                use: jest.fn(),
-            } as any;
-
-            gateway.afterInit(mock_server);
-
-            expect(mock_server.use).toHaveBeenCalled();
-        });
-    });
-
-    describe('handleConnection', () => {
-        it('should join user to their room on successful connection', () => {
+    describe('onConnection', () => {
+        it('should send newest_count on connection', async () => {
+            const user_id = 'user-456';
             const mock_client: Partial<Socket> = {
                 id: 'socket-123',
                 data: {
-                    user_id: 'user-456',
+                    user: { id: user_id },
                 },
-                join: jest.fn(),
-                disconnect: jest.fn(),
             };
+
+            const mock_service = {
+                getNewestCount: jest.fn().mockResolvedValue(5),
+            };
+
+            gateway.setNotificationsService(mock_service);
 
             const console_spy = jest.spyOn(console, 'log').mockImplementation();
 
-            gateway.handleConnection(mock_client as any);
+            await gateway.onConnection(mock_client as any, user_id);
 
-            expect(mock_client.join).toHaveBeenCalledWith('user-456');
             expect(console_spy).toHaveBeenCalledWith(
-                'Client connected: socket-123 for user user-456'
+                'NotificationsGateway: New connection:',
+                user_id
             );
-            expect(mock_client.disconnect).not.toHaveBeenCalled();
+            expect(mock_service.getNewestCount).toHaveBeenCalledWith(user_id);
 
             console_spy.mockRestore();
         });
 
-        it('should disconnect client if user_id is missing', () => {
+        it('should handle errors when fetching newest_count', async () => {
+            const user_id = 'user-456';
+            const error = new Error('Database error');
             const mock_client: Partial<Socket> = {
                 id: 'socket-123',
                 data: {
-                    user: {},
+                    user: { id: user_id },
                 },
-                join: jest.fn(),
-                disconnect: jest.fn(),
             };
 
-            gateway.handleConnection(mock_client as any);
-
-            expect(mock_client.disconnect).toHaveBeenCalled();
-            expect(mock_client.join).not.toHaveBeenCalled();
-        });
-
-        it('should disconnect client if user data is missing', () => {
-            const mock_client: Partial<Socket> = {
-                id: 'socket-123',
-                data: {},
-                join: jest.fn(),
-                disconnect: jest.fn(),
+            const mock_service = {
+                getNewestCount: jest.fn().mockRejectedValue(error),
             };
 
-            gateway.handleConnection(mock_client as any);
+            gateway.setNotificationsService(mock_service);
 
-            expect(mock_client.disconnect).toHaveBeenCalled();
-            expect(mock_client.join).not.toHaveBeenCalled();
+            const console_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            await gateway.onConnection(mock_client as any, user_id);
+
+            expect(console_spy).toHaveBeenCalledWith(
+                'Error fetching newest_count on connection:',
+                error
+            );
+
+            console_spy.mockRestore();
         });
     });
 
     describe('onMarkSeen', () => {
-        it('should return "Hello"', () => {
-            const result = gateway.onMarkSeen({}, {});
+        it('should clear newest_count and return success', async () => {
+            const mock_client = {
+                data: {
+                    user: {
+                        id: 'user123',
+                    },
+                },
+            };
 
-            expect(result).toBe('Hello');
+            const mock_service = {
+                clearNewestCount: jest.fn().mockResolvedValue(undefined),
+            };
+
+            gateway.setNotificationsService(mock_service);
+
+            await gateway.onMarkSeen(mock_client as any, {});
+
+            expect(mock_service.clearNewestCount).toHaveBeenCalledWith('user123');
+        });
+
+        it('should return error if user not authenticated', async () => {
+            const mock_client = {
+                data: {},
+            };
+
+            const result = await gateway.onMarkSeen(mock_client as any, {});
+
+            expect(result).toEqual({ success: false, message: 'User not authenticated' });
         });
     });
 

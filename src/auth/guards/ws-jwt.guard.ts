@@ -53,7 +53,7 @@ export class WsJwtGuard implements CanActivate {
             });
 
             return {
-                user_id: payload.id,
+                id: payload.id,
                 // username: payload.username,
             };
         } catch (error) {
@@ -72,9 +72,9 @@ export class WsJwtGuard implements CanActivate {
             return token;
         }
 
-        // Try to get token from query params (fallback)
-        const query_token = client.handshake.query?.token;
-        if (query_token && typeof query_token === 'string') {
+        // Try to get token from query params
+        const query_token = (client.handshake.query as any)?.token;
+        if (query_token) {
             return query_token;
         }
 
