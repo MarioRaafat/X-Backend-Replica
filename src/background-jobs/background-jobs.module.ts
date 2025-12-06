@@ -1,17 +1,22 @@
 import { forwardRef, Module } from '@nestjs/common';
 import { BullModule } from '@nestjs/bull';
 import { ConfigModule, ConfigService } from '@nestjs/config';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { ScheduleModule } from '@nestjs/schedule';
 import { CommunicationModule } from '../communication/communication.module';
+import { RedisModuleConfig } from '../redis/redis.module';
 import { QUEUE_NAMES } from './constants/queue.constants';
 import { EmailProcessor } from './email/email.processor';
-import { BackgroundJobsService } from './background-jobs';
+import { ExploreJobsProcessor } from './explore/explore-jobs.processor';
+import { ExploreJobsCron } from './explore/explore-jobs.cron';
+import { ExploreJobsService } from './explore/explore-jobs.service';
+import { TweetCategory } from '../tweets/entities/tweet-category.entity';
 import { EmailJobsController } from './email/email.controller';
 import { EmailJobsService } from './email/email.service';
 import { FollowJobService } from './notifications/follow/follow.service';
 import { FollowProcessor } from './notifications/follow/follow.processor';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { NotificationsGateway } from 'src/notifications/notifications.gateway';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
 import { TweetReply } from 'src/tweets/entities/tweet-reply.entity';
 import { TweetQuote } from 'src/tweets/entities/tweet-quote.entity';
@@ -35,9 +40,12 @@ import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
 import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from './elasticsearch/es-follow.service';
+import { ExploreController } from './explore/explore-jobs.controller';
 
 @Module({
     imports: [
+        ScheduleModule.forRoot(), // Enable cron jobs
+        TypeOrmModule.forFeature([Tweet, TweetCategory]),
         BullModule.forRootAsync({
             imports: [ConfigModule],
             inject: [ConfigService],
@@ -65,6 +73,16 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
             },
         }),
         BullModule.registerQueue({
+            name: QUEUE_NAMES.EXPLORE,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 5000,
+                },
+            },
+        }),
+        BullModule.registerQueue({
             name: QUEUE_NAMES.NOTIFICATION,
             defaultJobOptions: {
                 attempts: 3,
@@ -84,17 +102,19 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
                 },
             },
         }),
-        TypeOrmModule.forFeature([User]),
-        TypeOrmModule.forFeature([Tweet]),
-        TypeOrmModule.forFeature([TweetReply, TweetQuote]),
+        TypeOrmModule.forFeature([User, TweetReply, TweetQuote]),
         CommunicationModule,
+        RedisModuleConfig,
         NotificationsModule,
         ElasticsearchModule,
     ],
-    controllers: [EmailJobsController],
+    controllers: [ExploreController, EmailJobsController],
     providers: [
         EmailProcessor,
         EmailJobsService,
+        ExploreJobsProcessor,
+        ExploreJobsService,
+        ExploreJobsCron,
         FollowProcessor,
         FollowJobService,
         ReplyJobService,
@@ -116,8 +136,11 @@ import { EsFollowJobService } from './elasticsearch/es-follow.service';
         EsDeleteUserJobService,
         EsFollowJobService,
     ],
+
     exports: [
         EmailJobsService,
+        ExploreJobsService,
+        ExploreJobsCron,
         FollowJobService,
         BullModule,
         ReplyJobService,

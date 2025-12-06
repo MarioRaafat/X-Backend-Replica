@@ -59,6 +59,44 @@ export class RedisService {
         return await this.redis_client.smembers(key);
     }
 
+    // Sorted Set  operations for trending
+    //push tweet_id with score to  redis  to its category sorted set
+    async zadd(key: string, score: number, member: string): Promise<number> {
+        return this.redis_client.zadd(key, score, member);
+    }
+    //get range from sorted set with offset and limit
+    async zrevrange(key: string, offset: number, limit: number): Promise<string[]> {
+        const stop = offset + limit - 1;
+        return this.redis_client.zrevrange(key, offset, stop);
+    }
+
+    //set range the one ranked stop + 1 will be excluded
+    async zremrangebyrank(key: string, start: number, stop: number): Promise<number> {
+        return this.redis_client.zremrangebyrank(key, start, stop);
+    }
+
+    async zrevrangeMultiple(
+        keys: string[],
+        offset: number,
+        limit: number
+    ): Promise<Array<string[]>> {
+        const pipeline = this.redis_client.pipeline();
+        const stop = offset + limit - 1;
+        keys.forEach((key) => {
+            pipeline.zrevrange(key, offset, stop);
+        });
+
+        const results = await pipeline.exec();
+        if (!results) return [];
+
+        return results.map(([err, result]) => {
+            if (err) {
+                return [];
+            }
+            return result as string[];
+        });
+    }
+
     pipeline() {
         return this.redis_client.pipeline();
     }

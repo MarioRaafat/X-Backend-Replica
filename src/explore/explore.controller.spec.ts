@@ -9,7 +9,7 @@ describe('ExploreController', () => {
     beforeEach(async () => {
         const mock_explore_service = {
             root: jest.fn(),
-            getTrending: jest.fn(),
+            getExploreItems: jest.fn(),
             getWhoToFollow: jest.fn(),
             getForYouPosts: jest.fn(),
         };
@@ -58,31 +58,37 @@ describe('ExploreController', () => {
         });
     });
 
-    describe('getTrending', () => {
-        it('should call explore_service.getTrending without parameters', async () => {
-            const trending_spy = jest.spyOn(service, 'getTrending').mockResolvedValue(undefined);
+    describe('getExploreItems', () => {
+        it('should call explore_service.getExploreItems without parameters', async () => {
+            const trending_spy = jest
+                .spyOn(service, 'getExploreItems')
+                .mockResolvedValue(undefined);
 
-            await controller.getTrending();
+            await controller.getExploreItems();
 
             expect(trending_spy).toHaveBeenCalledWith(undefined, undefined);
             expect(trending_spy).toHaveBeenCalledTimes(1);
         });
 
-        it('should call explore_service.getTrending with category', async () => {
+        it('should call explore_service.getExploreItems with category', async () => {
             const category = 'technology';
-            const trending_spy = jest.spyOn(service, 'getTrending').mockResolvedValue(undefined);
+            const trending_spy = jest
+                .spyOn(service, 'getExploreItems')
+                .mockResolvedValue(undefined);
 
-            await controller.getTrending(category);
+            await controller.getExploreItems(category);
 
             expect(trending_spy).toHaveBeenCalledWith(category, undefined);
         });
 
-        it('should call explore_service.getTrending with category and country', async () => {
+        it('should call explore_service.getExploreItems with category and country', async () => {
             const category = 'sports';
             const country = 'US';
-            const trending_spy = jest.spyOn(service, 'getTrending').mockResolvedValue(undefined);
+            const trending_spy = jest
+                .spyOn(service, 'getExploreItems')
+                .mockResolvedValue(undefined);
 
-            await controller.getTrending(category, country);
+            await controller.getExploreItems(category, country);
 
             expect(trending_spy).toHaveBeenCalledWith(category, country);
         });
@@ -90,10 +96,10 @@ describe('ExploreController', () => {
         it('should return the result from service', async () => {
             const mock_trending = [{ id: 1, name: 'Topic 1' }];
             const trending_spy = jest
-                .spyOn(service, 'getTrending')
+                .spyOn(service, 'getExploreItems')
                 .mockResolvedValue(mock_trending as any);
 
-            const result = await controller.getTrending('tech');
+            const result = await controller.getExploreItems('tech');
 
             expect(result).toBe(mock_trending);
         });
