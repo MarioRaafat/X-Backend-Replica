@@ -4,6 +4,7 @@ export const QUEUE_NAMES = {
     FEED: 'feed-queue',
     NOTIFICATION: 'notification-queue',
     ELASTICSEARCH: 'elasticsearch-queue',
+    VIDEO: 'video-queue',
     AI_SUMMARY: 'ai-summary-queue',
 
     HASHTAG: 'hashtag-queue',
@@ -34,6 +35,9 @@ export const JOB_NAMES = {
         UPDATE_USER: 'update-user',
         DELETE_USER: 'delete-user',
         FOLLOW: 'follow',
+    },
+    VIDEO: {
+        COMPRESS: 'compress-video',
     },
     AI_SUMMARY: {
         GENERATE_TWEET_SUMMARY: 'generate-tweet-summary',

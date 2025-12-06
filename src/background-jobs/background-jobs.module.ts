@@ -35,6 +35,8 @@ import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
 import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from './elasticsearch/es-follow.service';
+import { CompressVideoJobService } from './videos/compress-video.service';
+import { CompressVideoProcessor } from './videos/compress-video.processor';
 import { AiSummaryJobService } from './ai-summary/ai-summary.service';
 import { AiSummaryProcessor } from './ai-summary/ai-summary.processor';
 import { TweetSummary } from 'src/tweets/entities/tweet-summary.entity';
@@ -91,17 +93,26 @@ import { TrendModule } from 'src/trend/trend.module';
             },
         }),
         BullModule.registerQueue({
+            name: QUEUE_NAMES.VIDEO,
+            defaultJobOptions: {
+                attempts: 2,
+                backoff: {
+                    type: 'exponential',
+                    delay: 5000,
+                },
+            },
+        }),
+        BullModule.registerQueue({
             name: QUEUE_NAMES.AI_SUMMARY,
             defaultJobOptions: {
                 attempts: 2,
                 backoff: {
                     type: 'exponential',
-                    delay: 3000,},
-            }
+                    delay: 5000,
+                },
+            },
         }),
-        
-        BullModule.registerQueue({
-               
+        BullModule.registerQueue({    
             name: QUEUE_NAMES.HASHTAG,
             defaultJobOptions: {
                 attempts: 3,
@@ -144,6 +155,8 @@ import { TrendModule } from 'src/trend/trend.module';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        CompressVideoJobService,
+        CompressVideoProcessor,
         AiSummaryJobService,
         AiSummaryProcessor,
         HashtagJobService,
@@ -170,6 +183,7 @@ import { TrendModule } from 'src/trend/trend.module';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        CompressVideoJobService,
         AiSummaryJobService,
     ],
 })
