@@ -52,7 +52,7 @@ export class ExploreJobsService {
         }
     }
 
-    calculateScore(tweet: TweetScoreData): number {
+    calculateScore(tweet: ITweetScoreData): number {
         const { num_likes, num_reposts, num_quotes, num_replies, created_at } = tweet;
 
         // Calculate weighted engagement
@@ -142,7 +142,7 @@ export class ExploreJobsService {
         force_all: boolean = false,
         skip: number = 0,
         take: number = 500
-    ): Promise<TweetScoreData[]> {
+    ): Promise<ITweetScoreData[]> {
         const query = this.getRecalculationQueryBuilder(since_hours, max_age_hours, force_all);
 
         // Order by updated_at to prioritize recently active tweets
@@ -154,7 +154,7 @@ export class ExploreJobsService {
         this.logger.log(
             `Fetched ${tweets.length} tweets for recalculation (skip: ${skip}, take: ${take})`
         );
-        return tweets as any as TweetScoreData[];
+        return tweets as any as ITweetScoreData[];
     }
 
     async updateRedisCategoryScores(
