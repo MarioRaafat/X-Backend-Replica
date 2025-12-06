@@ -403,6 +403,10 @@ export class TweetsService {
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id,
             });
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id,
+            });
         } catch (error) {
             await query_runner.rollbackTransaction();
             if (error.code === PostgresErrorCodes.UNIQUE_CONSTRAINT_VIOLATION)

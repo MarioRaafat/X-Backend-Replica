@@ -5,11 +5,13 @@ import { UserRepository } from 'src/user/user.repository';
 import { SearchQueryDto } from './dto/search-query.dto';
 import { PostsSearchDto } from './dto/post-search.dto';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
+import { DataSource } from 'typeorm';
 
 describe('SearchService', () => {
     let service: SearchService;
     let elasticsearch_service: jest.Mocked<ElasticsearchService>;
     let user_repository: jest.Mocked<UserRepository>;
+    let data_source: jest.Mocked<DataSource>;
 
     beforeEach(async () => {
         const mock_elasticsearch_service = {
@@ -17,19 +19,40 @@ describe('SearchService', () => {
             mget: jest.fn(),
         };
 
-        const mock_user_repository = {};
+        const mock_query_builder = {
+            select: jest.fn().mockReturnThis(),
+            addSelect: jest.fn().mockReturnThis(),
+            leftJoin: jest.fn().mockReturnThis(),
+            where: jest.fn().mockReturnThis(),
+            andWhere: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            addOrderBy: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockReturnThis(),
+            setParameters: jest.fn().mockReturnThis(),
+            getRawMany: jest.fn(),
+        };
+
+        const mock_user_repository = {
+            createQueryBuilder: jest.fn(() => mock_query_builder),
+        };
+
+        const mock_data_source = {
+            query: jest.fn(),
+        };
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 SearchService,
                 { provide: ElasticsearchService, useValue: mock_elasticsearch_service },
                 { provide: UserRepository, useValue: mock_user_repository },
+                { provide: DataSource, useValue: mock_data_source },
             ],
         }).compile();
 
         service = module.get<SearchService>(SearchService);
         elasticsearch_service = module.get(ElasticsearchService);
         user_repository = module.get(UserRepository);
+        data_source = module.get(DataSource);
     });
 
     afterEach(() => jest.clearAllMocks());
@@ -38,300 +61,305 @@ describe('SearchService', () => {
         expect(service).toBeDefined();
     });
 
-    describe('searchUsers', () => {
+    describe('getSuggestions', () => {
         it('should return empty result when query is empty', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: SearchQueryDto = {
-                query: '',
-                limit: 20,
-            };
+            const query_dto = { query: '' };
 
-            const result = await service.searchUsers(current_user_id, query_dto);
+            const result = await service.getSuggestions(current_user_id, query_dto);
 
             expect(result).toEqual({
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
+                suggested_queries: [],
+                suggested_users: [],
             });
             expect(elasticsearch_service.search).not.toHaveBeenCalled();
         });
 
-        it('should return empty result when query is only whitespace', async () => {
+        it('should return suggestions with users and queries with normal query', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: SearchQueryDto = {
-                query: '   ',
-                limit: 20,
-            };
+            const query_dto = { query: 'tech' };
 
-            const result = await service.searchUsers(current_user_id, query_dto);
-
-            expect(result).toEqual({
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce([
+                {
+                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    username: 'alyaa242',
+                    name: 'Alyaa Ali',
+                    bio: 'Blah',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                    verified: true,
+                    followers: 100,
+                    following: 50,
+                    is_following: false,
+                    is_follower: false,
                 },
-            });
-            expect(elasticsearch_service.search).not.toHaveBeenCalled();
-        });
+            ]);
 
-        it('should search users and return results without cursor', async () => {
-            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: SearchQueryDto = {
-                query: 'alyaa',
-                limit: 20,
-            };
-
-            const mock_elasticsearch_response = {
+            elasticsearch_service.search.mockResolvedValueOnce({
                 hits: {
                     hits: [
                         {
-                            _source: {
-                                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                                username: 'alyaa242',
-                                name: 'Alyaa Ali',
-                                bio: 'Software developer',
-                                country: 'Egypt',
-                                followers: 100,
-                                following: 50,
-                                verified: true,
-                                avatar_url: 'https://example.com/blah.jpg',
-                            },
-                            sort: [1.5, 50, '1a8e9906-65bb-4fa4-a614-ecc6a434ee94'],
-                        },
-                        {
-                            _source: {
-                                user_id: '2b9f9906-65bb-4fa4-a614-ecc6a434ee95',
-                                username: 'alyaali',
-                                name: 'Aliaa Eissa',
-                                bio: 'blah',
-                                country: 'Egypt',
-                                followers: 50,
-                                following: 30,
-                                verified: false,
-                                avatar_url: 'https://example.com/blah.jpg',
-                            },
-                            sort: [1.2, 50, '2b9f9906-65bb-4fa4-a614-ecc6a434ee95'],
+                            _source: { content: 'Check out technology' },
+                            highlight: { content: ['<MARK>technology</MARK>'] },
                         },
                     ],
                 },
-            };
+            } as any);
 
-            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            const result = await service.getSuggestions(current_user_id, query_dto);
+
+            expect(result.suggested_users).toHaveLength(1);
+            expect(result.suggested_users[0]).toEqual({
+                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                is_following: false,
+                is_follower: false,
+            });
+            expect(result.suggested_queries).toHaveLength(1);
+            expect(result.suggested_queries[0]).toEqual({
+                query: 'technology',
+                is_trending: false,
+            });
+        });
+
+        it('should return suggestions with users and queries with hashtag query', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto = { query: '#tech' };
+
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce([
+                {
+                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    username: 'alyaa242',
+                    name: 'Alyaa Ali',
+                    bio: 'Blah',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                    verified: true,
+                    followers: 100,
+                    following: 50,
+                    is_following: false,
+                    is_follower: false,
+                },
+            ]);
+
+            elasticsearch_service.search.mockResolvedValueOnce({
+                hits: {
+                    hits: [
+                        {
+                            _source: { content: 'Check out #technology' },
+                            highlight: { content: ['<MARK>#technology</MARK>'] },
+                        },
+                    ],
+                },
+            } as any);
+
+            const result = await service.getSuggestions(current_user_id, query_dto);
+
+            expect(result.suggested_users).toHaveLength(1);
+            expect(result.suggested_users[0]).toEqual({
+                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                is_following: false,
+                is_follower: false,
+            });
+            expect(result.suggested_queries).toHaveLength(1);
+            expect(result.suggested_queries[0]).toEqual({
+                query: '#technology',
+                is_trending: false,
+            });
+        });
+
+        it('should return suggestions with users and queries with normal query with hashtag result', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto = { query: 'tech' };
+
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce([
+                {
+                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    username: 'alyaa242',
+                    name: 'Alyaa Ali',
+                    bio: 'Blah',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                    verified: true,
+                    followers: 100,
+                    following: 50,
+                    is_following: false,
+                    is_follower: false,
+                },
+            ]);
+
+            elasticsearch_service.search.mockResolvedValueOnce({
+                hits: {
+                    hits: [
+                        {
+                            _source: { content: 'Check out #technology' },
+                            highlight: { content: ['#<MARK>technology</MARK>'] },
+                        },
+                    ],
+                },
+            } as any);
+
+            const result = await service.getSuggestions(current_user_id, query_dto);
+
+            expect(result.suggested_users).toHaveLength(1);
+            expect(result.suggested_users[0]).toEqual({
+                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                is_following: false,
+                is_follower: false,
+            });
+            expect(result.suggested_queries).toHaveLength(1);
+            expect(result.suggested_queries[0]).toEqual({
+                query: '#technology',
+                is_trending: false,
+            });
+        });
+    });
+
+    describe('searchUsers', () => {
+        it('should return empty result when query is empty', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: SearchQueryDto = { query: '', limit: 20 };
 
             const result = await service.searchUsers(current_user_id, query_dto);
 
-            expect(elasticsearch_service.search).toHaveBeenCalledWith({
-                index: 'users',
-                body: {
-                    query: {
-                        bool: {
-                            must: [
-                                {
-                                    multi_match: {
-                                        query: 'alyaa',
-                                        fields: [
-                                            'username^3',
-                                            'username.autocomplete^2',
-                                            'name^2',
-                                            'name.autocomplete',
-                                            'bio',
-                                        ],
-                                        type: 'best_fields',
-                                        fuzziness: 'AUTO',
-                                        prefix_length: 1,
-                                        operator: 'or',
-                                    },
-                                },
-                            ],
-                            filter: [],
-                        },
-                    },
-                    size: 21,
-                    sort: [
-                        { _score: { order: 'desc' } },
-                        { followers: { order: 'desc' } },
-                        { user_id: { order: 'desc' } },
-                    ],
-                },
+            expect(result).toEqual({
+                data: [],
+                pagination: { next_cursor: null, has_more: false },
             });
+            expect(user_repository.createQueryBuilder).not.toHaveBeenCalled();
+        });
 
-            expect(result.data).toHaveLength(2);
+        it('should search users with no pagination', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: SearchQueryDto = { query: 'alyaa', limit: 20 };
+
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce([
+                {
+                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    username: 'alyaa242',
+                    name: 'Alyaa Ali',
+                    bio: 'Software developer',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                    cover_url: 'https://example.com/avatar.jpg',
+                    verified: true,
+                    followers: 100,
+                    following: 50,
+                    is_following: false,
+                    is_follower: false,
+                    total_score: 150.5,
+                },
+            ]);
+
+            const result = await service.searchUsers(current_user_id, query_dto);
+
+            expect(user_repository.createQueryBuilder).toHaveBeenCalledWith('user');
+            expect(result.data).toHaveLength(1);
             expect(result.data[0]).toEqual({
                 user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
                 username: 'alyaa242',
                 name: 'Alyaa Ali',
                 bio: 'Software developer',
-                country: 'Egypt',
+                avatar_url: 'https://example.com/avatar.jpg',
+                cover_url: 'https://example.com/avatar.jpg',
+                verified: true,
                 followers: 100,
                 following: 50,
-                verified: true,
-                avatar_url: 'https://example.com/blah.jpg',
+                is_following: false,
+                is_follower: false,
+                is_muted: undefined,
+                is_blocked: undefined,
             });
-            expect(result.pagination.has_more).toBe(false);
-            expect(result.pagination.next_cursor).toBeNull();
+            expect(result.pagination).toEqual({
+                next_cursor: null,
+                has_more: false,
+            });
         });
 
-        it('should search users and return results with cursor when has more', async () => {
+        it('should search users with pagination', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: SearchQueryDto = {
-                query: 'alyaa',
-                limit: 2,
-            };
+            const query_dto: SearchQueryDto = { query: 'alyaa', limit: 1 };
 
-            const mock_elasticsearch_response = {
-                hits: {
-                    hits: [
-                        {
-                            _source: {
-                                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                                username: 'alyaa242',
-                                name: 'Alyaa Ali',
-                                bio: 'Software developer',
-                                country: 'Egypt',
-                                followers: 100,
-                                following: 50,
-                                verified: true,
-                                avatar_url: 'https://example.com/blah.jpg',
-                            },
-                            sort: [1.5, 100, '1a8e9906-65bb-4fa4-a614-ecc6a434ee94'],
-                        },
-                        {
-                            _source: {
-                                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                                username: 'alyaali',
-                                name: 'Aliaa Eissa',
-                                bio: 'Software developer',
-                                country: 'Egypt',
-                                followers: 100,
-                                following: 50,
-                                verified: true,
-                                avatar_url: 'https://example.com/blah.jpg',
-                            },
-                            sort: [1.2, 50, '2b9f9906-65bb-4fa4-a614-ecc6a434ee95'],
-                        },
-                        {
-                            _source: {
-                                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                                username: 'alyaa123',
-                                name: 'Alyaa 123',
-                                bio: 'Software developer',
-                                country: 'Egypt',
-                                followers: 100,
-                                following: 50,
-                                verified: true,
-                                avatar_url: 'https://example.com/blah.jpg',
-                            },
-                            sort: [1.0, 200, '3c9f9906-65bb-4fa4-a614-ecc6a434ee96'],
-                        },
-                    ],
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce([
+                {
+                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    username: 'alyaa242',
+                    name: 'Alyaa Ali',
+                    bio: 'Software developer',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                    cover_url: 'https://example.com/avatar.jpg',
+                    verified: true,
+                    followers: 100,
+                    following: 50,
+                    is_following: false,
+                    is_follower: false,
+                    total_score: 150.5,
                 },
-            };
-
-            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+                {
+                    user_id: '1a8e2906-65bb-4fa4-a614-ecc6a434ee94',
+                    username: 'alyaali242',
+                    name: 'Alyaa Ali',
+                    bio: 'Software developer',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                    cover_url: 'https://example.com/avatar.jpg',
+                    verified: true,
+                    followers: 100,
+                    following: 50,
+                    is_following: false,
+                    is_follower: false,
+                    total_score: 140.2,
+                },
+            ]);
 
             const result = await service.searchUsers(current_user_id, query_dto);
 
-            expect(result.data).toHaveLength(2);
-            expect(result.pagination.has_more).toBe(true);
-            expect(result.pagination.next_cursor).toBeTruthy();
-        });
-
-        it('should search users with cursor', async () => {
-            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const cursor = Buffer.from(
-                JSON.stringify([1.2, 50, '2b9f9906-65bb-4fa4-a614-ecc6a434ee95'])
-            ).toString('base64');
-            const query_dto: SearchQueryDto = {
-                query: 'alyaa',
-                limit: 20,
-                cursor,
-            };
-
-            const mock_elasticsearch_response = {
-                hits: {
-                    hits: [
-                        {
-                            _source: {
-                                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                                username: 'alyaa242',
-                                name: 'Alyaa Ali',
-                                bio: 'Software developer',
-                                country: 'Egypt',
-                                followers: 100,
-                                following: 50,
-                                verified: true,
-                                avatar_url: 'https://example.com/blah.jpg',
-                            },
-                            sort: [1.0, 200, '3c9f9906-65bb-4fa4-a614-ecc6a434ee96'],
-                        },
-                    ],
-                },
-            };
-
-            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
-
-            const result = await service.searchUsers(current_user_id, query_dto);
-
-            expect(elasticsearch_service.search).toHaveBeenCalledWith({
-                index: 'users',
-                body: {
-                    query: {
-                        bool: {
-                            must: [
-                                {
-                                    multi_match: {
-                                        query: 'alyaa',
-                                        fields: [
-                                            'username^3',
-                                            'username.autocomplete^2',
-                                            'name^2',
-                                            'name.autocomplete',
-                                            'bio',
-                                        ],
-                                        type: 'best_fields',
-                                        fuzziness: 'AUTO',
-                                        prefix_length: 1,
-                                        operator: 'or',
-                                    },
-                                },
-                            ],
-                            filter: [],
-                        },
-                    },
-                    size: 21,
-                    sort: [
-                        { _score: { order: 'desc' } },
-                        { followers: { order: 'desc' } },
-                        { user_id: { order: 'desc' } },
-                    ],
-                    search_after: [1.2, 50, '2b9f9906-65bb-4fa4-a614-ecc6a434ee95'],
-                },
-            });
-
+            expect(user_repository.createQueryBuilder).toHaveBeenCalledWith('user');
             expect(result.data).toHaveLength(1);
+            expect(result.data[0]).toEqual({
+                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                bio: 'Software developer',
+                avatar_url: 'https://example.com/avatar.jpg',
+                cover_url: 'https://example.com/avatar.jpg',
+                verified: true,
+                followers: 100,
+                following: 50,
+                is_following: false,
+                is_follower: false,
+                is_muted: undefined,
+                is_blocked: undefined,
+            });
+            expect(result.pagination).toEqual({
+                next_cursor: Buffer.from(
+                    JSON.stringify({
+                        score: 150.5,
+                        user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    })
+                ).toString('base64'),
+                has_more: true,
+            });
         });
 
-        it('should return empty result on elasticsearch error', async () => {
-            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+        it('should throw error for invalid cursor', async () => {
             const query_dto: SearchQueryDto = {
                 query: 'alyaa',
                 limit: 20,
+                cursor: 'invalid-cursor',
             };
 
-            elasticsearch_service.search.mockRejectedValueOnce(new Error('Elasticsearch error'));
-
-            const result = await service.searchUsers(current_user_id, query_dto);
-
-            expect(result).toEqual({
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
-            });
+            await expect(service.searchUsers('user-id', query_dto)).rejects.toThrow(
+                'Invalid cursor'
+            );
         });
     });
 
@@ -406,19 +434,9 @@ describe('SearchService', () => {
                 body: expect.objectContaining({
                     query: {
                         bool: {
-                            must: [
-                                {
-                                    multi_match: {
-                                        query: 'technology',
-                                        fields: ['content^3', 'username^2', 'name'],
-                                        type: 'best_fields',
-                                        fuzziness: 'AUTO',
-                                        prefix_length: 1,
-                                        operator: 'or',
-                                    },
-                                },
-                            ],
+                            must: [],
                             should: expect.any(Array),
+                            minimum_should_match: 1,
                         },
                     },
                     size: 21,
@@ -434,6 +452,7 @@ describe('SearchService', () => {
             expect(result.data[0].tweet_id).toBe('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
             expect(result.data[0].content).toBe('This is a post about technology');
             expect(result.pagination.has_more).toBe(false);
+            expect(result.pagination.next_cursor).toBe(null);
         });
 
         it('should search posts with media filter', async () => {
@@ -488,8 +507,9 @@ describe('SearchService', () => {
                 body: expect.objectContaining({
                     query: {
                         bool: {
-                            must: expect.any(Array),
+                            must: [],
                             should: expect.any(Array),
+                            minimum_should_match: 1,
                             filter: [
                                 {
                                     script: {
@@ -505,6 +525,308 @@ describe('SearchService', () => {
             });
 
             expect(result.data).toHaveLength(1);
+        });
+
+        it('should search posts with username filter', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
+                limit: 20,
+                username: 'alyaa242',
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: {
+                                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                                type: 'post',
+                                content: 'This is a post about technology',
+                                created_at: '2024-01-15T10:30:00Z',
+                                updated_at: '2024-01-15T10:30:00Z',
+                                num_likes: 10,
+                                num_reposts: 5,
+                                num_views: 100,
+                                num_replies: 3,
+                                num_quotes: 2,
+                                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                                username: 'alyaa242',
+                                name: 'Alyaa Ali',
+                                avatar_url: 'https://example.com/avatar.jpg',
+                                followers: 100,
+                                following: 50,
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [
+                                2.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: {
+                        bool: {
+                            must: [],
+                            should: expect.any(Array),
+                            minimum_should_match: 1,
+                            filter: [
+                                {
+                                    term: {
+                                        username: 'alyaa242',
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].user.username).toBe('alyaa242');
+        });
+
+        it('should search posts with hashtag query', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: '#technology',
+                limit: 20,
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: {
+                                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                                type: 'post',
+                                content: 'This is a post about #technology',
+                                created_at: '2024-01-15T10:30:00Z',
+                                updated_at: '2024-01-15T10:30:00Z',
+                                num_likes: 10,
+                                num_reposts: 5,
+                                num_views: 100,
+                                num_replies: 3,
+                                num_quotes: 2,
+                                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                                username: 'alyaa242',
+                                name: 'Alyaa Ali',
+                                avatar_url: 'https://example.com/avatar.jpg',
+                                followers: 100,
+                                following: 50,
+                                hashtags: ['#technology'],
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [
+                                2.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: {
+                        bool: {
+                            must: [
+                                {
+                                    term: {
+                                        hashtags: {
+                                            value: '#technology',
+                                            boost: 10,
+                                        },
+                                    },
+                                },
+                            ],
+                            should: expect.any(Array),
+                            minimum_should_match: 1,
+                        },
+                    },
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].content).toContain('#technology');
+        });
+
+        it('should search posts with pagination and return next_cursor', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
+                limit: 1,
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: {
+                                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                                type: 'post',
+                                content: 'First post about technology',
+                                created_at: '2024-01-15T10:30:00Z',
+                                updated_at: '2024-01-15T10:30:00Z',
+                                num_likes: 10,
+                                num_reposts: 5,
+                                num_views: 100,
+                                num_replies: 3,
+                                num_quotes: 2,
+                                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                                username: 'alyaa242',
+                                name: 'Alyaa Ali',
+                                avatar_url: 'https://example.com/avatar.jpg',
+                                followers: 100,
+                                following: 50,
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [
+                                2.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                        {
+                            _source: {
+                                tweet_id: 'b2c3d4e5-f6g7-8901-bcde-fg2345678901',
+                                type: 'post',
+                                content: 'Second post about technology',
+                                created_at: '2024-01-15T09:30:00Z',
+                                updated_at: '2024-01-15T09:30:00Z',
+                                num_likes: 5,
+                                num_reposts: 2,
+                                num_views: 50,
+                                num_replies: 1,
+                                num_quotes: 0,
+                                author_id: '2b9f0017-76cc-5gb5-b725-fdd7b545ff05',
+                                username: 'alyaali242',
+                                name: 'Alyaa Eissa',
+                                avatar_url: 'https://example.com/avatar2.jpg',
+                                followers: 50,
+                                following: 30,
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [
+                                2.3,
+                                '2024-01-15T09:30:00Z',
+                                'b2c3d4e5-f6g7-8901-bcde-fg2345678901',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].tweet_id).toBe('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
+            expect(result.pagination.has_more).toBe(true);
+            expect(result.pagination.next_cursor).toBe(
+                Buffer.from(
+                    JSON.stringify([
+                        2.5,
+                        '2024-01-15T10:30:00Z',
+                        'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                    ])
+                ).toString('base64')
+            );
+        });
+
+        it('should search posts with cursor for pagination', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const cursor = Buffer.from(
+                JSON.stringify([
+                    2.5,
+                    '2024-01-15T10:30:00Z',
+                    'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                ])
+            ).toString('base64');
+
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
+                limit: 20,
+                cursor,
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: {
+                                tweet_id: 'b2c3d4e5-f6g7-8901-bcde-fg2345678901',
+                                type: 'post',
+                                content: 'Next page post about technology',
+                                created_at: '2024-01-15T09:30:00Z',
+                                updated_at: '2024-01-15T09:30:00Z',
+                                num_likes: 5,
+                                num_reposts: 2,
+                                num_views: 50,
+                                num_replies: 1,
+                                num_quotes: 0,
+                                author_id: '2b9f0017-76cc-5gb5-b725-fdd7b545ff05',
+                                username: 'tech_lover',
+                                name: 'Tech Lover',
+                                avatar_url: 'https://example.com/avatar2.jpg',
+                                followers: 50,
+                                following: 30,
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [
+                                2.3,
+                                '2024-01-15T09:30:00Z',
+                                'b2c3d4e5-f6g7-8901-bcde-fg2345678901',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    search_after: [
+                        2.5,
+                        '2024-01-15T10:30:00Z',
+                        'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                    ],
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].tweet_id).toBe('b2c3d4e5-f6g7-8901-bcde-fg2345678901');
+            expect(result.pagination.has_more).toBe(false);
         });
 
         it('should search posts and attach parent tweet for reply', async () => {
@@ -816,6 +1138,148 @@ describe('SearchService', () => {
                     has_more: false,
                 },
             });
+        });
+
+        it('should search latest posts with hashtag query', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: SearchQueryDto = {
+                query: '#javascript',
+                limit: 20,
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: {
+                                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                                type: 'post',
+                                content: 'Learning #javascript today',
+                                created_at: '2024-01-16T10:30:00Z',
+                                updated_at: '2024-01-16T10:30:00Z',
+                                num_likes: 10,
+                                num_reposts: 5,
+                                num_views: 100,
+                                num_replies: 3,
+                                num_quotes: 2,
+                                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                                username: 'alyaa242',
+                                name: 'Alyaa Ali',
+                                avatar_url: 'https://example.com/avatar.jpg',
+                                followers: 100,
+                                following: 50,
+                                hashtags: ['#javascript'],
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [
+                                '2024-01-16T10:30:00Z',
+                                2.5,
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            const result = await service.searchLatestPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: {
+                        bool: {
+                            must: [
+                                {
+                                    term: {
+                                        hashtags: {
+                                            value: '#javascript',
+                                            boost: 10,
+                                        },
+                                    },
+                                },
+                            ],
+                            should: expect.any(Array),
+                        },
+                    },
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].content).toContain('#javascript');
+        });
+
+        it('should search latest posts with username filter', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: SearchQueryDto = {
+                query: 'coding',
+                limit: 20,
+                username: 'alyaa242',
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: {
+                                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                                type: 'post',
+                                content: 'Coding all day',
+                                created_at: '2024-01-16T10:30:00Z',
+                                updated_at: '2024-01-16T10:30:00Z',
+                                num_likes: 10,
+                                num_reposts: 5,
+                                num_views: 100,
+                                num_replies: 3,
+                                num_quotes: 2,
+                                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                                username: 'alyaa242',
+                                name: 'Alyaa Ali',
+                                avatar_url: 'https://example.com/avatar.jpg',
+                                followers: 100,
+                                following: 50,
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [
+                                '2024-01-16T10:30:00Z',
+                                2.5,
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            const result = await service.searchLatestPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: {
+                        bool: {
+                            must: [],
+                            should: expect.any(Array),
+                            filter: [
+                                {
+                                    term: {
+                                        username: 'alyaa242',
+                                    },
+                                },
+                            ],
+                        },
+                    },
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].user.username).toBe('alyaa242');
         });
     });
 
