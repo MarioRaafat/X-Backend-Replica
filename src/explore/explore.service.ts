@@ -24,19 +24,19 @@ export class ExploreService {
         // This method would fetch all explore data in one go
         // Combining trending, who to follow, and for-you posts
         return {
-            trending: await this.getExploreItems(),
+            trending: await this.getTrending(),
             who_to_follow: await this.getWhoToFollow(),
             for_you_posts: await this.getForYouPosts(current_user_id),
         };
     }
 
-    async getExploreItems(category: string = '', country: string = 'global'): Promise<string[]> {
+    async getTrending(category: string = '', country: string = 'global'): Promise<string[]> {
         return [];
     }
     async getWhoToFollow() {
         return [];
     }
-    async getCategoryExploreItems(
+    async getCategoryTrending(
         category_id: string,
         current_user_id?: string,
         page: number = 1,
@@ -59,7 +59,7 @@ export class ExploreService {
         const offset = (page - 1) * limit;
 
         // Fetch limit + 1 to check if there are more results
-        const tweet_ids = await this.getExploreItemsWithOffset(category_id, offset, limit + 1);
+        const tweet_ids = await this.getTrendingWithOffset(category_id, offset, limit + 1);
 
         const hasMore = tweet_ids.length > limit;
         const ids_to_return = hasMore ? tweet_ids.slice(0, limit) : tweet_ids;
@@ -86,12 +86,12 @@ export class ExploreService {
         };
     }
 
-    async getExploreItemsWithOffset(
+    async getTrendingWithOffset(
         category_id: string,
         offset: number,
         limit: number
     ): Promise<string[]> {
-        const redis_key = `explore:category:${category_id}`;
+        const redis_key = `trending:category:${category_id}`;
         return await this.redis_service.zrevrange(redis_key, offset, limit);
     }
 
