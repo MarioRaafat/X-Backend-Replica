@@ -86,7 +86,7 @@ export class SearchService {
         current_user_id: string,
         query_dto: SearchQueryDto
     ): Promise<UserListResponseDto> {
-        const { query, cursor, limit = 20 } = query_dto;
+        const { query, cursor, limit = 20, username } = query_dto;
 
         const decoded_query = decodeURIComponent(query);
         const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
@@ -120,6 +120,26 @@ export class SearchService {
 
         query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
 
+        if (username) {
+            query_builder.andWhere(`EXISTS (
+                SELECT 1 FROM "user" target_user
+                WHERE target_user.username = :username
+                AND (
+                    EXISTS (
+                        SELECT 1 FROM user_follows uf1
+                        WHERE uf1.follower_id = "user".id 
+                        AND uf1.followed_id = target_user.id
+                    )
+                    OR
+                    EXISTS (
+                        SELECT 1 FROM user_follows uf2
+                        WHERE uf2.followed_id = "user".id 
+                        AND uf2.follower_id = target_user.id
+                    )
+                )
+            )`);
+        }
+
         if (cursor && cursor_score !== null && cursor_id !== null) {
             query_builder.andWhere(
                 new Brackets((qb) => {
@@ -139,6 +159,7 @@ export class SearchService {
         query_builder.setParameters({
             current_user_id,
             prefix_query,
+            username,
         });
 
         const results = await query_builder
