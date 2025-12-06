@@ -53,19 +53,19 @@ export class User {
     language: 'en' | 'ar';
 
     @Column({ type: 'boolean', default: false })
-    verified: boolean = false;
+    verified: boolean;
 
     @Column({ type: 'varchar', nullable: true })
     country?: string | null;
 
     @Column({ type: 'boolean', default: false })
-    online: boolean = false;
+    online: boolean;
 
-    @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
+    @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
 
     @Column({
-        type: 'timestamp',
+        type: 'timestamptz',
         default: () => 'CURRENT_TIMESTAMP',
         onUpdate: 'CURRENT_TIMESTAMP',
     })
@@ -73,10 +73,10 @@ export class User {
     updated_at: Date;
 
     @Column({ type: 'int', default: 0 })
-    followers: number = 0;
+    followers: number;
 
     @Column({ type: 'int', default: 0 })
-    following: number = 0;
+    following: number;
 
     @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
     hashtags: Hashtag[];

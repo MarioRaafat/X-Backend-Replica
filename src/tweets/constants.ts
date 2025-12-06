@@ -1,16 +1,24 @@
 export const TOPICS = ['Sports', 'Entertainment', 'News'];
 
 export const categorize_prompt = (content: string) => {
-    return `Analyze the following text and categorize it into these topics: ${TOPICS.join(', ')}.
-        Return ONLY a JSON object with topic names as keys and percentage values (0-100) as numbers. The percentages should add up to 100.
-        Only include topics that are relevant (percentage > 0).
+    return `
+You are an expert text classifier.
 
-        Example format:
-        { "Sports": 60, "Entertainment": 30, "News": 10 }
+Analyze the following text and assign a percentage (0-100) to EACH of these topics:
+${TOPICS.join(', ')}.
 
-        Text to analyze:
-        "${content}"
+IMPORTANT RULES:
+- Always return ALL topics.
+- Percentages MUST sum to 100.
+- If a topic is not relevant, assign 0 to it (do NOT omit it).
+- Return ONLY a JSON object. No explanations. No extra text.
 
-        Return only the JSON object, no additional text or explanation.
-    `;
+Example:
+{ "Sports": 80, "Entertainment": 20, "News": 0 }
+
+Text:
+"${content}"
+
+Return ONLY the JSON object.
+`;
 };

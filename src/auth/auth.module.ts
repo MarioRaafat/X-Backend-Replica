@@ -11,8 +11,6 @@ import { GitHubStrategy } from './strategies/github.strategy';
 import { CaptchaService } from './captcha.service';
 import { UsernameService } from './username.service';
 import { UserModule } from 'src/user/user.module';
-import { RedisModule } from '@nestjs-modules/ioredis';
-import { RedisService } from 'src/redis/redis.service';
 import { VerificationModule } from 'src/verification/verification.module';
 import { CommunicationModule } from 'src/communication/communication.module';
 import { EmailService } from 'src/communication/email.service';
@@ -21,8 +19,8 @@ import { GoogleStrategy } from './strategies/google.strategy';
 import { FacebookStrategy } from './strategies/facebook.strategy';
 import { UserRepository } from 'src/user/user.repository';
 import { BackgroundJobsModule } from 'src/background-jobs/background-jobs.module';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { EmailJobsService } from 'src/background-jobs/email/email.service';
 
 @Module({
     imports: [
@@ -39,7 +37,6 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
         }),
         PassportModule,
         UserModule,
-        RedisModule,
         VerificationModule,
         CommunicationModule,
         BackgroundJobsModule,
@@ -50,10 +47,9 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
         JwtStrategy,
         GitHubStrategy,
         UserRepository,
-        RedisService,
         VerificationService,
         EmailService,
-        BackgroundJobsService,
+        EmailJobsService,
         CaptchaService,
         UsernameService,
         GoogleStrategy,

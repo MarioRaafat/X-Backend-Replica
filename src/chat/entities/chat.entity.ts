@@ -9,7 +9,7 @@ import {
     UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
-import { Message } from './message.entity';
+import { Message } from '../../messages/entities/message.entity';
 
 @Entity('chats')
 export class Chat {
@@ -33,9 +33,23 @@ export class Chat {
     @OneToMany('Message', 'chat')
     messages: Message[];
 
-    @CreateDateColumn()
+    // Denormalized fields for performance
+    @ManyToOne(() => Message, { nullable: true })
+    @JoinColumn({ name: 'last_message_id' })
+    last_message: Message | null;
+
+    @Column({ nullable: true })
+    last_message_id: string | null;
+
+    @Column({ type: 'int', default: 0 })
+    unread_count_user1: number;
+
+    @Column({ type: 'int', default: 0 })
+    unread_count_user2: number;
+
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
-    @UpdateDateColumn()
+    @UpdateDateColumn({ type: 'timestamptz' })
     updated_at: Date;
 }

@@ -17,6 +17,7 @@ export const ERROR_MESSAGES = {
     PHONE_NUMBER_NOT_FOUND: 'Phone number not found',
     USERNAME_NOT_FOUND: 'Username not found',
     USERNAME_ALREADY_TAKEN: 'Username is already taken',
+    ACCOUNT_HAS_NO_PASSWORD: 'Account does not have a password set',
 
     // OAuth completion
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
@@ -73,13 +74,14 @@ export const ERROR_MESSAGES = {
     MESSAGE_NOT_FOUND: 'Message not found',
     UNAUTHORIZED_ACCESS_TO_CHAT: 'Unauthorized access to chat',
     UNAUTHORIZED_ACCESS_TO_MESSAGE: 'Unauthorized access to message',
+    MESSAGE_DOES_NOT_BELONG_TO_CHAT: 'Message does not belong to this chat',
     RECIPIENT_NOT_FOUND: 'Recipient user not found',
     CANNOT_MESSAGE_YOURSELF: 'Cannot send message to yourself',
     MESSAGE_CONTENT_REQUIRED: 'Message content is required',
     CHAT_ALREADY_EXISTS: 'Chat already exists between these users',
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
-    CANNOT_REPLY_TO_REPLY: 'Cannot reply to a reply message',
+    LAST_READ_MESSAGE_NOT_IN_CHAT: 'Last read message does not belong to this chat',
 
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
@@ -186,6 +188,7 @@ export const SUCCESS_MESSAGES = {
     INTERESTS_ASSIGNED: 'Interests assigned successfully',
     LANGUAGE_CHANGED: 'Language changed successfully',
     USERNAME_RECOMMENDATIONS_RETRIEVED: 'Username recommendations retrieved successfully',
+    USER_RELATIONS_RETRIEVED: 'User relations counts retrieved successfully',
 
     // search
     SUGGESTIONS_RETRIEVED: 'Search suggestions retrieved successfully',

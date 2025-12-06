@@ -24,6 +24,11 @@ import { UploadFileResponseDto } from './dto/upload-file-response.dto';
 import { Readable } from 'stream';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
+import { UserListResponseDto } from './dto/user-list-response.dto';
+import { CursorPaginationDto } from './dto/cursor-pagination-params.dto';
+import { TweetResponseDTO } from 'src/tweets/dto/tweet-response.dto';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
+import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
 
 describe('UserController', () => {
     let controller: UserController;
@@ -59,6 +64,7 @@ describe('UserController', () => {
             deleteCover: jest.fn(),
             assignInterests: jest.fn(),
             changeLanguage: jest.fn(),
+            getUsernameRecommendations: jest.fn(),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -285,15 +291,26 @@ describe('UserController', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-21T09:26:17.432Z'),
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const mock_req = {
+                cookies: {
+                    refresh_token: 'mock_refresh_token',
+                },
+            } as any;
 
             const get_me_spy = jest
                 .spyOn(user_service, 'getMe')
                 .mockResolvedValueOnce(mock_response);
 
-            const result = await controller.getMe(user_id);
+            const result = await controller.getMe(user_id, mock_req);
 
             expect(get_me_spy).toHaveBeenCalledWith(user_id);
             expect(get_me_spy).toHaveBeenCalledTimes(1);
@@ -303,11 +320,19 @@ describe('UserController', () => {
         it('should throw if service throws', async () => {
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
 
+            const mock_req = {
+                cookies: {
+                    refresh_token: 'mock_refresh_token',
+                },
+            } as any;
+
             const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
 
             const get_me_spy = jest.spyOn(user_service, 'getMe').mockRejectedValueOnce(error);
 
-            await expect(controller.getMe(user_id)).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
+            await expect(controller.getMe(user_id, mock_req)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
+            );
 
             expect(get_me_spy).toHaveBeenCalledWith(user_id);
             expect(get_me_spy).toHaveBeenCalledTimes(1);
@@ -327,6 +352,7 @@ describe('UserController', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-21T09:26:17.432Z'),
                 is_follower: true,
                 is_following: false,
                 is_muted: false,
@@ -342,6 +368,10 @@ describe('UserController', () => {
                     },
                 ],
                 mutual_followers_count: 5,
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -370,6 +400,11 @@ describe('UserController', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-21T09:26:17.432Z'),
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const current_user_id = null;
@@ -418,6 +453,7 @@ describe('UserController', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-21T09:26:17.432Z'),
                 is_follower: true,
                 is_following: false,
                 is_muted: false,
@@ -433,6 +469,10 @@ describe('UserController', () => {
                     },
                 ],
                 mutual_followers_count: 5,
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -461,6 +501,11 @@ describe('UserController', () => {
                 following_count: 15,
                 country: 'Egypt',
                 created_at: new Date('2025-10-30'),
+                birth_date: new Date('2025-10-21T09:26:17.432Z'),
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const current_user_id = null;
@@ -498,42 +543,48 @@ describe('UserController', () => {
 
     describe('getFollowers', () => {
         it('should call user_service.getFollowers with the current user id, target user id and getFollowersDto without following filter', async () => {
-            const mock_response: UserListItemDto[] = [
-                {
-                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                    name: 'Alyaa Ali',
-                    username: 'Alyaali242',
-                    bio: 'hi there!',
-                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                    is_following: false,
-                    is_follower: false,
-                    is_muted: false,
-                    is_blocked: true,
-                    verified: false,
-                    followers: 0,
-                    following: 0,
+            const mock_response: UserListResponseDto = {
+                data: [
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Amira Khalid',
+                        username: 'amira2342',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: true,
+                        is_follower: false,
+                        is_muted: true,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                    has_more: false,
                 },
-                {
-                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                    name: 'Amira Khalid',
-                    username: 'amira2342',
-                    bio: 'hi there!',
-                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                    is_following: true,
-                    is_follower: false,
-                    is_muted: true,
-                    is_blocked: true,
-                    verified: false,
-                    followers: 0,
-                    following: 0,
-                },
-            ];
+            };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
             const query_dto: GetFollowersDto = {
-                page_offset: 0,
-                page_size: 10,
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const get_followers_spy = jest
@@ -555,29 +606,34 @@ describe('UserController', () => {
             expect(result).toEqual(mock_response);
         });
         it('should call user_service.getFollowers with the current user id, target user id and getFollowersDto with following filter', async () => {
-            const mock_response: UserListItemDto[] = [
-                {
-                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                    name: 'Alyaa Ali',
-                    username: 'Alyaali242',
-                    bio: 'hi there!',
-                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                    is_following: false,
-                    is_follower: false,
-                    is_muted: false,
-                    is_blocked: true,
-                    verified: false,
-                    followers: 0,
-                    following: 0,
+            const mock_response: UserListResponseDto = {
+                data: [
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                    has_more: false,
                 },
-            ];
+            };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
             const query_dto: GetFollowersDto = {
-                page_offset: 0,
-                page_size: 10,
-                following: true,
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const get_followers_spy = jest
@@ -604,8 +660,8 @@ describe('UserController', () => {
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
             const query_dto: GetFollowersDto = {
-                page_offset: 0,
-                page_size: 10,
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -625,41 +681,47 @@ describe('UserController', () => {
 
     describe('getMutedList', () => {
         it('should call user_service.getMutedList with the current user id, target user id and queryDto', async () => {
-            const mock_response: UserListItemDto[] = [
-                {
-                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                    name: 'Alyaa Ali',
-                    username: 'Alyaali242',
-                    bio: 'hi there!',
-                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                    is_following: false,
-                    is_follower: false,
-                    is_muted: false,
-                    is_blocked: true,
-                    verified: false,
-                    followers: 0,
-                    following: 0,
+            const mock_response: UserListResponseDto = {
+                data: [
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Amira Khalid',
+                        username: 'amira2342',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: true,
+                        is_follower: false,
+                        is_muted: true,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                    has_more: false,
                 },
-                {
-                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                    name: 'Amira Khalid',
-                    username: 'amira2342',
-                    bio: 'hi there!',
-                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                    is_following: true,
-                    is_follower: false,
-                    is_muted: true,
-                    is_blocked: true,
-                    verified: false,
-                    followers: 0,
-                    following: 0,
-                },
-            ];
+            };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const get_muted_list = jest
@@ -676,41 +738,47 @@ describe('UserController', () => {
 
     describe('getBlockedList', () => {
         it('should call user_service.getBlockedList with the current user id, target user id and queryDto', async () => {
-            const mock_response: UserListItemDto[] = [
-                {
-                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                    name: 'Alyaa Ali',
-                    username: 'Alyaali242',
-                    bio: 'hi there!',
-                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                    is_following: false,
-                    is_follower: false,
-                    is_muted: false,
-                    is_blocked: true,
-                    verified: false,
-                    followers: 0,
-                    following: 0,
+            const mock_response: UserListResponseDto = {
+                data: [
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Amira Khalid',
+                        username: 'amira2342',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: true,
+                        is_follower: false,
+                        is_muted: true,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                    has_more: false,
                 },
-                {
-                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                    name: 'Amira Khalid',
-                    username: 'amira2342',
-                    bio: 'hi there!',
-                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
-                    is_following: true,
-                    is_follower: false,
-                    is_muted: true,
-                    is_blocked: true,
-                    verified: false,
-                    followers: 0,
-                    following: 0,
-                },
-            ];
+            };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const get_blocked_list = jest
@@ -1160,14 +1228,96 @@ describe('UserController', () => {
 
     describe('getLikedPosts', () => {
         it('should call user_service.getLikedPosts with the current user id and query dto', async () => {
-            const mock_response: any = {
-                data: [],
+            const mock_response: {
+                data;
+                pagination: {
+                    next_cursor: string | null;
+                    has_more: boolean;
+                };
+            } = {
+                data: [
+                    {
+                        tweet_id: 'a606119b-fada-4775-92de-699a04ba1461',
+                        type: TweetType.QUOTE,
+                        content: 'This is my first quote!',
+                        images: [
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
+                        ],
+                        videos: ['https://example.com/video1.mp4'],
+                        user: {
+                            id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                            username: 'alyaa2242',
+                            name: 'Alyaa Eissa',
+                            verified: false,
+                            followers: 2,
+                            following: 1,
+                        },
+                        parent_tweet: {
+                            tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                            type: TweetType.TWEET,
+                            content: 'This is my 5 tweet!',
+                            images: [
+                                'https://example.com/image1.jpg',
+                                'https://example.com/image2.jpg',
+                            ],
+                            videos: ['https://example.com/video1.mp4'],
+                            user: {
+                                id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                username: 'alyaa2242',
+                                name: 'Alyaa Eissa',
+                                verified: false,
+                                followers: 2,
+                                following: 1,
+                            },
+                            created_at: new Date('2025-11-19T09:46:08.261915'),
+                        },
+                        likes_count: 1,
+                        reposts_count: 1,
+                        views_count: 0,
+                        quotes_count: 0,
+                        replies_count: 0,
+                        is_liked: true,
+                        is_reposted: true,
+                        created_at: new Date('2025-11-19T07:47:18.478Z'),
+                    },
+                    {
+                        tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                        type: TweetType.TWEET,
+                        content: 'This is my 5 tweet!',
+                        images: [
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
+                        ],
+                        videos: ['https://example.com/video1.mp4'],
+                        user: {
+                            id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                            username: 'alyaa2242',
+                            name: 'Alyaa Eissa',
+                            verified: false,
+                            followers: 2,
+                            following: 1,
+                        },
+                        likes_count: 1,
+                        reposts_count: 1,
+                        views_count: 0,
+                        quotes_count: 1,
+                        replies_count: 1,
+                        is_liked: true,
+                        is_reposted: true,
+                        created_at: new Date('2025-11-19T07:46:08.261Z'),
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-11-19T07:46:08.261Z_a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                    has_more: true,
+                },
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const get_liked_posts = jest
@@ -1184,15 +1334,97 @@ describe('UserController', () => {
 
     describe('getPosts', () => {
         it('should call user_service.getPosts with the current user id, target user id, and query dto', async () => {
-            const mock_response: any = {
-                data: [],
+            const mock_response: {
+                data;
+                pagination: {
+                    next_cursor: string | null;
+                    has_more: boolean;
+                };
+            } = {
+                data: [
+                    {
+                        tweet_id: 'a606119b-fada-4775-92de-699a04ba1461',
+                        type: TweetType.QUOTE,
+                        content: 'This is my first quote!',
+                        images: [
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
+                        ],
+                        videos: ['https://example.com/video1.mp4'],
+                        user: {
+                            id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                            username: 'alyaa2242',
+                            name: 'Alyaa Eissa',
+                            verified: false,
+                            followers: 2,
+                            following: 1,
+                        },
+                        parent_tweet: {
+                            tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                            type: TweetType.TWEET,
+                            content: 'This is my 5 tweet!',
+                            images: [
+                                'https://example.com/image1.jpg',
+                                'https://example.com/image2.jpg',
+                            ],
+                            videos: ['https://example.com/video1.mp4'],
+                            user: {
+                                id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                username: 'alyaa2242',
+                                name: 'Alyaa Eissa',
+                                verified: false,
+                                followers: 2,
+                                following: 1,
+                            },
+                            created_at: new Date('2025-11-19T09:46:08.261915'),
+                        },
+                        likes_count: 1,
+                        reposts_count: 1,
+                        views_count: 0,
+                        quotes_count: 0,
+                        replies_count: 0,
+                        is_liked: true,
+                        is_reposted: true,
+                        created_at: new Date('2025-11-19T07:47:18.478Z'),
+                    },
+                    {
+                        tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                        type: TweetType.TWEET,
+                        content: 'This is my 5 tweet!',
+                        images: [
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
+                        ],
+                        videos: ['https://example.com/video1.mp4'],
+                        user: {
+                            id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                            username: 'alyaa2242',
+                            name: 'Alyaa Eissa',
+                            verified: false,
+                            followers: 2,
+                            following: 1,
+                        },
+                        likes_count: 1,
+                        reposts_count: 1,
+                        views_count: 0,
+                        quotes_count: 1,
+                        replies_count: 1,
+                        is_liked: true,
+                        is_reposted: true,
+                        created_at: new Date('2025-11-19T07:46:08.261Z'),
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-11-19T07:46:08.261Z_a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                    has_more: true,
+                },
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const get_posts = jest
@@ -1209,9 +1441,9 @@ describe('UserController', () => {
         it('should throw if service throws', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'nonexistent-id';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -1229,15 +1461,90 @@ describe('UserController', () => {
 
     describe('getReplies', () => {
         it('should call user_service.getReplies with the current user id, target user id, and query dto', async () => {
-            const mock_response: any = {
-                data: [],
+            const mock_response: {
+                data;
+                pagination: {
+                    next_cursor: string | null;
+                    has_more: boolean;
+                };
+            } = {
+                data: [
+                    {
+                        tweet_id: 'a606119b-fada-4775-92de-699a04ba1461',
+                        type: TweetType.REPLY,
+                        content: 'This is my first reply!',
+                        images: [
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
+                        ],
+                        videos: ['https://example.com/video1.mp4'],
+                        user: {
+                            id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                            username: 'alyaa2242',
+                            name: 'Alyaa Eissa',
+                            verified: false,
+                            followers: 2,
+                            following: 1,
+                        },
+                        parent_tweet: {
+                            tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                            type: TweetType.TWEET,
+                            content: 'This is my 5 tweet!',
+                            images: [
+                                'https://example.com/image1.jpg',
+                                'https://example.com/image2.jpg',
+                            ],
+                            videos: ['https://example.com/video1.mp4'],
+                            user: {
+                                id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                username: 'alyaa2242',
+                                name: 'Alyaa Eissa',
+                                verified: false,
+                                followers: 2,
+                                following: 1,
+                            },
+                            created_at: new Date('2025-11-19T09:46:08.261915'),
+                        },
+                        conversation_tweet: {
+                            tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                            type: TweetType.TWEET,
+                            content: 'This is my 5 tweet!',
+                            images: [
+                                'https://example.com/image1.jpg',
+                                'https://example.com/image2.jpg',
+                            ],
+                            videos: ['https://example.com/video1.mp4'],
+                            user: {
+                                id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                username: 'alyaa2242',
+                                name: 'Alyaa Eissa',
+                                verified: false,
+                                followers: 2,
+                                following: 1,
+                            },
+                            created_at: new Date('2025-11-19T09:46:08.261915'),
+                        },
+                        likes_count: 1,
+                        reposts_count: 1,
+                        views_count: 0,
+                        quotes_count: 0,
+                        replies_count: 0,
+                        is_liked: true,
+                        is_reposted: true,
+                        created_at: new Date('2025-11-19T07:47:18.478Z'),
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-11-19T07:46:08.261Z_a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                    has_more: true,
+                },
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const get_replies = jest
@@ -1254,9 +1561,9 @@ describe('UserController', () => {
         it('should throw if service throws', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'nonexistent-id';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -1274,15 +1581,97 @@ describe('UserController', () => {
 
     describe('getMedia', () => {
         it('should call user_service.getMedia with the current user id, target user id, and query dto', async () => {
-            const mock_response: any = {
-                data: [],
+            const mock_response: {
+                data;
+                pagination: {
+                    next_cursor: string | null;
+                    has_more: boolean;
+                };
+            } = {
+                data: [
+                    {
+                        tweet_id: 'a606119b-fada-4775-92de-699a04ba1461',
+                        type: TweetType.QUOTE,
+                        content: 'This is my first quote!',
+                        images: [
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
+                        ],
+                        videos: ['https://example.com/video1.mp4'],
+                        user: {
+                            id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                            username: 'alyaa2242',
+                            name: 'Alyaa Eissa',
+                            verified: false,
+                            followers: 2,
+                            following: 1,
+                        },
+                        parent_tweet: {
+                            tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                            type: TweetType.TWEET,
+                            content: 'This is my 5 tweet!',
+                            images: [
+                                'https://example.com/image1.jpg',
+                                'https://example.com/image2.jpg',
+                            ],
+                            videos: ['https://example.com/video1.mp4'],
+                            user: {
+                                id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                                username: 'alyaa2242',
+                                name: 'Alyaa Eissa',
+                                verified: false,
+                                followers: 2,
+                                following: 1,
+                            },
+                            created_at: new Date('2025-11-19T09:46:08.261915'),
+                        },
+                        likes_count: 1,
+                        reposts_count: 1,
+                        views_count: 0,
+                        quotes_count: 0,
+                        replies_count: 0,
+                        is_liked: true,
+                        is_reposted: true,
+                        created_at: new Date('2025-11-19T07:47:18.478Z'),
+                    },
+                    {
+                        tweet_id: 'a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                        type: TweetType.TWEET,
+                        content: 'This is my 5 tweet!',
+                        images: [
+                            'https://example.com/image1.jpg',
+                            'https://example.com/image2.jpg',
+                        ],
+                        videos: ['https://example.com/video1.mp4'],
+                        user: {
+                            id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
+                            username: 'alyaa2242',
+                            name: 'Alyaa Eissa',
+                            verified: false,
+                            followers: 2,
+                            following: 1,
+                        },
+                        likes_count: 1,
+                        reposts_count: 1,
+                        views_count: 0,
+                        quotes_count: 1,
+                        replies_count: 1,
+                        is_liked: true,
+                        is_reposted: true,
+                        created_at: new Date('2025-11-19T07:46:08.261Z'),
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-11-19T07:46:08.261Z_a1ba7ee3-f290-41f3-acaa-b5369d656794',
+                    has_more: true,
+                },
             };
 
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const get_media = jest
@@ -1299,9 +1688,9 @@ describe('UserController', () => {
         it('should throw if service throws', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'nonexistent-id';
-            const query_dto: PaginationParamsDto = {
-                page_offset: 0,
-                page_size: 10,
+            const query_dto: CursorPaginationDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
             };
 
             const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -1328,8 +1717,13 @@ describe('UserController', () => {
                 cover_url: 'https://cdn.app.com/profiles/u877.jpg',
                 country: null,
                 created_at: new Date('2025-10-21T09:26:17.432Z'),
+                birth_date: new Date('2025-10-21T09:26:17.432Z'),
                 followers_count: 5,
                 following_count: 10,
+                num_replies: 0,
+                num_media: 0,
+                num_likes: 0,
+                num_posts: 0,
             };
 
             const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
@@ -1701,6 +2095,43 @@ describe('UserController', () => {
 
             expect(assign_interests).toHaveBeenCalledWith(current_user_id, assign_interests_dto);
             expect(assign_interests).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('getUsernameRecommendations', () => {
+        it('should call user_service.getUsernameRecommendations with the current user id', async () => {
+            const mock_response: UsernameRecommendationsResponseDto = {
+                recommendations: ['Alyaa242', 'Alyaali2', 'alyaali242'],
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const get_username_recommendations_spy = jest
+                .spyOn(user_service, 'getUsernameRecommendations')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getUsernameRecommendations(current_user_id);
+
+            expect(get_username_recommendations_spy).toHaveBeenCalledWith(current_user_id);
+            expect(get_username_recommendations_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws user not found', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            const get_username_recommendations_spy = jest
+                .spyOn(user_service, 'getUsernameRecommendations')
+                .mockRejectedValueOnce(error);
+
+            await expect(controller.getUsernameRecommendations(current_user_id)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
+            );
+
+            expect(get_username_recommendations_spy).toHaveBeenCalledWith(current_user_id);
+            expect(get_username_recommendations_spy).toHaveBeenCalledTimes(1);
         });
     });
 });

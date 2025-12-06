@@ -174,7 +174,7 @@ describe('PaginationService', () => {
             );
 
             expect(mock_query_builder.andWhere).toHaveBeenCalledWith(
-                expect.stringContaining('tweet.created_at < :cursor_date'),
+                "(date_trunc('milliseconds', tweet.created_at) < :cursor_date OR (date_trunc('milliseconds', tweet.created_at) = :cursor_date AND tweet.tweet_id < :cursor_id))",
                 expect.objectContaining({
                     cursor_date: new Date('2024-01-15T10:30:00.000Z'),
                     cursor_id: '123',

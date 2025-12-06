@@ -4,6 +4,7 @@ export const QUEUE_NAMES = {
     FEED: 'feed-queue',
     NOTIFICATION: 'notification-queue',
     EXPLORE: 'explore-score-updates',
+    ELASTICSEARCH: 'elasticsearch-queue',
 } as const;
 
 export const JOB_NAMES = {
@@ -17,7 +18,20 @@ export const JOB_NAMES = {
         INDEX_TWEET: 'index-tweet-to-elastic',
     },
     NOTIFICATION: {
-        SEND_BULK: 'send-bulk-notifications',
+        FOLLOW: 'follow-notification',
+        REPLY: 'reply-notification',
+        LIKE: 'like-notification',
+        REPOST: 'repost-notification',
+        QUOTE: 'quote-notification',
+        MENTION: 'mention-notification',
+        CLEAR: 'clear-notifications',
+    },
+    ELASTICSEARCH: {
+        INDEX_TWEET: 'index-tweet',
+        DELETE_TWEET: 'delete-tweet',
+        UPDATE_USER: 'update-user',
+        DELETE_USER: 'delete-user',
+        FOLLOW: 'follow',
     },
     EXPLORE: {
         RECALCULATE_SCORES: 'recalculate-explore-scores',

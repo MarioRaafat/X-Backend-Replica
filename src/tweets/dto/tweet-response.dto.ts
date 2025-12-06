@@ -16,7 +16,7 @@ export class TweetResponseDTO {
     @ApiProperty({
         description: 'Trending Score (Debug)',
         example: 123.45,
-        required: false
+        required: false,
     })
     score?: number;
 
@@ -140,7 +140,7 @@ export class TweetResponseDTO {
         description: 'Number of bookmarks',
         example: 15,
     })
-    bookmarks_count: number;
+    bookmarks_count?: number = 0;
 
     @Expose()
     @Transform(({ obj }) => !!obj.current_user_like || obj.is_liked)
@@ -148,7 +148,7 @@ export class TweetResponseDTO {
         description: 'Whether the current user has liked this tweet',
         example: true,
     })
-    is_liked: boolean;
+    is_liked?: boolean = false;
 
     @Expose()
     @Transform(({ obj }) => !!obj.current_user_repost || obj.is_reposted)
@@ -156,7 +156,7 @@ export class TweetResponseDTO {
         description: 'Whether the current user has reposted this tweet',
         example: false,
     })
-    is_reposted: boolean;
+    is_reposted?: boolean = false;
 
     @Expose()
     @Transform(({ obj }) => !!obj.current_user_bookmark)
@@ -164,7 +164,7 @@ export class TweetResponseDTO {
         description: 'Whether the current user has bookmarked this tweet',
         example: false,
     })
-    is_bookmarked: boolean;
+    is_bookmarked?: boolean = false;
 
     @Expose()
     @ApiProperty({

@@ -14,12 +14,6 @@ export class TimelineService {
         data: TweetResponseDTO[];
         pagination: { next_cursor: string | null; has_more: boolean };
     }> {
-        // tweets
-        // quotes
-        // reposts
-        // replies
-        //get my tweets
-
         return await this.tweet_repository.getFollowingTweets(
             user_id,
             pagination.cursor,

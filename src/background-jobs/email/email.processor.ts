@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
 import { EmailService } from '../../communication/email.service';
 import { JOB_NAMES, QUEUE_NAMES } from '../constants/queue.constants';
-import type { OtpEmailJobDto } from '../dto/email-job.dto';
+import type { OtpEmailJobDto } from './email-job.dto';
 import { generateOtpEmailHtml } from '../../templates/otp-email';
 import { reset_password_email_object, verification_email_object } from 'src/constants/variables';
 
@@ -25,20 +25,22 @@ export class EmailProcessor {
             let subtitle_description: string;
 
             switch (email_type) {
-                case 'verification':
+                case 'verification': {
                     ({ subject, title, description, subtitle, subtitle_description } =
                         verification_email_object(otp, not_me_link ?? ''));
                     break;
-
-                case 'reset_password':
+                }
+                case 'reset_password': {
                     ({ subject, title, description, subtitle, subtitle_description } =
                         reset_password_email_object(username));
                     break;
+                }
 
-                case 'update_email':
+                case 'update_email': {
                     ({ subject, title, description, subtitle, subtitle_description } =
                         reset_password_email_object(username));
                     break;
+                }
 
                 default:
                     throw new Error(`Unknown email type: ${String(email_type)}`);

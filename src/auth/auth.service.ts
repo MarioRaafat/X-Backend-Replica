@@ -20,7 +20,6 @@ import { UsernameService } from './username.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
@@ -49,6 +48,7 @@ import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { UserRepository } from 'src/user/user.repository';
 import { ConfirmPasswordDto } from './dto/confirm-password.dto';
+import { EmailJobsService } from 'src/background-jobs/email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -58,7 +58,7 @@ export class AuthService {
         private readonly username_service: UsernameService,
         private readonly redis_service: RedisService,
         private readonly verification_service: VerificationService,
-        private readonly background_jobs_service: BackgroundJobsService,
+        private readonly background_jobs_service: EmailJobsService,
         private readonly captcha_service: CaptchaService,
         private readonly config_service: ConfigService
     ) {}
@@ -113,6 +113,7 @@ export class AuthService {
             if (!unverified_user) {
                 throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
             } else {
+                console.log(`pass ${password} vs ${unverified_user.password}`);
                 const is_password_valid = await bcrypt.compare(password, unverified_user.password);
                 if (!is_password_valid) {
                     throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
@@ -536,6 +537,9 @@ export class AuthService {
         const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+        if (user.username === new_username) {
+            return { username: new_username };
         }
 
         // Check if username is already taken
@@ -1081,9 +1085,9 @@ export class AuthService {
                 confirm_password_dto.password,
                 user.password
             );
-            if (!is_password_valid) throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
+            if (!is_password_valid) throw new ForbiddenException(ERROR_MESSAGES.WRONG_PASSWORD);
         } else {
-            throw new UnauthorizedException(ERROR_MESSAGES.SOCIAL_LOGIN_REQUIRED);
+            throw new ConflictException(ERROR_MESSAGES.ACCOUNT_HAS_NO_PASSWORD);
         }
 
         return { valid: true };

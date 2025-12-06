@@ -20,7 +20,7 @@ import { TweetCategory } from './entities/tweet-category.entity';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 
 @Injectable()
-export class TweetsRepository {
+export class TweetsRepository extends Repository<Tweet> {
     constructor(
         @InjectRepository(Tweet)
         private readonly tweet_repository: Repository<Tweet>,
@@ -35,9 +35,14 @@ export class TweetsRepository {
         private data_source: DataSource,
         @InjectRepository(UserPostsView)
         private user_posts_view_repository: Repository<UserPostsView>
-    ) {}
+    ) {
+        super(Tweet, data_source.createEntityManager());
+    }
 
-    async getTweetsByIds(tweet_ids: string[], current_user_id?: string): Promise<TweetResponseDTO[]> {
+    async getTweetsByIds(
+        tweet_ids: string[],
+        current_user_id?: string
+    ): Promise<TweetResponseDTO[]> {
         if (!tweet_ids.length) return [];
 
         let query = this.tweet_repository
@@ -47,11 +52,7 @@ export class TweetsRepository {
             .select(tweet_fields_slect);
 
         // Map interaction flags
-        query = this.attachUserTweetInteractionFlags(
-            query,
-            current_user_id,
-            'tweet'
-        );
+        query = this.attachUserTweetInteractionFlags(query, current_user_id, 'tweet');
 
         const tweets = await query.getMany();
 
@@ -74,42 +75,13 @@ export class TweetsRepository {
         pagination: { next_cursor: string | null; has_more: boolean };
     }> {
         try {
-            let query = this.user_posts_view_repository
+            const cte_query = this.user_posts_view_repository
                 .createQueryBuilder('tweet')
-                .select([
-                    'tweet.tweet_id AS tweet_id',
-                    'tweet.profile_user_id AS profile_user_id',
-                    'tweet.tweet_author_id AS tweet_author_id',
-                    'tweet.repost_id AS repost_id',
-                    'tweet.post_type AS post_type',
-                    'tweet.type AS type',
-                    'tweet.content AS content',
-                    'tweet.type AS type',
-                    'tweet.post_date AS post_date',
-                    'tweet.images AS images',
-                    'tweet.videos AS videos',
-                    'tweet.num_likes AS num_likes',
-                    'tweet.num_reposts AS num_reposts',
-                    'tweet.num_views AS num_views',
-                    'tweet.num_quotes AS num_quotes',
-                    'tweet.num_replies AS num_replies',
-                    'tweet.created_at AS created_at',
-                    'tweet.updated_at AS updated_at',
-                    `json_build_object(
-                        'id', tweet.tweet_author_id,
-                        'username', tweet.username,
-                        'name', tweet.name,
-                        'avatar_url', tweet.avatar_url,
-                        'cover_url', tweet.cover_url,
-                        'verified', tweet.verified,
-                        'bio', tweet.bio,
-                        'followers', tweet.followers,
-                        'following', tweet.following
-                    ) AS user`,
-                ])
+                .select(['tweet.*', 'tweet.repost_id AS group_id'])
                 .where(
                     new Brackets((qb) =>
                         qb
+
                             .where(
                                 'tweet.profile_user_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id)',
                                 { user_id }
@@ -118,55 +90,128 @@ export class TweetsRepository {
                     )
                 )
                 .andWhere(
-                    'tweet.profile_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
+                    'tweet.tweet_author_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
                     { user_id }
                 )
+                .andWhere(
+                    'tweet.profile_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
+                    { user_id }
+                );
 
-                .orderBy('tweet.created_at', 'DESC')
-                .addOrderBy('tweet.tweet_id', 'DESC')
+            let query = this.user_posts_view_repository.manager
+                .createQueryBuilder()
+                .addCommonTableExpression(cte_query.getQuery(), 'filtered_tweets')
+                .addCommonTableExpression(
+                    `SELECT *, 
+            ROW_NUMBER() OVER (
+                PARTITION BY tweet_id
+                ORDER BY 
+                    CASE WHEN repost_id IS NOT NULL THEN 0 ELSE 1 END,
+                    post_date DESC, 
+                    id DESC
+            ) AS repost_rn
+         FROM filtered_tweets`,
+                    'deduped_reposts'
+                )
+                // STEP 2: Deduplicate conversations - keep latest tweet per conversation
+                .addCommonTableExpression(
+                    `SELECT *, 
+            ROW_NUMBER() OVER (
+                PARTITION BY COALESCE(conversation_id, tweet_id)
+                ORDER BY post_date DESC, id DESC
+            ) AS conversation_rn
+         FROM deduped_reposts
+         WHERE repost_rn = 1`,
+                    'ranked'
+                )
+                .select([
+                    'ranked.id AS id',
+
+                    'ranked.tweet_id AS tweet_id',
+                    'ranked.repost_id AS repost_id',
+
+                    'ranked.profile_user_id AS profile_user_id',
+                    'ranked.tweet_author_id AS tweet_author_id',
+                    'ranked.repost_id AS repost_id',
+                    'ranked.post_type AS post_type',
+                    'ranked.type AS type',
+                    'ranked.content AS content',
+                    'ranked.post_date AS post_date',
+                    'ranked.images AS images',
+                    'ranked.videos AS videos',
+                    'ranked.num_likes AS num_likes',
+                    'ranked.num_reposts AS num_reposts',
+                    'ranked.num_views AS num_views',
+                    'ranked.num_quotes AS num_quotes',
+                    'ranked.num_replies AS num_replies',
+                    'ranked.created_at AS created_at',
+                    'ranked.updated_at AS updated_at',
+                    'ranked.reposted_by_name AS reposted_by_name',
+                    'ranked.parent_id AS parent_id',
+                    'ranked.conversation_id AS conversation_id',
+                    'ranked.group_id AS group_id',
+
+                    `json_build_object(
+                    'id', ranked.tweet_author_id,
+                    'username', ranked.username,
+                    'name', ranked.name,
+                    'avatar_url', ranked.avatar_url,
+                    'cover_url', ranked.cover_url,
+                    'verified', ranked.verified,
+                    'bio', ranked.bio,
+                    'followers', ranked.followers,
+                    'following', ranked.following
+                ) AS user`,
+                ])
+                .from('ranked', 'ranked')
+                .where('ranked.conversation_rn = 1')
+                .setParameters(cte_query.getParameters())
+                .setParameter('user_id', user_id)
+                .orderBy('ranked.post_date', 'DESC')
+                .addOrderBy('ranked.tweet_id', 'DESC')
                 .limit(limit);
-
-            query = this.attachQuotedTweetQuery(query);
             query = this.attachUserInteractionBooleanFlags(
                 query,
                 user_id,
-                'tweet.tweet_author_id',
-                'tweet.tweet_id'
+                'ranked.tweet_author_id',
+                'ranked.tweet_id'
             );
 
-            query = this.attachRepostInfo(query);
+            query = this.attachRepostInfo(query, 'ranked');
+            query = this.attachParentTweetQuery(query, user_id);
+            query = this.attachConversationTweetQuery(query, user_id);
 
-            console.log('===================================');
-            query = this.attachRepliedTweetQuery(query, user_id);
+            // Apply cursor pagination
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
-                'tweet',
-                'created_at',
-                'tweet_id'
+                'ranked',
+                'post_date',
+                'id'
             );
 
-            console.log('=== FINAL QUERY ===');
-            console.log(query.getQuery());
-            console.log('=== PARAMETERS ===');
-            console.log(query.getParameters());
-
             let tweets = await query.getRawMany();
+
             tweets = this.attachUserFollowFlags(tweets);
 
-            const tweet_dtos = tweets.map((reply) =>
-                plainToInstance(TweetResponseDTO, reply, {
+            const tweet_dtos = tweets.map((tweet) =>
+                plainToInstance(TweetResponseDTO, tweet, {
                     excludeExtraneousValues: true,
                 })
             );
-            // console.log(tweets[0]);
-            // generate next cursor
-            const next_cursor = this.paginate_service.generateNextCursor(
-                tweets,
-                'created_at',
-                'tweet_id'
-            );
-            // return data + pagination
+            // Debugging
+
+            // tweets.forEach((t, i) => {
+            //     console.log(i, ': ', {
+            //         tweet_id: tweets[i].tweet_id,
+            //         conversation_id: tweets[i].debug_conversation_id,
+            //         parent_id: tweets[i].debug_parent_id,
+            //         group_id: tweets[i].group_id,
+            //         repost_id: tweets[i].repost_id,
+            //         rn: tweets[i].debug_rn,
+            //     });
+            // });
+            const next_cursor = this.paginate_service.generateNextCursor(tweets, 'post_date', 'id');
 
             return {
                 data: tweet_dtos,
@@ -180,7 +225,6 @@ export class TweetsRepository {
             throw error;
         }
     }
-
     //TODO: This will be changed in next pushes, just template response for front
     async getForyouTweets(
         user_id: string,
@@ -252,7 +296,7 @@ export class TweetsRepository {
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -266,7 +310,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -334,6 +378,32 @@ export class TweetsRepository {
                 };
             }
 
+            // Attach first nested reply from original tweet owner (if exists)
+            if (row.nested_reply && typeof row.nested_reply === 'object') {
+                tweet.replies = [
+                    {
+                        tweet_id: row.nested_reply.tweet_id,
+                        type: row.nested_reply.type as TweetType,
+                        content: row.nested_reply.content,
+                        images: row.nested_reply.images || [],
+                        videos: row.nested_reply.videos || [],
+                        parent_tweet_id: row.nested_reply.parent_tweet_id,
+                        user: row.nested_reply.user,
+                        likes_count: row.nested_reply.likes_count,
+                        reposts_count: row.nested_reply.reposts_count,
+                        quotes_count: row.nested_reply.quotes_count,
+                        replies_count: row.nested_reply.replies_count,
+                        views_count: row.nested_reply.views_count,
+                        bookmarks_count: row.nested_reply.bookmarks_count || 0,
+                        is_liked: row.nested_reply.nested_is_liked === true,
+                        is_reposted: row.nested_reply.nested_is_reposted === true,
+                        is_bookmarked: row.nested_reply.nested_is_bookmarked === true,
+                        created_at: row.nested_reply.created_at,
+                        updated_at: row.nested_reply.updated_at,
+                    },
+                ];
+            }
+
             return tweet;
         });
     }
@@ -343,6 +413,46 @@ export class TweetsRepository {
         user_id: string | undefined,
         pagination: TimelinePaginationDto
     ): Promise<{ tweets: TweetResponseDTO[]; next_cursor: string | null }> {
+        // First get the original tweet owner
+        const original_tweet = await this.tweet_repository.findOne({
+            where: { tweet_id },
+            select: ['user_id'],
+        });
+
+        if (!original_tweet) {
+            return { tweets: [], next_cursor: null };
+        }
+
+        const original_tweet_owner_id = original_tweet.user_id;
+
+        // Build the nested replies subquery (second-level replies from owner)
+        const get_user_interactions = (prefix: string) => {
+            if (!user_id) {
+                return `
+                    '${prefix}_is_liked', FALSE,
+                    '${prefix}_is_reposted', FALSE,
+                    '${prefix}_is_bookmarked', FALSE,
+                `;
+            }
+            return `
+                '${prefix}_is_liked', EXISTS(
+                    SELECT 1 FROM tweet_likes 
+                    WHERE tweet_likes.tweet_id = ${prefix}_tweet.tweet_id 
+                    AND tweet_likes.user_id = :user_id
+                ),
+                '${prefix}_is_reposted', EXISTS(
+                    SELECT 1 FROM tweet_reposts 
+                    WHERE tweet_reposts.tweet_id = ${prefix}_tweet.tweet_id 
+                    AND tweet_reposts.user_id = :user_id
+                ),
+                '${prefix}_is_bookmarked', EXISTS(
+                    SELECT 1 FROM tweet_bookmarks 
+                    WHERE tweet_bookmarks.tweet_id = ${prefix}_tweet.tweet_id 
+                    AND tweet_bookmarks.user_id = :user_id
+                ),
+            `;
+        };
+
         // Note: I will skip parent object data for replies to keep response clean as the front will have that info already
         const query_builder = this.tweet_repository
             .createQueryBuilder('tweet')
@@ -385,8 +495,50 @@ export class TweetsRepository {
             )`,
                 'conversation_root_id'
             )
+            // Add first nested reply from owner (if exists)
+            .addSelect(
+                `(
+                SELECT json_build_object(
+                    'tweet_id', nested_tweet.tweet_id,
+                    'type', 'reply',
+                    'content', nested_tweet.content,
+                    'images', nested_tweet.images,
+                    'videos', nested_tweet.videos,
+                    'parent_tweet_id', nested_reply.original_tweet_id,
+                    'user', json_build_object(
+                        'id', nested_user.id,
+                        'name', nested_user.name,
+                        'username', nested_user.username,
+                        'avatar_url', nested_user.avatar_url,
+                        'verified', nested_user.verified,
+                        'bio', nested_user.bio,
+                        'cover_url', nested_user.cover_url,
+                        'followers', nested_user.followers,
+                        'following', nested_user.following
+                    ),
+                    'likes_count', nested_tweet.num_likes,
+                    'reposts_count', nested_tweet.num_reposts,
+                    'quotes_count', nested_tweet.num_quotes,
+                    'replies_count', nested_tweet.num_replies,
+                    'views_count', nested_tweet.num_views,
+                    'bookmarks_count', nested_tweet.num_bookmarks,
+                    ${get_user_interactions('nested')}
+                    'created_at', nested_tweet.created_at,
+                    'updated_at', nested_tweet.updated_at
+                )
+                FROM tweet_replies nested_reply
+                INNER JOIN tweets nested_tweet ON nested_reply.reply_tweet_id = nested_tweet.tweet_id
+                INNER JOIN "user" nested_user ON nested_tweet.user_id = nested_user.id
+                WHERE nested_reply.original_tweet_id = tweet.tweet_id
+                AND nested_tweet.user_id = :original_tweet_owner_id
+                ORDER BY nested_tweet.created_at ASC
+                LIMIT 1
+            )`,
+                'nested_reply'
+            )
             .where('reply.original_tweet_id = :tweet_id')
             .setParameter('tweet_id', tweet_id)
+            .setParameter('original_tweet_owner_id', original_tweet_owner_id)
             .orderBy('tweet.created_at', 'DESC')
             .limit(pagination.limit);
 
@@ -487,6 +639,7 @@ export class TweetsRepository {
                     'tweet.num_quotes AS num_quotes',
                     'tweet.num_replies AS num_replies',
                     'tweet.created_at AS created_at',
+                    'tweet.post_date AS post_date',
                     'tweet.updated_at AS updated_at',
                     `json_build_object(
                         'id', tweet.tweet_author_id,
@@ -502,7 +655,7 @@ export class TweetsRepository {
                 ])
                 .where('tweet.profile_user_id = :user_id', { user_id })
                 .andWhere('tweet.type != :type', { type: 'reply' })
-                .orderBy('tweet.created_at', 'DESC')
+                .orderBy('tweet.post_date', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
@@ -519,7 +672,7 @@ export class TweetsRepository {
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -534,7 +687,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -599,7 +752,7 @@ export class TweetsRepository {
                 ])
                 .where('tweet.profile_user_id = :user_id', { user_id })
                 .andWhere('tweet.type = :type', { type: 'reply' })
-                .orderBy('tweet.created_at', 'DESC')
+                .orderBy('tweet.post_date', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
@@ -616,7 +769,7 @@ export class TweetsRepository {
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -631,7 +784,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -698,7 +851,8 @@ export class TweetsRepository {
                 .andWhere(
                     '(array_length(tweet.images, 1) > 0 OR array_length(tweet.videos, 1) > 0)'
                 )
-                .orderBy('tweet.created_at', 'DESC')
+                .andWhere('tweet.type != :type', { type: 'repost' })
+                .orderBy('tweet.post_date', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
@@ -709,11 +863,13 @@ export class TweetsRepository {
                 'tweet.tweet_id'
             );
 
+            query = this.attachRepliedTweetQuery(query, current_user_id);
+
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
                 'tweet',
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -728,7 +884,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'post_date',
                 'tweet_id'
             );
 
@@ -784,6 +940,7 @@ export class TweetsRepository {
                     'tweet.num_replies AS num_replies',
                     'tweet.created_at AS created_at',
                     'tweet.updated_at AS updated_at',
+                    'like.created_at AS liked_at',
                     `json_build_object(
                         'id', tweet.tweet_author_id,
                         'username', tweet.username,
@@ -797,7 +954,7 @@ export class TweetsRepository {
                     ) AS user`,
                 ])
                 .where('tweet.type != :type', { type: 'repost' })
-                .orderBy('tweet.created_at', 'DESC')
+                .orderBy('like.created_at', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
@@ -810,10 +967,12 @@ export class TweetsRepository {
                 'tweet.tweet_id'
             );
 
+            query = this.attachRepliedTweetQuery(query, user_id);
+
             query = this.paginate_service.applyCursorPagination(
                 query,
                 cursor,
-                'tweet',
+                'like',
                 'created_at',
                 'tweet_id'
             );
@@ -829,7 +988,7 @@ export class TweetsRepository {
 
             const next_cursor = this.paginate_service.generateNextCursor(
                 tweets,
-                'created_at',
+                'liked_at',
                 'tweet_id'
             );
 
@@ -845,7 +1004,6 @@ export class TweetsRepository {
             throw error;
         }
     }
-
     attachQuotedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
         // query
         //     .leftJoin(
@@ -925,18 +1083,17 @@ export class TweetsRepository {
         return query;
     }
 
-    attachRepostInfo(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
-        query.leftJoin('user', 'u', 'u.id = tweet.profile_user_id')
-            .addSelect(`CASE WHEN tweet.type='repost' THEN
-           json_build_object(
-                        'repost_id', tweet.repost_id,
-                        'id',tweet.profile_user_id,
-                        'name', u.name,
-                        'reposted_at',tweet.post_date
-                       
-                    ) ELSE NULL
-                      END AS reposted_by `);
-
+    attachRepostInfo(
+        query: SelectQueryBuilder<any>,
+        table_alias: string = 'tweet'
+    ): SelectQueryBuilder<any> {
+        query.addSelect(`CASE WHEN ${table_alias}.repost_id IS NOT NULL THEN
+       json_build_object(
+            'repost_id', ${table_alias}.repost_id,
+            'id', ${table_alias}.profile_user_id,
+            'name', ${table_alias}.reposted_by_name,
+            'reposted_at', ${table_alias}.post_date
+        ) ELSE NULL END AS reposted_by`);
         return query;
     }
 
@@ -944,7 +1101,6 @@ export class TweetsRepository {
         query: SelectQueryBuilder<UserPostsView>,
         user_id?: string
     ): SelectQueryBuilder<any> {
-        // Helper function to generate interaction SQL
         const get_interactions = (alias: string) => {
             if (!user_id) return '';
 
@@ -1043,10 +1199,259 @@ export class TweetsRepository {
             .where('tr2.reply_tweet_id = tweet.tweet_id')
             .limit(1);
 
-        // Attach subqueries to main query
         query
             .addSelect(`(${parent_sub_query.getQuery()})`, 'parent_tweet')
             .addSelect(`(${conversation_sub_query.getQuery()})`, 'conversation_tweet');
+
+        if (user_id) {
+            query.setParameter('current_user_id', user_id);
+        }
+
+        return query;
+    }
+    attachParentTweetQuery(
+        query: SelectQueryBuilder<any>,
+        user_id?: string
+    ): SelectQueryBuilder<any> {
+        const get_interactions = (alias: string) => {
+            if (!user_id) return '';
+
+            return `
+        'is_liked', EXISTS(
+            SELECT 1 FROM tweet_likes 
+            WHERE tweet_likes.tweet_id = ${alias}.tweet_id 
+            AND tweet_likes.user_id = :current_user_id
+        ),
+        'is_reposted', EXISTS(
+            SELECT 1 FROM tweet_reposts 
+            WHERE tweet_reposts.tweet_id = ${alias}.tweet_id 
+            AND tweet_reposts.user_id = :current_user_id
+        ),
+        'is_following', EXISTS(
+            SELECT 1 FROM user_follows 
+            WHERE user_follows.follower_id = :current_user_id 
+            AND user_follows.followed_id = ${alias}.tweet_author_id
+        ),
+        'is_follower', EXISTS(
+            SELECT 1 FROM user_follows 
+            WHERE user_follows.follower_id = ${alias}.tweet_author_id
+            AND user_follows.followed_id = :current_user_id
+        ),`;
+        };
+
+        query.addSelect(
+            `
+        CASE 
+            -- For replies: get parent from tweet_replies
+            WHEN ranked.type = 'reply' or (ranked.type='repost' and ranked.post_type='reply')THEN (
+                SELECT json_build_object(
+                    'tweet_id',      p.tweet_id,
+                    'content',       p.content,
+                    'created_at',    p.post_date,
+                    'type',          p.type,
+                    'images',        p.images,
+                    'videos',        p.videos,
+                    'num_likes',     p.num_likes,
+                    'num_reposts',   p.num_reposts,
+                    'num_views',     p.num_views,
+                    'num_replies',   p.num_replies,
+                    'num_quotes',    p.num_quotes,
+                    ${get_interactions('p')}
+                      -- Add nested quoted_tweet if conversation root is a quote
+            'parent_tweet', CASE 
+                WHEN p.type = 'quote' THEN (
+                    SELECT json_build_object(
+                        'tweet_id',      pc.tweet_id,
+                        'content',       pc.content,
+                        'created_at',    pc.post_date,
+                        'type',          pc.type,
+                        'images',        pc.images,
+                        'videos',        pc.videos,
+                        'num_likes',     pc.num_likes,
+                        'num_reposts',   pc.num_reposts,
+                        'num_views',     pc.num_views,
+                        'num_replies',   pc.num_replies,
+                        'num_quotes',    pc.num_quotes,
+                        ${get_interactions('pc')}
+                        'user', json_build_object(
+                            'id',         pc.tweet_author_id,
+                            'username',   pc.username,
+                            'name',       pc.name,
+                            'avatar_url', pc.avatar_url,
+                            'verified',   pc.verified,
+                            'bio',        pc.bio,
+                            'cover_url',  pc.cover_url,
+                            'followers',  pc.followers,
+                            'following',  pc.following
+                        )
+                    )
+                    FROM user_posts_view pc
+                    WHERE p.parent_id = pc.tweet_id
+                    LIMIT 1
+                )
+                ELSE NULL
+            END,
+                    'user', json_build_object(
+                        'id',         p.tweet_author_id,
+                        'username',   p.username,
+                        'name',       p.name,
+                        'avatar_url', p.avatar_url,
+                        'verified',   p.verified,
+                        'bio',        p.bio,
+                        'cover_url',  p.cover_url,
+                        'followers',  p.followers,
+                        'following',  p.following
+                    )
+                )
+                FROM user_posts_view p
+                WHERE ranked.parent_id = p.tweet_id
+                LIMIT 1
+            )
+            
+            -- For quotes: get parent from tweet_quotes
+            WHEN ranked.type = 'quote' or (ranked.type='repost' and ranked.post_type='quote' )THEN (
+                SELECT json_build_object(
+                    'tweet_id',      q.tweet_id,
+                    'content',       q.content,
+                    'created_at',    q.post_date,
+                    'type',          q.type,
+                    'images',        q.images,
+                    'videos',        q.videos,
+                    'num_likes',     q.num_likes,
+                    'num_reposts',   q.num_reposts,
+                    'num_views',     q.num_views,
+                    'num_replies',   q.num_replies,
+                    'num_quotes',    q.num_quotes,
+                    'user', json_build_object(
+                        'id',         q.tweet_author_id,
+                        'username',   q.username,
+                        'name',       q.name,
+                        'avatar_url', q.avatar_url,
+                        'verified',   q.verified,
+                        'bio',        q.bio,
+                        'cover_url',  q.cover_url,
+                        'followers',  q.followers,
+                        'following',  q.following
+                    )
+                )
+                FROM user_posts_view q 
+                WHERE ranked.parent_id = q.tweet_id
+                LIMIT 1
+            )
+            
+            ELSE NULL
+        END AS parent_tweet
+        `
+        );
+
+        if (user_id) {
+            query.setParameter('current_user_id', user_id);
+        }
+
+        return query;
+    }
+
+    attachConversationTweetQuery(
+        query: SelectQueryBuilder<any>,
+        user_id?: string
+    ): SelectQueryBuilder<any> {
+        const get_interactions = (alias: string) => {
+            if (!user_id) return '';
+
+            return `
+        'is_liked', EXISTS(
+            SELECT 1 FROM tweet_likes 
+            WHERE tweet_likes.tweet_id = ${alias}.tweet_id 
+            AND tweet_likes.user_id = :current_user_id
+        ),
+        'is_reposted', EXISTS(
+            SELECT 1 FROM tweet_reposts 
+            WHERE tweet_reposts.tweet_id = ${alias}.tweet_id 
+            AND tweet_reposts.user_id = :current_user_id
+        ),
+        'is_following', EXISTS(
+            SELECT 1 FROM user_follows 
+            WHERE user_follows.follower_id = :current_user_id 
+            AND user_follows.followed_id = ${alias}.tweet_author_id
+        ),
+        'is_follower', EXISTS(
+            SELECT 1 FROM user_follows 
+            WHERE user_follows.follower_id = ${alias}.tweet_author_id
+            AND user_follows.followed_id = :current_user_id
+        ),`;
+        };
+
+        query.addSelect(
+            `
+       CASE
+            WHEN ranked.conversation_id IS NOT NULL THEN  (
+            SELECT json_build_object(
+                'tweet_id',      c.tweet_id,
+                'content',       c.content,
+                'created_at',    c.post_date,
+                'type',          c.type,
+                'images',        c.images,
+                'videos',        c.videos,
+                'num_likes',     c.num_likes,
+                'num_reposts',   c.num_reposts,
+                'num_views',     c.num_views,
+                'num_replies',   c.num_replies,
+                'num_quotes',    c.num_quotes,
+                    ${get_interactions('c')}
+                      -- Add nested quoted_tweet if conversation root is a quote
+            'parent_tweet', CASE 
+                WHEN c.type = 'quote' THEN (
+                    SELECT json_build_object(
+                        'tweet_id',      qc.tweet_id,
+                        'content',       qc.content,
+                        'created_at',    qc.post_date,
+                        'type',          qc.type,
+                        'images',        qc.images,
+                        'videos',        qc.videos,
+                        'num_likes',     qc.num_likes,
+                        'num_reposts',   qc.num_reposts,
+                        'num_views',     qc.num_views,
+                        'num_replies',   qc.num_replies,
+                        'num_quotes',    qc.num_quotes,
+                        ${get_interactions('qc')}
+                        'user', json_build_object(
+                            'id',         qc.tweet_author_id,
+                            'username',   qc.username,
+                            'name',       qc.name,
+                            'avatar_url', qc.avatar_url,
+                            'verified',   qc.verified,
+                            'bio',        qc.bio,
+                            'cover_url',  qc.cover_url,
+                            'followers',  qc.followers,
+                            'following',  qc.following
+                        )
+                    )
+                    FROM user_posts_view qc
+                    WHERE c.parent_id = qc.tweet_id
+                    LIMIT 1
+                )
+                ELSE NULL
+            END,
+                'user', json_build_object(
+                    'id',         c.tweet_author_id,
+                    'username',   c.username,
+                    'name',       c.name,
+                    'avatar_url', c.avatar_url,
+                    'verified',   c.verified,
+                    'bio',        c.bio,
+                    'cover_url',  c.cover_url,
+                    'followers',  c.followers,
+                    'following',  c.following
+                )
+            )
+            FROM user_posts_view c       
+            WHERE ranked.conversation_id = c.tweet_id
+            LIMIT 1
+        )
+            ELSE NULL
+        END AS conversation_tweet
+        `
+        );
 
         if (user_id) {
             query.setParameter('current_user_id', user_id);

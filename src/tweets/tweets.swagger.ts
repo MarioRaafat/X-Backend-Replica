@@ -1156,19 +1156,35 @@ Returns full tweet objects for each quote tweet:
 
 export const get_tweet_replies_swagger = {
     operation: {
-        summary: 'Get replies for a specific tweet',
+        summary: 'Get replies for a specific tweet with nested owner responses',
         description:
-            'Retrieves all replies for a given tweet with pagination support using cursor-based pagination.\n\n' +
+            'Retrieves all first-level replies to a given tweet with cursor-based pagination. ' +
+            'Each reply may include the first second-level reply from the original tweet owner (if one exists), ' +
+            'creating a Twitter/X-like conversation experience.\n\n' +
+            '**Reply Structure:**\n' +
+            '- First-level replies: Direct responses to the original tweet\n' +
+            '- Nested replies: For each first-level reply, includes the FIRST response from the original tweet owner (if exists)\n' +
+            '- This shows how the tweet author engages with their community\n\n' +
+            '**Example Structure:**\n' +
+            '```\n' +
+            'Original Tweet (by @alice)\n' +
+            '  ├─ Reply 1 (by @bob)\n' +
+            '  │   └─ Reply from @alice ← Included in Reply 1\'s "replies" array\n' +
+            '  ├─ Reply 2 (by @charlie)\n' +
+            '      └─ Reply from @alice ← Included in Reply 2\'s "replies" array\n' +
+            '```\n\n' +
             '**Pagination:**\n' +
             '- Use `cursor` parameter for pagination (timestamp_tweetId format)\n' +
-            '- `limit` parameter controls number of replies returned (default: 20, max: 100)\n' +
+            '- `limit` parameter controls number of first-level replies returned (default: 20, max: 100)\n' +
             '- `next_cursor` in response contains cursor for next page\n' +
             '- `has_more` indicates if there are more replies available\n\n' +
             '**Response Structure:**\n' +
-            '- `data`: Array of reply tweets (parent_tweet object omitted for simplicity)\n' +
-            '- `count`: Number of replies in current response\n' +
+            '- `data`: Array of reply tweets\n' +
+            "  - Each reply may contain a `replies` array with one item (the owner's first response)\n" +
+            '  - `parent_tweet` object is omitted for simplicity (only `parent_tweet_id` included)\n' +
+            '- `count`: Number of first-level replies in current response\n' +
             '- `next_cursor`: Cursor for next page (null if no more replies)\n' +
-            '- `has_more`: Boolean indicating if more replies exist',
+            '- `has_more`: Boolean indicating if more first-level replies exist',
     },
 
     params: {
@@ -1183,7 +1199,7 @@ export const get_tweet_replies_swagger = {
 
     responses: {
         success: {
-            description: 'Tweet replies retrieved successfully',
+            description: 'Tweet replies retrieved successfully with nested owner responses',
             schema: {
                 example: {
                     data: [
@@ -1199,7 +1215,7 @@ export const get_tweet_replies_swagger = {
                             reposts_count: 2,
                             views_count: 50,
                             quotes_count: 0,
-                            replies_count: 0,
+                            replies_count: 1,
                             bookmarks_count: 1,
                             is_liked: false,
                             is_reposted: false,
@@ -1218,6 +1234,40 @@ export const get_tweet_replies_swagger = {
                                 followers: 150,
                                 following: 89,
                             },
+                            // Nested reply from original tweet owner (if exists)
+                            replies: [
+                                {
+                                    tweet_id: '550e8400-e29b-41d4-a716-446655440002',
+                                    type: 'reply',
+                                    content: 'Thanks for your reply, Jane!',
+                                    parent_tweet_id: '550e8400-e29b-41d4-a716-446655440001',
+                                    images: [],
+                                    videos: [],
+                                    likes_count: 3,
+                                    reposts_count: 0,
+                                    views_count: 25,
+                                    quotes_count: 0,
+                                    replies_count: 0,
+                                    bookmarks_count: 0,
+                                    is_liked: false,
+                                    is_reposted: false,
+                                    is_bookmarked: false,
+                                    created_at: '2025-10-31T11:35:00.000Z',
+                                    updated_at: '2025-10-31T11:35:00.000Z',
+                                    user: {
+                                        id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                                        username: 'johndoe',
+                                        name: 'John Doe',
+                                        avatar_url:
+                                            'https://pbs.twimg.com/profile_images/1974533037804122111/XYZ_normal.jpg',
+                                        verified: true,
+                                        bio: 'Original tweet author',
+                                        cover_url: 'https://example.com/john_cover.jpg',
+                                        followers: 1500,
+                                        following: 200,
+                                    },
+                                },
+                            ],
                             // Note: parent_tweet object is intentionally omitted to keep replies response simple
                             // Only parent_tweet_id is included for reference
                         },
@@ -1294,9 +1344,7 @@ export const get_user_bookmarks_swagger = {
                             tweet_id: '550e8400-e29b-41d4-a716-446655440000',
                             type: 'tweet',
                             content: 'This is an interesting tweet I bookmarked!',
-                            images: [
-                                'https://example.com/image1.jpg',
-                            ],
+                            images: ['https://example.com/image1.jpg'],
                             videos: [],
                             likes_count: 42,
                             reposts_count: 15,
@@ -1347,7 +1395,8 @@ export const get_user_bookmarks_swagger = {
                     ],
                     pagination: {
                         count: 2,
-                        next_cursor: '2025-10-28T18:45:00.000Z_660e8400-e29b-41d4-a716-446655440001',
+                        next_cursor:
+                            '2025-10-28T18:45:00.000Z_660e8400-e29b-41d4-a716-446655440001',
                         has_more: true,
                     },
                     message: 'User bookmarks retrieved successfully',

@@ -98,7 +98,12 @@ export class TweetsController {
     @UseGuards(JwtAuthGuard)
     @Post()
     async createTweet(@Body() create_tweet_dto: CreateTweetDTO, @GetUserId() user_id: string) {
-        return await this.tweets_service.createTweet(create_tweet_dto, user_id);
+        try {
+            return await this.tweets_service.createTweet(create_tweet_dto, user_id);
+        } catch (error) {
+            console.error('Error creating tweet:', error);
+            throw error;
+        }
     }
 
     @ApiOperation(get_all_tweets_swagger.operation)
@@ -128,15 +133,8 @@ export class TweetsController {
     @ResponseMessage('User bookmarks retrieved successfully')
     @UseGuards(JwtAuthGuard)
     @Get('bookmarks')
-    async getUserBookmarks(
-        @Query() query: GetTweetRepliesQueryDto,
-        @GetUserId() user_id: string
-    ) {
-        return await this.tweets_service.getUserBookmarks(
-            user_id,
-            query.cursor,
-            query.limit
-        );
+    async getUserBookmarks(@Query() query: GetTweetRepliesQueryDto, @GetUserId() user_id: string) {
+        return await this.tweets_service.getUserBookmarks(user_id, query.cursor, query.limit);
     }
 
     @ApiOperation(get_tweet_by_id_swagger.operation)
@@ -318,8 +316,6 @@ export class TweetsController {
     async unbookmarkTweet(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
         return await this.tweets_service.unbookmarkTweet(id, user_id);
     }
-
-
 
     @ApiOperation(get_tweet_likes_swagger.operation)
     @ApiParam({
