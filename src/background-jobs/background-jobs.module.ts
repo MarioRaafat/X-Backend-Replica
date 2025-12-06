@@ -41,6 +41,11 @@ import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from './elasticsearch/es-follow.service';
 import { ExploreController } from './explore/explore-jobs.controller';
+import { CompressVideoJobService } from './videos/compress-video.service';
+import { CompressVideoProcessor } from './videos/compress-video.processor';
+import { AiSummaryJobService } from './ai-summary/ai-summary.service';
+import { AiSummaryProcessor } from './ai-summary/ai-summary.processor';
+import { TweetSummary } from 'src/tweets/entities/tweet-summary.entity';
 import { HashtagJobService } from './hashtag/hashtag.service';
 import { HashtagProcessor } from './hashtag/hashtag.processor';
 import { TrendModule } from 'src/trend/trend.module';
@@ -107,6 +112,26 @@ import { TrendModule } from 'src/trend/trend.module';
         }),
         TypeOrmModule.forFeature([User, TweetReply, TweetQuote,Tweet]),
         BullModule.registerQueue({
+            name: QUEUE_NAMES.VIDEO,
+            defaultJobOptions: {
+                attempts: 2,
+                backoff: {
+                    type: 'exponential',
+                    delay: 5000,
+                },
+            },
+        }),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.AI_SUMMARY,
+            defaultJobOptions: {
+                attempts: 2,
+                backoff: {
+                    type: 'exponential',
+                    delay: 5000,
+                },
+            },
+        }),
+        BullModule.registerQueue({    
             name: QUEUE_NAMES.HASHTAG,
             defaultJobOptions: {
                 attempts: 3,
@@ -117,6 +142,10 @@ import { TrendModule } from 'src/trend/trend.module';
             },
         }),
   
+        TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([Tweet]),
+        TypeOrmModule.forFeature([TweetSummary]),
+        TypeOrmModule.forFeature([TweetReply, TweetQuote]),
         CommunicationModule,
         RedisModuleConfig,
         NotificationsModule,
@@ -150,6 +179,10 @@ import { TrendModule } from 'src/trend/trend.module';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        CompressVideoJobService,
+        CompressVideoProcessor,
+        AiSummaryJobService,
+        AiSummaryProcessor,
         HashtagJobService,
         HashtagProcessor,
     ],
@@ -177,6 +210,8 @@ import { TrendModule } from 'src/trend/trend.module';
         EsUpdateUserJobService,
         EsDeleteUserJobService,
         EsFollowJobService,
+        CompressVideoJobService,
+        AiSummaryJobService,
     ],
 })
 export class BackgroundJobsModule {}
