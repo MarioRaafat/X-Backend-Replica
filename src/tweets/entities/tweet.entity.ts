@@ -7,6 +7,7 @@ import {
     JoinColumn,
     ManyToOne,
     OneToMany,
+    OneToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
@@ -18,6 +19,7 @@ import { TweetReply } from './tweet-reply.entity';
 import { TweetBookmark } from './tweet-bookmark.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
 import { TweetType } from '../../shared/enums/tweet-types.enum';
+import { TweetSummary } from './tweet-summary.entity';
 
 // removed conversation_id
 @Entity('tweets')
@@ -95,6 +97,9 @@ export class Tweet {
         onDelete: 'CASCADE',
     })
     bookmarks: TweetBookmark[];
+
+    @OneToOne(() => TweetSummary, (summary) => summary.tweet, { onDelete: 'CASCADE' })
+    summary: TweetSummary;
 
     // Virtual fields for current user interactions (loaded via leftJoinAndMapOne in queries)
     current_user_like?: TweetLike | null;

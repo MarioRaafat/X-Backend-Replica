@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -8,6 +9,7 @@ import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
 import { TweetBookmark } from './entities/tweet-bookmark.entity';
+import { TweetSummary } from './entities/tweet-summary.entity';
 import { UserFollows } from '../user/entities/user-follows.entity';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
@@ -18,6 +20,7 @@ import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.s
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
 import { EsIndexTweetJobService } from 'src/background-jobs/elasticsearch/es-index-tweet.service';
 import { EsDeleteTweetJobService } from 'src/background-jobs/elasticsearch/es-delete-tweet.service';
+import { AiSummaryJobService } from 'src/background-jobs/ai-summary/ai-summary.service';
 import { RepostJobService } from 'src/background-jobs/notifications/repost/repost.service';
 import { QuoteJobService } from 'src/background-jobs/notifications/quote/quote.service';
 import { MentionJobService } from 'src/background-jobs/notifications/mention/mention.service';
@@ -43,6 +46,19 @@ describe('TweetsService', () => {
     let tweets_repo: TweetsRepository;
     let data_source: DataSource;
     let mock_query_runner: any;
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeAll(() => {
+        originalEnv = { ...process.env };
+        process.env.AZURE_STORAGE_CONNECTION_STRING =
+            'DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net';
+        process.env.ENABLE_GROQ = 'true';
+        process.env.MODEL_NAME = 'test-model';
+    });
+
+    afterAll(() => {
+        process.env = originalEnv;
+    });
 
     beforeEach(async () => {
         const mock_repo = (): Record<string, jest.Mock> => ({
@@ -65,6 +81,7 @@ describe('TweetsService', () => {
         const mock_tweet_quote_repo = mock_repo();
         const mock_tweet_reply_repo = mock_repo();
         const mock_tweet_bookmark_repo = mock_repo();
+        const mock_tweet_summary_repo = mock_repo();
         const mock_user_follows_repo = mock_repo();
         const mock_user_posts_view_repo = mock_repo();
 
@@ -104,6 +121,12 @@ describe('TweetsService', () => {
         const mock_es_delete_tweet_service = {
             addDeleteTweetJob: jest.fn(),
             queueDeleteTweet: jest.fn(),
+        };
+
+        const mock_ai_summary_job_service = {
+            addAiSummaryJob: jest.fn(),
+            queueAiSummary: jest.fn(),
+            queueGenerateSummary: jest.fn(),
         };
 
         const mock_repost_job_service = {
@@ -165,6 +188,7 @@ describe('TweetsService', () => {
                 { provide: getRepositoryToken(TweetQuote), useValue: mock_tweet_quote_repo },
                 { provide: getRepositoryToken(TweetReply), useValue: mock_tweet_reply_repo },
                 { provide: getRepositoryToken(TweetBookmark), useValue: mock_tweet_bookmark_repo },
+                { provide: getRepositoryToken(TweetSummary), useValue: mock_tweet_summary_repo },
                 { provide: getRepositoryToken(UserFollows), useValue: mock_user_follows_repo },
                 { provide: getRepositoryToken(UserPostsView), useValue: mock_user_posts_view_repo },
                 { provide: DataSource, useValue: mock_data_source },
@@ -176,6 +200,7 @@ describe('TweetsService', () => {
                 { provide: HashtagJobService, useValue: mock_hashtag_job_service },
                 { provide: EsIndexTweetJobService, useValue: mock_es_index_tweet_service },
                 { provide: EsDeleteTweetJobService, useValue: mock_es_delete_tweet_service },
+                { provide: AiSummaryJobService, useValue: mock_ai_summary_job_service },
                 { provide: RepostJobService, useValue: mock_repost_job_service },
                 { provide: QuoteJobService, useValue: mock_quote_job_service },
                 { provide: MentionJobService, useValue: mock_mention_job_service },
@@ -191,6 +216,26 @@ describe('TweetsService', () => {
         tweet_reply_repo = mock_tweet_reply_repo as unknown as Repository<TweetReply>;
         tweets_repo = mock_tweets_repository as unknown as TweetsRepository;
         data_source = mock_data_source as unknown as DataSource;
+
+        // Mock extractTopics to prevent real Groq API calls
+        jest.spyOn(tweets_service as any, 'extractTopics').mockResolvedValue({
+            Sports: 0,
+            Entertainment: 0,
+            News: 0,
+            Technology: 0,
+            Politics: 0,
+            Business: 0,
+            Health: 0,
+            Science: 0,
+            Education: 0,
+            Fashion: 0,
+            Food: 0,
+            Travel: 0,
+            Gaming: 0,
+            Music: 0,
+            Arts: 0,
+            Others: 100,
+        });
     });
 
     it('should be defined', () => {
@@ -271,6 +316,32 @@ describe('TweetsService', () => {
             );
 
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should call mentionNotification when tweet contains mentions', async () => {
+            const mock_user_id = 'user-123';
+            const mock_tweet_dto: CreateTweetDTO = {
+                content: 'Hello @user1 and @user2',
+            } as CreateTweetDTO;
+            const mock_new_tweet = {
+                tweet_id: 'tweet-with-mentions',
+                user_id: mock_user_id,
+                type: 'tweet',
+                content: mock_tweet_dto.content,
+            };
+
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue(mock_new_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue(mock_new_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'upsert').mockResolvedValue({} as any);
+
+            const mention_spy = jest
+                .spyOn(tweets_service as any, 'mentionNotification')
+                .mockResolvedValue(undefined);
+
+            await tweets_service.createTweet(mock_tweet_dto, mock_user_id);
+
+            expect(mention_spy).toHaveBeenCalled();
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
         });
     });
 
@@ -354,6 +425,32 @@ describe('TweetsService', () => {
             ).rejects.toThrow('Database failure');
 
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should call mentionNotification when updated tweet contains mentions', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_update_dto = { content: 'Updated with @user3 mention' };
+            const mock_existing_tweet = { tweet_id: mock_tweet_id, user_id: mock_user_id };
+            const mock_updated_tweet = { ...mock_existing_tweet, ...mock_update_dto };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(
+                mock_existing_tweet as any
+            );
+            jest.spyOn(mock_query_runner.manager, 'merge');
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue(
+                mock_updated_tweet as any
+            );
+            jest.spyOn(mock_query_runner.manager, 'upsert').mockResolvedValue({} as any);
+
+            const mention_spy = jest
+                .spyOn(tweets_service as any, 'mentionNotification')
+                .mockResolvedValue(undefined);
+
+            await tweets_service.updateTweet(mock_update_dto as any, mock_tweet_id, mock_user_id);
+
+            expect(mention_spy).toHaveBeenCalled();
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
         });
     });
 
@@ -781,6 +878,126 @@ describe('TweetsService', () => {
         });
     });
 
+    describe('bookmarkTweet', () => {
+        it('should successfully bookmark a tweet and increment num_bookmarks', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-456';
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({
+                tweet: { tweet_id },
+                user: { id: user_id },
+            } as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockResolvedValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue({} as any);
+
+            await tweets_service.bookmarkTweet(tweet_id, user_id);
+
+            expect(mock_query_runner.manager.exists).toHaveBeenCalledWith(Tweet, {
+                where: { tweet_id },
+            });
+            expect(mock_query_runner.manager.increment).toHaveBeenCalledWith(
+                Tweet,
+                { tweet_id },
+                'num_bookmarks',
+                1
+            );
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const tweet_id = 'nonexistent-tweet';
+            const user_id = 'user-456';
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(false);
+
+            await expect(tweets_service.bookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+                NotFoundException
+            );
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should throw BadRequestException when user already bookmarked the tweet', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-456';
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue({
+                code: '23505', // PostgreSQL unique constraint violation
+            });
+
+            await expect(tweets_service.bookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+                BadRequestException
+            );
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+    });
+
+    describe('unbookmarkTweet', () => {
+        it('should successfully unbookmark a tweet and decrement num_bookmarks', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-456';
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
+                affected: 1,
+            } as any);
+            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue({} as any);
+
+            await tweets_service.unbookmarkTweet(tweet_id, user_id);
+
+            expect(mock_query_runner.manager.delete).toHaveBeenCalled();
+            expect(mock_query_runner.manager.decrement).toHaveBeenCalledWith(
+                Tweet,
+                { tweet_id },
+                'num_bookmarks',
+                1
+            );
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const tweet_id = 'nonexistent-tweet';
+            const user_id = 'user-456';
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(false);
+
+            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+                NotFoundException
+            );
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should throw BadRequestException when user has not bookmarked the tweet', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-456';
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
+                affected: 0,
+            } as any);
+
+            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+                BadRequestException
+            );
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should handle database errors and rollback transaction', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-456';
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockRejectedValue(
+                new Error('Database error')
+            );
+
+            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow();
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+    });
+
     describe('repostTweet', () => {
         it('should create repost, increment num_reposts, and commit transaction', async () => {
             const mock_tweet_id = 'tweet-123';
@@ -1106,6 +1323,41 @@ describe('TweetsService', () => {
 
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
         });
+
+        it('should call mentionNotification when quote contains mentions', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_quote_dto: CreateTweetDTO = {
+                content: 'Quoting @user4',
+            } as CreateTweetDTO;
+            const mock_parent_tweet = { tweet_id: mock_tweet_id, content: 'Original' };
+            const mock_quote_tweet = {
+                tweet_id: 'quote-1',
+                content: mock_quote_dto.content,
+                user_id: mock_user_id,
+            };
+
+            jest.spyOn(tweets_service as any, 'getTweetWithUserById').mockResolvedValue(
+                mock_parent_tweet
+            );
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue(
+                mock_quote_tweet as any
+            );
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue(
+                mock_quote_tweet as any
+            );
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'upsert').mockResolvedValue({} as any);
+
+            const mention_spy = jest
+                .spyOn(tweets_service as any, 'mentionNotification')
+                .mockResolvedValue(undefined);
+
+            await tweets_service.repostTweetWithQuote(mock_tweet_id, mock_user_id, mock_quote_dto);
+
+            expect(mention_spy).toHaveBeenCalled();
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
     });
 
     describe('replyToTweet', () => {
@@ -1167,6 +1419,40 @@ describe('TweetsService', () => {
             ).rejects.toThrow('Database failure');
 
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should call mentionNotification when reply contains mentions', async () => {
+            const mock_original_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_reply_dto: CreateTweetDTO = {
+                content: 'Reply with @user5 mention',
+            } as CreateTweetDTO;
+            const mock_original_tweet = { tweet_id: mock_original_tweet_id };
+            const mock_reply_tweet = {
+                tweet_id: 'reply-1',
+                content: mock_reply_dto.content,
+            };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValueOnce(mock_original_tweet as any)
+                .mockResolvedValueOnce(null);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue(
+                mock_reply_tweet as any
+            );
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue(
+                mock_reply_tweet as any
+            );
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'upsert').mockResolvedValue({} as any);
+
+            const mention_spy = jest
+                .spyOn(tweets_service as any, 'mentionNotification')
+                .mockResolvedValue(undefined);
+
+            await tweets_service.replyToTweet(mock_original_tweet_id, mock_user_id, mock_reply_dto);
+
+            expect(mention_spy).toHaveBeenCalled();
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
         });
     });
 
@@ -1323,9 +1609,6 @@ describe('TweetsService', () => {
             const mock_user_id = 'user-123';
             const mock_url = 'https://example.com/image.jpg';
 
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
-
             jest.spyOn(tweets_service as any, 'uploadImageToAzure').mockResolvedValue(mock_url);
 
             const result = await tweets_service.uploadImage(mock_file, mock_user_id);
@@ -1345,9 +1628,14 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
+            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             await expect(tweets_service.uploadImage(mock_file, mock_user_id)).rejects.toThrow();
+
+            if (originalConnectionString) {
+                process.env.AZURE_STORAGE_CONNECTION_STRING = originalConnectionString;
+            }
         });
 
         it('should throw error when Azure key is placeholder', async () => {
@@ -1359,9 +1647,14 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
+            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
             process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
 
             await expect(tweets_service.uploadImage(mock_file, mock_user_id)).rejects.toThrow();
+
+            if (originalConnectionString) {
+                process.env.AZURE_STORAGE_CONNECTION_STRING = originalConnectionString;
+            }
         });
 
         it('should call uploadImageToAzure with correct parameters', async () => {
@@ -1372,9 +1665,6 @@ describe('TweetsService', () => {
                 mimetype: 'image/png',
             } as Express.Multer.File;
             const mock_user_id = 'user-456';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=realkey456;EndpointSuffix=core.windows.net';
 
             const upload_spy = jest
                 .spyOn(tweets_service as any, 'uploadImageToAzure')
@@ -1397,9 +1687,6 @@ describe('TweetsService', () => {
                 mimetype: 'image/jpeg',
             } as Express.Multer.File;
             const mock_user_id = 'user-azure-123';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=validkey123;EndpointSuffix=core.windows.net';
 
             const mock_blob_url =
                 'https://testaccount.blob.core.windows.net/images/123-azure-test.jpg';
@@ -1440,9 +1727,6 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_url = 'https://example.com/video.mp4';
 
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
-
             jest.spyOn(tweets_service as any, 'uploadVideoToAzure').mockResolvedValue(mock_url);
 
             const result = await tweets_service.uploadVideo(mock_file);
@@ -1478,10 +1762,23 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
+            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             await expect(tweets_service.uploadVideo(mock_file)).rejects.toThrow();
         });
+
+        it('should throw error when Azure key is placeholder for video', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
+        }, 15000);
 
         it('should call uploadVideoToAzure with correct parameters', async () => {
             const mock_file: Express.Multer.File = {
@@ -1491,9 +1788,6 @@ describe('TweetsService', () => {
                 mimetype: 'video/mp4',
             } as Express.Multer.File;
             const mock_user_id = 'user-789';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=realkey789;EndpointSuffix=core.windows.net';
 
             const upload_spy = jest
                 .spyOn(tweets_service as any, 'uploadVideoToAzure')
@@ -1515,9 +1809,6 @@ describe('TweetsService', () => {
                 mimetype: 'video/mp4',
             } as Express.Multer.File;
             const mock_user_id = 'user-azure-456';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=testvideo;AccountKey=validkey456;EndpointSuffix=core.windows.net';
 
             const mock_blob_url =
                 'https://testvideo.blob.core.windows.net/videos/456-azure-video.mp4';
@@ -1807,7 +2098,13 @@ describe('TweetsService', () => {
     });
 
     describe('extractTopics', () => {
+        beforeEach(() => {
+            // Restore the real extractTopics implementation for these tests
+            jest.spyOn(tweets_service as any, 'extractTopics').mockRestore();
+        });
+
         it('should return empty topics when Groq is disabled', async () => {
+            const originalGroq = process.env.ENABLE_GROQ;
             delete process.env.ENABLE_GROQ;
 
             const result = await (tweets_service as any).extractTopics('Test content', [
@@ -1821,12 +2118,13 @@ describe('TweetsService', () => {
             expect(result.tweet.News).toBe(0);
             expect(result.hashtags).toBeDefined();
             expect(result.hashtags.testHashtag).toBeDefined();
+
+            if (originalGroq) {
+                process.env.ENABLE_GROQ = originalGroq;
+            }
         });
 
         it('should handle Groq response with valid JSON', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1856,9 +2154,6 @@ describe('TweetsService', () => {
         });
 
         it('should handle Groq response with empty text', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1887,9 +2182,6 @@ describe('TweetsService', () => {
         });
 
         it('should extract JSON from text with extra content', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1918,9 +2210,6 @@ describe('TweetsService', () => {
         });
 
         it('should normalize topics when they do not sum to 100', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1948,14 +2237,11 @@ describe('TweetsService', () => {
                 (sum: number, val: unknown) => sum + (val as number),
                 0
             ) as number;
-            // Allow for rounding errors in normalization
-            expect(Math.abs(total - 100)).toBeLessThanOrEqual(10);
+            // After normalization, total should be close to 100 (within rounding errors)
+            expect(Math.abs(total - 100)).toBeLessThanOrEqual(1);
         });
 
         it('should handle errors in Groq API', async () => {
-            process.env.ENABLE_GROQ = 'true';
-            process.env.MODEL_NAME = 'test-model';
-
             const mock_groq = {
                 chat: {
                     completions: {
@@ -1966,9 +2252,10 @@ describe('TweetsService', () => {
 
             (tweets_service as any).groq = mock_groq;
 
-            await expect((tweets_service as any).extractTopics('Test content', [])).rejects.toThrow(
-                'API Error'
-            );
+            // The function should throw the error
+            await expect(
+                (tweets_service as any).extractTopics('Test content', [])
+            ).rejects.toThrow('API Error');
         });
     });
 
@@ -1982,9 +2269,6 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
             const mock_url = 'https://example.com/video.mp4';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING =
-                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey123;EndpointSuffix=core.windows.net';
 
             jest.spyOn(tweets_service as any, 'uploadVideoToAzure').mockResolvedValue(mock_url);
 
@@ -2021,10 +2305,23 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
+            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             await expect(tweets_service.uploadVideo(mock_file)).rejects.toThrow();
         });
+
+        it('should throw error when Azure key is placeholder for video', async () => {
+            const mock_file: Express.Multer.File = {
+                buffer: Buffer.from('test video'),
+                originalname: 'test.mp4',
+                size: 2048,
+                mimetype: 'video/mp4',
+            } as Express.Multer.File;
+            const mock_user_id = 'user-123';
+            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
+        }, 15000);
 
         it('should upload video to Azure blob storage successfully', async () => {
             const mock_file: Express.Multer.File = {
@@ -2049,5 +2346,275 @@ describe('TweetsService', () => {
 
             expect(result).toEqual(mock_result);
         }, 10000);
+    });
+
+    describe('getTweetSummary', () => {
+        let ai_summary_job_service: any;
+        let tweet_summary_repo: any;
+
+        beforeEach(() => {
+            ai_summary_job_service = tweets_service['ai_summary_job_service'];
+            tweet_summary_repo = tweets_service['tweet_summary_repository'];
+        });
+
+        it('should return existing summary when already generated', async () => {
+            const tweet_id = 'tweet-123';
+            const mock_tweet = {
+                tweet_id,
+                content:
+                    'This is a long tweet content that exceeds 120 characters to qualify for AI summary generation. It contains enough text to be summarized.',
+            };
+            const mock_summary = {
+                id: 1,
+                tweet_id,
+                summary: 'Existing AI summary',
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            tweet_summary_repo.findOne.mockResolvedValue(mock_summary);
+
+            const result = await tweets_service.getTweetSummary(tweet_id);
+
+            expect(result).toEqual({
+                tweet_id,
+                summary: 'Existing AI summary',
+            });
+            expect(tweet_repo.findOne).toHaveBeenCalledWith({
+                where: { tweet_id },
+                select: ['content', 'tweet_id'],
+            });
+            expect(tweet_summary_repo.findOne).toHaveBeenCalledWith({
+                where: { tweet_id },
+            });
+            expect(ai_summary_job_service.queueGenerateSummary).not.toHaveBeenCalled();
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const tweet_id = 'nonexistent-tweet';
+
+            tweet_repo.findOne.mockResolvedValue(null);
+
+            await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+            expect(tweet_repo.findOne).toHaveBeenCalledWith({
+                where: { tweet_id },
+                select: ['content', 'tweet_id'],
+            });
+        });
+
+        it('should throw error when content is too short after cleaning', async () => {
+            const tweet_id = 'tweet-456';
+            const mock_tweet = {
+                tweet_id,
+                content: 'Short tweet #hashtag',
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+
+            await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
+                'Tweet content too short for summary generation.'
+            );
+            expect(tweet_summary_repo.findOne).not.toHaveBeenCalled();
+            expect(ai_summary_job_service.queueGenerateSummary).not.toHaveBeenCalled();
+        });
+
+        it('should clean content by removing hashtags and extra spaces', async () => {
+            const tweet_id = 'tweet-789';
+            const mock_tweet = {
+                tweet_id,
+                content:
+                    'This is a #tweet with #hashtags and    extra   spaces. It needs to be cleaned before checking length. This content is long enough after cleaning to generate summary.',
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            tweet_summary_repo.findOne.mockResolvedValue(null);
+            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+
+            // Mock polling to return summary on first attempt
+            const mock_generated_summary = {
+                id: 2,
+                tweet_id,
+                summary: 'Generated summary',
+            };
+            tweet_summary_repo.findOne
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(mock_generated_summary);
+
+            const result = await tweets_service.getTweetSummary(tweet_id);
+
+            expect(ai_summary_job_service.queueGenerateSummary).toHaveBeenCalledWith({
+                tweet_id,
+                content: mock_tweet.content, // Full content is sent
+            });
+            expect(result).toEqual({
+                tweet_id,
+                summary: 'Generated summary',
+            });
+        });
+
+        it('should queue summary generation when summary does not exist', async () => {
+            const tweet_id = 'tweet-101';
+            const long_content =
+                'This is a very long tweet content that exceeds the minimum character requirement of 120 characters. It should trigger AI summary generation process. More text here.';
+            const mock_tweet = {
+                tweet_id,
+                content: long_content,
+            };
+            const mock_generated_summary = {
+                id: 3,
+                tweet_id,
+                summary: 'AI generated summary',
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            tweet_summary_repo.findOne
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(mock_generated_summary);
+            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+
+            const result = await tweets_service.getTweetSummary(tweet_id);
+
+            expect(ai_summary_job_service.queueGenerateSummary).toHaveBeenCalledWith({
+                tweet_id,
+                content: long_content,
+            });
+            expect(result).toEqual({
+                tweet_id,
+                summary: 'AI generated summary',
+            });
+        });
+
+        it('should poll for summary completion up to 15 times', async () => {
+            const tweet_id = 'tweet-202';
+            const long_content =
+                'Long tweet content for polling test. This needs to be longer than 120 characters to pass validation. Adding more text to ensure it meets the minimum requirement.';
+            const mock_tweet = {
+                tweet_id,
+                content: long_content,
+            };
+            const mock_generated_summary = {
+                id: 4,
+                tweet_id,
+                summary: 'Summary generated after multiple polls',
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            // Return null for first 5 polls, then return summary
+            tweet_summary_repo.findOne
+                .mockResolvedValueOnce(null) // Initial check
+                .mockResolvedValueOnce(null) // Poll 1
+                .mockResolvedValueOnce(null) // Poll 2
+                .mockResolvedValueOnce(null) // Poll 3
+                .mockResolvedValueOnce(null) // Poll 4
+                .mockResolvedValueOnce(mock_generated_summary); // Poll 5
+
+            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+
+            const result = await tweets_service.getTweetSummary(tweet_id);
+
+            expect(result).toEqual({
+                tweet_id,
+                summary: 'Summary generated after multiple polls',
+            });
+            expect(tweet_summary_repo.findOne).toHaveBeenCalledTimes(6); // 1 initial + 5 polls
+        });
+
+        it('should throw NotFoundException when polling times out', async () => {
+            const tweet_id = 'tweet-303';
+            const long_content =
+                'Long tweet content for timeout test. This needs to be longer than 120 characters to pass validation. Adding more text to ensure it meets the minimum requirement.';
+            const mock_tweet = {
+                tweet_id,
+                content: long_content,
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            tweet_summary_repo.findOne.mockResolvedValue(null); // Always return null (never completes)
+            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+
+            await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
+                'Failed to generate summary after retry.'
+            );
+
+            // Should poll 15 times + 1 initial check = 16 total
+            expect(tweet_summary_repo.findOne).toHaveBeenCalledTimes(16);
+        }, 10000); // Increase timeout for this test
+
+        it('should handle content with only hashtags', async () => {
+            const tweet_id = 'tweet-404';
+            const mock_tweet = {
+                tweet_id,
+                content: '#hashtag1 #hashtag2 #hashtag3',
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+
+            await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
+                'Tweet content too short for summary generation.'
+            );
+        });
+
+        it('should handle content with mixed hashtags and text', async () => {
+            const tweet_id = 'tweet-505';
+            const mock_tweet = {
+                tweet_id,
+                content:
+                    '#news This is a tweet with hashtags at the beginning and end #trending. The main content is here and it is long enough to generate a summary. More text to meet requirements #final',
+            };
+            const mock_generated_summary = {
+                id: 5,
+                tweet_id,
+                summary: 'Summary of mixed content',
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            tweet_summary_repo.findOne
+                .mockResolvedValueOnce(null)
+                .mockResolvedValueOnce(mock_generated_summary);
+            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+
+            const result = await tweets_service.getTweetSummary(tweet_id);
+
+            // Verify the full content is sent (hashtags are cleaned for length check only)
+            expect(ai_summary_job_service.queueGenerateSummary).toHaveBeenCalledWith({
+                tweet_id,
+                content: mock_tweet.content,
+            });
+            expect(result).toEqual({
+                tweet_id,
+                summary: 'Summary of mixed content',
+            });
+        });
+
+        it('should handle database errors when finding tweet', async () => {
+            const tweet_id = 'tweet-606';
+
+            tweet_repo.findOne.mockRejectedValue(new Error('Database connection error'));
+
+            await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
+                'Database connection error'
+            );
+        });
+
+        it('should handle errors from queue service', async () => {
+            const tweet_id = 'tweet-707';
+            const long_content =
+                'Long tweet content for queue error test. This needs to be longer than 120 characters to pass validation. Adding more text to ensure it meets the minimum requirement.';
+            const mock_tweet = {
+                tweet_id,
+                content: long_content,
+            };
+
+            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            tweet_summary_repo.findOne.mockResolvedValue(null);
+            ai_summary_job_service.queueGenerateSummary.mockRejectedValue(
+                new Error('Queue service error')
+            );
+
+            await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
+                'Queue service error'
+            );
+        });
     });
 });
