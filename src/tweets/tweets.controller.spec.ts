@@ -316,7 +316,7 @@ describe('TweetsController', () => {
 
             mock_tweets_service.uploadVideo.mockResolvedValue(mock_response);
 
-            const result = await controller.uploadVideo(file, user_id);
+            const result = await controller.uploadVideo(file);
 
             expect(service.uploadVideo).toHaveBeenCalledWith(file, user_id);
             expect(result).toEqual(mock_response);
@@ -325,7 +325,7 @@ describe('TweetsController', () => {
         it('should throw BadRequestException if no file provided', async () => {
             const user_id = 'user-123';
 
-            await expect(controller.uploadVideo(undefined as any, user_id)).rejects.toThrow(
+            await expect(controller.uploadVideo(undefined as any)).rejects.toThrow(
                 BadRequestException
             );
         });
