@@ -1268,18 +1268,6 @@ export class TweetsService {
                 .replace(/#[a-zA-Z0-9_]+/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
-            if (!process.env.ENABLE_GROQ || !process.env.MODEL_NAME) {
-                console.warn('Groq is disabled, returning empty topics');
-                const empty: Record<string, number> = {};
-                TOPICS.forEach((t) => (empty[t] = 0));
-                return empty;
-            }
-
-            // remove hashtags and extra spaces
-            content = content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
 
             const prompt = categorize_prompt(content, hashtags);
 
@@ -1333,10 +1321,6 @@ export class TweetsService {
                         hashtag_topics[k] = Math.round((hashtag_topics[k] / hashtag_total) * 100);
                     }
                 }
-                console.warn('Normalizing...');
-                for (const k of Object.keys(topics)) {
-                    topics[k] = Math.round((topics[k] / total) * 100);
-                }
             }
 
             // Restructure to match return type
@@ -1353,7 +1337,6 @@ export class TweetsService {
                     ),
             };
         } catch (error) {
-            console.error('Error extracting topics with Groq:', error);
             console.error('Error extracting topics with Groq:', error);
             throw error;
         }
