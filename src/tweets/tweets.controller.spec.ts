@@ -318,7 +318,7 @@ describe('TweetsController', () => {
 
             const result = await controller.uploadVideo(file, user_id);
 
-            expect(service.uploadVideo).toHaveBeenCalledWith(file, user_id);
+            expect(service.uploadVideo).toHaveBeenCalledWith(file);
             expect(result).toEqual(mock_response);
         });
 

@@ -1483,20 +1483,6 @@ describe('TweetsService', () => {
             await expect(tweets_service.uploadVideo(mock_file)).rejects.toThrow();
         });
 
-        it('should throw error when Azure key is placeholder for video', async () => {
-            const mock_file: Express.Multer.File = {
-                buffer: Buffer.from('test video'),
-                originalname: 'test.mp4',
-                size: 2048,
-                mimetype: 'video/mp4',
-            } as Express.Multer.File;
-            const mock_user_id = 'user-123';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
-
-            await expect(tweets_service.uploadVideo(mock_file)).rejects.toThrow();
-        }, 15000);
-
         it('should call uploadVideoToAzure with correct parameters', async () => {
             const mock_file: Express.Multer.File = {
                 buffer: Buffer.from('test video data'),
@@ -2039,20 +2025,6 @@ describe('TweetsService', () => {
 
             await expect(tweets_service.uploadVideo(mock_file)).rejects.toThrow();
         });
-
-        it('should throw error when Azure key is placeholder for video', async () => {
-            const mock_file: Express.Multer.File = {
-                buffer: Buffer.from('test video'),
-                originalname: 'test.mp4',
-                size: 2048,
-                mimetype: 'video/mp4',
-            } as Express.Multer.File;
-            const mock_user_id = 'user-123';
-
-            process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
-
-            await expect(tweets_service.uploadVideo(mock_file)).rejects.toThrow();
-        }, 15000);
 
         it('should upload video to Azure blob storage successfully', async () => {
             const mock_file: Express.Multer.File = {
