@@ -104,7 +104,7 @@ export class TweetsService {
     /**
      * Handles image upload processing
      * @param file - The uploaded image file (in memory, not saved to disk)
-     * @param _user_id - The authenticated user's ID
+     * @param user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
     async uploadImage(file: Express.Multer.File, user_id: string) {
@@ -152,13 +152,10 @@ export class TweetsService {
     /**
      * Handles video upload processing
      * @param file - The uploaded video file (in memory, not saved to disk)
-     * @param _user_id - The authenticated user's ID
+     * @param user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
-    async uploadVideo(
-        file: Express.Multer.File,
-        _user_id: string
-    ): Promise<UploadMediaResponseDTO> {
+    async uploadVideo(file: Express.Multer.File): Promise<UploadMediaResponseDTO> {
         try {
             const video_name = `${Date.now()}-${file.originalname}`;
 

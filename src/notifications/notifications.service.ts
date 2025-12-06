@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Notification } from './entities/notifications.entity';
@@ -18,6 +18,8 @@ import { MentionNotificationEntity } from './entities/mention-notification.entit
 import { NotificationDto } from './dto/notifications-response.dto';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { ClearJobService } from 'src/background-jobs/notifications/clear/clear.service';
+import { FCMService } from 'src/fcm/fcm.service';
+import { MessagesGateway } from 'src/messages/messages.gateway';
 
 @Injectable()
 export class NotificationsService implements OnModuleInit {
@@ -31,7 +33,11 @@ export class NotificationsService implements OnModuleInit {
         private readonly userRepository: Repository<User>,
         @InjectRepository(Tweet)
         private readonly tweetRepository: Repository<Tweet>,
-        private readonly clear_jobs_service: ClearJobService
+        private readonly clear_jobs_service: ClearJobService,
+        @Inject(forwardRef(() => FCMService))
+        private readonly fcmService: FCMService,
+        @Inject(forwardRef(() => MessagesGateway))
+        private readonly messagesGateway: MessagesGateway
     ) {}
 
     onModuleInit() {
@@ -68,11 +74,20 @@ export class NotificationsService implements OnModuleInit {
                 { upsert: true }
             );
 
-            // Send with 'add' action for new notification
-            this.notificationsGateway.sendToUser(notification_data.type, user_id, {
-                ...payload,
-                action: 'add',
-            });
+            const is_online = this.messagesGateway.isOnline(user_id);
+
+            if (is_online) {
+                this.notificationsGateway.sendToUser(notification_data.type, user_id, {
+                    ...payload,
+                    action: 'add',
+                });
+            } else {
+                await this.fcmService.sendNotificationToUserDevice(
+                    user_id,
+                    notification_data.type,
+                    payload
+                );
+            }
         } else {
             // Increment newest_count for aggregated notification
             await this.notificationModel.updateOne(
@@ -80,12 +95,24 @@ export class NotificationsService implements OnModuleInit {
                 { $inc: { newest_count: 1 } }
             );
 
-            // Send with 'aggregate' action for aggregated notification
-            this.notificationsGateway.sendToUser(notification_data.type, user_id, {
-                ...payload,
-                action: 'aggregate',
-                old_notification: aggregation_result.old_notification,
-            });
+            const is_online = this.messagesGateway.isOnline(user_id);
+
+            if (is_online) {
+                this.notificationsGateway.sendToUser(notification_data.type, user_id, {
+                    ...payload,
+                    action: 'aggregate',
+                    old_notification: aggregation_result.old_notification,
+                });
+            } else {
+                await this.fcmService.sendNotificationToUserDevice(
+                    user_id,
+                    notification_data.type,
+                    {
+                        ...payload,
+                        action: 'aggregate',
+                    }
+                );
+            }
         }
     }
 

@@ -27,6 +27,7 @@ import { Tweet } from './tweets/entities/tweet.entity';
 import { UserFollows } from './user/entities/user-follows.entity';
 import { TweetLike } from './tweets/entities/tweet-like.entity';
 import { TweetReply } from './tweets/entities/tweet-reply.entity';
+import { FcmModule } from './fcm/fcm.module';
 
 @Module({
     imports: [
@@ -55,6 +56,7 @@ import { TweetReply } from './tweets/entities/tweet-reply.entity';
         MessagesModule,
         GatewayModule,
         TypeOrmModule.forFeature([User, Tweet, UserFollows, TweetLike, TweetReply]),
+        FcmModule,
     ],
     controllers: [AppController, TestController],
     providers: [AppService],

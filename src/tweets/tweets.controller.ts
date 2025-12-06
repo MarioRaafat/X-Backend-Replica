@@ -501,7 +501,7 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_VIEW_TRACKED)
     @UseGuards(OptionalJwtAuthGuard)
     @Post(':id/view')
-    async trackTweetView(@Param('id', ParseUUIDPipe) id: string, @GetUserId() _user_id: string) {
+    async trackTweetView(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
         return await this.tweets_service.incrementTweetViews(id);
     }
 
