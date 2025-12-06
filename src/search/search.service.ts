@@ -553,7 +553,7 @@ export class SearchService {
                 name: s.name,
                 avatar_url: s.avatar_url,
                 followers: s.followers,
-                following: s.followers,
+                following: s.following,
             },
 
             images: s.images ?? [],
@@ -773,6 +773,8 @@ export class SearchService {
         const reposted_param = `$${tweet_params_count + 2}`;
         const following_param = `$${tweet_params_count + 3}`;
         const follower_param = `$${tweet_params_count + 4}`;
+        const blocked_param = `$${tweet_params_count + 5}`;
+        const muted_param = `$${tweet_params_count + 6}`;
 
         const query = `
         SELECT 
@@ -799,11 +801,23 @@ export class SearchService {
                 AND followed_id = ${follower_param}::uuid
             ))::int as is_follower
         FROM (VALUES ${tweet_values}) AS t(tweet_id, user_id)
+        WHERE NOT EXISTS(
+            SELECT 1 FROM user_blocks 
+            WHERE blocker_id = ${blocked_param}::uuid 
+            AND blocked_id = t.user_id
+        )
+        AND NOT EXISTS(
+            SELECT 1 FROM user_mutes 
+            WHERE muter_id = ${muted_param}::uuid 
+            AND muted_id = t.user_id
+        )
         `;
 
         const tweet_params = tweets.flatMap((t) => [t.tweet_id, t.user?.id]);
         const params = [
             ...tweet_params,
+            current_user_id,
+            current_user_id,
             current_user_id,
             current_user_id,
             current_user_id,
@@ -833,7 +847,9 @@ export class SearchService {
             ])
         );
 
-        return tweets.map((tweet) => {
+        const filtered_tweets = tweets.filter((tweet) => interactions_map.has(tweet.tweet_id));
+
+        return filtered_tweets.map((tweet) => {
             const interaction = interactions_map.get(tweet.tweet_id);
 
             return {
@@ -896,7 +912,12 @@ export class SearchService {
                 'is_follower'
             )
             .addSelect(this.getUserScoreExpression(), 'total_score')
-            .where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, { prefix_query });
+            .where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, { prefix_query })
+            .andWhere(`NOT EXISTS (
+                SELECT 1 FROM user_blocks 
+                WHERE blocker_id = :current_user_id 
+                AND blocked_id = "user".id
+            )`);
 
         return query_builder;
     }
