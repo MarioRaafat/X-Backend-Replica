@@ -1884,9 +1884,12 @@ describe('TweetsService', () => {
             ]);
 
             expect(result).toBeDefined();
-            expect(result.Sports).toBe(0);
-            expect(result.Entertainment).toBe(0);
-            expect(result.News).toBe(0);
+            expect(result.tweet).toBeDefined();
+            expect(result.tweet.Sports).toBe(0);
+            expect(result.tweet.Entertainment).toBe(0);
+            expect(result.tweet.News).toBe(0);
+            expect(result.hashtags).toBeDefined();
+            expect(result.hashtags.testHashtag).toBeDefined();
 
             if (originalGroq) {
                 process.env.ENABLE_GROQ = originalGroq;
@@ -2006,8 +2009,8 @@ describe('TweetsService', () => {
                 (sum: number, val: unknown) => sum + (val as number),
                 0
             ) as number;
-            // Allow for rounding errors in normalization
-            expect(Math.abs(total - 100)).toBeLessThanOrEqual(10);
+            // After normalization, total should be close to 100 (within rounding errors)
+            expect(Math.abs(total - 100)).toBeLessThanOrEqual(1);
         });
 
         it('should handle errors in Groq API', async () => {
@@ -2021,9 +2024,10 @@ describe('TweetsService', () => {
 
             (tweets_service as any).groq = mock_groq;
 
-            await expect((tweets_service as any).extractTopics('Test content', [])).rejects.toThrow(
-                'API Error'
-            );
+            // The function should throw the error
+            await expect(
+                (tweets_service as any).extractTopics('Test content', [])
+            ).rejects.toThrow('API Error');
         });
     });
 
