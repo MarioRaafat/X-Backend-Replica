@@ -369,42 +369,37 @@ describe('SearchService', () => {
                 limit: 2,
             };
 
-            const mock_elasticsearch_response = {
-                hits: {
-                    hits: [
-                        {
-                            _source: {
-                                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                                username: 'alyaa242',
-                                name: 'Alyaa Ali',
-                                bio: 'Software developer',
-                                country: 'Egypt',
-                                followers: 100,
-                                following: 50,
-                                verified: true,
-                                avatar_url: 'https://example.com/blah.jpg',
-                            },
-                            sort: [1234567890],
-                        },
-                        {
-                            _source: {
-                                user_id: '2b8e9906-65bb-4fa4-a614-ecc6a434ee95',
-                                username: 'alyaa123',
-                                name: 'Alyaa Ahmed',
-                                bio: 'Engineer',
-                                country: 'Egypt',
-                                followers: 50,
-                                following: 30,
-                                verified: false,
-                                avatar_url: 'https://example.com/photo.jpg',
-                            },
-                            sort: [1234567891],
-                        },
-                    ],
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce([
+                {
+                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    username: 'alyaa242',
+                    name: 'Alyaa Ali',
+                    bio: 'Software developer',
+                    avatar_url: 'https://example.com/blah.jpg',
+                    cover_url: 'https://example.com/blah.jpg',
+                    verified: true,
+                    followers: 100,
+                    following: 50,
+                    is_following: false,
+                    is_follower: false,
+                    total_score: 150.5,
                 },
-            };
-
-            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response);
+                {
+                    user_id: '2b8e9906-65bb-4fa4-a614-ecc6a434ee95',
+                    username: 'alyaa123',
+                    name: 'Alyaa Ahmed',
+                    bio: 'Engineer',
+                    avatar_url: 'https://example.com/photo.jpg',
+                    cover_url: 'https://example.com/photo.jpg',
+                    verified: false,
+                    followers: 50,
+                    following: 30,
+                    is_following: false,
+                    is_follower: false,
+                    total_score: 140.5,
+                },
+            ]);
 
             const result = await service.searchUsers(current_user_id, query_dto);
 

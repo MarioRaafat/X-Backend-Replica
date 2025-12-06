@@ -395,6 +395,13 @@ export const trending_swagger = {
                 default: 'none',
             },
         },
+        country: {
+            name: 'country',
+            required: false,
+            description: 'Filter trending items by country code (e.g., US, GB, CA)',
+            type: String,
+            example: 'US',
+        },
         limit: {
             name: 'limit',
             required: false,
