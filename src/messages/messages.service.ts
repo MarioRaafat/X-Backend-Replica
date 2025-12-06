@@ -1,6 +1,8 @@
 import {
     BadRequestException,
     ForbiddenException,
+    forwardRef,
+    Inject,
     Injectable,
     NotFoundException,
 } from '@nestjs/common';
@@ -14,6 +16,8 @@ import { ChatRepository } from 'src/chat/chat.repository';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { FCMService } from 'src/fcm/fcm.service';
 import { NotificationType } from 'src/notifications/enums/notification-types';
+import { MessagesGateway } from './messages.gateway';
+import { MessageJobService } from 'src/background-jobs/notifications/message/message.service';
 
 @Injectable()
 export class MessagesService {
@@ -22,7 +26,10 @@ export class MessagesService {
         @InjectRepository(Chat)
         private readonly chat_repository: ChatRepository,
         private readonly pagination_service: PaginationService,
-        private readonly fcm_service: FCMService
+        private readonly fcm_service: FCMService,
+        @Inject(forwardRef(() => MessagesGateway))
+        private readonly message_gateway: MessagesGateway,
+        private readonly message_job_service: MessageJobService
     ) {}
 
     async validateChatParticipation(
@@ -91,8 +98,15 @@ export class MessagesService {
             is_recipient_in_room
         );
 
-        // Send FCM notification if recipient is not in the room
         if (!is_recipient_in_room) {
+            // Only increment unread count if recipient is NOT in the room
+            const recipient_unread_field =
+                chat.user1_id === user_id ? 'unread_count_user2' : 'unread_count_user1';
+            await this.chat_repository.increment({ id: chat_id }, recipient_unread_field, 1);
+        }
+
+        // Send FCM notification if recipient is not in the room and is offline
+        if (!is_recipient_in_room && !this.message_gateway.isOnline(participant_id)) {
             const sender = chat.user1_id === user_id ? chat.user1 : chat.user2;
 
             this.fcm_service.sendNotificationToUserDevice(
@@ -106,11 +120,15 @@ export class MessagesService {
                     },
                 }
             );
-
-            // Only increment unread count if recipient is NOT in the room
-            const recipient_unread_field =
-                chat.user1_id === user_id ? 'unread_count_user2' : 'unread_count_user1';
-            await this.chat_repository.increment({ id: chat_id }, recipient_unread_field, 1);
+        } else if (!is_recipient_in_room && this.message_gateway.isOnline(participant_id)) {
+            // Queue message notification job for online user not in room
+            await this.message_job_service.queueMessageNotification({
+                message,
+                message_id: message.id,
+                chat_id,
+                sent_by: user_id,
+                sent_to: participant_id,
+            });
         }
 
         const recipient_id = chat.user1_id === user_id ? chat.user2_id : chat.user1_id;

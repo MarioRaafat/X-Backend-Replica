@@ -25,12 +25,15 @@ import { QuoteJobService } from './notifications/quote/quote.service';
 import { QuoteProcessor } from './notifications/quote/quote.processor';
 import { MentionJobService } from './notifications/mention/mention.service';
 import { MentionProcessor } from './notifications/mention/mention.processor';
+import { MessageJobService } from './notifications/message/message.service';
+import { MessageProcessor } from './notifications/message/message.processor';
 import { ClearJobService } from './notifications/clear/clear.service';
 import { ClearProcessor } from './notifications/clear/clear.processor';
 import { EsIndexTweetJobService } from './elasticsearch/es-index-tweet.service';
 import { EsDeleteTweetJobService } from './elasticsearch/es-delete-tweet.service';
 import { EsSyncProcessor } from './elasticsearch/es-sync.processor';
 import { Tweet } from 'src/tweets/entities';
+import { Message } from 'src/messages/entities/message.entity';
 import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
 import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
@@ -100,6 +103,7 @@ import { TrendModule } from 'src/trend/trend.module';
         TypeOrmModule.forFeature([User]),
         TypeOrmModule.forFeature([Tweet]),
         TypeOrmModule.forFeature([TweetReply, TweetQuote]),
+        TypeOrmModule.forFeature([Message]),
         CommunicationModule,
         NotificationsModule,
         ElasticsearchModule,
@@ -121,6 +125,8 @@ import { TrendModule } from 'src/trend/trend.module';
         QuoteProcessor,
         MentionJobService,
         MentionProcessor,
+        MessageJobService,
+        MessageProcessor,
         ClearJobService,
         ClearProcessor,
         EsIndexTweetJobService,
@@ -147,6 +153,7 @@ import { TrendModule } from 'src/trend/trend.module';
         RepostJobService,
         QuoteJobService,
         MentionJobService,
+        MessageJobService,
         ClearJobService,
         EsIndexTweetJobService,
         EsDeleteTweetJobService,

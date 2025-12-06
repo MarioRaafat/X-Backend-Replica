@@ -25,6 +25,7 @@ export const JOB_NAMES = {
         REPOST: 'repost-notification',
         QUOTE: 'quote-notification',
         MENTION: 'mention-notification',
+        MESSAGE: 'message-notification',
         CLEAR: 'clear-notifications',
     },
     ELASTICSEARCH: {
