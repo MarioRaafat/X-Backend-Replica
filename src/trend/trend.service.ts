@@ -58,10 +58,11 @@ export class TrendService {
             const hashtag_data = hashtags.find((h) => h.name === item.hashtag);
 
             return {
-                hashtag: item.hashtag,
+                text: '#' + item.hashtag,
                 posts_count: hashtag_data ? hashtag_data.usage_count : 0,
-                rank: index + 1,
+                trend_rank: index + 1,
                 category: hashtag_categories[item.hashtag] || this.GENERAL_CATEGORY,
+                reference_id: item.hashtag.toLowerCase(),
             };
         });
 

@@ -1,6 +1,7 @@
 export class HashtagResponseDto {
-    hashtag: string;
+    text: string;
     posts_count: number;
     category?: string;
-    rank: number;
+    trend_rank: number;
+    reference_id: string;
 }
