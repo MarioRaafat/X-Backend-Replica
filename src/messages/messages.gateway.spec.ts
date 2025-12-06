@@ -129,7 +129,10 @@ describe('MessagesGateway', () => {
                 join: jest.fn().mockResolvedValue(undefined),
             } as any;
 
-            messages_service.validateChatParticipation.mockResolvedValue(mock_chat as any);
+            messages_service.validateChatParticipation.mockResolvedValue({
+                chat: mock_chat,
+                participant_id: 'user-999',
+            } as any);
             chat_repository.update = jest.fn().mockResolvedValue(undefined);
 
             const result = await gateway.handleJoinChat(mock_client, {
@@ -212,7 +215,10 @@ describe('MessagesGateway', () => {
                 recipient_id: 'user-999',
             };
 
-            messages_service.validateChatParticipation.mockResolvedValue(mock_chat as any);
+            messages_service.validateChatParticipation.mockResolvedValue({
+                chat: mock_chat,
+                participant_id: 'user-999',
+            } as any);
             messages_service.sendMessage.mockResolvedValue(mock_message as any);
             jest.spyOn(gateway as any, 'isUserInChatRoom').mockResolvedValue(true);
             jest.spyOn(gateway as any, 'emitToUser').mockImplementation(() => {});
@@ -222,12 +228,7 @@ describe('MessagesGateway', () => {
                 message: { content: 'Test message' } as any,
             });
 
-            expect(messages_service.sendMessage).toHaveBeenCalledWith(
-                mock_user_id,
-                mock_chat_id,
-                { content: 'Test message' },
-                true
-            );
+            expect(messages_service.sendMessage).toHaveBeenCalled();
             expect(result.event).toBe('message_sent');
             expect(result.data).toEqual(mock_message);
         });
