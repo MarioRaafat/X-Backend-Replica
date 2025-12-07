@@ -125,6 +125,8 @@ export class UserRepository extends Repository<User> {
             'user.bio AS bio',
             'user.avatar_url AS avatar_url',
             'user.cover_url AS cover_url',
+            'user.verified AS verified',
+            'user.language AS language',
             'user.country AS country',
             'user.created_at AS created_at',
             'user.birth_date AS birth_date',

@@ -6,6 +6,17 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 describe('AuthController', () => {
     let controller: AuthController;
     let mock_auth_service: jest.Mocked<AuthService>;
+    let originalEnv: NodeJS.ProcessEnv;
+
+    beforeAll(() => {
+        originalEnv = { ...process.env };
+        process.env.FRONTEND_URL = 'http://localhost:3001';
+        process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
+    });
+
+    afterAll(() => {
+        process.env = originalEnv;
+    });
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -652,10 +663,6 @@ describe('AuthController', () => {
     describe('googleLoginCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
 
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
-
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
@@ -700,10 +707,6 @@ describe('AuthController', () => {
     describe('facebookLoginCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
 
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
-
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
@@ -747,10 +750,6 @@ describe('AuthController', () => {
 
     describe('githubCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
-
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
 
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
@@ -912,7 +911,7 @@ describe('AuthController', () => {
         it('should call auth_service.verifyUpdateEmail with correct arguments and return its result', async () => {
             const mock_dto = { new_email: 'newemail@example.com', otp: '123456' };
             const mock_user_id = 'user123';
-            const mock_result = { message: 'Email updated successfully' };
+            const mock_result = { email: 'newemail@example.com' };
 
             mock_auth_service.verifyUpdateEmail.mockResolvedValue(mock_result as any);
 
@@ -921,7 +920,6 @@ describe('AuthController', () => {
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyUpdateEmail).toHaveBeenCalledWith(
                 mock_user_id,
-                mock_dto.new_email,
                 mock_dto.otp
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -943,7 +941,6 @@ describe('AuthController', () => {
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyUpdateEmail).toHaveBeenCalledWith(
                 mock_user_id,
-                mock_dto.new_email,
                 mock_dto.otp
             );
         });
@@ -1135,19 +1132,22 @@ describe('AuthController', () => {
 
     describe('getCaptchaSiteKey', () => {
         it('should return the site key from environment variables', () => {
-            process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
-
             const result = controller.getCaptchaSiteKey();
 
             expect(result).toEqual({ siteKey: 'test-site-key' });
         });
 
         it('should return an empty string if RECAPTCHA_SITE_KEY is not set', () => {
+            const originalKey = process.env.RECAPTCHA_SITE_KEY;
             delete process.env.RECAPTCHA_SITE_KEY;
 
             const result = controller.getCaptchaSiteKey();
 
             expect(result).toEqual({ siteKey: '' });
+
+            if (originalKey) {
+                process.env.RECAPTCHA_SITE_KEY = originalKey;
+            }
         });
     });
 

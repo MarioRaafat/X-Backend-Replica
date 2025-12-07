@@ -129,7 +129,6 @@ export class MessagesGateway {
             // Check if recipient is actively in the chat room
             const chat = await this.messages_service.validateChatParticipation(user_id, chat_id);
             const recipient_id = chat.user1_id === user_id ? chat.user2_id : chat.user1_id;
-            console.log('Recipient ID:', recipient_id);
             const is_recipient_in_room = await this.isUserInChatRoom(recipient_id, chat_id);
 
             const result = await this.messages_service.sendMessage(
@@ -144,6 +143,16 @@ export class MessagesGateway {
                     chat_id,
                     message: result,
                 });
+
+                this.emitToUser(
+                    user_id,
+                    'new_message',
+                    {
+                        chat_id,
+                        message: result,
+                    },
+                    client.id
+                );
             } else {
                 this.server.to(chat_id).emit('new_message', {
                     chat_id,
@@ -185,6 +194,17 @@ export class MessagesGateway {
                     message_id,
                     message: result,
                 });
+
+                this.emitToUser(
+                    user_id,
+                    'message_updated',
+                    {
+                        chat_id,
+                        message_id,
+                        message: result,
+                    },
+                    client.id
+                );
             } else {
                 this.server.to(chat_id).emit('message_updated', {
                     chat_id,
@@ -219,6 +239,16 @@ export class MessagesGateway {
                     message_id,
                     message: result,
                 });
+                this.emitToUser(
+                    user_id,
+                    'message_deleted',
+                    {
+                        chat_id,
+                        message_id,
+                        message: result,
+                    },
+                    client.id
+                );
             } else {
                 this.server.to(chat_id).emit('message_deleted', {
                     chat_id,
@@ -316,11 +346,13 @@ export class MessagesGateway {
     }
 
     // Helper method to emit to specific user (all their connected devices)
-    emitToUser(user_id: string, event: string, data: any) {
+    emitToUser(user_id: string, event: string, data: any, exclude_socket_id?: string) {
         const socket_ids = this.userSockets.get(user_id);
         if (socket_ids) {
             socket_ids.forEach((socket_id) => {
-                this.server.to(socket_id).emit(event, data);
+                if (socket_id !== exclude_socket_id) {
+                    this.server.to(socket_id).emit(event, data);
+                }
             });
         }
     }

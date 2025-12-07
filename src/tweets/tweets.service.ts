@@ -21,7 +21,8 @@ import {
     PaginatedTweetRepostsResponseDTO,
     UpdateTweetDTO,
 } from './dto';
-import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
+import { promises as fs } from 'fs';
+import * as path from 'path';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { PostgresErrorCodes } from '../shared/enums/postgres-error-codes';
 import { Tweet } from './entities/tweet.entity';
@@ -46,7 +47,8 @@ import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
-import { categorize_prompt, TOPICS } from './constants';
+import { categorize_prompt, summarize_prompt, TOPICS } from './constants';
+import { CompressVideoJobService } from 'src/background-jobs/videos/compress-video.service';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
 import { RepostJobService } from 'src/background-jobs/notifications/repost/repost.service';
@@ -54,13 +56,18 @@ import { QuoteJobService } from 'src/background-jobs/notifications/quote/quote.s
 import { MentionJobService } from 'src/background-jobs/notifications/mention/mention.service';
 import { EsIndexTweetJobService } from 'src/background-jobs/elasticsearch/es-index-tweet.service';
 import { EsDeleteTweetJobService } from 'src/background-jobs/elasticsearch/es-delete-tweet.service';
+import { AiSummaryJobService } from 'src/background-jobs/ai-summary/ai-summary.service';
 import sharp from 'sharp';
 import ffmpeg from 'fluent-ffmpeg';
 import ffmpegInstaller from '@ffmpeg-installer/ffmpeg';
 import { Readable } from 'stream';
 import Groq from 'groq-sdk';
+import { TweetSummary } from './entities/tweet-summary.entity';
+import { TweetSummaryResponseDTO } from './dto/tweet-summary-response.dto';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
+import { TrendService } from 'src/trend/trend.service';
+import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 
 @Injectable()
 export class TweetsService {
@@ -81,17 +88,22 @@ export class TweetsService {
         private readonly user_follows_repository: Repository<UserFollows>,
         @InjectRepository(UserPostsView)
         private readonly user_posts_view_repository: Repository<UserPostsView>,
+        @InjectRepository(TweetSummary)
+        private readonly tweet_summary_repository: Repository<TweetSummary>,
         private data_source: DataSource,
         private readonly paginate_service: PaginationService,
         private readonly tweets_repository: TweetsRepository,
         private readonly azure_storage_service: AzureStorageService,
         private readonly reply_job_service: ReplyJobService,
         private readonly like_job_service: LikeJobService,
+        private readonly hashtag_job_service: HashtagJobService,
         private readonly es_index_tweet_service: EsIndexTweetJobService,
         private readonly es_delete_tweet_service: EsDeleteTweetJobService,
+        private readonly ai_summary_job_service: AiSummaryJobService,
         private readonly repost_job_service: RepostJobService,
         private readonly quote_job_service: QuoteJobService,
-        private readonly mention_job_service: MentionJobService
+        private readonly mention_job_service: MentionJobService,
+        private readonly compress_video_job_service: CompressVideoJobService
     ) {}
 
     private readonly TWEET_IMAGES_CONTAINER = 'post-images';
@@ -104,7 +116,7 @@ export class TweetsService {
     /**
      * Handles image upload processing
      * @param file - The uploaded image file (in memory, not saved to disk)
-     * @param _user_id - The authenticated user's ID
+     * @param user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
     async uploadImage(file: Express.Multer.File, user_id: string) {
@@ -152,13 +164,9 @@ export class TweetsService {
     /**
      * Handles video upload processing
      * @param file - The uploaded video file (in memory, not saved to disk)
-     * @param _user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
-    async uploadVideo(
-        file: Express.Multer.File,
-        _user_id: string
-    ): Promise<UploadMediaResponseDTO> {
+    async uploadVideo(file: Express.Multer.File): Promise<UploadMediaResponseDTO> {
         try {
             const video_name = `${Date.now()}-${file.originalname}`;
 
@@ -176,6 +184,11 @@ export class TweetsService {
         }
     }
 
+    /**
+     * Compresses video using pipe/stream (faster, no temp files)
+     * @param video_buffer - Raw video buffer
+     * @returns Compressed video buffer
+     */
     private convertToCompressedMp4(video_buffer: Buffer): Promise<Buffer> {
         return new Promise((resolve, reject) => {
             const inputStream = new Readable();
@@ -195,7 +208,7 @@ export class TweetsService {
                 .toFormat('mp4')
                 .on('error', (error) => {
                     console.error('FFmpeg error:', error);
-                    reject(error);
+                    reject(error instanceof Error ? error : new Error(String(error)));
                 })
                 .on('end', () => {
                     console.log('FFmpeg conversion completed');
@@ -207,29 +220,37 @@ export class TweetsService {
                 })
                 .on('error', (error) => {
                     console.error('Stream error:', error);
-                    reject(error);
+                    reject(error instanceof Error ? error : new Error(String(error)));
                 });
         });
     }
 
+    /**
+     * Uploads video to Azure with compression.
+     * Tries fast pipe-based compression first, falls back to uploading original
+     * and queuing background job if pipe compression fails.
+     * @param video_buffer - Raw video buffer
+     * @param video_name - Original filename
+     * @returns Azure Blob URL
+     */
     private async uploadVideoToAzure(video_buffer: Buffer, video_name: string): Promise<string> {
+        const container_name = this.TWEET_VIDEOS_CONTAINER;
+        const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+        if (!connection_string) {
+            throw new Error('AZURE_STORAGE_CONNECTION_STRING is not defined');
+        }
+
+        const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
+        const container_client = blob_service_client.getContainerClient(container_name);
+        await container_client.createIfNotExists({ access: 'blob' });
+
+        const final_name = video_name.replace(/\.[^/.]+$/, '') + '.mp4';
+        const block_blob_client = container_client.getBlockBlobClient(final_name);
+
         try {
-            const container_name = this.TWEET_VIDEOS_CONTAINER;
-            const connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
-
-            if (!connection_string) {
-                throw new Error('AZURE_STORAGE_CONNECTION_STRING is not defined');
-            }
-
-            const blob_service_client = BlobServiceClient.fromConnectionString(connection_string);
-            const container_client = blob_service_client.getContainerClient(container_name);
-            await container_client.createIfNotExists({ access: 'blob' });
-
+            // Try fast pipe-based compression (no temp files)
             const compressed = await this.convertToCompressedMp4(video_buffer);
-
-            const final_name = video_name.replace(/\.[^/.]+$/, '') + '.mp4';
-
-            const block_blob_client = container_client.getBlockBlobClient(final_name);
 
             await block_blob_client.upload(compressed, compressed.length, {
                 blobHTTPHeaders: {
@@ -238,9 +259,34 @@ export class TweetsService {
             });
 
             return block_blob_client.url;
-        } catch (error) {
-            console.error(error);
-            throw error;
+        } catch (compressionError) {
+            // Pipe compression failed - upload original and queue background job
+            console.warn(
+                `Pipe compression failed for ${final_name}, uploading original and queuing background compression:`,
+                compressionError
+            );
+
+            // Upload original video without compression
+            await block_blob_client.upload(video_buffer, video_buffer.length, {
+                blobHTTPHeaders: {
+                    blobContentType: 'video/mp4',
+                },
+            });
+
+            const video_url = block_blob_client.url;
+
+            // Queue background job to compress using temp files (more compatible)
+            this.compress_video_job_service
+                .queueCompressVideo({
+                    video_url,
+                    video_name: final_name,
+                    container_name: this.TWEET_VIDEOS_CONTAINER,
+                })
+                .catch((error) => {
+                    console.error(`Failed to queue compression job for ${final_name}:`, error);
+                });
+
+            return video_url;
         }
     }
 
@@ -362,9 +408,73 @@ export class TweetsService {
         }
     }
 
+    async getTweetSummary(tweet_id: string): Promise<TweetSummaryResponseDTO> {
+        try {
+            const tweet = await this.tweet_repository.findOne({
+                where: { tweet_id },
+                select: ['content', 'tweet_id'],
+            });
+            if (!tweet) throw new NotFoundException('Tweet not found');
+
+            const cleanedContent = tweet.content
+                .replace(/#[a-zA-Z0-9_]+/g, '')
+                .replace(/\s+/g, ' ')
+                .trim();
+
+            if (cleanedContent.length < 120) {
+                throw new BadRequestException('Tweet content too short for summary generation.');
+            }
+
+            let tweet_summary = await this.tweet_summary_repository.findOne({
+                where: { tweet_id },
+            });
+
+            if (!tweet_summary) {
+                // Queue the summary generation job
+                await this.ai_summary_job_service.queueGenerateSummary({
+                    tweet_id,
+                    content: tweet.content,
+                });
+
+                // Wait for the job to complete (with polling)
+                for (let i = 0; i < 15; i++) {
+                    await new Promise((resolve) => setTimeout(resolve, 250));
+                    tweet_summary = await this.tweet_summary_repository.findOne({
+                        where: { tweet_id },
+                    });
+                    if (tweet_summary) {
+                        return {
+                            tweet_id,
+                            summary: tweet_summary.summary,
+                        };
+                    }
+                }
+                throw new NotFoundException('Failed to generate summary after retry.');
+            }
+            return {
+                tweet_id,
+                summary: tweet_summary.summary,
+            };
+        } catch (error) {
+            throw error;
+        }
+    }
+
     async getTweetById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
         try {
             return await this.getTweetWithUserById(tweet_id, current_user_id);
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
+
+    async getTweetsByIds(
+        tweet_ids: string[],
+        current_user_id?: string
+    ): Promise<TweetResponseDTO[]> {
+        try {
+            return await this.tweets_repository.getTweetsByIds(tweet_ids, current_user_id);
         } catch (error) {
             console.error(error);
             throw error;
@@ -1227,9 +1337,15 @@ export class TweetsService {
         await this.updateHashtags(unique_hashtags, user_id, query_runner);
 
         // Extract topics using Groq AI
-        // Extract topics using Groq AI
-        const topics = await this.extractTopics(content);
+        const topics = await this.extractTopics(content, unique_hashtags);
         console.log('Extracted topics:', topics);
+
+        //Insert Hashtag with Topics in redis
+
+        await this.hashtag_job_service.queueHashtag({
+            hashtags: topics.hashtags,
+            timestamp: Date.now(),
+        });
 
         // You can store topics in the tweet entity or use them for recommendations
         // For example, you could add a 'topics' field to your Tweet entity
@@ -1238,13 +1354,24 @@ export class TweetsService {
         return mentions;
     }
 
-    async extractTopics(content: string): Promise<Record<string, number>> {
+    async extractTopics(
+        content: string,
+        hashtags: string[]
+    ): Promise<{
+        tweet: Record<string, number>;
+        hashtags: Record<string, Record<string, number>>;
+    }> {
         try {
             if (!process.env.ENABLE_GROQ || !process.env.MODEL_NAME) {
                 console.warn('Groq is disabled, returning empty topics');
                 const empty: Record<string, number> = {};
                 TOPICS.forEach((t) => (empty[t] = 0));
-                return empty;
+                const result: Record<string, Record<string, number>> = {};
+                hashtags.forEach((h) => {
+                    result[h] = { ...empty };
+                });
+
+                return { tweet: empty, hashtags: result };
             }
 
             // remove hashtags and extra spaces
@@ -1252,20 +1379,8 @@ export class TweetsService {
                 .replace(/#[a-zA-Z0-9_]+/g, '')
                 .replace(/\s+/g, ' ')
                 .trim();
-            if (!process.env.ENABLE_GROQ || !process.env.MODEL_NAME) {
-                console.warn('Groq is disabled, returning empty topics');
-                const empty: Record<string, number> = {};
-                TOPICS.forEach((t) => (empty[t] = 0));
-                return empty;
-            }
 
-            // remove hashtags and extra spaces
-            content = content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
-
-            const prompt = categorize_prompt(content);
+            const prompt = categorize_prompt(content, hashtags);
 
             const response = await this.groq.chat.completions.create({
                 model: process.env.MODEL_NAME,
@@ -1278,31 +1393,61 @@ export class TweetsService {
                 console.warn('Groq returned empty response');
                 const empty: Record<string, number> = {};
                 TOPICS.forEach((t) => (empty[t] = 0));
-                return empty;
+                const result: Record<string, Record<string, number>> = {};
+                hashtags.forEach((h) => {
+                    result[h] = { ...empty };
+                });
+
+                return { tweet: empty, hashtags: result };
             }
 
             let jsonText = rawText;
-            const m = rawText.match(/\{[^}]+\}/);
+            const m = rawText.match(/\{[\s\S]*\}/);
             if (m) jsonText = m[0];
 
-            let topics = JSON.parse(jsonText);
+            let parsed = JSON.parse(jsonText);
 
-            const total = Object.values<number>(topics).reduce((a, b) => a + Number(b), 0);
-
-            if (Math.abs(total - 100) > 1) {
-                console.warn('Normalizing...');
-                for (const k of Object.keys(topics)) {
-                    topics[k] = Math.round((topics[k] / total) * 100);
-                }
-                console.warn('Normalizing...');
-                for (const k of Object.keys(topics)) {
-                    topics[k] = Math.round((topics[k] / total) * 100);
+            const text_total = Object.values<number>(parsed.text).reduce(
+                (a, b) => a + Number(b),
+                0
+            );
+            if (Math.abs(text_total - 100) > 1) {
+                console.warn('Normalizing tweet topics...');
+                for (const k of Object.keys(parsed.text)) {
+                    parsed.text[k] = Math.round((parsed.text[k] / text_total) * 100);
                 }
             }
 
-            return topics;
+            // Normalize each hashtag's topics
+            for (const hashtag_key of Object.keys(parsed).filter((k) => k !== 'text')) {
+                const hashtag_topics = parsed[hashtag_key];
+                const hashtag_total = Object.values<number>(hashtag_topics).reduce(
+                    (a, b) => a + Number(b),
+                    0
+                );
+
+                if (Math.abs(hashtag_total - 100) > 1) {
+                    console.warn(`Normalizing ${hashtag_key} topics...`);
+                    for (const k of Object.keys(hashtag_topics)) {
+                        hashtag_topics[k] = Math.round((hashtag_topics[k] / hashtag_total) * 100);
+                    }
+                }
+            }
+
+            // Restructure to match return type
+            return {
+                tweet: parsed.text,
+                hashtags: Object.keys(parsed)
+                    .filter((k) => k !== 'text')
+                    .reduce(
+                        (acc, key) => {
+                            acc[key] = parsed[key];
+                            return acc;
+                        },
+                        {} as Record<string, Record<string, number>>
+                    ),
+            };
         } catch (error) {
-            console.error('Error extracting topics with Groq:', error);
             console.error('Error extracting topics with Groq:', error);
             throw error;
         }

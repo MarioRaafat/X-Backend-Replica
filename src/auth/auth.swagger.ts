@@ -1,3 +1,4 @@
+import { isEmail } from 'class-validator';
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
 // OAuth Response Constants
@@ -1119,8 +1120,7 @@ export const update_email_swagger = {
             schema: {
                 example: {
                     data: {
-                        new_email: 'newemail@example.com',
-                        verification_sent: true,
+                        isEmailSent: true,
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.EMAIL_UPDATE_INITIATED,

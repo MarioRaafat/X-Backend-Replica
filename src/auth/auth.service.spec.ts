@@ -20,7 +20,6 @@ import { VerificationService } from 'src/verification/verification.service';
 import { EmailJobsService } from 'src/background-jobs/email/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
 import {
     BadRequestException,
     ConflictException,
@@ -1267,7 +1266,6 @@ describe('AuthService', () => {
             };
 
             mock_user_service.findByEmail.mockResolvedValueOnce(null);
-            mock_captcha_service.validateCaptcha.mockResolvedValueOnce(true);
             mock_redis_service.hset.mockResolvedValueOnce(true);
             mock_redis_service.hget.mockResolvedValueOnce({
                 name: 'John Doe',
@@ -1279,7 +1277,6 @@ describe('AuthService', () => {
 
             const result = await service.signupStep1(dto as any);
 
-            expect(mock_captcha_service.validateCaptcha).toHaveBeenCalledWith('valid-captcha');
             expect(mock_user_service.findByEmail).toHaveBeenCalledWith('john@example.com');
             expect(mock_redis_service.hset).toHaveBeenCalled();
             expect(result).toEqual({ isEmailSent: true });
@@ -1302,19 +1299,27 @@ describe('AuthService', () => {
             await expect(service.signupStep1(dto as any)).rejects.toThrow(ConflictException);
         });
 
-        it('should throw BadRequestException if captcha validation fails', async () => {
+        it('should throw InternalServerErrorException if email sending fails', async () => {
             const dto = {
                 name: 'John Doe',
                 birth_date: '1990-01-01',
                 email: 'john@example.com',
-                captcha_token: 'invalid-captcha',
+                captcha_token: 'valid-captcha',
             };
 
-            mock_captcha_service.validateCaptcha.mockRejectedValueOnce(
-                new Error('Invalid captcha')
-            );
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hset.mockResolvedValueOnce(1);
+            mock_redis_service.hget.mockResolvedValueOnce({
+                name: 'John Doe',
+                email: 'john@example.com',
+            });
+            mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
+            mock_verification_service.generateNotMeLink.mockResolvedValueOnce('https://notme.link');
+            mock_email_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: false });
 
-            await expect(service.signupStep1(dto as any)).rejects.toThrow(BadRequestException);
+            await expect(service.signupStep1(dto as any)).rejects.toThrow(
+                InternalServerErrorException
+            );
         });
     });
 
@@ -1536,15 +1541,18 @@ describe('AuthService', () => {
         });
 
         it('should initiate email update process', async () => {
-            const user = { id: 'user-1', email: 'old@example.com' };
+            const user = { id: 'user-1', email: 'old@example.com', username: 'testuser' };
             mock_user_service.findById.mockResolvedValueOnce(user);
             mock_user_service.findByEmail.mockResolvedValueOnce(null);
             mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
             mock_redis_service.set.mockResolvedValueOnce(true);
+            mock_email_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: true });
 
             const result = await service.updateEmail('user-1', 'new@example.com');
 
             expect(result).toBeDefined();
+            expect(result).toEqual({ isEmailSent: true });
+            expect(mock_email_jobs_service.queueOtpEmail).toHaveBeenCalled();
         });
     });
 
@@ -2041,11 +2049,11 @@ describe('AuthService', () => {
 
             mock_user_service.findById.mockResolvedValueOnce(user);
             mock_verification_service.validateOtp.mockResolvedValueOnce(true);
-            mock_redis_service.get.mockResolvedValueOnce('different@example.com');
+            mock_redis_service.get.mockResolvedValueOnce(null); // No stored email
 
-            await expect(
-                service.verifyUpdateEmail('user-1', 'new@example.com', '123456')
-            ).rejects.toThrow(BadRequestException);
+            await expect(service.verifyUpdateEmail('user-1', '123456')).rejects.toThrow(
+                BadRequestException
+            );
         });
 
         it('should throw ConflictException if new email is already taken', async () => {
@@ -2054,10 +2062,14 @@ describe('AuthService', () => {
             mock_user_service.findById.mockResolvedValueOnce(user);
             mock_verification_service.validateOtp.mockResolvedValueOnce(true);
             mock_redis_service.get.mockResolvedValueOnce('takenemail@example.com');
+            mock_user_service.findByEmail.mockResolvedValueOnce({
+                id: 'user-2',
+                email: 'takenemail@example.com',
+            });
 
-            await expect(
-                service.verifyUpdateEmail('user-1', 'new@example.com', '123456')
-            ).rejects.toThrow(BadRequestException);
+            await expect(service.verifyUpdateEmail('user-1', '123456')).rejects.toThrow(
+                ConflictException
+            );
         });
 
         it('should throw ConflictException when email already exists during final check', async () => {

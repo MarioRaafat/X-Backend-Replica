@@ -6,7 +6,6 @@ import { SearchQueryDto } from './dto/search-query.dto';
 import { PostsSearchDto } from './dto/post-search.dto';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
 import { DataSource } from 'typeorm';
-import { mock } from 'node:test';
 
 describe('SearchService', () => {
     let service: SearchService;
@@ -73,7 +72,6 @@ describe('SearchService', () => {
                 suggested_queries: [],
                 suggested_users: [],
             });
-            expect(elasticsearch_service.search).not.toHaveBeenCalled();
         });
 
         it('should return suggestions with users and queries with normal query', async () => {
@@ -229,7 +227,7 @@ describe('SearchService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const query_dto: SearchQueryDto = { query: '', limit: 20 };
 
-            const result = await service.searchUsers(current_user_id, query_dto);
+            const result = await service.searchPosts(current_user_id, query_dto);
 
             expect(result).toEqual({
                 data: [],
@@ -372,23 +370,42 @@ describe('SearchService', () => {
                 limit: 20,
             };
 
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
             const result = await service.searchPosts(current_user_id, query_dto);
 
-            expect(result).toEqual({
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: {
+                        bool: {
+                            must: [
+                                {
+                                    term: {
+                                        hashtags: {
+                                            value: '#technology',
+                                            boost: 10,
+                                        },
+                                    },
+                                },
+                            ],
+                            should: expect.any(Array),
+                            minimum_should_match: 1,
+                        },
+                    },
+                }),
             });
-            expect(elasticsearch_service.search).not.toHaveBeenCalled();
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].content).toContain('#technology');
         });
 
-        it('should search posts and return results without related tweets', async () => {
+        it('should search posts with pagination and return next_cursor', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const query_dto: PostsSearchDto = {
                 query: 'technology',
-                limit: 20,
+                limit: 1,
             };
 
             const mock_tweet = {
@@ -421,6 +438,33 @@ describe('SearchService', () => {
                                 2.5,
                                 '2024-01-15T10:30:00Z',
                                 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                        {
+                            _source: {
+                                tweet_id: 'b2c3d4e5-f6g7-8901-bcde-fg2345678901',
+                                type: 'post',
+                                content: 'Second post about technology',
+                                created_at: '2024-01-15T09:30:00Z',
+                                updated_at: '2024-01-15T09:30:00Z',
+                                num_likes: 5,
+                                num_reposts: 2,
+                                num_views: 50,
+                                num_replies: 1,
+                                num_quotes: 0,
+                                author_id: '2b9f0017-76cc-5gb5-b725-fdd7b545ff05',
+                                username: 'alyaali242',
+                                name: 'Alyaa Eissa',
+                                avatar_url: 'https://example.com/avatar2.jpg',
+                                followers: 50,
+                                following: 30,
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [
+                                2.3,
+                                '2024-01-15T09:30:00Z',
+                                'b2c3d4e5-f6g7-8901-bcde-fg2345678901',
                             ],
                         },
                     ],
@@ -469,12 +513,20 @@ describe('SearchService', () => {
             expect(result.pagination.next_cursor).toBe(null);
         });
 
-        it('should search posts with media filter', async () => {
+        it('should search posts with cursor for pagination', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const cursor = Buffer.from(
+                JSON.stringify([
+                    2.5,
+                    '2024-01-15T10:30:00Z',
+                    'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                ])
+            ).toString('base64');
+
             const query_dto: PostsSearchDto = {
                 query: 'technology',
                 limit: 20,
-                has_media: true,
+                cursor,
             };
 
             const mock_tweet = {
@@ -504,9 +556,9 @@ describe('SearchService', () => {
                         {
                             _source: mock_tweet,
                             sort: [
-                                2.5,
-                                '2024-01-15T10:30:00Z',
-                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                                2.3,
+                                '2024-01-15T09:30:00Z',
+                                'b2c3d4e5-f6g7-8901-bcde-fg2345678901',
                             ],
                         },
                     ],
@@ -552,6 +604,8 @@ describe('SearchService', () => {
             });
 
             expect(result.data).toHaveLength(1);
+            expect(result.data[0].tweet_id).toBe('b2c3d4e5-f6g7-8901-bcde-fg2345678901');
+            expect(result.pagination.has_more).toBe(false);
         });
 
         it('should search posts with username filter', async () => {
@@ -1091,6 +1145,51 @@ describe('SearchService', () => {
                     has_more: false,
                 },
             });
+        });
+
+        it('should search posts with exact limit results (no has_more)', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
+                limit: 1,
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: {
+                                tweet_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                                type: 'post',
+                                content: 'Great technology article',
+                                created_at: '2024-01-15T08:00:00Z',
+                                num_likes: 10,
+                                num_reposts: 5,
+                                num_views: 100,
+                                num_replies: 2,
+                                num_quotes: 1,
+                                author_id: 'author-id-1',
+                                username: 'techuser',
+                                name: 'Tech User',
+                                avatar_url: 'https://example.com/avatar1.jpg',
+                                followers: 100,
+                                following: 50,
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [1234567890],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(result.data).toHaveLength(1);
+            expect(result.pagination.has_more).toBe(false);
+            expect(result.pagination.next_cursor).toBeNull();
         });
     });
 

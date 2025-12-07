@@ -1,6 +1,10 @@
 export const TOPICS = ['Sports', 'Entertainment', 'News'];
 
-export const categorize_prompt = (content: string) => {
+export const categorize_prompt = (content: string, hashtags: string[]) => {
+    const hashtags_section =
+        hashtags.length > 0
+            ? `\n\nHashtags to categorize separately:\n${hashtags.map((h) => `- ${h}`).join('\n')}`
+            : '';
     return `
 You are an expert text classifier.
 
@@ -12,13 +16,39 @@ IMPORTANT RULES:
 - Percentages MUST sum to 100.
 - If a topic is not relevant, assign 0 to it (do NOT omit it).
 - Return ONLY a JSON object. No explanations. No extra text.
+- Categorize the text content AND each hashtag separately.
 
-Example:
-{ "Sports": 80, "Entertainment": 20, "News": 0 }
+
+Structure your response as:
+{
+  "text": { "Sports": 80, "Entertainment": 20, "News": 0, ... },
+  "hashtag1": { "Sports": 100, "Entertainment": 0, "News": 0, ... },
+  "hashtag2": { "Sports": 0, "Entertainment": 90, "News": 10, ... }
+}
 
 Text:
-"${content}"
+"${content}" ${hashtags_section}
 
 Return ONLY the JSON object.
 `;
 };
+
+export const summarize_prompt = (content: string) => `
+You are an expert tweet summarizer.
+
+Summarize the tweet below. 
+If the tweet is already very short or simple, produce a **more concise rewrite** rather than repeating it.
+If the tweet contains multiple ideas, summarize in **1–2 short sentences**.
+
+Rules:
+- Provide a summary that is **meaningfully shorter** than the original.
+- Do NOT repeat the original phrasing or structure.
+- Do NOT add any new information.
+- Keep the tone neutral and simple.
+- Remove emojis, hashtags, and usernames.
+
+Tweet:
+"${content}"
+
+Return only the summary text.
+`;

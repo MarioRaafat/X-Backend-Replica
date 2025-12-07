@@ -18,6 +18,7 @@ export const ERROR_MESSAGES = {
     USERNAME_NOT_FOUND: 'Username not found',
     USERNAME_ALREADY_TAKEN: 'Username is already taken',
     ACCOUNT_HAS_NO_PASSWORD: 'Account does not have a password set',
+    EMAIL_AS_SAME_AS_OLD: 'New email address must be different from the old one',
 
     // OAuth completion
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
@@ -202,6 +203,7 @@ export const SUCCESS_MESSAGES = {
     SEARCH_HISTORY_PEOPLE_SAVED: 'People search saved to history successfully',
 
     // explore
+    EXPLORE_DATA_RETRIEVED: 'Explore page data retrieved successfully',
     EXPLORE_TRENDING_RETRIEVED: 'Explore trending items retrieved successfully',
     EXPLORE_WHO_TO_FOLLOW_RETRIEVED: 'Explore who-to-follow suggestions retrieved successfully',
     EXPLORE_FOR_YOU_POSTS_RETRIEVED: 'Explore for-you posts retrieved successfully',
