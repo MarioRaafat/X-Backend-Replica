@@ -368,7 +368,7 @@ describe('AuthService', () => {
             expect(mock_res.clearCookie).toHaveBeenCalledWith('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: 'none',
             });
 
             expect(result).toEqual({});
@@ -441,7 +441,7 @@ describe('AuthService', () => {
             expect(mock_res.clearCookie).toHaveBeenCalledWith('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: 'none',
             });
 
             expect(result).toEqual({});

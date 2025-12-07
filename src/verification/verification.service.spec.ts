@@ -20,11 +20,11 @@ describe('VerificationService', () => {
     let redis_service: jest.Mocked<RedisService>;
     let jwt_service: jest.Mocked<JwtService>;
     let config_service: jest.Mocked<ConfigService>;
-    let originalEnv: NodeJS.ProcessEnv;
+    let original_env: NodeJS.ProcessEnv;
 
     beforeAll(() => {
         // Save original environment
-        originalEnv = { ...process.env };
+        original_env = { ...process.env };
         // Set default test env vars
         process.env.NOT_ME_LINK_EXPIRATION_TIME = '15m';
         process.env.NOT_ME_LINK_SECRET = 'test-secret';
@@ -34,7 +34,7 @@ describe('VerificationService', () => {
 
     afterAll(() => {
         // Restore original environment
-        process.env = originalEnv;
+        process.env = original_env;
     });
 
     beforeEach(async () => {
@@ -209,8 +209,8 @@ describe('VerificationService', () => {
         });
 
         it('should use default values when env variables are not set', async () => {
-            const originalExpiration = process.env.NOT_ME_LINK_EXPIRATION_TIME;
-            const originalSecret = process.env.NOT_ME_LINK_SECRET;
+            const original_expiration = process.env.NOT_ME_LINK_EXPIRATION_TIME;
+            const original_secret = process.env.NOT_ME_LINK_SECRET;
             delete process.env.NOT_ME_LINK_EXPIRATION_TIME;
             delete process.env.NOT_ME_LINK_SECRET;
             jwt_service.signAsync.mockResolvedValue('mock-jwt-token');
@@ -231,8 +231,8 @@ describe('VerificationService', () => {
             );
 
             // Restore
-            if (originalExpiration) process.env.NOT_ME_LINK_EXPIRATION_TIME = originalExpiration;
-            if (originalSecret) process.env.NOT_ME_LINK_SECRET = originalSecret;
+            if (original_expiration) process.env.NOT_ME_LINK_EXPIRATION_TIME = original_expiration;
+            if (original_secret) process.env.NOT_ME_LINK_SECRET = original_secret;
         });
     });
 
@@ -262,7 +262,7 @@ describe('VerificationService', () => {
         });
 
         it('should use default secret when env variable is not set', async () => {
-            const originalSecret = process.env.NOT_ME_LINK_SECRET;
+            const original_secret = process.env.NOT_ME_LINK_SECRET;
             delete process.env.NOT_ME_LINK_SECRET;
             jwt_service.verifyAsync.mockResolvedValue({ email: 'test@example.com' });
 
@@ -273,8 +273,8 @@ describe('VerificationService', () => {
                 secret: 'secret-key',
             });
 
-            if (originalSecret) {
-                process.env.NOT_ME_LINK_SECRET = originalSecret;
+            if (original_secret) {
+                process.env.NOT_ME_LINK_SECRET = original_secret;
             }
         });
     });
@@ -297,8 +297,8 @@ describe('VerificationService', () => {
         });
 
         it('should use default values when env variables are not set', async () => {
-            const originalExpiration = process.env.PASSWORD_RESET_TOKEN_EXPIRATION;
-            const originalSecret = process.env.PASSWORD_RESET_TOKEN_SECRET;
+            const original_expiration = process.env.PASSWORD_RESET_TOKEN_EXPIRATION;
+            const original_secret = process.env.PASSWORD_RESET_TOKEN_SECRET;
             delete process.env.PASSWORD_RESET_TOKEN_EXPIRATION;
             delete process.env.PASSWORD_RESET_TOKEN_SECRET;
             jwt_service.signAsync.mockResolvedValue('reset-token');
@@ -315,11 +315,11 @@ describe('VerificationService', () => {
                 })
             );
 
-            if (originalExpiration) {
-                process.env.PASSWORD_RESET_TOKEN_EXPIRATION = originalExpiration;
+            if (original_expiration) {
+                process.env.PASSWORD_RESET_TOKEN_EXPIRATION = original_expiration;
             }
-            if (originalSecret) {
-                process.env.PASSWORD_RESET_TOKEN_SECRET = originalSecret;
+            if (original_secret) {
+                process.env.PASSWORD_RESET_TOKEN_SECRET = original_secret;
             }
         });
     });

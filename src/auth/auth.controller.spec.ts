@@ -6,16 +6,16 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 describe('AuthController', () => {
     let controller: AuthController;
     let mock_auth_service: jest.Mocked<AuthService>;
-    let originalEnv: NodeJS.ProcessEnv;
+    let original_env: NodeJS.ProcessEnv;
 
     beforeAll(() => {
-        originalEnv = { ...process.env };
+        original_env = { ...process.env };
         process.env.FRONTEND_URL = 'http://localhost:3001';
         process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
     });
 
     afterAll(() => {
-        process.env = originalEnv;
+        process.env = original_env;
     });
 
     beforeEach(async () => {
@@ -1138,15 +1138,15 @@ describe('AuthController', () => {
         });
 
         it('should return an empty string if RECAPTCHA_SITE_KEY is not set', () => {
-            const originalKey = process.env.RECAPTCHA_SITE_KEY;
+            const original_key = process.env.RECAPTCHA_SITE_KEY;
             delete process.env.RECAPTCHA_SITE_KEY;
 
             const result = controller.getCaptchaSiteKey();
 
             expect(result).toEqual({ siteKey: '' });
 
-            if (originalKey) {
-                process.env.RECAPTCHA_SITE_KEY = originalKey;
+            if (original_key) {
+                process.env.RECAPTCHA_SITE_KEY = original_key;
             }
         });
     });

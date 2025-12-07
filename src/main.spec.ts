@@ -7,16 +7,16 @@ jest.mock('./app.module');
 
 describe('main.ts', () => {
     let app: INestApplication;
-    let originalEnv: NodeJS.ProcessEnv;
+    let original_env: NodeJS.ProcessEnv;
 
     beforeAll(() => {
-        originalEnv = { ...process.env };
+        original_env = { ...process.env };
         process.env.PORT = '3000';
         process.env.FRONTEND_URL = 'http://localhost:3001';
     });
 
     afterAll(() => {
-        process.env = originalEnv;
+        process.env = original_env;
     });
 
     beforeEach(async () => {
