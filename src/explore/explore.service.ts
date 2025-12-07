@@ -146,7 +146,7 @@ export class ExploreService {
         offset: number,
         limit: number
     ): Promise<string[]> {
-        const redis_key = `trending:category:${category_id}`;
+        const redis_key = `explore:category:${category_id}`;
         return await this.redis_service.zrevrange(redis_key, offset, limit);
     }
 
@@ -173,7 +173,7 @@ export class ExploreService {
             });
             categories.push(...default_cats);
         }
-        const keys = categories.map((cat) => `trending:category:${cat.id}`);
+        const keys = categories.map((cat) => `explore:category:${cat.id}`);
         const results = await this.redis_service.zrevrangeMultiple(keys, 0, 4);
 
         const feed_structure: Array<{

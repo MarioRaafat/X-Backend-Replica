@@ -357,7 +357,7 @@ describe('ExploreService', () => {
             const result = await service.getTrendingWithOffset(category_id, offset, limit);
 
             expect(mock_redis_service.zrevrange).toHaveBeenCalledWith(
-                'trending:category:21',
+                'explore:category:21',
                 offset,
                 limit
             );
