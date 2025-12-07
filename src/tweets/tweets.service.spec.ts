@@ -50,7 +50,6 @@ describe('TweetsService', () => {
     let reply_job_service: any;
     let quote_job_service: any;
     let mention_job_service: any;
-    let original_env: NodeJS.ProcessEnv;
 
     beforeAll(() => {
         original_env = { ...process.env };
