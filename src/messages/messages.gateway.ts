@@ -23,6 +23,10 @@ export class MessagesGateway {
         this.server = server;
     }
 
+    isOnline(user_id: string): boolean {
+        return this.userSockets.has(user_id);
+    }
+
     async onConnection(client: Socket, user_id: string) {
         if (!this.userSockets.has(user_id)) {
             this.userSockets.set(user_id, new Set());
@@ -72,7 +76,10 @@ export class MessagesGateway {
             const user_id = client.data.user?.id;
             const { chat_id } = data;
 
-            const chat = await this.messages_service.validateChatParticipation(user_id, chat_id);
+            const { chat } = await this.messages_service.validateChatParticipation(
+                user_id,
+                chat_id
+            );
 
             // Reset unread count for this user when they join the chat
             const unread_field =
@@ -127,7 +134,10 @@ export class MessagesGateway {
             }
 
             // Check if recipient is actively in the chat room
-            const chat = await this.messages_service.validateChatParticipation(user_id, chat_id);
+            const { chat } = await this.messages_service.validateChatParticipation(
+                user_id,
+                chat_id
+            );
             const recipient_id = chat.user1_id === user_id ? chat.user2_id : chat.user1_id;
             const is_recipient_in_room = await this.isUserInChatRoom(recipient_id, chat_id);
 

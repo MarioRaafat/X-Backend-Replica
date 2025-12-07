@@ -46,10 +46,10 @@ describe('TweetsService', () => {
     let tweets_repo: TweetsRepository;
     let data_source: DataSource;
     let mock_query_runner: any;
+    let original_env: NodeJS.ProcessEnv;
     let reply_job_service: any;
     let quote_job_service: any;
     let mention_job_service: any;
-    let original_env: NodeJS.ProcessEnv;
 
     beforeAll(() => {
         original_env = { ...process.env };
@@ -1953,8 +1953,7 @@ describe('TweetsService', () => {
                 size: 2048,
                 mimetype: 'video/mp4',
             } as Express.Multer.File;
-            const mock_user_id = 'user-123';
-            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
+            await expect(tweets_service.uploadVideo(mock_file)).rejects.toThrow();
         }, 15000);
 
         it('should call uploadVideoToAzure with correct parameters', async () => {
@@ -2497,7 +2496,7 @@ describe('TweetsService', () => {
                 mimetype: 'video/mp4',
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
-            await expect(tweets_service.uploadVideo(mock_file, mock_user_id)).rejects.toThrow();
+            await expect(tweets_service.uploadVideo(mock_file)).rejects.toThrow();
         }, 15000);
 
         it('should upload video to Azure blob storage successfully', async () => {
@@ -2532,6 +2531,11 @@ describe('TweetsService', () => {
         beforeEach(() => {
             ai_summary_job_service = tweets_service['ai_summary_job_service'];
             tweet_summary_repo = tweets_service['tweet_summary_repository'];
+
+            // Cast to jest.Mock to allow mock methods
+            (tweet_repo.findOne as jest.Mock) = jest.fn();
+            (tweet_summary_repo.findOne as jest.Mock) = jest.fn();
+            (ai_summary_job_service.queueGenerateSummary as jest.Mock) = jest.fn();
         });
 
         it('should return existing summary when already generated', async () => {
@@ -2547,8 +2551,8 @@ describe('TweetsService', () => {
                 summary: 'Existing AI summary',
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
-            tweet_summary_repo.findOne.mockResolvedValue(mock_summary);
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+            (tweet_summary_repo.findOne as jest.Mock).mockResolvedValue(mock_summary);
 
             const result = await tweets_service.getTweetSummary(tweet_id);
 
@@ -2569,7 +2573,7 @@ describe('TweetsService', () => {
         it('should throw NotFoundException when tweet does not exist', async () => {
             const tweet_id = 'nonexistent-tweet';
 
-            tweet_repo.findOne.mockResolvedValue(null);
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(null);
 
             await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
                 'Tweet not found'
@@ -2587,7 +2591,7 @@ describe('TweetsService', () => {
                 content: 'Short tweet #hashtag',
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
 
             await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
                 'Tweet content too short for summary generation.'
@@ -2598,15 +2602,15 @@ describe('TweetsService', () => {
 
         it('should clean content by removing hashtags and extra spaces', async () => {
             const tweet_id = 'tweet-789';
-            const mock_tweet = {
+            const mock_tweet: Partial<Tweet> = {
                 tweet_id,
                 content:
                     'This is a #tweet with #hashtags and    extra   spaces. It needs to be cleaned before checking length. This content is long enough after cleaning to generate summary.',
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
-            tweet_summary_repo.findOne.mockResolvedValue(null);
-            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+            (tweet_summary_repo.findOne as jest.Mock).mockResolvedValue(null);
+            (ai_summary_job_service.queueGenerateSummary as jest.Mock).mockResolvedValue(undefined);
 
             // Mock polling to return summary on first attempt
             const mock_generated_summary = {
@@ -2614,13 +2618,13 @@ describe('TweetsService', () => {
                 tweet_id,
                 summary: 'Generated summary',
             };
-            tweet_summary_repo.findOne
+            (tweet_summary_repo.findOne as jest.Mock)
                 .mockResolvedValueOnce(null)
                 .mockResolvedValueOnce(mock_generated_summary);
 
             const result = await tweets_service.getTweetSummary(tweet_id);
 
-            expect(ai_summary_job_service.queueGenerateSummary).toHaveBeenCalledWith({
+            expect(ai_summary_job_service.queueGenerateSummary as jest.Mock).toHaveBeenCalledWith({
                 tweet_id,
                 content: mock_tweet.content, // Full content is sent
             });
@@ -2644,11 +2648,11 @@ describe('TweetsService', () => {
                 summary: 'AI generated summary',
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
-            tweet_summary_repo.findOne
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+            (tweet_summary_repo.findOne as jest.Mock)
                 .mockResolvedValueOnce(null)
                 .mockResolvedValueOnce(mock_generated_summary);
-            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+            (ai_summary_job_service.queueGenerateSummary as jest.Mock).mockResolvedValue(undefined);
 
             const result = await tweets_service.getTweetSummary(tweet_id);
 
@@ -2676,9 +2680,9 @@ describe('TweetsService', () => {
                 summary: 'Summary generated after multiple polls',
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
             // Return null for first 5 polls, then return summary
-            tweet_summary_repo.findOne
+            (tweet_summary_repo.findOne as jest.Mock)
                 .mockResolvedValueOnce(null) // Initial check
                 .mockResolvedValueOnce(null) // Poll 1
                 .mockResolvedValueOnce(null) // Poll 2
@@ -2686,7 +2690,7 @@ describe('TweetsService', () => {
                 .mockResolvedValueOnce(null) // Poll 4
                 .mockResolvedValueOnce(mock_generated_summary); // Poll 5
 
-            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+            (ai_summary_job_service.queueGenerateSummary as jest.Mock).mockResolvedValue(undefined);
 
             const result = await tweets_service.getTweetSummary(tweet_id);
 
@@ -2706,9 +2710,9 @@ describe('TweetsService', () => {
                 content: long_content,
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
-            tweet_summary_repo.findOne.mockResolvedValue(null); // Always return null (never completes)
-            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+            (tweet_summary_repo.findOne as jest.Mock).mockResolvedValue(null); // Always return null (never completes)
+            (ai_summary_job_service.queueGenerateSummary as jest.Mock).mockResolvedValue(undefined);
 
             await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
                 'Failed to generate summary after retry.'
@@ -2725,7 +2729,7 @@ describe('TweetsService', () => {
                 content: '#hashtag1 #hashtag2 #hashtag3',
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
 
             await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
                 'Tweet content too short for summary generation.'
@@ -2745,11 +2749,11 @@ describe('TweetsService', () => {
                 summary: 'Summary of mixed content',
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
-            tweet_summary_repo.findOne
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+            (tweet_summary_repo.findOne as jest.Mock)
                 .mockResolvedValueOnce(null)
                 .mockResolvedValueOnce(mock_generated_summary);
-            ai_summary_job_service.queueGenerateSummary.mockResolvedValue(undefined);
+            (ai_summary_job_service.queueGenerateSummary as jest.Mock).mockResolvedValue(undefined);
 
             const result = await tweets_service.getTweetSummary(tweet_id);
 
@@ -2767,7 +2771,9 @@ describe('TweetsService', () => {
         it('should handle database errors when finding tweet', async () => {
             const tweet_id = 'tweet-606';
 
-            tweet_repo.findOne.mockRejectedValue(new Error('Database connection error'));
+            (tweet_repo.findOne as jest.Mock).mockRejectedValue(
+                new Error('Database connection error')
+            );
 
             await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
                 'Database connection error'
@@ -2783,9 +2789,9 @@ describe('TweetsService', () => {
                 content: long_content,
             };
 
-            tweet_repo.findOne.mockResolvedValue(mock_tweet);
-            tweet_summary_repo.findOne.mockResolvedValue(null);
-            ai_summary_job_service.queueGenerateSummary.mockRejectedValue(
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+            (tweet_summary_repo.findOne as jest.Mock).mockResolvedValue(null);
+            (ai_summary_job_service.queueGenerateSummary as jest.Mock).mockRejectedValue(
                 new Error('Queue service error')
             );
 

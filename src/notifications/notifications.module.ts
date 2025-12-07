@@ -9,6 +9,8 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
 import { Tweet } from 'src/tweets/entities';
 import { BackgroundJobsModule } from 'src/background-jobs';
+import { FcmModule } from 'src/fcm/fcm.module';
+import { MessagesModule } from 'src/messages/messages.module';
 
 @Module({
     imports: [
@@ -16,6 +18,8 @@ import { BackgroundJobsModule } from 'src/background-jobs';
         MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }]),
         TypeOrmModule.forFeature([User, Tweet]),
         forwardRef(() => BackgroundJobsModule),
+        forwardRef(() => FcmModule),
+        forwardRef(() => MessagesModule),
     ],
     providers: [NotificationsService, NotificationsGateway],
     exports: [NotificationsService, NotificationsGateway],

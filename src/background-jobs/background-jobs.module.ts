@@ -30,12 +30,15 @@ import { QuoteJobService } from './notifications/quote/quote.service';
 import { QuoteProcessor } from './notifications/quote/quote.processor';
 import { MentionJobService } from './notifications/mention/mention.service';
 import { MentionProcessor } from './notifications/mention/mention.processor';
+import { MessageJobService } from './notifications/message/message.service';
+import { MessageProcessor } from './notifications/message/message.processor';
 import { ClearJobService } from './notifications/clear/clear.service';
 import { ClearProcessor } from './notifications/clear/clear.processor';
 import { EsIndexTweetJobService } from './elasticsearch/es-index-tweet.service';
 import { EsDeleteTweetJobService } from './elasticsearch/es-delete-tweet.service';
 import { EsSyncProcessor } from './elasticsearch/es-sync.processor';
 import { Tweet } from 'src/tweets/entities';
+import { Message } from 'src/messages/entities/message.entity';
 import { ElasticsearchModule } from 'src/elasticsearch/elasticsearch.module';
 import { EsUpdateUserJobService } from './elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from './elasticsearch/es-delete-user.service';
@@ -110,7 +113,7 @@ import { TrendModule } from 'src/trend/trend.module';
                 },
             },
         }),
-        TypeOrmModule.forFeature([User, TweetReply, TweetQuote,Tweet]),
+        TypeOrmModule.forFeature([User, TweetReply, TweetQuote, Tweet]),
         BullModule.registerQueue({
             name: QUEUE_NAMES.VIDEO,
             defaultJobOptions: {
@@ -131,7 +134,7 @@ import { TrendModule } from 'src/trend/trend.module';
                 },
             },
         }),
-        BullModule.registerQueue({    
+        BullModule.registerQueue({
             name: QUEUE_NAMES.HASHTAG,
             defaultJobOptions: {
                 attempts: 3,
@@ -141,12 +144,13 @@ import { TrendModule } from 'src/trend/trend.module';
                 },
             },
         }),
-  
+
         TypeOrmModule.forFeature([User]),
         TypeOrmModule.forFeature([UserFollows]),
         TypeOrmModule.forFeature([Tweet]),
         TypeOrmModule.forFeature([TweetSummary]),
         TypeOrmModule.forFeature([TweetReply, TweetQuote]),
+        TypeOrmModule.forFeature([Message]),
         CommunicationModule,
         RedisModuleConfig,
         NotificationsModule,
@@ -172,6 +176,8 @@ import { TrendModule } from 'src/trend/trend.module';
         QuoteProcessor,
         MentionJobService,
         MentionProcessor,
+        MessageJobService,
+        MessageProcessor,
         ClearJobService,
         ClearProcessor,
         EsIndexTweetJobService,
@@ -205,6 +211,7 @@ import { TrendModule } from 'src/trend/trend.module';
         RepostJobService,
         QuoteJobService,
         MentionJobService,
+        MessageJobService,
         ClearJobService,
         EsIndexTweetJobService,
         EsDeleteTweetJobService,
