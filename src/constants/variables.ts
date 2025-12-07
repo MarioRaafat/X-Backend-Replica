@@ -3,6 +3,8 @@ export const Y_LOGO_URL =
 export const Y_LOGO_HOST_URL = 'https://yapperdev.blob.core.windows.net/profile-images/';
 
 export const STRING_MAX_LENGTH = 100;
+export const USERNAME_MAX_LENGTH = 15;
+export const NAME_MAX_LENGTH = 20;
 export const LARGE_MAX_LENGTH = 3000;
 export const POST_CONTENT_LENGTH = 280;
 export const MESSAGE_CONTENT_LENGTH = 300;
@@ -27,6 +29,14 @@ export const reset_password_email_object = (username: string) => ({
     subject: 'Password reset request',
     title: 'Reset your password?',
     description: `If you requested a password reset for @${username}, use the confirmation code below to complete the process. If you didn't make this request, ignore this email.`,
+    subtitle: '',
+    subtitle_description: ``,
+});
+
+export const update_email_email_object = (username: string, otp: string) => ({
+    subject: `${otp} is your Y verification code`,
+    title: 'Confirm your email address',
+    description: `There's one quick step before you need to complete in order to confirm your new email address for @${username}.<br><br>Please enter this verification code on Yapper:`,
     subtitle: '',
     subtitle_description: ``,
 });
