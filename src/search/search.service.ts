@@ -489,19 +489,25 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
-            const is_hashtag = sanitized_query.trim().startsWith('#');
+            const hashtag_pattern = /#\w+/g;
+            const hashtags = sanitized_query.match(hashtag_pattern) || [];
+            const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
 
-            if (is_hashtag) {
-                search_body.query.bool.must.push({
-                    term: {
-                        hashtags: {
-                            value: sanitized_query.trim().toLowerCase(),
-                            boost: 10,
+            if (hashtags.length > 0) {
+                hashtags.forEach((hashtag) => {
+                    search_body.query.bool.must.push({
+                        term: {
+                            hashtags: {
+                                value: hashtag.toLowerCase(),
+                                boost: 10,
+                            },
                         },
-                    },
+                    });
                 });
-            } else {
-                this.buildTweetsSearchQuery(search_body, sanitized_query);
+            }
+
+            if (remaining_text.length > 0) {
+                this.buildTweetsSearchQuery(search_body, remaining_text);
             }
 
             this.applyTweetsBoosting(search_body);
