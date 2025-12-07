@@ -97,8 +97,8 @@ jobs:
             cd ~/yapper  # path to your app on VM
 
             echo "🧭 Getting current running image tag..."
-            CURRENT_TAG=$(IMG_TAG="" docker compose ps -q api | xargs docker inspect -f '{{ index .Config.Labels "com.docker.compose.image" }}' | cut -d':' -f2 || echo "unknown")
-
+            CURRENT_TAG=$(IMG_TAG="" docker compose ps -q api | xargs docker inspect -f '{{ .Config.Image }}' | cut -d':' -f2 || echo "unknown")
+            echo "CURRENT_TAG: $CURRENT_TAG"
             echo "🐳 Setting new image tag for deployment..."
             echo "Deploying version: $IMG_TAG"
 
