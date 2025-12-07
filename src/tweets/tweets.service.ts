@@ -1060,9 +1060,12 @@ export class TweetsService {
         cursor?: string,
         limit: number = 20
     ) {
-        const tweet = await this.tweet_repository.findOne({
-            where: { tweet_id },
-        });
+        const tweet = await this.tweet_repository
+            .createQueryBuilder('tweet')
+            .leftJoinAndSelect('tweet.user', 'user')
+            .where('tweet.tweet_id = :tweet_id', { tweet_id })
+            .select(tweet_fields_slect)
+            .getOne();
 
         if (!tweet) throw new NotFoundException('Tweet not found');
 

@@ -14,6 +14,7 @@ import { User } from 'src/user/entities';
 import { SuggestionsResponseDto } from './dto/suggestions-response.dto';
 import { SuggestedUserDto } from './dto/suggested-user.dto';
 import { bool } from 'sharp';
+import { TweetResponseDTO } from 'src/tweets/dto';
 
 @Injectable()
 export class SearchService {
@@ -85,7 +86,7 @@ export class SearchService {
         current_user_id: string,
         query_dto: SearchQueryDto
     ): Promise<UserListResponseDto> {
-        const { query, cursor, limit = 20 } = query_dto;
+        const { query, cursor, limit = 20, username } = query_dto;
 
         const decoded_query = decodeURIComponent(query);
         const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
@@ -119,6 +120,26 @@ export class SearchService {
 
         query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
 
+        if (username) {
+            query_builder.andWhere(`EXISTS (
+                SELECT 1 FROM "user" target_user
+                WHERE target_user.username = :username
+                AND (
+                    EXISTS (
+                        SELECT 1 FROM user_follows uf1
+                        WHERE uf1.follower_id = "user".id 
+                        AND uf1.followed_id = target_user.id
+                    )
+                    OR
+                    EXISTS (
+                        SELECT 1 FROM user_follows uf2
+                        WHERE uf2.followed_id = "user".id 
+                        AND uf2.follower_id = target_user.id
+                    )
+                )
+            )`);
+        }
+
         if (cursor && cursor_score !== null && cursor_id !== null) {
             query_builder.andWhere(
                 new Brackets((qb) => {
@@ -138,6 +159,7 @@ export class SearchService {
         query_builder.setParameters({
             current_user_id,
             prefix_query,
+            username,
         });
 
         const results = await query_builder
@@ -342,19 +364,25 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
-            const is_hashtag = sanitized_query.trim().startsWith('#');
+            const hashtag_pattern = /#\w+/g;
+            const hashtags = sanitized_query.match(hashtag_pattern) || [];
+            const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
 
-            if (is_hashtag) {
-                search_body.query.bool.must.push({
-                    term: {
-                        hashtags: {
-                            value: sanitized_query.trim().toLowerCase(),
-                            boost: 10,
+            if (hashtags.length > 0) {
+                hashtags.forEach((hashtag) => {
+                    search_body.query.bool.must.push({
+                        term: {
+                            hashtags: {
+                                value: hashtag.toLowerCase(),
+                                boost: 10,
+                            },
                         },
-                    },
+                    });
                 });
-            } else {
-                this.buildTweetsSearchQuery(search_body, sanitized_query);
+            }
+
+            if (remaining_text.length > 0) {
+                this.buildTweetsSearchQuery(search_body, remaining_text);
             }
 
             this.applyTweetsBoosting(search_body);
@@ -398,8 +426,13 @@ export class SearchService {
 
             const mapped_tweets = await this.attachRelatedTweets(items);
 
+            const tweets_with_interactions = await this.attachUserInteractions(
+                mapped_tweets,
+                current_user_id
+            );
+
             return {
-                data: mapped_tweets,
+                data: tweets_with_interactions,
                 pagination: {
                     next_cursor,
                     has_more,
@@ -456,19 +489,25 @@ export class SearchService {
                 search_body.search_after = this.decodeCursor(cursor);
             }
 
-            const is_hashtag = sanitized_query.trim().startsWith('#');
+            const hashtag_pattern = /#\w+/g;
+            const hashtags = sanitized_query.match(hashtag_pattern) || [];
+            const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
 
-            if (is_hashtag) {
-                search_body.query.bool.must.push({
-                    term: {
-                        hashtags: {
-                            value: sanitized_query.trim().toLowerCase(),
-                            boost: 10,
+            if (hashtags.length > 0) {
+                hashtags.forEach((hashtag) => {
+                    search_body.query.bool.must.push({
+                        term: {
+                            hashtags: {
+                                value: hashtag.toLowerCase(),
+                                boost: 10,
+                            },
                         },
-                    },
+                    });
                 });
-            } else {
-                this.buildTweetsSearchQuery(search_body, sanitized_query);
+            }
+
+            if (remaining_text.length > 0) {
+                this.buildTweetsSearchQuery(search_body, remaining_text);
             }
 
             this.applyTweetsBoosting(search_body);
@@ -501,8 +540,13 @@ export class SearchService {
 
             const mapped_tweets = await this.attachRelatedTweets(items);
 
+            const tweets_with_interactions = await this.attachUserInteractions(
+                mapped_tweets,
+                current_user_id
+            );
+
             return {
-                data: mapped_tweets,
+                data: tweets_with_interactions,
                 pagination: {
                     next_cursor,
                     has_more,
@@ -520,7 +564,7 @@ export class SearchService {
         }
     }
 
-    private mapTweet(hit: any, parent_source?: any, conversation_source?: any) {
+    private mapTweet(hit: any, parent_source?: any, conversation_source?: any): TweetResponseDTO {
         const s = hit._source;
 
         const tweet = {
@@ -542,7 +586,7 @@ export class SearchService {
                 name: s.name,
                 avatar_url: s.avatar_url,
                 followers: s.followers,
-                following: s.followers,
+                following: s.following,
             },
 
             images: s.images ?? [],
@@ -678,7 +722,7 @@ export class SearchService {
         search_body.query.bool.should.push(...boost_queries);
     }
 
-    private async attachRelatedTweets(items: any[]): Promise<any[]> {
+    private async attachRelatedTweets(items: any[]): Promise<TweetResponseDTO[]> {
         const tweets = items.map((hit) => hit._source);
 
         const { parent_map, conversation_map } = await this.fetchRelatedTweets(tweets);
@@ -745,6 +789,115 @@ export class SearchService {
         return { parent_map, conversation_map };
     }
 
+    private async attachUserInteractions(
+        tweets: TweetResponseDTO[],
+        current_user_id: string
+    ): Promise<TweetResponseDTO[]> {
+        if (!tweets.length) {
+            return tweets;
+        }
+
+        const tweet_values = tweets
+            .map((_, idx) => `($${idx * 2 + 1}::uuid, $${idx * 2 + 2}::uuid)`)
+            .join(', ');
+
+        const tweet_params_count = tweets.length * 2;
+        const liked_param = `$${tweet_params_count + 1}`;
+        const reposted_param = `$${tweet_params_count + 2}`;
+        const following_param = `$${tweet_params_count + 3}`;
+        const follower_param = `$${tweet_params_count + 4}`;
+        const blocked_param = `$${tweet_params_count + 5}`;
+        const muted_param = `$${tweet_params_count + 6}`;
+
+        const query = `
+        SELECT 
+            t.tweet_id,
+            t.user_id,
+            (EXISTS(
+                SELECT 1 FROM tweet_likes 
+                WHERE tweet_id = t.tweet_id 
+                AND user_id = ${liked_param}::uuid
+            ))::int as is_liked,
+            (EXISTS(
+                SELECT 1 FROM tweet_reposts 
+                WHERE tweet_id = t.tweet_id 
+                AND user_id = ${reposted_param}::uuid
+            ))::int as is_reposted,
+            (EXISTS(
+                SELECT 1 FROM user_follows 
+                WHERE followed_id = t.user_id 
+                AND follower_id = ${following_param}::uuid
+            ))::int as is_following,
+            (EXISTS(
+                SELECT 1 FROM user_follows 
+                WHERE follower_id = t.user_id 
+                AND followed_id = ${follower_param}::uuid
+            ))::int as is_follower
+        FROM (VALUES ${tweet_values}) AS t(tweet_id, user_id)
+        WHERE NOT EXISTS(
+            SELECT 1 FROM user_blocks 
+            WHERE blocker_id = ${blocked_param}::uuid 
+            AND blocked_id = t.user_id
+        )
+        AND NOT EXISTS(
+            SELECT 1 FROM user_mutes 
+            WHERE muter_id = ${muted_param}::uuid 
+            AND muted_id = t.user_id
+        )
+        `;
+
+        const tweet_params = tweets.flatMap((t) => [t.tweet_id, t.user?.id]);
+        const params = [
+            ...tweet_params,
+            current_user_id,
+            current_user_id,
+            current_user_id,
+            current_user_id,
+            current_user_id,
+            current_user_id,
+        ];
+
+        interface IInteractionResult {
+            tweet_id: string;
+            user_id: string;
+            is_liked: number;
+            is_reposted: number;
+            is_following: number;
+            is_follower: number;
+        }
+
+        const interactions: IInteractionResult[] = await this.data_source.query(query, params);
+
+        const interactions_map = new Map(
+            interactions.map((i: any) => [
+                i.tweet_id,
+                {
+                    is_liked: Boolean(i.is_liked),
+                    is_reposted: Boolean(i.is_reposted),
+                    is_following: Boolean(i.is_following),
+                    is_follower: Boolean(i.is_follower),
+                },
+            ])
+        );
+
+        const filtered_tweets = tweets.filter((tweet) => interactions_map.has(tweet.tweet_id));
+
+        return filtered_tweets.map((tweet) => {
+            const interaction = interactions_map.get(tweet.tweet_id);
+
+            return {
+                ...tweet,
+                is_liked: interaction?.is_liked ?? false,
+                is_reposted: interaction?.is_reposted ?? false,
+                user: {
+                    ...tweet.user,
+                    is_following: interaction?.is_following ?? false,
+                    is_follower: interaction?.is_follower ?? false,
+                },
+            };
+        });
+    }
+
     private attachUserSearchQuery(
         query_builder: SelectQueryBuilder<User>,
         prefix_query: string
@@ -792,7 +945,12 @@ export class SearchService {
                 'is_follower'
             )
             .addSelect(this.getUserScoreExpression(), 'total_score')
-            .where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, { prefix_query });
+            .where(`"user".search_vector @@ to_tsquery('simple', :prefix_query)`, { prefix_query })
+            .andWhere(`NOT EXISTS (
+                SELECT 1 FROM user_blocks 
+                WHERE blocker_id = :current_user_id 
+                AND blocked_id = "user".id
+            )`);
 
         return query_builder;
     }
@@ -810,7 +968,7 @@ export class SearchService {
     private buildEsSuggestionsQuery(sanitized_query: string) {
         const is_hashtag = sanitized_query.startsWith('#');
 
-        return {
+        const search_body = {
             index: 'tweets',
             size: 20,
             _source: ['content'],
@@ -854,6 +1012,10 @@ export class SearchService {
                 },
             },
         };
+
+        this.applyTweetsBoosting(search_body);
+
+        return search_body;
     }
 
     private extractSuggestionsFromHits(hits: any[], query: string, max_suggestions = 3): string[] {

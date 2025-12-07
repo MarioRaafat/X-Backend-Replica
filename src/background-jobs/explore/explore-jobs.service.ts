@@ -1,13 +1,19 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
-import { JOB_DELAYS, JOB_NAMES, JOB_PRIORITIES, QUEUE_NAMES } from '../constants/queue.constants';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { TweetCategory } from '../../tweets/entities/tweet-category.entity';
 import { RedisService } from '../../redis/redis.service';
-import { EXPLORE_CONFIG } from '../constants/queue.constants';
+import {
+    EXPLORE_CONFIG,
+    EXPLORE_JOB_PRIORITIES,
+    EXPLORE_JOB_RETRY,
+    JOB_NAMES,
+    QUEUE_NAMES,
+} from '../constants/queue.constants';
+import { ExploreScoreJobDto } from './explore-job.dto';
 
 interface ITweetScoreData {
     tweet_id: string;
@@ -28,29 +34,66 @@ export class ExploreJobsService {
         private redis_service: RedisService
     ) {}
 
-    async triggerExploreScoreRecalculation(
-        since_hours?: number,
-        max_age_hours?: number,
-        force_all: boolean = false
+    // ============================================
+    // QUEUE OPERATIONS (Job Triggering)
+    // ============================================
+
+    async triggerScoreRecalculation(
+        job_data: ExploreScoreJobDto,
+        priority: number = EXPLORE_JOB_PRIORITIES.NORMAL
     ) {
         try {
-            await this.explore_queue.add(
+            const job = await this.explore_queue.add(
                 JOB_NAMES.EXPLORE.RECALCULATE_SCORES,
+                job_data,
                 {
-                    since_hours,
-                    max_age_hours,
-                    force_all,
-                },
-                {
-                    attempts: 3,
-                    removeOnComplete: true,
+                    priority,
+                    attempts: EXPLORE_JOB_RETRY.attempts,
+                    backoff: EXPLORE_JOB_RETRY.backoff,
                 }
             );
-            this.logger.log('Triggered explore score recalculation job');
+
+            this.logger.log(
+                `Triggered explore score recalculation [${job.id}] - Priority: ${priority}`
+            );
+
+            return {
+                success: true,
+                job_id: job.id,
+                params: job_data,
+            };
         } catch (error) {
-            this.logger.error('Failed to trigger explore score recalculation job:', error);
+            this.logger.error('Failed to trigger explore score recalculation:', error);
+            return {
+                success: false,
+                error: error.message,
+            };
         }
     }
+
+    async getQueueStats() {
+        try {
+            const waiting = await this.explore_queue.getWaiting();
+            const active = await this.explore_queue.getActive();
+            const completed = await this.explore_queue.getCompleted();
+            const failed = await this.explore_queue.getFailed();
+
+            return {
+                waiting: waiting.length,
+                active: active.length,
+                completed: completed.length,
+                failed: failed.length,
+                total_jobs: waiting.length + active.length + completed.length + failed.length,
+            };
+        } catch (error) {
+            this.logger.error('Failed to get queue stats:', error);
+            throw error;
+        }
+    }
+
+    // ============================================
+    // DOMAIN LOGIC (Score Calculation & Data)
+    // ============================================
 
     calculateScore(tweet: ITweetScoreData): number {
         const { num_likes, num_reposts, num_quotes, num_replies, created_at } = tweet;

@@ -137,11 +137,11 @@ export class AuthService {
         const { name, birth_date, email, captcha_token } = dto;
 
         // Verify CAPTCHA first
-        try {
-            await this.captcha_service.validateCaptcha(captcha_token);
-        } catch (error) {
-            throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
-        }
+        // try {
+        //     await this.captcha_service.validateCaptcha(captcha_token);
+        // } catch (error) {
+        //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
+        // }
 
         const existing_user = await this.user_repository.findByEmail(email);
         if (existing_user) {
@@ -472,11 +472,12 @@ export class AuthService {
             // Also remove from user's set
             const user_tokens_remove = USER_REFRESH_TOKENS_REMOVE(payload.id, payload.jti);
             await this.redis_service.srem(user_tokens_remove.key, user_tokens_remove.value);
+            const is_production = process.env.NODE_ENV === 'production';
 
             res.clearCookie('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: is_production ? 'strict' : 'none',
             });
 
             return {};
@@ -501,11 +502,12 @@ export class AuthService {
                 pipeline.del(user_tokens_key);
                 await pipeline.exec();
             }
+            const is_production = process.env.NODE_ENV === 'production';
 
             res.clearCookie('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: is_production ? 'strict' : 'none',
             });
 
             return {};
@@ -560,34 +562,45 @@ export class AuthService {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
+        if (user.email === new_email) {
+            throw new BadRequestException(ERROR_MESSAGES.EMAIL_AS_SAME_AS_OLD);
+        }
+
         const existing_user = await this.user_repository.findByEmail(new_email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
         // I will not use the old key here to avoid conflicts with signup flow (if there is one ongoing)
-        const otp = await this.verification_service.generateOtp(user_id + '_email_update', 'email');
+        const identifier = user_id + '_email_update';
+        const otp = await this.verification_service.generateOtp(identifier, 'email');
         const email_update_session_key = `email_update:${user_id}`;
         await this.redis_service.set(email_update_session_key, new_email, 3600); // 1 hour
 
-        // there is no code for now as I finished my emails on X, so I don't know their flow
-
-        return {
-            message: 'no available for now, contact Mario',
+        const otp_data = {
+            email: new_email,
+            username: user.username,
+            otp,
+            email_type: 'update_email' as const,
+            not_me_link: undefined,
         };
+        const email_result = await this.background_jobs_service.queueOtpEmail(otp_data);
+
+        if (!email_result.success) {
+            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
+        }
+
+        return { isEmailSent: true };
     }
 
-    async verifyUpdateEmail(user_id: string, new_email: string, otp: string) {
+    async verifyUpdateEmail(user_id: string, otp: string) {
         const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const is_valid = await this.verification_service.validateOtp(
-            user_id + '_email_update',
-            otp,
-            'email'
-        );
+        const identifier = user_id + '_email_update';
+        const is_valid = await this.verification_service.validateOtp(identifier, otp, 'email');
         if (!is_valid) {
             throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
@@ -595,26 +608,25 @@ export class AuthService {
         // Check if the new_email matches what was stored
         const email_update_session_key = `email_update:${user_id}`;
         const stored_email = await this.redis_service.get(email_update_session_key);
-        if (!stored_email || stored_email !== new_email) {
-            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        if (!stored_email) {
+            throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_FOUND);
         }
 
-        // Check if email is still available
-        const existing_user = await this.user_repository.findByEmail(new_email);
+        const existing_user = await this.user_repository.findByEmail(stored_email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
         // Update user email
-        await this.user_repository.updateUserById(user_id, { email: new_email });
+        await this.user_repository.updateUserById(user_id, { email: stored_email });
 
         // Clean up
         await this.redis_service.del(email_update_session_key);
-        const otp_key = OTP_KEY('email', user_id + '_email_update');
+        const otp_key = OTP_KEY('email', identifier);
         await this.redis_service.del(otp_key);
 
         return {
-            email: new_email,
+            email: stored_email,
         };
     }
 

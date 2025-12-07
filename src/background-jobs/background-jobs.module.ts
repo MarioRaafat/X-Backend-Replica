@@ -17,7 +17,7 @@ import { FollowJobService } from './notifications/follow/follow.service';
 import { FollowProcessor } from './notifications/follow/follow.processor';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { NotificationsGateway } from 'src/notifications/notifications.gateway';
-import { User } from 'src/user/entities';
+import { User, UserFollows } from 'src/user/entities';
 import { TweetReply } from 'src/tweets/entities/tweet-reply.entity';
 import { TweetQuote } from 'src/tweets/entities/tweet-quote.entity';
 import { ReplyJobService } from './notifications/reply/reply.service';
@@ -146,6 +146,7 @@ import { TrendModule } from 'src/trend/trend.module';
         }),
 
         TypeOrmModule.forFeature([User]),
+        TypeOrmModule.forFeature([UserFollows]),
         TypeOrmModule.forFeature([Tweet]),
         TypeOrmModule.forFeature([TweetSummary]),
         TypeOrmModule.forFeature([TweetReply, TweetQuote]),

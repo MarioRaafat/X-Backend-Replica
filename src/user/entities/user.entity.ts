@@ -1,7 +1,14 @@
 import { Exclude } from 'class-transformer';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { Hashtag } from '../../tweets/entities/hashtags.entity';
-import { Column, Entity, OneToMany, PrimaryGeneratedColumn, UpdateDateColumn } from 'typeorm';
+import {
+    Column,
+    DeleteDateColumn,
+    Entity,
+    OneToMany,
+    PrimaryGeneratedColumn,
+    UpdateDateColumn,
+} from 'typeorm';
 import { UserFollows } from './user-follows.entity';
 
 @Entity()
@@ -71,6 +78,9 @@ export class User {
     })
     @UpdateDateColumn()
     updated_at: Date;
+
+    @DeleteDateColumn({ name: 'deleted_at', type: 'timestamp', nullable: true })
+    deleted_at: Date | null;
 
     @Column({ type: 'int', default: 0 })
     followers: number;

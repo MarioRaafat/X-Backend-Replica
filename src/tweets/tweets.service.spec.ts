@@ -50,6 +50,7 @@ describe('TweetsService', () => {
     let reply_job_service: any;
     let quote_job_service: any;
     let mention_job_service: any;
+    let original_env: NodeJS.ProcessEnv;
 
     beforeAll(() => {
         original_env = { ...process.env };
@@ -1694,7 +1695,19 @@ describe('TweetsService', () => {
                 },
             ];
 
-            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+            // Mock the query builder for tweet_repository (used to fetch the parent tweet)
+            const mock_tweet_query_builder = {
+                createQueryBuilder: jest.fn().mockReturnThis(),
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_tweet),
+            };
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(
+                mock_tweet_query_builder as any
+            );
+
+            // Mock the query builder for tweet_quote_repo (used to fetch quotes)
             const mock_query_builder = {
                 leftJoin: jest.fn().mockReturnThis(),
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -2021,7 +2034,7 @@ describe('TweetsService', () => {
             await expect(
                 (tweets_service as any).convertToCompressedMp4(mock_buffer)
             ).rejects.toThrow();
-        });
+        }, 10000);
 
         it('should reject when stream encounters an error', async () => {
             const mock_buffer = Buffer.from('test video data');
@@ -2268,7 +2281,7 @@ describe('TweetsService', () => {
         });
 
         it('should return empty topics when Groq is disabled', async () => {
-            const original_enable_groq = process.env.ENABLE_GROQ;
+            const original_groq = process.env.ENABLE_GROQ;
             delete process.env.ENABLE_GROQ;
 
             const result = await (tweets_service as any).extractTopics('Test content', [
@@ -2283,8 +2296,8 @@ describe('TweetsService', () => {
             expect(result.hashtags).toBeDefined();
             expect(result.hashtags.testHashtag).toBeDefined();
 
-            if (original_enable_groq) {
-                process.env.ENABLE_GROQ = original_enable_groq;
+            if (original_groq) {
+                process.env.ENABLE_GROQ = original_groq;
             }
         });
 

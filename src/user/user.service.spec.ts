@@ -74,6 +74,7 @@ describe('UserService', () => {
             findOne: jest.fn(),
             save: jest.fn(),
             delete: jest.fn(),
+            softDelete: jest.fn(),
             exists: jest.fn(),
         };
 
@@ -1878,6 +1879,7 @@ describe('UserService', () => {
                 email: 'example@gmail.com',
                 created_at: new Date('2025-10-21T09:26:17.432Z'),
                 updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
                 language: 'ar',
                 bio: 'Software developer and tech enthusiast.',
                 avatar_url: 'https://example.com/images/profile.jpg',
@@ -1900,6 +1902,7 @@ describe('UserService', () => {
                 email: 'example@gmail.com',
                 created_at: new Date('2025-10-21T09:26:17.432Z'),
                 updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
                 language: 'ar',
                 bio: 'Updated bio',
                 avatar_url: 'https://cdn.app.com/profiles/updated.jpg',
@@ -1983,6 +1986,7 @@ describe('UserService', () => {
                 email: 'example@gmail.com',
                 created_at: new Date('2025-10-21T09:26:17.432Z'),
                 updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
                 language: 'ar',
                 bio: 'Software developer and tech enthusiast.',
                 avatar_url: 'https://example.com/images/profile.jpg',
@@ -2002,8 +2006,8 @@ describe('UserService', () => {
                 .mockResolvedValueOnce(existing_user);
 
             const delete_spy = jest
-                .spyOn(user_repository, 'delete')
-                .mockResolvedValueOnce({ affected: 1, raw: {} });
+                .spyOn(user_repository, 'softDelete')
+                .mockResolvedValueOnce({ affected: 1, raw: {}, generatedMaps: [] });
 
             await service.deleteUser(current_user_id);
 
@@ -2485,6 +2489,7 @@ describe('UserService', () => {
                 email: 'example@gmail.com',
                 created_at: new Date('2025-10-21T09:26:17.432Z'),
                 updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
                 language: 'en',
                 bio: 'Software developer and tech enthusiast.',
                 avatar_url: 'https://example.com/images/profile.jpg',
