@@ -49,10 +49,10 @@ describe('TweetsService', () => {
     let reply_job_service: any;
     let quote_job_service: any;
     let mention_job_service: any;
-    let originalEnv: NodeJS.ProcessEnv;
+    let original_env: NodeJS.ProcessEnv;
 
     beforeAll(() => {
-        originalEnv = { ...process.env };
+        original_env = { ...process.env };
         process.env.AZURE_STORAGE_CONNECTION_STRING =
             'DefaultEndpointsProtocol=https;AccountName=testaccount;AccountKey=testkey;EndpointSuffix=core.windows.net';
         process.env.ENABLE_GROQ = 'true';
@@ -60,7 +60,7 @@ describe('TweetsService', () => {
     });
 
     afterAll(() => {
-        process.env = originalEnv;
+        process.env = original_env;
     });
 
     beforeEach(async () => {
@@ -1694,7 +1694,19 @@ describe('TweetsService', () => {
                 },
             ];
 
-            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+            // Mock the query builder for tweet_repository (used to fetch the parent tweet)
+            const mock_tweet_query_builder = {
+                createQueryBuilder: jest.fn().mockReturnThis(),
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_tweet),
+            };
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(
+                mock_tweet_query_builder as any
+            );
+
+            // Mock the query builder for tweet_quote_repo (used to fetch quotes)
             const mock_query_builder = {
                 leftJoin: jest.fn().mockReturnThis(),
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
@@ -1793,13 +1805,13 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
-            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+            const original_connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             await expect(tweets_service.uploadImage(mock_file, mock_user_id)).rejects.toThrow();
 
-            if (originalConnectionString) {
-                process.env.AZURE_STORAGE_CONNECTION_STRING = originalConnectionString;
+            if (original_connection_string) {
+                process.env.AZURE_STORAGE_CONNECTION_STRING = original_connection_string;
             }
         });
 
@@ -1812,13 +1824,13 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
-            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+            const original_connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
             process.env.AZURE_STORAGE_CONNECTION_STRING = 'AccountKey=YOUR_KEY_HERE';
 
             await expect(tweets_service.uploadImage(mock_file, mock_user_id)).rejects.toThrow();
 
-            if (originalConnectionString) {
-                process.env.AZURE_STORAGE_CONNECTION_STRING = originalConnectionString;
+            if (original_connection_string) {
+                process.env.AZURE_STORAGE_CONNECTION_STRING = original_connection_string;
             }
         });
 
@@ -1927,7 +1939,7 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
-            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+            const original_connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
@@ -2269,7 +2281,7 @@ describe('TweetsService', () => {
         });
 
         it('should return empty topics when Groq is disabled', async () => {
-            const originalGroq = process.env.ENABLE_GROQ;
+            const original_groq = process.env.ENABLE_GROQ;
             delete process.env.ENABLE_GROQ;
 
             const result = await (tweets_service as any).extractTopics('Test content', [
@@ -2284,8 +2296,8 @@ describe('TweetsService', () => {
             expect(result.hashtags).toBeDefined();
             expect(result.hashtags.testHashtag).toBeDefined();
 
-            if (originalGroq) {
-                process.env.ENABLE_GROQ = originalGroq;
+            if (original_groq) {
+                process.env.ENABLE_GROQ = original_groq;
             }
         });
 
@@ -2470,7 +2482,7 @@ describe('TweetsService', () => {
             } as Express.Multer.File;
             const mock_user_id = 'user-123';
 
-            const originalConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING;
+            const original_connection_string = process.env.AZURE_STORAGE_CONNECTION_STRING;
 
             delete process.env.AZURE_STORAGE_CONNECTION_STRING;
 
