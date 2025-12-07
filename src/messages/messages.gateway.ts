@@ -144,10 +144,15 @@ export class MessagesGateway {
                     message: result,
                 });
 
-                this.emitToUser(user_id, 'new_message', {
-                    chat_id,
-                    message: result,
-                }, client.id);
+                this.emitToUser(
+                    user_id,
+                    'new_message',
+                    {
+                        chat_id,
+                        message: result,
+                    },
+                    client.id
+                );
             } else {
                 this.server.to(chat_id).emit('new_message', {
                     chat_id,
@@ -190,11 +195,16 @@ export class MessagesGateway {
                     message: result,
                 });
 
-                this.emitToUser(user_id, 'message_updated', {
-                    chat_id,
-                    message_id,
-                    message: result,
-                }, client.id);
+                this.emitToUser(
+                    user_id,
+                    'message_updated',
+                    {
+                        chat_id,
+                        message_id,
+                        message: result,
+                    },
+                    client.id
+                );
             } else {
                 this.server.to(chat_id).emit('message_updated', {
                     chat_id,
@@ -229,11 +239,16 @@ export class MessagesGateway {
                     message_id,
                     message: result,
                 });
-                this.emitToUser(user_id, 'message_deleted', {
-                    chat_id,
-                    message_id,
-                    message: result,
-                }, client.id);
+                this.emitToUser(
+                    user_id,
+                    'message_deleted',
+                    {
+                        chat_id,
+                        message_id,
+                        message: result,
+                    },
+                    client.id
+                );
             } else {
                 this.server.to(chat_id).emit('message_deleted', {
                     chat_id,

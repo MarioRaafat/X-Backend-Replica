@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { TweetsService } from './tweets.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
@@ -2418,9 +2418,9 @@ describe('TweetsService', () => {
             (tweets_service as any).groq = mock_groq;
 
             // The function should throw the error
-            await expect(
-                (tweets_service as any).extractTopics('Test content', [])
-            ).rejects.toThrow('API Error');
+            await expect((tweets_service as any).extractTopics('Test content', [])).rejects.toThrow(
+                'API Error'
+            );
         });
     });
 

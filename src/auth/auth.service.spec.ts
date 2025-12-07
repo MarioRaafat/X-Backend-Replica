@@ -2051,9 +2051,9 @@ describe('AuthService', () => {
             mock_verification_service.validateOtp.mockResolvedValueOnce(true);
             mock_redis_service.get.mockResolvedValueOnce(null); // No stored email
 
-            await expect(
-                service.verifyUpdateEmail('user-1', '123456')
-            ).rejects.toThrow(BadRequestException);
+            await expect(service.verifyUpdateEmail('user-1', '123456')).rejects.toThrow(
+                BadRequestException
+            );
         });
 
         it('should throw ConflictException if new email is already taken', async () => {
@@ -2062,11 +2062,14 @@ describe('AuthService', () => {
             mock_user_service.findById.mockResolvedValueOnce(user);
             mock_verification_service.validateOtp.mockResolvedValueOnce(true);
             mock_redis_service.get.mockResolvedValueOnce('takenemail@example.com');
-            mock_user_service.findByEmail.mockResolvedValueOnce({ id: 'user-2', email: 'takenemail@example.com' });
+            mock_user_service.findByEmail.mockResolvedValueOnce({
+                id: 'user-2',
+                email: 'takenemail@example.com',
+            });
 
-            await expect(
-                service.verifyUpdateEmail('user-1', '123456')
-            ).rejects.toThrow(ConflictException);
+            await expect(service.verifyUpdateEmail('user-1', '123456')).rejects.toThrow(
+                ConflictException
+            );
         });
 
         it('should throw ConflictException when email already exists during final check', async () => {
