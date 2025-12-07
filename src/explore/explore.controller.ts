@@ -1,11 +1,11 @@
-import { Controller, Get, Query, Param, Optional, UseGuards } from '@nestjs/common';
+import { Controller, Get, Optional, Param, Query, UseGuards } from '@nestjs/common';
 import {
+    ApiBearerAuth,
     ApiOkResponse,
     ApiOperation,
+    ApiParam,
     ApiQuery,
     ApiTags,
-    ApiParam,
-    ApiBearerAuth,
 } from '@nestjs/swagger';
 import {
     ApiBadRequestErrorResponse,
@@ -13,11 +13,11 @@ import {
 } from 'src/decorators/swagger-error-responses.decorator';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
+    category_wise_trending_swagger,
     explore_root_swagger,
     search_latest_posts,
     trending_swagger,
     who_to_follow_swagger,
-    category_wise_trending_swagger,
 } from './explore.swagger';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import { ExploreService } from './explore.service';
@@ -60,10 +60,12 @@ export class ExploreController {
     @ApiOkResponse(who_to_follow_swagger.responses.success)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
     @ResponseMessage(SUCCESS_MESSAGES.EXPLORE_WHO_TO_FOLLOW_RETRIEVED)
+    @UseGuards(OptionalJwtAuthGuard)
     @Get('who-to-follow')
-    async getWhoToFollow() {
-        return await this.explore_service.getWhoToFollow();
+    async getWhoToFollow(@GetUserId() user_id: string) {
+        return await this.explore_service.getWhoToFollow(user_id);
     }
+
     @ApiOperation(category_wise_trending_swagger.operation)
     @ApiOkResponse(category_wise_trending_swagger.responses.success)
     @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
@@ -80,7 +82,7 @@ export class ExploreController {
         @Query('limit') limit?: string
     ) {
         const parsed_page = page ? parseInt(page, 10) : 1;
-        const parsed_limit = limit ? parseInt(limit, 10) : 20;;
+        const parsed_limit = limit ? parseInt(limit, 10) : 20;
         return await this.explore_service.getCategoryTrending(
             category_id,
             user_id,

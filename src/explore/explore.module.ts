@@ -6,9 +6,15 @@ import { RedisModuleConfig } from '../redis/redis.module';
 import { Category } from '../category/entities/category.entity';
 import { TweetsModule } from '../tweets/tweets.module';
 import { UserInterests } from 'src/user/entities/user-interests.entity';
+import { UserModule } from '../user/user.module';
 
 @Module({
-    imports: [RedisModuleConfig, TypeOrmModule.forFeature([Category, UserInterests]), TweetsModule],
+    imports: [
+        RedisModuleConfig,
+        TypeOrmModule.forFeature([Category, UserInterests]),
+        TweetsModule,
+        UserModule,
+    ],
     controllers: [ExploreController],
     providers: [ExploreService],
     exports: [ExploreService],
