@@ -6,6 +6,17 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 describe('AuthController', () => {
     let controller: AuthController;
     let mock_auth_service: jest.Mocked<AuthService>;
+    let original_env: NodeJS.ProcessEnv;
+
+    beforeAll(() => {
+        original_env = { ...process.env };
+        process.env.FRONTEND_URL = 'http://localhost:3001';
+        process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
+    });
+
+    afterAll(() => {
+        process.env = original_env;
+    });
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -652,10 +663,6 @@ describe('AuthController', () => {
     describe('googleLoginCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
 
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
-
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
@@ -700,10 +707,6 @@ describe('AuthController', () => {
     describe('facebookLoginCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
 
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
-
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
@@ -747,10 +750,6 @@ describe('AuthController', () => {
 
     describe('githubCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
-
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
 
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
@@ -1135,19 +1134,22 @@ describe('AuthController', () => {
 
     describe('getCaptchaSiteKey', () => {
         it('should return the site key from environment variables', () => {
-            process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
-
             const result = controller.getCaptchaSiteKey();
 
             expect(result).toEqual({ siteKey: 'test-site-key' });
         });
 
         it('should return an empty string if RECAPTCHA_SITE_KEY is not set', () => {
+            const original_key = process.env.RECAPTCHA_SITE_KEY;
             delete process.env.RECAPTCHA_SITE_KEY;
 
             const result = controller.getCaptchaSiteKey();
 
             expect(result).toEqual({ siteKey: '' });
+
+            if (original_key) {
+                process.env.RECAPTCHA_SITE_KEY = original_key;
+            }
         });
     });
 
