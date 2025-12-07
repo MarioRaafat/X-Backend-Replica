@@ -6,29 +6,42 @@ import { Category } from '../category/entities/category.entity';
 import { UserInterests } from '../user/entities/user-interests.entity';
 import { TweetsService } from '../tweets/tweets.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { UserRepository } from '../user/user.repository';
 
 describe('ExploreService', () => {
     let service: ExploreService;
     let redis_service: RedisService;
     let category_repository: Repository<Category>;
     let user_interests_repository: Repository<UserInterests>;
+    let user_repository: UserRepository;
     let tweets_service: TweetsService;
 
-    const mockRedisService = {
+    const mock_redis_service = {
         zrevrange: jest.fn(),
         zrevrangeMultiple: jest.fn(),
     };
 
-    const mockCategoryRepository = {
+    const mock_category_repository = {
         findOne: jest.fn(),
         find: jest.fn(),
     };
 
-    const mockUserInterestsRepository = {
+    const mock_user_interests_repository = {
         createQueryBuilder: jest.fn(),
     };
 
-    const mockTweetsService = {
+    const mock_user_repository = {
+        createQueryBuilder: jest.fn(() => ({
+            select: jest.fn().mockReturnThis(),
+            orderBy: jest.fn().mockReturnThis(),
+            limit: jest.fn().mockReturnThis(),
+            addSelect: jest.fn().mockReturnThis(),
+            setParameter: jest.fn().mockReturnThis(),
+            getRawMany: jest.fn().mockResolvedValue([]),
+        })),
+    };
+
+    const mock_tweets_service = {
         getTweetsByIds: jest.fn(),
     };
 
@@ -36,13 +49,14 @@ describe('ExploreService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ExploreService,
-                { provide: RedisService, useValue: mockRedisService },
-                { provide: getRepositoryToken(Category), useValue: mockCategoryRepository },
+                { provide: RedisService, useValue: mock_redis_service },
+                { provide: getRepositoryToken(Category), useValue: mock_category_repository },
                 {
                     provide: getRepositoryToken(UserInterests),
-                    useValue: mockUserInterestsRepository,
+                    useValue: mock_user_interests_repository,
                 },
-                { provide: TweetsService, useValue: mockTweetsService },
+                { provide: UserRepository, useValue: mock_user_repository },
+                { provide: TweetsService, useValue: mock_tweets_service },
             ],
         }).compile();
 
@@ -52,6 +66,7 @@ describe('ExploreService', () => {
         user_interests_repository = module.get<Repository<UserInterests>>(
             getRepositoryToken(UserInterests)
         );
+        user_repository = module.get<UserRepository>(UserRepository);
         tweets_service = module.get<TweetsService>(TweetsService);
     });
 
@@ -119,9 +134,149 @@ describe('ExploreService', () => {
     });
 
     describe('getWhoToFollow', () => {
-        it('should return empty array for now', async () => {
+        it('should return 30 random users with relationships when user is logged in', async () => {
+            const mock_users = [
+                {
+                    user_id: 'user-1',
+                    user_username: 'john_doe',
+                    user_name: 'John Doe',
+                    user_bio: 'Software Engineer',
+                    user_avatar_url: 'https://example.com/avatar1.jpg',
+                    user_verified: true,
+                    user_followers: 100,
+                    user_following: 50,
+                    is_following: true,
+                    is_followed: false,
+                },
+                {
+                    user_id: 'user-2',
+                    user_username: 'jane_smith',
+                    user_name: 'Jane Smith',
+                    user_bio: 'Designer',
+                    user_avatar_url: 'https://example.com/avatar2.jpg',
+                    user_verified: false,
+                    user_followers: 200,
+                    user_following: 150,
+                    is_following: false,
+                    is_followed: true,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValue(mock_users),
+            };
+
+            mock_user_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            const result = await service.getWhoToFollow('current-user-id');
+
+            expect(result).toHaveLength(2);
+            expect(result[0]).toEqual({
+                id: 'user-1',
+                username: 'john_doe',
+                name: 'John Doe',
+                bio: 'Software Engineer',
+                avatar_url: 'https://example.com/avatar1.jpg',
+                verified: true,
+                followers: 100,
+                following: 50,
+                is_following: true,
+                is_followed: false,
+            });
+            expect(mock_query_builder.addSelect).toHaveBeenCalled();
+            expect(mock_query_builder.setParameter).toHaveBeenCalledWith(
+                'current_user_id',
+                'current-user-id'
+            );
+        });
+
+        it('should return users without relationship data when no user is logged in', async () => {
+            const mock_users = [
+                {
+                    user_id: 'user-1',
+                    user_username: 'john_doe',
+                    user_name: 'John Doe',
+                    user_bio: 'Software Engineer',
+                    user_avatar_url: 'https://example.com/avatar1.jpg',
+                    user_verified: true,
+                    user_followers: 100,
+                    user_following: 50,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValue(mock_users),
+            };
+
+            mock_user_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
             const result = await service.getWhoToFollow();
-            expect(result).toEqual([]);
+
+            expect(result).toHaveLength(1);
+            expect(result[0]).toEqual({
+                id: 'user-1',
+                username: 'john_doe',
+                name: 'John Doe',
+                bio: 'Software Engineer',
+                avatar_url: 'https://example.com/avatar1.jpg',
+                verified: true,
+                followers: 100,
+                following: 50,
+                is_following: false,
+                is_followed: false,
+            });
+            expect(mock_query_builder.addSelect).not.toHaveBeenCalled();
+        });
+
+        it('should handle users with null values', async () => {
+            const mock_users = [
+                {
+                    user_id: 'user-1',
+                    user_username: 'john_doe',
+                    user_name: 'John Doe',
+                    user_bio: null,
+                    user_avatar_url: null,
+                    user_verified: null,
+                    user_followers: null,
+                    user_following: null,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValue(mock_users),
+            };
+
+            mock_user_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            const result = await service.getWhoToFollow();
+
+            expect(result[0]).toEqual({
+                id: 'user-1',
+                username: 'john_doe',
+                name: 'John Doe',
+                bio: '',
+                avatar_url: '',
+                verified: false,
+                followers: 0,
+                following: 0,
+                is_following: false,
+                is_followed: false,
+            });
         });
     });
 
@@ -136,20 +291,20 @@ describe('ExploreService', () => {
                 { tweet_id: 'tweet-3', content: 'test3' },
             ];
 
-            mockCategoryRepository.findOne.mockResolvedValue(mock_category);
+            mock_category_repository.findOne.mockResolvedValue(mock_category);
             jest.spyOn(service, 'getTrendingWithOffset').mockResolvedValue(mock_tweet_ids);
-            mockTweetsService.getTweetsByIds.mockResolvedValue(mock_tweets);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweets);
 
             const result = await service.getCategoryTrending(category_id, 'user-123', 1, 20);
 
             expect(result.category).toEqual({ id: 21, name: 'Sports' });
             expect(result.tweets).toEqual(mock_tweets);
-            expect(result.pagination.page).toBe(1);
-            expect(result.pagination.hasMore).toBe(false);
+            expect(result.pagination?.page).toBe(1);
+            expect(result.pagination?.hasMore).toBe(false);
         });
 
         it('should return null category when category does not exist', async () => {
-            mockCategoryRepository.findOne.mockResolvedValue(null);
+            mock_category_repository.findOne.mockResolvedValue(null);
 
             const result = await service.getCategoryTrending('999', 'user-123');
 
@@ -162,20 +317,22 @@ describe('ExploreService', () => {
             const mock_category = { id: 21, name: 'Sports' };
             const mock_tweet_ids = Array.from({ length: 21 }, (_, i) => `tweet-${i + 1}`);
 
-            mockCategoryRepository.findOne.mockResolvedValue(mock_category);
+            mock_category_repository.findOne.mockResolvedValue(mock_category);
             jest.spyOn(service, 'getTrendingWithOffset').mockResolvedValue(mock_tweet_ids);
-            mockTweetsService.getTweetsByIds.mockResolvedValue(mock_tweet_ids.slice(0, 20) as any);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(
+                mock_tweet_ids.slice(0, 20) as any
+            );
 
             const result = await service.getCategoryTrending('21', undefined, 1, 20);
 
-            expect(result.pagination.hasMore).toBe(true);
+            expect(result.pagination?.hasMore).toBe(true);
             expect(result.tweets).toHaveLength(20);
         });
 
         it('should return empty tweets when no trending tweets found', async () => {
             const mock_category = { id: 21, name: 'Sports' };
 
-            mockCategoryRepository.findOne.mockResolvedValue(mock_category);
+            mock_category_repository.findOne.mockResolvedValue(mock_category);
             jest.spyOn(service, 'getTrendingWithOffset').mockResolvedValue([]);
 
             const result = await service.getCategoryTrending('21', 'user-123');
@@ -189,14 +346,14 @@ describe('ExploreService', () => {
             const mock_category = { id: 21, name: 'Sports' };
             const mock_tweet_ids = ['tweet-21', 'tweet-22'];
 
-            mockCategoryRepository.findOne.mockResolvedValue(mock_category);
+            mock_category_repository.findOne.mockResolvedValue(mock_category);
             jest.spyOn(service, 'getTrendingWithOffset').mockResolvedValue(mock_tweet_ids);
-            mockTweetsService.getTweetsByIds.mockResolvedValue(mock_tweet_ids as any);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweet_ids as any);
 
             const result = await service.getCategoryTrending('21', 'user-123', 2, 20);
 
             expect(service.getTrendingWithOffset).toHaveBeenCalledWith('21', 20, 21);
-            expect(result.pagination.page).toBe(2);
+            expect(result.pagination?.page).toBe(2);
         });
     });
 
@@ -207,11 +364,11 @@ describe('ExploreService', () => {
             const limit = 20;
             const mock_tweet_ids = ['tweet-1', 'tweet-2'];
 
-            mockRedisService.zrevrange.mockResolvedValue(mock_tweet_ids);
+            mock_redis_service.zrevrange.mockResolvedValue(mock_tweet_ids);
 
             const result = await service.getTrendingWithOffset(category_id, offset, limit);
 
-            expect(mockRedisService.zrevrange).toHaveBeenCalledWith(
+            expect(mock_redis_service.zrevrange).toHaveBeenCalledWith(
                 'trending:category:21',
                 offset,
                 limit
@@ -220,7 +377,7 @@ describe('ExploreService', () => {
         });
 
         it('should handle empty results from redis', async () => {
-            mockRedisService.zrevrange.mockResolvedValue([]);
+            mock_redis_service.zrevrange.mockResolvedValue([]);
 
             const result = await service.getTrendingWithOffset('21', 0, 20);
 
@@ -242,7 +399,7 @@ describe('ExploreService', () => {
                 { tweet_id: 'tweet-3', content: 'test3' },
             ];
 
-            const mockQueryBuilder = {
+            const mock_query_builder = {
                 innerJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
@@ -250,9 +407,9 @@ describe('ExploreService', () => {
                 getMany: jest.fn().mockResolvedValue(mock_interests),
             };
 
-            mockUserInterestsRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-            mockRedisService.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
-            mockTweetsService.getTweetsByIds.mockResolvedValue(mock_tweets);
+            mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweets);
 
             const result = await service.getForYouPosts(user_id);
 
@@ -273,7 +430,7 @@ describe('ExploreService', () => {
                 { tweet_id: 'tweet-2', content: 'test2' },
             ];
 
-            const mockQueryBuilder = {
+            const mock_query_builder = {
                 innerJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
@@ -281,14 +438,14 @@ describe('ExploreService', () => {
                 getMany: jest.fn().mockResolvedValue([]),
             };
 
-            mockUserInterestsRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-            mockCategoryRepository.find.mockResolvedValue(mock_default_cats);
-            mockRedisService.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
-            mockTweetsService.getTweetsByIds.mockResolvedValue(mock_tweets);
+            mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_category_repository.find.mockResolvedValue(mock_default_cats);
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweets);
 
             const result = await service.getForYouPosts('user-456');
 
-            expect(mockCategoryRepository.find).toHaveBeenCalled();
+            expect(mock_category_repository.find).toHaveBeenCalled();
             expect(result).toHaveLength(2);
         });
 
@@ -296,17 +453,17 @@ describe('ExploreService', () => {
             const mock_default_cats = [{ id: 21, name: 'Sports' }];
             const mock_tweet_ids = [['tweet-1']];
 
-            mockCategoryRepository.find.mockResolvedValue(mock_default_cats);
-            mockRedisService.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
-            mockTweetsService.getTweetsByIds.mockResolvedValue([{ tweet_id: 'tweet-1' }]);
+            mock_category_repository.find.mockResolvedValue(mock_default_cats);
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue([{ tweet_id: 'tweet-1' }]);
 
             const result = await service.getForYouPosts();
 
-            expect(mockCategoryRepository.find).toHaveBeenCalled();
+            expect(mock_category_repository.find).toHaveBeenCalled();
         });
 
         it('should return empty array when no tweets found', async () => {
-            const mockQueryBuilder = {
+            const mock_query_builder = {
                 innerJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
@@ -314,9 +471,9 @@ describe('ExploreService', () => {
                 getMany: jest.fn().mockResolvedValue([]),
             };
 
-            mockUserInterestsRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-            mockCategoryRepository.find.mockResolvedValue([{ id: 21, name: 'Sports' }]);
-            mockRedisService.zrevrangeMultiple.mockResolvedValue([[]]);
+            mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_category_repository.find.mockResolvedValue([{ id: 21, name: 'Sports' }]);
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue([[]]);
 
             const result = await service.getForYouPosts('user-123');
 
@@ -330,7 +487,7 @@ describe('ExploreService', () => {
             ];
             const mock_tweet_ids = [['tweet-1'], []];
 
-            const mockQueryBuilder = {
+            const mock_query_builder = {
                 innerJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
@@ -338,9 +495,9 @@ describe('ExploreService', () => {
                 getMany: jest.fn().mockResolvedValue(mock_interests),
             };
 
-            mockUserInterestsRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
-            mockRedisService.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
-            mockTweetsService.getTweetsByIds.mockResolvedValue([{ tweet_id: 'tweet-1' }]);
+            mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue([{ tweet_id: 'tweet-1' }]);
 
             const result = await service.getForYouPosts('user-123');
 
