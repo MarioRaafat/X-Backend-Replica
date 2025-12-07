@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ClearProcessor } from './clear.processor';
 import { NotificationsService } from 'src/notifications/notifications.service';
 import type { Job } from 'bull';
+import { Logger } from '@nestjs/common';
 import { ClearBackGroundNotificationJobDTO } from './clear.dto';
 
 describe('ClearProcessor', () => {

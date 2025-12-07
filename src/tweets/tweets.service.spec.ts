@@ -47,6 +47,9 @@ describe('TweetsService', () => {
     let data_source: DataSource;
     let mock_query_runner: any;
     let original_env: NodeJS.ProcessEnv;
+    let reply_job_service: any;
+    let quote_job_service: any;
+    let mention_job_service: any;
 
     beforeAll(() => {
         original_env = { ...process.env };
@@ -216,6 +219,9 @@ describe('TweetsService', () => {
         tweet_reply_repo = mock_tweet_reply_repo as unknown as Repository<TweetReply>;
         tweets_repo = mock_tweets_repository as unknown as TweetsRepository;
         data_source = mock_data_source as unknown as DataSource;
+        reply_job_service = mock_reply_job_service;
+        quote_job_service = mock_quote_job_service;
+        mention_job_service = mock_mention_job_service;
 
         // Mock extractTopics to prevent real Groq API calls
         jest.spyOn(tweets_service as any, 'extractTopics').mockResolvedValue({
@@ -512,6 +518,112 @@ describe('TweetsService', () => {
             await expect(tweets_service.deleteTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'Database failure'
             );
+        });
+
+        // TODO: Fix these tests - they need proper mocking of private method calls
+        it('should delete reply tweet successfully', async () => {
+            const mock_tweet_id = 'reply-tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_original_tweet_id = 'original-tweet-456';
+            const mock_parent_user_id = 'parent-user-789';
+
+            const mock_reply_tweet = {
+                tweet_id: mock_tweet_id,
+                user_id: mock_user_id,
+                type: 'REPLY',
+                content: 'This is a reply',
+            };
+
+            const mock_tweet_reply = {
+                reply_tweet_id: mock_tweet_id,
+                original_tweet_id: mock_original_tweet_id,
+            };
+
+            const mock_original_tweet = {
+                tweet_id: mock_original_tweet_id,
+                user_id: mock_parent_user_id,
+            };
+
+            tweet_repo.findOne = jest
+                .fn()
+                .mockResolvedValueOnce(mock_reply_tweet as any)
+                .mockResolvedValueOnce(mock_original_tweet as any)
+                .mockResolvedValueOnce(mock_reply_tweet as any);
+
+            tweet_reply_repo.findOne = jest.fn().mockResolvedValue(mock_tweet_reply as any);
+            tweet_repo.delete = jest.fn().mockResolvedValue({ affected: 1 } as any);
+
+            await expect(
+                tweets_service.deleteTweet(mock_tweet_id, mock_user_id)
+            ).resolves.not.toThrow();
+
+            expect(tweet_repo.delete).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+        });
+
+        it('should delete quote tweet successfully', async () => {
+            const mock_tweet_id = 'quote-tweet-123';
+            const mock_user_id = 'user-1';
+            const mock_original_tweet_id = 'original-tweet-456';
+            const mock_parent_user_id = 'parent-user-789';
+
+            const mock_quote_tweet = {
+                tweet_id: mock_tweet_id,
+                user_id: mock_user_id,
+                type: 'QUOTE',
+                content: 'This is a quote',
+            };
+
+            const mock_tweet_quote = {
+                quote_tweet_id: mock_tweet_id,
+                original_tweet_id: mock_original_tweet_id,
+            };
+
+            const mock_original_tweet = {
+                tweet_id: mock_original_tweet_id,
+                user_id: mock_parent_user_id,
+            };
+
+            tweet_repo.findOne = jest
+                .fn()
+                .mockResolvedValueOnce(mock_quote_tweet as any)
+                .mockResolvedValueOnce(mock_original_tweet as any)
+                .mockResolvedValueOnce(mock_quote_tweet as any);
+
+            tweet_quote_repo.findOne = jest.fn().mockResolvedValue(mock_tweet_quote as any);
+            tweet_repo.delete = jest.fn().mockResolvedValue({ affected: 1 } as any);
+
+            await expect(
+                tweets_service.deleteTweet(mock_tweet_id, mock_user_id)
+            ).resolves.not.toThrow();
+
+            expect(tweet_repo.delete).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+        });
+
+        it('should handle deletion of tweet with mentions', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-1';
+
+            const mock_tweet = {
+                tweet_id: mock_tweet_id,
+                user_id: mock_user_id,
+                type: 'TWEET',
+                content: 'Hello @john @jane @alice',
+            };
+
+            jest.spyOn(tweet_repo, 'findOne')
+                .mockResolvedValueOnce(mock_tweet as any)
+                .mockResolvedValueOnce(mock_tweet as any);
+            jest.spyOn(tweet_repo, 'delete').mockResolvedValue({ affected: 1 } as any);
+
+            await tweets_service.deleteTweet(mock_tweet_id, mock_user_id);
+
+            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledWith({
+                tweet_id: mock_tweet_id,
+                mentioned_by: mock_user_id,
+                mentioned_usernames: ['john', 'jane', 'alice'],
+                tweet_type: 'tweet',
+                action: 'remove',
+            });
         });
     });
 
@@ -879,122 +991,175 @@ describe('TweetsService', () => {
     });
 
     describe('bookmarkTweet', () => {
-        it('should successfully bookmark a tweet and increment num_bookmarks', async () => {
-            const tweet_id = 'tweet-123';
-            const user_id = 'user-456';
+        it('should create bookmark, increment num_bookmarks, and commit transaction', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-456';
+            const mock_new_bookmark = { tweet_id: mock_tweet_id, user_id: mock_user_id };
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
-            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({
-                tweet: { tweet_id },
-                user: { id: user_id },
+            const create_spy = jest
+                .spyOn(mock_query_runner.manager, 'create')
+                .mockReturnValue(mock_new_bookmark as any);
+            const insert_spy = jest.spyOn(mock_query_runner.manager, 'insert').mockResolvedValue({
+                identifiers: [{ id: 1 }],
+                generatedMaps: [],
+                raw: [],
             } as any);
-            jest.spyOn(mock_query_runner.manager, 'insert').mockResolvedValue({} as any);
-            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue({} as any);
+            const increment_spy = jest
+                .spyOn(mock_query_runner.manager, 'increment')
+                .mockResolvedValue({} as any);
 
-            await tweets_service.bookmarkTweet(tweet_id, user_id);
+            await tweets_service.bookmarkTweet(mock_tweet_id, mock_user_id);
 
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.startTransaction).toHaveBeenCalled();
             expect(mock_query_runner.manager.exists).toHaveBeenCalledWith(Tweet, {
-                where: { tweet_id },
+                where: { tweet_id: mock_tweet_id },
             });
-            expect(mock_query_runner.manager.increment).toHaveBeenCalledWith(
+            expect(create_spy).toHaveBeenCalledWith(TweetBookmark, {
+                tweet: { tweet_id: mock_tweet_id },
+                user: { id: mock_user_id },
+            });
+            expect(insert_spy).toHaveBeenCalledWith(TweetBookmark, mock_new_bookmark);
+            expect(increment_spy).toHaveBeenCalledWith(
                 Tweet,
-                { tweet_id },
+                { tweet_id: mock_tweet_id },
                 'num_bookmarks',
                 1
             );
             expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.release).toHaveBeenCalled();
         });
 
-        it('should throw NotFoundException when tweet does not exist', async () => {
-            const tweet_id = 'nonexistent-tweet';
-            const user_id = 'user-456';
+        it('should rollback and throw NotFoundException if tweet does not exist', async () => {
+            const mock_tweet_id = 'tweet-nonexistent';
+            const mock_user_id = 'user-456';
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(false);
 
-            await expect(tweets_service.bookmarkTweet(tweet_id, user_id)).rejects.toThrow(
-                NotFoundException
+            await expect(tweets_service.bookmarkTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Tweet not found'
             );
+
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.release).toHaveBeenCalled();
         });
 
-        it('should throw BadRequestException when user already bookmarked the tweet', async () => {
-            const tweet_id = 'tweet-123';
-            const user_id = 'user-456';
+        it('should rollback and throw BadRequestException if user already bookmarked the tweet', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-456';
+            const unique_error = { code: '23505' }; // PostgreSQL unique constraint violation
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
             jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
-            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue({
-                code: '23505', // PostgreSQL unique constraint violation
-            });
+            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(unique_error);
 
-            await expect(tweets_service.bookmarkTweet(tweet_id, user_id)).rejects.toThrow(
-                BadRequestException
+            await expect(tweets_service.bookmarkTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'User already bookmarked this tweet'
             );
+
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.release).toHaveBeenCalled();
+        });
+
+        it('should rollback and rethrow unexpected errors', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-456';
+            const db_error = new Error('Database failure');
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockRejectedValue(db_error);
+
+            await expect(tweets_service.bookmarkTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
+                'Database failure'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.release).toHaveBeenCalled();
         });
     });
 
     describe('unbookmarkTweet', () => {
-        it('should successfully unbookmark a tweet and decrement num_bookmarks', async () => {
-            const tweet_id = 'tweet-123';
-            const user_id = 'user-456';
+        it('should delete bookmark, decrement num_bookmarks, and commit transaction', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-456';
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
-            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
-                affected: 1,
-            } as any);
-            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue({} as any);
+            const delete_spy = jest
+                .spyOn(mock_query_runner.manager, 'delete')
+                .mockResolvedValue({ affected: 1, raw: [] } as any);
+            const decrement_spy = jest
+                .spyOn(mock_query_runner.manager, 'decrement')
+                .mockResolvedValue({} as any);
 
-            await tweets_service.unbookmarkTweet(tweet_id, user_id);
+            await tweets_service.unbookmarkTweet(mock_tweet_id, mock_user_id);
 
-            expect(mock_query_runner.manager.delete).toHaveBeenCalled();
-            expect(mock_query_runner.manager.decrement).toHaveBeenCalledWith(
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.startTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.manager.exists).toHaveBeenCalledWith(Tweet, {
+                where: { tweet_id: mock_tweet_id },
+            });
+            expect(delete_spy).toHaveBeenCalledWith(TweetBookmark, {
+                tweet: { tweet_id: mock_tweet_id },
+                user: { id: mock_user_id },
+            });
+            expect(decrement_spy).toHaveBeenCalledWith(
                 Tweet,
-                { tweet_id },
+                { tweet_id: mock_tweet_id },
                 'num_bookmarks',
                 1
             );
             expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.release).toHaveBeenCalled();
         });
 
-        it('should throw NotFoundException when tweet does not exist', async () => {
-            const tweet_id = 'nonexistent-tweet';
-            const user_id = 'user-456';
+        it('should rollback and throw NotFoundException if tweet does not exist', async () => {
+            const mock_tweet_id = 'tweet-nonexistent';
+            const mock_user_id = 'user-456';
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(false);
 
-            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
-                NotFoundException
-            );
+            await expect(
+                tweets_service.unbookmarkTweet(mock_tweet_id, mock_user_id)
+            ).rejects.toThrow('Tweet not found');
+
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.release).toHaveBeenCalled();
         });
 
-        it('should throw BadRequestException when user has not bookmarked the tweet', async () => {
-            const tweet_id = 'tweet-123';
-            const user_id = 'user-456';
+        it('should rollback and throw BadRequestException if user has not bookmarked the tweet', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-456';
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
             jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
                 affected: 0,
+                raw: [],
             } as any);
 
-            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
-                BadRequestException
-            );
+            await expect(
+                tweets_service.unbookmarkTweet(mock_tweet_id, mock_user_id)
+            ).rejects.toThrow('User has not bookmarked this tweet');
+
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.release).toHaveBeenCalled();
         });
 
-        it('should handle database errors and rollback transaction', async () => {
-            const tweet_id = 'tweet-123';
-            const user_id = 'user-456';
+        it('should rollback and rethrow unexpected errors', async () => {
+            const mock_tweet_id = 'tweet-123';
+            const mock_user_id = 'user-456';
+            const db_error = new Error('Database crash');
 
             jest.spyOn(mock_query_runner.manager, 'exists').mockResolvedValue(true);
-            jest.spyOn(mock_query_runner.manager, 'delete').mockRejectedValue(
-                new Error('Database error')
-            );
+            jest.spyOn(mock_query_runner.manager, 'delete').mockRejectedValue(db_error);
 
-            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow();
+            await expect(
+                tweets_service.unbookmarkTweet(mock_tweet_id, mock_user_id)
+            ).rejects.toThrow('Database crash');
+
             expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+            expect(mock_query_runner.release).toHaveBeenCalled();
         });
     });
 

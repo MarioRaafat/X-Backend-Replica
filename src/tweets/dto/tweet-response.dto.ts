@@ -11,6 +11,14 @@ export class TweetResponseDTO {
         example: '550e8400-e29b-41d4-a716-446655440000',
     })
     tweet_id: string;
+    //will be removed just for now to debug trending scores
+    @Expose()
+    @ApiProperty({
+        description: 'Trending Score (Debug)',
+        example: 123.45,
+        required: false,
+    })
+    score?: number;
 
     @Expose()
     @ApiProperty({
