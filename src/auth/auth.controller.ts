@@ -394,7 +394,7 @@ export class AuthController {
     @ResponseMessage(SUCCESS_MESSAGES.EMAIL_UPDATED)
     @Post('update-email/verify')
     async verifyUpdateEmail(@Body() dto: VerifyUpdateEmailDto, @GetUserId() user_id: string) {
-        return this.auth_service.verifyUpdateEmail(user_id, dto.new_email, dto.otp);
+        return this.auth_service.verifyUpdateEmail(user_id, dto.otp);
     }
 
     /* 
