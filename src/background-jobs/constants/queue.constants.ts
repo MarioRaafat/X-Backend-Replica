@@ -80,7 +80,7 @@ export const EXPLORE_CONFIG = {
     MAX_CATEGORY_SIZE: 20,
 } as const;
 
-export const EXPLORE_CRON_SCHEDULE = '0 * * * *'; // Every minute
+export const EXPLORE_CRON_SCHEDULE = '30 * * * *'; // Every hour at minute 30
 
 export const EXPLORE_JOB_PRIORITIES = {
     HIGH: 1,

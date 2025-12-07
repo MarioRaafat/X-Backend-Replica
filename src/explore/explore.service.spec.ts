@@ -5,6 +5,7 @@ import { Repository } from 'typeorm';
 import { Category } from '../category/entities/category.entity';
 import { UserInterests } from '../user/entities/user-interests.entity';
 import { TweetsService } from '../tweets/tweets.service';
+import { TrendService } from '../trend/trend.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { UserRepository } from '../user/user.repository';
 
@@ -15,6 +16,7 @@ describe('ExploreService', () => {
     let user_interests_repository: Repository<UserInterests>;
     let user_repository: UserRepository;
     let tweets_service: TweetsService;
+    let trend_service: TrendService;
 
     const mock_redis_service = {
         zrevrange: jest.fn(),
@@ -45,6 +47,10 @@ describe('ExploreService', () => {
         getTweetsByIds: jest.fn(),
     };
 
+    const mock_trend_service = {
+        getTrending: jest.fn(),
+    };
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
@@ -57,6 +63,7 @@ describe('ExploreService', () => {
                 },
                 { provide: UserRepository, useValue: mock_user_repository },
                 { provide: TweetsService, useValue: mock_tweets_service },
+                { provide: TrendService, useValue: mock_trend_service },
             ],
         }).compile();
 
@@ -68,6 +75,7 @@ describe('ExploreService', () => {
         );
         user_repository = module.get<UserRepository>(UserRepository);
         tweets_service = module.get<TweetsService>(TweetsService);
+        trend_service = module.get<TrendService>(TrendService);
     });
 
     afterEach(() => {
@@ -78,58 +86,38 @@ describe('ExploreService', () => {
         expect(service).toBeDefined();
     });
 
-    it('should be defined', () => {
-        expect(service).toBeDefined();
-    });
-
     describe('getExploreData', () => {
         it('should return trending, who to follow, and for you posts', async () => {
             const mock_trending = ['topic1', 'topic2'];
             const mock_who_to_follow = [];
-            const mock_for_you_posts = [{ category: { id: 1 }, tweets: [] }];
+            const mock_for_you = [{ category: { id: 1 }, tweets: [] }];
 
-            jest.spyOn(service, 'getTrending').mockResolvedValue(mock_trending);
+            jest.spyOn(trend_service, 'getTrending').mockResolvedValue(mock_trending as any);
             jest.spyOn(service, 'getWhoToFollow').mockResolvedValue(mock_who_to_follow);
-            jest.spyOn(service, 'getForYouPosts').mockResolvedValue(mock_for_you_posts as any);
+            jest.spyOn(service, 'getForYouPosts').mockResolvedValue(mock_for_you as any);
 
             const result = await service.getExploreData('user-123');
 
             expect(result).toEqual({
                 trending: mock_trending,
                 who_to_follow: mock_who_to_follow,
-                for_you_posts: mock_for_you_posts,
+                for_you: mock_for_you,
             });
-            expect(service.getTrending).toHaveBeenCalled();
-            expect(service.getWhoToFollow).toHaveBeenCalled();
+            expect(trend_service.getTrending).toHaveBeenCalledWith('global', 5);
+            expect(service.getWhoToFollow).toHaveBeenCalledWith('user-123', 3);
             expect(service.getForYouPosts).toHaveBeenCalledWith('user-123');
         });
 
         it('should work without current user id', async () => {
-            jest.spyOn(service, 'getTrending').mockResolvedValue([]);
+            jest.spyOn(trend_service, 'getTrending').mockResolvedValue([]);
             jest.spyOn(service, 'getWhoToFollow').mockResolvedValue([]);
             jest.spyOn(service, 'getForYouPosts').mockResolvedValue([]);
 
             const result = await service.getExploreData();
 
             expect(result).toBeDefined();
+            expect(service.getWhoToFollow).toHaveBeenCalledWith(undefined, 3);
             expect(service.getForYouPosts).toHaveBeenCalledWith(undefined);
-        });
-    });
-
-    describe('getTrending', () => {
-        it('should return empty array for now', async () => {
-            const result = await service.getTrending();
-            expect(result).toEqual([]);
-        });
-
-        it('should accept category parameter', async () => {
-            const result = await service.getTrending('sports');
-            expect(result).toEqual([]);
-        });
-
-        it('should accept country parameter', async () => {
-            const result = await service.getTrending('tech', 'US');
-            expect(result).toEqual([]);
         });
     });
 

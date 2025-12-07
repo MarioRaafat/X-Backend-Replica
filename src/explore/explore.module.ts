@@ -7,6 +7,7 @@ import { Category } from '../category/entities/category.entity';
 import { TweetsModule } from '../tweets/tweets.module';
 import { UserInterests } from 'src/user/entities/user-interests.entity';
 import { UserModule } from '../user/user.module';
+import { TrendModule } from 'src/trend/trend.module';
 
 @Module({
     imports: [
@@ -14,6 +15,7 @@ import { UserModule } from '../user/user.module';
         TypeOrmModule.forFeature([Category, UserInterests]),
         TweetsModule,
         UserModule,
+        TrendModule,
     ],
     controllers: [ExploreController],
     providers: [ExploreService],
