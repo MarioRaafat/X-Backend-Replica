@@ -637,7 +637,7 @@ export class UserService {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        await this.user_repository.delete(current_user_id);
+        await this.user_repository.softDelete(current_user_id);
 
         if (user.avatar_url) {
             const file_name = this.azure_storage_service.extractFileName(user.avatar_url);

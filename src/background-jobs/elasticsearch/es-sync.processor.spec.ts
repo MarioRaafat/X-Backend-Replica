@@ -3,7 +3,7 @@ import { EsSyncProcessor } from './es-sync.processor';
 import { ElasticsearchService } from '@nestjs/elasticsearch';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Tweet } from 'src/tweets/entities';
-import { User } from 'src/user/entities';
+import { User, UserFollows } from 'src/user/entities';
 import { Repository } from 'typeorm';
 import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
@@ -14,6 +14,7 @@ describe('EsSyncProcessor', () => {
     let processor: EsSyncProcessor;
     let tweets_repository: jest.Mocked<Repository<Tweet>>;
     let user_repository: jest.Mocked<Repository<User>>;
+    let user_follows_repository: jest.Mocked<Repository<UserFollows>>;
     let elasticsearch_service: jest.Mocked<ElasticsearchService>;
 
     const mock_tweets_repository = {
@@ -22,6 +23,7 @@ describe('EsSyncProcessor', () => {
 
     const mock_user_repository = {
         findOne: jest.fn(),
+        delete: jest.fn(),
     };
 
     const mock_elasticsearch_service = {
@@ -29,6 +31,10 @@ describe('EsSyncProcessor', () => {
         delete: jest.fn(),
         updateByQuery: jest.fn(),
         deleteByQuery: jest.fn(),
+    };
+
+    const mock_user_follows_repository = {
+        createQueryBuilder: jest.fn(),
     };
 
     beforeEach(async () => {
@@ -44,6 +50,10 @@ describe('EsSyncProcessor', () => {
                     useValue: mock_user_repository,
                 },
                 {
+                    provide: getRepositoryToken(UserFollows),
+                    useValue: mock_user_follows_repository,
+                },
+                {
                     provide: ElasticsearchService,
                     useValue: mock_elasticsearch_service,
                 },
@@ -53,6 +63,7 @@ describe('EsSyncProcessor', () => {
         processor = module.get<EsSyncProcessor>(EsSyncProcessor);
         tweets_repository = module.get(getRepositoryToken(Tweet));
         user_repository = module.get(getRepositoryToken(User));
+        user_follows_repository = module.get(getRepositoryToken(UserFollows));
         elasticsearch_service = module.get(ElasticsearchService);
 
         jest.clearAllMocks();
@@ -65,7 +76,7 @@ describe('EsSyncProcessor', () => {
     describe('handleIndexTweet', () => {
         it('should index a tweet successfully', async () => {
             const mock_tweet: Partial<Tweet> = {
-                tweet_id: 'tweet-123',
+                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'Test tweet',
                 type: TweetType.TWEET,
                 created_at: new Date(),
@@ -76,7 +87,7 @@ describe('EsSyncProcessor', () => {
                 num_replies: 3,
                 num_quotes: 2,
                 num_bookmarks: 0,
-                user_id: 'user-123',
+                user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 images: [],
                 videos: [],
                 likes: [],
@@ -85,7 +96,7 @@ describe('EsSyncProcessor', () => {
                 quotes: [],
                 bookmarks: [],
                 user: {
-                    id: 'user-123',
+                    id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                     name: 'Test User',
                     username: 'testuser',
                     followers: 50,
@@ -97,7 +108,7 @@ describe('EsSyncProcessor', () => {
 
             const job = {
                 data: {
-                    tweet_id: 'tweet-123',
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                     parent_id: undefined,
                     conversation_id: undefined,
                 },
@@ -111,27 +122,29 @@ describe('EsSyncProcessor', () => {
             await processor.handleIndexTweet(job);
 
             expect(mock_tweets_repository.findOne).toHaveBeenCalledWith({
-                where: { tweet_id: 'tweet-123' },
+                where: { tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d' },
                 relations: ['user'],
             });
             expect(mock_elasticsearch_service.index).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
-                id: 'tweet-123',
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 document: expect.objectContaining({
-                    tweet_id: 'tweet-123',
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                     content: 'Test tweet',
-                    author_id: 'user-123',
+                    author_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                     name: 'Test User',
                     username: 'testuser',
                 }),
             });
-            expect(logger_spy).toHaveBeenCalledWith('Indexed tweet tweet-123 to Elasticsearch');
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Indexed tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d to Elasticsearch'
+            );
         });
 
         it('should skip indexing if tweet not found', async () => {
             const job = {
                 data: {
-                    tweet_id: 'tweet-123',
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 },
             } as Job;
 
@@ -142,13 +155,15 @@ describe('EsSyncProcessor', () => {
             await processor.handleIndexTweet(job);
 
             expect(mock_elasticsearch_service.index).not.toHaveBeenCalled();
-            expect(logger_spy).toHaveBeenCalledWith('Tweet tweet-123 not found, skipping index');
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d not found, skipping index'
+            );
         });
 
         it('should handle indexing errors', async () => {
             const job = {
                 data: {
-                    tweet_id: 'tweet-123',
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 },
             } as Job;
 
@@ -158,14 +173,17 @@ describe('EsSyncProcessor', () => {
             const logger_spy = jest.spyOn(Logger.prototype, 'error');
 
             await expect(processor.handleIndexTweet(job)).rejects.toThrow('Index failed');
-            expect(logger_spy).toHaveBeenCalledWith('Failed to index tweet tweet-123:', error);
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Failed to index tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d:',
+                error
+            );
         });
 
         it('should include parent_id and conversation_id when provided', async () => {
             const mock_tweet = {
-                tweet_id: 'tweet-123',
+                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'Reply tweet',
-                user_id: 'user-123',
+                user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 user: {
                     name: 'Test User',
                     username: 'testuser',
@@ -174,9 +192,9 @@ describe('EsSyncProcessor', () => {
 
             const job = {
                 data: {
-                    tweet_id: 'tweet-123',
-                    parent_id: 'parent-123',
-                    conversation_id: 'conversation-123',
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
                 },
             } as Job;
 
@@ -187,10 +205,10 @@ describe('EsSyncProcessor', () => {
 
             expect(mock_elasticsearch_service.index).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
-                id: 'tweet-123',
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 document: expect.objectContaining({
-                    parent_id: 'parent-123',
-                    conversation_id: 'conversation-123',
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
                 }),
             });
         });
@@ -200,7 +218,7 @@ describe('EsSyncProcessor', () => {
         it('should delete a tweet successfully', async () => {
             const job = {
                 data: {
-                    tweet_id: 'tweet-123',
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 },
             } as Job;
 
@@ -212,15 +230,17 @@ describe('EsSyncProcessor', () => {
 
             expect(mock_elasticsearch_service.delete).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
-                id: 'tweet-123',
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
             });
-            expect(logger_spy).toHaveBeenCalledWith('Deleted tweet tweet-123 from Elasticsearch');
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Deleted tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d from Elasticsearch'
+            );
         });
 
         it('should skip if tweet not found in ES (404)', async () => {
             const job = {
                 data: {
-                    tweet_id: 'tweet-123',
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 },
             } as Job;
 
@@ -234,14 +254,14 @@ describe('EsSyncProcessor', () => {
             await processor.handleDeleteTweet(job);
 
             expect(logger_spy).toHaveBeenCalledWith(
-                'Tweet tweet-123 not found in ES, skipping delete'
+                'Tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d not found in ES, skipping delete'
             );
         });
 
         it('should handle delete errors', async () => {
             const job = {
                 data: {
-                    tweet_id: 'tweet-123',
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 },
             } as Job;
 
@@ -251,14 +271,17 @@ describe('EsSyncProcessor', () => {
             const logger_spy = jest.spyOn(Logger.prototype, 'error');
 
             await expect(processor.handleDeleteTweet(job)).rejects.toThrow('Delete failed');
-            expect(logger_spy).toHaveBeenCalledWith('Failed to delete tweet tweet-123:', error);
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Failed to delete tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d:',
+                error
+            );
         });
     });
 
     describe('handleUpdateTweetsAuthorInfo', () => {
         it('should update author info successfully', async () => {
             const mock_user = {
-                id: 'user-123',
+                id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 name: 'Updated User',
                 username: 'updateduser',
                 followers: 100,
@@ -269,7 +292,7 @@ describe('EsSyncProcessor', () => {
 
             const job = {
                 data: {
-                    user_id: 'user-123',
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 },
             } as Job;
 
@@ -281,13 +304,13 @@ describe('EsSyncProcessor', () => {
             await processor.handleUpdateTweetsAuthorInfo(job);
 
             expect(mock_user_repository.findOne).toHaveBeenCalledWith({
-                where: { id: 'user-123' },
+                where: { id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6' },
             });
             expect(mock_elasticsearch_service.updateByQuery).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 body: {
                     query: {
-                        term: { author_id: 'user-123' },
+                        term: { author_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6' },
                     },
                     script: expect.objectContaining({
                         source: expect.any(String),
@@ -303,14 +326,14 @@ describe('EsSyncProcessor', () => {
                 },
             });
             expect(logger_spy).toHaveBeenCalledWith(
-                'Updated author info for 5 tweets by user user-123'
+                'Updated author info for 5 tweets by user 1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6'
             );
         });
 
         it('should skip if user not found', async () => {
             const job = {
                 data: {
-                    user_id: 'user-123',
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 },
             } as Job;
 
@@ -322,14 +345,14 @@ describe('EsSyncProcessor', () => {
 
             expect(mock_elasticsearch_service.updateByQuery).not.toHaveBeenCalled();
             expect(logger_spy).toHaveBeenCalledWith(
-                'User user-123 not found for author info update'
+                'User 1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6 not found for author info update'
             );
         });
 
         it('should handle update errors', async () => {
             const job = {
                 data: {
-                    user_id: 'user-123',
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 },
             } as Job;
 
@@ -342,41 +365,185 @@ describe('EsSyncProcessor', () => {
                 'Update failed'
             );
             expect(logger_spy).toHaveBeenCalledWith(
-                'Failed to update author info for user-123:',
+                'Failed to update author info for 1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6:',
                 error
             );
         });
     });
 
     describe('handleDeleteAuthor', () => {
-        it('should delete tweets by author successfully', async () => {
+        it('should delete user, their tweets, and decrement follow counts successfully', async () => {
             const job = {
                 data: {
-                    user_id: 'user-123',
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 },
             } as Job;
 
+            const mock_follows = [
+                {
+                    follower_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    followed_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                },
+                {
+                    follower_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                    followed_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                },
+                { follower_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6', followed_id: 'user-999' },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orWhere: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValue(mock_follows),
+            };
+
+            mock_user_follows_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_user_repository.delete.mockResolvedValue({} as any);
             mock_elasticsearch_service.deleteByQuery.mockResolvedValue({} as any);
+            mock_elasticsearch_service.updateByQuery.mockResolvedValue({ updated: 10 } as any);
 
             const logger_spy = jest.spyOn(Logger.prototype, 'log');
 
             await processor.handleDeleteAuthor(job);
 
+            expect(mock_user_follows_repository.createQueryBuilder).toHaveBeenCalledWith('uf');
+            expect(mock_query_builder.where).toHaveBeenCalledWith('uf.followed_id = :id', {
+                id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+            });
+            expect(mock_query_builder.orWhere).toHaveBeenCalledWith('uf.follower_id = :id', {
+                id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+            });
+
+            expect(mock_user_repository.delete).toHaveBeenCalledWith(
+                '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6'
+            );
+
             expect(mock_elasticsearch_service.deleteByQuery).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 query: {
-                    term: { author_id: 'user-123' },
+                    term: { author_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6' },
                 },
             });
-            expect(logger_spy).toHaveBeenCalledWith('Delete tweets with author user-123');
+
+            expect(mock_elasticsearch_service.updateByQuery).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: {
+                    query: {
+                        terms: {
+                            author_id: [
+                                '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                                '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                            ],
+                        },
+                    },
+                    script: {
+                        source: expect.stringContaining('following'),
+                    },
+                },
+                conflicts: 'proceed',
+                refresh: false,
+            });
+
+            expect(mock_elasticsearch_service.updateByQuery).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: {
+                    query: {
+                        terms: { author_id: ['user-999'] },
+                    },
+                    script: {
+                        source: expect.stringContaining('followers'),
+                    },
+                },
+                conflicts: 'proceed',
+                refresh: false,
+            });
+
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Delete tweets with author 1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6'
+            );
+            expect(logger_spy).toHaveBeenCalledWith(
+                expect.stringContaining('Decremented following in 10 tweets')
+            );
+            expect(logger_spy).toHaveBeenCalledWith(
+                expect.stringContaining('Decremented followers in 10 tweets')
+            );
         });
 
-        it('should handle delete author errors', async () => {
+        it('should handle case with no follows', async () => {
             const job = {
                 data: {
-                    user_id: 'user-123',
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 },
             } as Job;
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orWhere: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValue([]),
+            };
+
+            mock_user_follows_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_user_repository.delete.mockResolvedValue({} as any);
+            mock_elasticsearch_service.deleteByQuery.mockResolvedValue({} as any);
+
+            await processor.handleDeleteAuthor(job);
+
+            expect(mock_user_repository.delete).toHaveBeenCalledWith(
+                '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6'
+            );
+            expect(mock_elasticsearch_service.deleteByQuery).toHaveBeenCalled();
+            expect(mock_elasticsearch_service.updateByQuery).not.toHaveBeenCalled();
+        });
+
+        it('should continue if user follows query fails', async () => {
+            const job = {
+                data: {
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                },
+            } as Job;
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orWhere: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockRejectedValue(new Error('Query failed')),
+            };
+
+            mock_user_follows_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_user_repository.delete.mockResolvedValue({} as any);
+            mock_elasticsearch_service.deleteByQuery.mockResolvedValue({} as any);
+
+            const console_spy = jest.spyOn(console, 'log').mockImplementation();
+
+            await processor.handleDeleteAuthor(job);
+
+            expect(console_spy).toHaveBeenCalled();
+            expect(mock_user_repository.delete).toHaveBeenCalledWith(
+                '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6'
+            );
+            expect(mock_elasticsearch_service.deleteByQuery).toHaveBeenCalled();
+
+            console_spy.mockRestore();
+        });
+
+        it('should handle delete tweets errors and throw', async () => {
+            const job = {
+                data: {
+                    user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                },
+            } as Job;
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orWhere: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValue([]),
+            };
+
+            mock_user_follows_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_user_repository.delete.mockResolvedValue({} as any);
 
             const error = new Error('Delete failed');
             mock_elasticsearch_service.deleteByQuery.mockRejectedValue(error);
@@ -385,7 +552,7 @@ describe('EsSyncProcessor', () => {
 
             await expect(processor.handleDeleteAuthor(job)).rejects.toThrow('Delete failed');
             expect(logger_spy).toHaveBeenCalledWith(
-                'Failed to delete tweets with author user-123:',
+                'Failed to delete tweets with author 1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6:',
                 error
             );
         });

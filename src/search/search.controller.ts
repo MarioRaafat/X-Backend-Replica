@@ -44,7 +44,7 @@ export class SearchController {
     @ApiOperation(search_latest_posts.operation)
     @ApiOkResponse(search_latest_posts.responses.success)
     @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
-    @ResponseMessage(SUCCESS_MESSAGES.SEARCH_LATEST_POSTS_RETRIEVED)
+    @ResponseMessage(SUCCESS_MESSAGES.SEARCH_POSTS_RETRIEVED)
     @Get('posts')
     async searchPosts(@GetUserId() current_user_id: string, @Query() query_dto: PostsSearchDto) {
         return await this.search_service.searchPosts(current_user_id, query_dto);
