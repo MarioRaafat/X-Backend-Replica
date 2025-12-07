@@ -911,7 +911,7 @@ describe('AuthController', () => {
         it('should call auth_service.verifyUpdateEmail with correct arguments and return its result', async () => {
             const mock_dto = { new_email: 'newemail@example.com', otp: '123456' };
             const mock_user_id = 'user123';
-            const mock_result = { message: 'Email updated successfully' };
+            const mock_result = { email: 'newemail@example.com' };
 
             mock_auth_service.verifyUpdateEmail.mockResolvedValue(mock_result as any);
 
@@ -920,7 +920,6 @@ describe('AuthController', () => {
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyUpdateEmail).toHaveBeenCalledWith(
                 mock_user_id,
-                mock_dto.new_email,
                 mock_dto.otp
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -942,7 +941,6 @@ describe('AuthController', () => {
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyUpdateEmail).toHaveBeenCalledWith(
                 mock_user_id,
-                mock_dto.new_email,
                 mock_dto.otp
             );
         });

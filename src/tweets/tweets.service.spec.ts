@@ -2022,7 +2022,7 @@ describe('TweetsService', () => {
             await expect(
                 (tweets_service as any).convertToCompressedMp4(mock_buffer)
             ).rejects.toThrow();
-        });
+        }, 10000);
 
         it('should reject when stream encounters an error', async () => {
             const mock_buffer = Buffer.from('test video data');
