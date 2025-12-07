@@ -1,7 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { ExploreJobsService } from './explore-jobs.service';
-import { getQueueToken } from '@nestjs/bull';
 import { getRepositoryToken } from '@nestjs/typeorm';
+import { getQueueToken } from '@nestjs/bull';
 import { Repository } from 'typeorm';
 import { Tweet } from '../../tweets/entities/tweet.entity';
 import { RedisService } from '../../redis/redis.service';
@@ -9,13 +9,9 @@ import { QUEUE_NAMES } from '../constants/queue.constants';
 
 describe('ExploreJobsService', () => {
     let service: ExploreJobsService;
-    let explore_queue: any;
     let tweet_repository: Repository<Tweet>;
     let redis_service: RedisService;
-
-    const mockQueue = {
-        add: jest.fn(),
-    };
+    let explore_queue: any;
 
     const mockTweetRepository = {
         createQueryBuilder: jest.fn(),
@@ -25,20 +21,28 @@ describe('ExploreJobsService', () => {
         pipeline: jest.fn(),
     };
 
+    const mockQueue = {
+        add: jest.fn(),
+        getWaiting: jest.fn(),
+        getActive: jest.fn(),
+        getCompleted: jest.fn(),
+        getFailed: jest.fn(),
+    };
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ExploreJobsService,
-                { provide: getQueueToken(QUEUE_NAMES.EXPLORE), useValue: mockQueue },
                 { provide: getRepositoryToken(Tweet), useValue: mockTweetRepository },
                 { provide: RedisService, useValue: mockRedisService },
+                { provide: getQueueToken(QUEUE_NAMES.EXPLORE), useValue: mockQueue },
             ],
         }).compile();
 
         service = module.get<ExploreJobsService>(ExploreJobsService);
-        explore_queue = module.get(getQueueToken(QUEUE_NAMES.EXPLORE));
         tweet_repository = module.get<Repository<Tweet>>(getRepositoryToken(Tweet));
         redis_service = module.get<RedisService>(RedisService);
+        explore_queue = module.get(getQueueToken(QUEUE_NAMES.EXPLORE));
     });
 
     afterEach(() => {
@@ -49,46 +53,57 @@ describe('ExploreJobsService', () => {
         expect(service).toBeDefined();
     });
 
-    describe('triggerExploreScoreRecalculation', () => {
-        it('should add recalculation job to queue with default parameters', async () => {
-            mockQueue.add.mockResolvedValue({ id: '1' });
+    describe('triggerScoreRecalculation', () => {
+        it('should trigger score recalculation successfully', async () => {
+            const mockJob = { id: '123' };
+            mockQueue.add.mockResolvedValue(mockJob);
 
-            await service.triggerExploreScoreRecalculation();
+            const job_data = {
+                since_hours: 24,
+                max_age_hours: 168,
+                batch_size: 100,
+                force_all: false,
+            };
 
-            expect(mockQueue.add).toHaveBeenCalledWith(
-                'recalculate-explore-scores',
-                {
-                    since_hours: undefined,
-                    max_age_hours: undefined,
-                    force_all: false,
-                },
-                {
-                    attempts: 3,
-                    removeOnComplete: true,
-                }
-            );
-        });
+            const result = await service.triggerScoreRecalculation(job_data, 1);
 
-        it('should add recalculation job with custom parameters', async () => {
-            mockQueue.add.mockResolvedValue({ id: '2' });
-
-            await service.triggerExploreScoreRecalculation(24, 168, true);
-
-            expect(mockQueue.add).toHaveBeenCalledWith(
-                'recalculate-explore-scores',
-                {
-                    since_hours: 24,
-                    max_age_hours: 168,
-                    force_all: true,
-                },
-                expect.any(Object)
-            );
+            expect(result.success).toBe(true);
+            expect(result.job_id).toBe('123');
+            expect(result.params).toEqual(job_data);
+            expect(mockQueue.add).toHaveBeenCalled();
         });
 
         it('should handle queue errors gracefully', async () => {
-            mockQueue.add.mockRejectedValue(new Error('Queue error'));
+            mockQueue.add.mockRejectedValue(new Error('Queue unavailable'));
 
-            await expect(service.triggerExploreScoreRecalculation()).resolves.not.toThrow();
+            const job_data = {
+                since_hours: 24,
+                max_age_hours: 168,
+                batch_size: 100,
+                force_all: false,
+            };
+
+            const result = await service.triggerScoreRecalculation(job_data);
+
+            expect(result.success).toBe(false);
+            expect(result.error).toBe('Queue unavailable');
+        });
+    });
+
+    describe('getQueueStats', () => {
+        it('should return queue statistics', async () => {
+            mockQueue.getWaiting.mockResolvedValue([1, 2]);
+            mockQueue.getActive.mockResolvedValue([1]);
+            mockQueue.getCompleted.mockResolvedValue([1, 2, 3]);
+            mockQueue.getFailed.mockResolvedValue([]);
+
+            const stats = await service.getQueueStats();
+
+            expect(stats.waiting).toBe(2);
+            expect(stats.active).toBe(1);
+            expect(stats.completed).toBe(3);
+            expect(stats.failed).toBe(0);
+            expect(stats.total_jobs).toBe(6);
         });
     });
 

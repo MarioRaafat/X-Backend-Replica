@@ -6,6 +6,7 @@ import { Category } from '../category/entities/category.entity';
 import { TweetsService } from '../tweets/tweets.service';
 import { UserRepository } from '../user/user.repository';
 import { UserInterests } from 'src/user/entities/user-interests.entity';
+import { TrendService } from '../trend/trend.service';
 
 @Injectable()
 export class ExploreService {
@@ -16,7 +17,8 @@ export class ExploreService {
         @InjectRepository(UserInterests)
         private readonly user_interests_repository: Repository<UserInterests>,
         private readonly user_repository: UserRepository,
-        private readonly tweets_service: TweetsService
+        private readonly tweets_service: TweetsService,
+        private readonly trend_service: TrendService
     ) {}
 
     private readonly DEFAULT_CATEGORIES = [21, 20, 3, 4, 5];
@@ -24,18 +26,21 @@ export class ExploreService {
     async getExploreData(current_user_id?: string) {
         // This method would fetch all explore data in one go
         // Combining trending, who to follow, and for-you posts
+
+        const [trending, who_to_follow, for_you] = await Promise.all([
+            this.trend_service.getTrending('global', 5),
+            this.getWhoToFollow(current_user_id, 3),
+            this.getForYouPosts(current_user_id),
+        ]);
+
         return {
-            trending: await this.getTrending(),
-            who_to_follow: await this.getWhoToFollow(current_user_id),
-            for_you_posts: await this.getForYouPosts(current_user_id),
+            trending,
+            who_to_follow,
+            for_you,
         };
     }
 
-    async getTrending(category: string = '', country: string = 'global'): Promise<string[]> {
-        return [];
-    }
-
-    async getWhoToFollow(current_user_id?: string) {
+    async getWhoToFollow(current_user_id?: string, limit: number = 30) {
         const query = this.user_repository
             .createQueryBuilder('user')
             .select([
@@ -49,21 +54,21 @@ export class ExploreService {
                 'user.following',
             ])
             .orderBy('RANDOM()')
-            .limit(30);
+            .limit(limit);
 
         if (current_user_id) {
             query
                 .addSelect(
                     `EXISTS(
                         SELECT 1 FROM user_follows uf
-                        WHERE uf.follower_id = :current_user_id AND uf.followed_id = user.id
+                        WHERE uf.follower_id = :current_user_id AND uf.followed_id = "user"."id"
                     )`,
                     'is_following'
                 )
                 .addSelect(
                     `EXISTS(
                         SELECT 1 FROM user_follows uf
-                        WHERE uf.follower_id = user.id AND uf.followed_id = :current_user_id
+                        WHERE uf.follower_id = "user"."id" AND uf.followed_id = :current_user_id
                     )`,
                     'is_followed'
                 )
@@ -141,7 +146,7 @@ export class ExploreService {
         offset: number,
         limit: number
     ): Promise<string[]> {
-        const redis_key = `trending:category:${category_id}`;
+        const redis_key = `explore:category:${category_id}`;
         return await this.redis_service.zrevrange(redis_key, offset, limit);
     }
 
@@ -168,7 +173,7 @@ export class ExploreService {
             });
             categories.push(...default_cats);
         }
-        const keys = categories.map((cat) => `trending:category:${cat.id}`);
+        const keys = categories.map((cat) => `explore:category:${cat.id}`);
         const results = await this.redis_service.zrevrangeMultiple(keys, 0, 4);
 
         const feed_structure: Array<{

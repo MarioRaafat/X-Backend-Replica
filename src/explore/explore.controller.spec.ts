@@ -9,7 +9,6 @@ describe('ExploreController', () => {
     beforeEach(async () => {
         const mock_explore_service = {
             getExploreData: jest.fn(),
-            getTrending: jest.fn(),
             getWhoToFollow: jest.fn(),
             getCategoryTrending: jest.fn(),
         };
@@ -43,7 +42,7 @@ describe('ExploreController', () => {
             const expected_result = {
                 trending: [],
                 who_to_follow: [],
-                for_you_posts: [],
+                for_you: [],
             };
             const spy = jest.spyOn(service, 'getExploreData').mockResolvedValue(expected_result);
 
@@ -51,37 +50,6 @@ describe('ExploreController', () => {
 
             expect(spy).toHaveBeenCalledWith(user_id);
             expect(result).toEqual(expected_result);
-        });
-    });
-
-    describe('getTrending', () => {
-        it('should call explore_service.getTrending without parameters', async () => {
-            const expected_result = [];
-            const spy = jest.spyOn(service, 'getTrending').mockResolvedValue(expected_result);
-
-            const result = await controller.getTrending();
-
-            expect(spy).toHaveBeenCalledWith(undefined, undefined);
-            expect(result).toEqual(expected_result);
-        });
-
-        it('should call explore_service.getTrending with category', async () => {
-            const category = 'sports';
-            const spy = jest.spyOn(service, 'getTrending').mockResolvedValue([]);
-
-            await controller.getTrending(category);
-
-            expect(spy).toHaveBeenCalledWith(category, undefined);
-        });
-
-        it('should call explore_service.getTrending with category and country', async () => {
-            const category = 'sports';
-            const country = 'US';
-            const spy = jest.spyOn(service, 'getTrending').mockResolvedValue([]);
-
-            await controller.getTrending(category, country);
-
-            expect(spy).toHaveBeenCalledWith(category, country);
         });
     });
 
