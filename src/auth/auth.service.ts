@@ -472,11 +472,12 @@ export class AuthService {
             // Also remove from user's set
             const user_tokens_remove = USER_REFRESH_TOKENS_REMOVE(payload.id, payload.jti);
             await this.redis_service.srem(user_tokens_remove.key, user_tokens_remove.value);
+            const is_production = process.env.NODE_ENV === 'production';
 
             res.clearCookie('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: is_production ? 'strict' : 'none',
             });
 
             return {};
@@ -501,11 +502,12 @@ export class AuthService {
                 pipeline.del(user_tokens_key);
                 await pipeline.exec();
             }
+            const is_production = process.env.NODE_ENV === 'production';
 
             res.clearCookie('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: is_production ? 'strict' : 'none',
             });
 
             return {};
