@@ -849,7 +849,7 @@ export class NotificationsService implements OnModuleInit {
         // Deduplicate notifications: merge those with same type, same people, and same tweet
         const deduplicated_notifications = this.deduplicateNotifications(response_notifications);
 
-        // Clean up notifications with missing tweets
+        // Clean notifications with missing tweets
         if (missing_tweet_ids.size > 0) {
             await this.clear_jobs_service.queueClearNotification({
                 user_id,
