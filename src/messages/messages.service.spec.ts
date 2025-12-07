@@ -9,6 +9,8 @@ import { BadRequestException, ForbiddenException, NotFoundException } from '@nes
 import { ERROR_MESSAGES } from '../constants/swagger-messages';
 import { MessageType } from './entities/message.entity';
 import { FCMService } from '../fcm/fcm.service';
+import { MessagesGateway } from './messages.gateway';
+import { MessageJobService } from '../background-jobs/notifications/message/message.service';
 
 describe('MessagesService', () => {
     let service: MessagesService;
@@ -86,6 +88,18 @@ describe('MessagesService', () => {
                     provide: FCMService,
                     useValue: {
                         sendNotificationToUserDevice: jest.fn(),
+                    },
+                },
+                {
+                    provide: MessagesGateway,
+                    useValue: {
+                        isOnline: jest.fn(),
+                    },
+                },
+                {
+                    provide: MessageJobService,
+                    useValue: {
+                        queueMessageNotification: jest.fn(),
                     },
                 },
             ],
