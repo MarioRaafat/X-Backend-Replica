@@ -469,6 +469,18 @@ export class TweetsService {
         }
     }
 
+    async getTweetsByIds(
+        tweet_ids: string[],
+        current_user_id?: string
+    ): Promise<TweetResponseDTO[]> {
+        try {
+            return await this.tweets_repository.getTweetsByIds(tweet_ids, current_user_id);
+        } catch (error) {
+            console.error(error);
+            throw error;
+        }
+    }
+
     async likeTweet(tweet_id: string, user_id: string): Promise<void> {
         const query_runner = this.data_source.createQueryRunner();
         await query_runner.connect();
