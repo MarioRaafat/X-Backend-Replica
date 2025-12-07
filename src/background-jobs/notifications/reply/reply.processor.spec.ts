@@ -90,7 +90,7 @@ describe('ReplyProcessor', () => {
         expect(processor).toBeDefined();
     });
 
-    describe('handleSendReplyNotification', () => {
+    describe('handleSendReplyNotification - add action', () => {
         it('should process reply notification job successfully', async () => {
             user_repository.findOne.mockResolvedValueOnce(mock_user as User);
 
@@ -137,6 +137,29 @@ describe('ReplyProcessor', () => {
 
             expect(logger_warn_spy).toHaveBeenCalledWith(
                 `Replier with ID ${mock_job_data.replied_by} not found.`
+            );
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
+        });
+
+        it('should log warning when reply_tweet is missing', async () => {
+            user_repository.findOne.mockResolvedValueOnce(mock_user as User);
+
+            const job_data_without_tweet = {
+                ...mock_job_data,
+                reply_tweet: undefined,
+            };
+
+            const mock_job: Partial<Job<ReplyBackGroundNotificationJobDTO>> = {
+                id: 'job-missing-tweet',
+                data: job_data_without_tweet,
+            };
+
+            await processor.handleSendReplyNotification(
+                mock_job as Job<ReplyBackGroundNotificationJobDTO>
+            );
+
+            expect(logger_warn_spy).toHaveBeenCalledWith(
+                `Reply tweet with ID ${job_data_without_tweet.reply_tweet_id} not found.`
             );
             expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
@@ -214,6 +237,120 @@ describe('ReplyProcessor', () => {
                     }),
                 })
             );
+        });
+    });
+
+    describe('handleSendReplyNotification - remove action', () => {
+        it('should remove reply notification successfully', async () => {
+            notifications_service.removeReplyNotification = jest.fn().mockResolvedValue(true);
+            notifications_service.sendNotificationOnly = jest.fn();
+
+            const remove_job_data: ReplyBackGroundNotificationJobDTO = {
+                reply_to: 'user-123',
+                replied_by: 'user-456',
+                reply_tweet_id: 'reply-tweet-123',
+                original_tweet_id: 'original-tweet-123',
+                conversation_id: 'conversation-123',
+                action: 'remove',
+            };
+
+            const mock_job: Partial<Job<ReplyBackGroundNotificationJobDTO>> = {
+                id: 'job-remove-1',
+                data: remove_job_data,
+            };
+
+            await processor.handleSendReplyNotification(
+                mock_job as Job<ReplyBackGroundNotificationJobDTO>
+            );
+
+            expect(notifications_service.removeReplyNotification).toHaveBeenCalledWith(
+                'user-123',
+                'reply-tweet-123',
+                'user-456'
+            );
+            expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
+                NotificationType.REPLY,
+                'user-123',
+                expect.objectContaining({
+                    replied_by: 'user-456',
+                })
+            );
+        });
+
+        it('should not send notification if removal failed', async () => {
+            notifications_service.removeReplyNotification = jest.fn().mockResolvedValue(false);
+            notifications_service.sendNotificationOnly = jest.fn();
+
+            const remove_job_data: ReplyBackGroundNotificationJobDTO = {
+                reply_to: 'user-123',
+                replied_by: 'user-456',
+                reply_tweet_id: 'reply-tweet-123',
+                original_tweet_id: 'original-tweet-123',
+                conversation_id: 'conversation-123',
+                action: 'remove',
+            };
+
+            const mock_job: Partial<Job<ReplyBackGroundNotificationJobDTO>> = {
+                id: 'job-remove-2',
+                data: remove_job_data,
+            };
+
+            await processor.handleSendReplyNotification(
+                mock_job as Job<ReplyBackGroundNotificationJobDTO>
+            );
+
+            expect(notifications_service.removeReplyNotification).toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
+        });
+
+        it('should handle missing reply_to during removal', async () => {
+            notifications_service.removeReplyNotification = jest.fn();
+            notifications_service.sendNotificationOnly = jest.fn();
+
+            const remove_job_data: ReplyBackGroundNotificationJobDTO = {
+                replied_by: 'user-456',
+                reply_tweet_id: 'reply-tweet-123',
+                original_tweet_id: 'original-tweet-123',
+                conversation_id: 'conversation-123',
+                action: 'remove',
+            } as any;
+
+            const mock_job: Partial<Job<ReplyBackGroundNotificationJobDTO>> = {
+                id: 'job-remove-3',
+                data: remove_job_data,
+            };
+
+            await processor.handleSendReplyNotification(
+                mock_job as Job<ReplyBackGroundNotificationJobDTO>
+            );
+
+            expect(notifications_service.removeReplyNotification).not.toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
+        });
+
+        it('should handle missing reply_tweet_id during removal', async () => {
+            notifications_service.removeReplyNotification = jest.fn();
+            notifications_service.sendNotificationOnly = jest.fn();
+
+            const remove_job_data: ReplyBackGroundNotificationJobDTO = {
+                reply_to: 'user-123',
+                replied_by: 'user-456',
+                original_tweet_id: 'original-tweet-123',
+                conversation_id: 'conversation-123',
+                action: 'remove',
+            } as any;
+
+            const mock_job: Partial<Job<ReplyBackGroundNotificationJobDTO>> = {
+                id: 'job-remove-4',
+                data: remove_job_data,
+            };
+
+            await processor.handleSendReplyNotification(
+                mock_job as Job<ReplyBackGroundNotificationJobDTO>
+            );
+
+            expect(notifications_service.removeReplyNotification).not.toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
         });
     });
 });

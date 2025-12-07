@@ -30,9 +30,9 @@ export class NotificationsService implements OnModuleInit {
         private readonly notificationModel: Model<Notification>,
         private readonly notificationsGateway: NotificationsGateway,
         @InjectRepository(User)
-        private readonly userRepository: Repository<User>,
+        private readonly user_repository: Repository<User>,
         @InjectRepository(Tweet)
-        private readonly tweetRepository: Repository<Tweet>,
+        private readonly tweet_repository: Repository<Tweet>,
         private readonly clear_jobs_service: ClearJobService,
         @Inject(forwardRef(() => FCMService))
         private readonly fcmService: FCMService,
@@ -597,13 +597,13 @@ export class NotificationsService implements OnModuleInit {
         // Fetch all data in parallel
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
-                ? this.userRepository.find({
+                ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
                       select: ['id', 'username', 'name', 'avatar_url', 'email'],
                   })
                 : [],
             tweet_ids.size > 0
-                ? this.tweetRepository.find({
+                ? this.tweet_repository.find({
                       where: { tweet_id: In(Array.from(tweet_ids)) },
                   })
                 : [],
@@ -962,13 +962,13 @@ export class NotificationsService implements OnModuleInit {
         // Fetch all required data in parallel
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
-                ? this.userRepository.find({
+                ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
                       select: ['id', 'username', 'name', 'avatar_url', 'email'],
                   })
                 : [],
             tweet_ids.size > 0
-                ? this.tweetRepository.find({
+                ? this.tweet_repository.find({
                       where: { tweet_id: In(Array.from(tweet_ids)) },
                   })
                 : [],

@@ -75,13 +75,14 @@ describe('MessagesService', () => {
                     useValue: {
                         findOne: jest.fn(),
                         increment: jest.fn(),
+                        find: jest.fn(),
                     },
                 },
                 {
                     provide: PaginationService,
                     useValue: {
                         applyCursorPagination: jest.fn((qb) => qb),
-                        generateNextCursor: jest.fn(),
+                        generateNextCursor: jest.fn(() => 'next-cursor-123'),
                     },
                 },
                 {
@@ -291,6 +292,23 @@ describe('MessagesService', () => {
             expect(result.messages[0].reply_to).toBe('reply-123');
             expect(result.messages[0].sender.username).toBe('user1');
         });
+
+        it('should handle pagination with has_more = true', async () => {
+            const query = { limit: 2 };
+            const messages = [
+                mock_message,
+                { ...mock_message, id: 'msg-2', content: 'Message 2' },
+                { ...mock_message, id: 'msg-3', content: 'Message 3' }, // Extra message
+            ];
+            chat_repository.findOne.mockResolvedValue(mock_chat as any);
+            message_repository.findMessagesByChatId.mockResolvedValue(messages as any);
+
+            const result = await service.getMessages(mock_user_id, mock_chat_id, query);
+
+            expect(result.messages).toHaveLength(2); // Should pop the extra message
+            expect(result.has_more).toBe(true);
+            expect(result.next_cursor).toBeDefined();
+        });
     });
 
     describe('updateMessage', () => {
@@ -351,6 +369,116 @@ describe('MessagesService', () => {
             await expect(
                 service.deleteMessage(mock_user_id, mock_chat_id, mock_message_id)
             ).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    describe('getUnreadChatsForUser', () => {
+        it('should return unread chats with correct counts', async () => {
+            const chats = [
+                {
+                    id: 'chat-1',
+                    user1_id: mock_user_id,
+                    user2_id: 'user-other',
+                    user1: {
+                        id: mock_user_id,
+                        username: 'user1',
+                        name: 'User One',
+                        avatar_url: 'avatar1.jpg',
+                    },
+                    user2: {
+                        id: 'user-other',
+                        username: 'user2',
+                        name: 'User Two',
+                        avatar_url: 'avatar2.jpg',
+                    },
+                    unread_count_user1: 5,
+                    unread_count_user2: 0,
+                    updated_at: new Date('2024-01-15'),
+                },
+                {
+                    id: 'chat-2',
+                    user1_id: 'user-other2',
+                    user2_id: mock_user_id,
+                    user1: {
+                        id: 'user-other2',
+                        username: 'user3',
+                        name: 'User Three',
+                        avatar_url: 'avatar3.jpg',
+                    },
+                    user2: {
+                        id: mock_user_id,
+                        username: 'user1',
+                        name: 'User One',
+                        avatar_url: 'avatar1.jpg',
+                    },
+                    unread_count_user1: 0,
+                    unread_count_user2: 3,
+                    updated_at: new Date('2024-01-16'),
+                },
+                {
+                    id: 'chat-3',
+                    user1_id: mock_user_id,
+                    user2_id: 'user-other3',
+                    user1: {
+                        id: mock_user_id,
+                        username: 'user1',
+                        name: 'User One',
+                        avatar_url: 'avatar1.jpg',
+                    },
+                    user2: {
+                        id: 'user-other3',
+                        username: 'user4',
+                        name: 'User Four',
+                        avatar_url: 'avatar4.jpg',
+                    },
+                    unread_count_user1: 0,
+                    unread_count_user2: 0,
+                    updated_at: new Date('2024-01-14'),
+                },
+            ];
+
+            chat_repository.find.mockResolvedValue(chats as any);
+
+            const result = await service.getUnreadChatsForUser(mock_user_id);
+
+            expect(result).toHaveLength(2);
+            expect(result[0].chat_id).toBe('chat-1');
+            expect(result[0].unread_count).toBe(5);
+            expect(result[0].other_user.username).toBe('user2');
+            expect(result[1].chat_id).toBe('chat-2');
+            expect(result[1].unread_count).toBe(3);
+            expect(result[1].other_user.username).toBe('user3');
+        });
+
+        it('should return empty array when no unread chats', async () => {
+            const chats = [
+                {
+                    id: 'chat-1',
+                    user1_id: mock_user_id,
+                    user2_id: 'user-other',
+                    user1: {
+                        id: mock_user_id,
+                        username: 'user1',
+                        name: 'User One',
+                        avatar_url: 'avatar1.jpg',
+                    },
+                    user2: {
+                        id: 'user-other',
+                        username: 'user2',
+                        name: 'User Two',
+                        avatar_url: 'avatar2.jpg',
+                    },
+                    unread_count_user1: 0,
+                    unread_count_user2: 0,
+                    updated_at: new Date(),
+                },
+            ];
+
+            chat_repository.find.mockResolvedValue(chats as any);
+
+            const result = await service.getUnreadChatsForUser(mock_user_id);
+
+            expect(result).toHaveLength(0);
         });
     });
 });

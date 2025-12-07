@@ -361,6 +361,52 @@ describe('SearchService', () => {
                 'Invalid cursor'
             );
         });
+
+        it('should search users with exact limit results (no has_more)', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: SearchQueryDto = {
+                query: 'alyaa',
+                limit: 2,
+            };
+
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce([
+                {
+                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                    username: 'alyaa242',
+                    name: 'Alyaa Ali',
+                    bio: 'Software developer',
+                    avatar_url: 'https://example.com/blah.jpg',
+                    cover_url: 'https://example.com/blah.jpg',
+                    verified: true,
+                    followers: 100,
+                    following: 50,
+                    is_following: false,
+                    is_follower: false,
+                    total_score: 150.5,
+                },
+                {
+                    user_id: '2b8e9906-65bb-4fa4-a614-ecc6a434ee95',
+                    username: 'alyaa123',
+                    name: 'Alyaa Ahmed',
+                    bio: 'Engineer',
+                    avatar_url: 'https://example.com/photo.jpg',
+                    cover_url: 'https://example.com/photo.jpg',
+                    verified: false,
+                    followers: 50,
+                    following: 30,
+                    is_following: false,
+                    is_follower: false,
+                    total_score: 140.5,
+                },
+            ]);
+
+            const result = await service.searchUsers(current_user_id, query_dto);
+
+            expect(result.data).toHaveLength(2);
+            expect(result.pagination.has_more).toBe(false);
+            expect(result.pagination.next_cursor).toBeNull();
+        });
     });
 
     describe('searchPosts', () => {
@@ -968,6 +1014,51 @@ describe('SearchService', () => {
                     has_more: false,
                 },
             });
+        });
+
+        it('should search posts with exact limit results (no has_more)', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
+                limit: 1,
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: {
+                                tweet_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                                type: 'post',
+                                content: 'Great technology article',
+                                created_at: '2024-01-15T08:00:00Z',
+                                num_likes: 10,
+                                num_reposts: 5,
+                                num_views: 100,
+                                num_replies: 2,
+                                num_quotes: 1,
+                                author_id: 'author-id-1',
+                                username: 'techuser',
+                                name: 'Tech User',
+                                avatar_url: 'https://example.com/avatar1.jpg',
+                                followers: 100,
+                                following: 50,
+                                images: [],
+                                videos: [],
+                            },
+                            sort: [1234567890],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(result.data).toHaveLength(1);
+            expect(result.pagination.has_more).toBe(false);
+            expect(result.pagination.next_cursor).toBeNull();
         });
     });
 

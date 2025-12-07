@@ -7,6 +7,7 @@ import {
     JOB_PRIORITIES,
     QUEUE_NAMES,
 } from '../../constants/queue.constants';
+import type { Queue } from 'bull';
 import { ClearBackGroundNotificationJobDTO } from './clear.dto';
 
 describe('ClearJobService', () => {

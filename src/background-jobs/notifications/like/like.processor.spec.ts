@@ -76,7 +76,7 @@ describe('LikeProcessor', () => {
         expect(processor).toBeDefined();
     });
 
-    describe('handleSendLikeNotification', () => {
+    describe('handleSendLikeNotification - add action', () => {
         it('should process like notification job successfully', async () => {
             user_repository.findOne.mockResolvedValueOnce(mock_user as User);
 
@@ -163,6 +163,89 @@ describe('LikeProcessor', () => {
             ).rejects.toThrow(error);
 
             expect(logger_spy).toHaveBeenCalled();
+        });
+    });
+
+    describe('handleSendLikeNotification - remove action', () => {
+        it('should remove like notification successfully', async () => {
+            notifications_service.removeLikeNotification = jest.fn().mockResolvedValue(true);
+            notifications_service.sendNotificationOnly = jest.fn();
+
+            const remove_job_data: LikeBackGroundNotificationJobDTO = {
+                like_to: 'user-123',
+                liked_by: 'user-456',
+                tweet_id: 'tweet-123',
+                action: 'remove',
+            };
+
+            const mock_job: Partial<Job<LikeBackGroundNotificationJobDTO>> = {
+                id: 'job-remove-1',
+                data: remove_job_data,
+            };
+
+            await processor.handleSendLikeNotification(
+                mock_job as Job<LikeBackGroundNotificationJobDTO>
+            );
+
+            expect(notifications_service.removeLikeNotification).toHaveBeenCalledWith(
+                'user-123',
+                'tweet-123',
+                'user-456'
+            );
+            expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
+                NotificationType.LIKE,
+                'user-123',
+                expect.objectContaining({
+                    liked_by: 'user-456',
+                })
+            );
+        });
+
+        it('should not send notification if removal failed', async () => {
+            notifications_service.removeLikeNotification = jest.fn().mockResolvedValue(false);
+            notifications_service.sendNotificationOnly = jest.fn();
+
+            const remove_job_data: LikeBackGroundNotificationJobDTO = {
+                like_to: 'user-123',
+                liked_by: 'user-456',
+                tweet_id: 'tweet-123',
+                action: 'remove',
+            };
+
+            const mock_job: Partial<Job<LikeBackGroundNotificationJobDTO>> = {
+                id: 'job-remove-2',
+                data: remove_job_data,
+            };
+
+            await processor.handleSendLikeNotification(
+                mock_job as Job<LikeBackGroundNotificationJobDTO>
+            );
+
+            expect(notifications_service.removeLikeNotification).toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
+        });
+
+        it('should handle missing tweet_id during removal', async () => {
+            notifications_service.removeLikeNotification = jest.fn();
+            notifications_service.sendNotificationOnly = jest.fn();
+
+            const remove_job_data: LikeBackGroundNotificationJobDTO = {
+                like_to: 'user-123',
+                liked_by: 'user-456',
+                action: 'remove',
+            };
+
+            const mock_job: Partial<Job<LikeBackGroundNotificationJobDTO>> = {
+                id: 'job-remove-3',
+                data: remove_job_data,
+            };
+
+            await processor.handleSendLikeNotification(
+                mock_job as Job<LikeBackGroundNotificationJobDTO>
+            );
+
+            expect(notifications_service.removeLikeNotification).not.toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
         });
     });
 });

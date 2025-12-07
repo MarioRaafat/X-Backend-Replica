@@ -3,6 +3,7 @@ export const QUEUE_NAMES = {
     TIMELINE: 'timeline-queue',
     FEED: 'feed-queue',
     NOTIFICATION: 'notification-queue',
+    EXPLORE: 'explore-score-updates',
     ELASTICSEARCH: 'elasticsearch-queue',
     VIDEO: 'video-queue',
     AI_SUMMARY: 'ai-summary-queue',
@@ -37,6 +38,9 @@ export const JOB_NAMES = {
         DELETE_USER: 'delete-user',
         FOLLOW: 'follow',
     },
+    EXPLORE: {
+        RECALCULATE_SCORES: 'recalculate-explore-scores',
+    },
     VIDEO: {
         COMPRESS: 'compress-video',
     },
@@ -60,3 +64,35 @@ export const JOB_DELAYS = {
     MEDIUM: 30000, // 30 seconds
     LONG: 300000, // 5 minutes
 } as const;
+
+export const EXPLORE_CONFIG = {
+    ENGAGEMENT_WEIGHTS: {
+        LIKE: 1,
+        REPOST: 2,
+        QUOTE: 3,
+        REPLY: 1,
+    },
+    GRAVITY: 1.8,
+    TIME_OFFSET: 2,
+    DEFAULT_MAX_AGE_HOURS: 24 * 7,
+    DEFAULT_SINCE_HOURS: 1,
+    DEFAULT_BATCH_SIZE: 500,
+    MIN_SCORE_THRESHOLD: 0.001,
+    MAX_CATEGORY_SIZE: 20,
+} as const;
+
+export const EXPLORE_CRON_SCHEDULE = '0 * * * *'; // Every minute
+
+export const EXPLORE_JOB_PRIORITIES = {
+    HIGH: 1,
+    NORMAL: 2,
+    LOW: 3,
+};
+
+export const EXPLORE_JOB_RETRY = {
+    attempts: 3,
+    backoff: {
+        type: 'exponential' as const,
+        delay: 5000,
+    },
+};
