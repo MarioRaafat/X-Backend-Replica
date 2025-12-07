@@ -5,7 +5,11 @@ import { EmailService } from '../../communication/email.service';
 import { JOB_NAMES, QUEUE_NAMES } from '../constants/queue.constants';
 import type { OtpEmailJobDto } from './email-job.dto';
 import { generateOtpEmailHtml } from '../../templates/otp-email';
-import { reset_password_email_object, verification_email_object } from 'src/constants/variables';
+import {
+    reset_password_email_object,
+    update_email_email_object,
+    verification_email_object,
+} from 'src/constants/variables';
 
 @Processor(QUEUE_NAMES.EMAIL)
 export class EmailProcessor {
@@ -38,7 +42,7 @@ export class EmailProcessor {
 
                 case 'update_email': {
                     ({ subject, title, description, subtitle, subtitle_description } =
-                        reset_password_email_object(username));
+                        update_email_email_object(username, otp));
                     break;
                 }
 
