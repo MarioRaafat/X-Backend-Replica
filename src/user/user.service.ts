@@ -631,7 +631,6 @@ export class UserService {
     async deleteUser(current_user_id: string): Promise<void> {
         const user = await this.user_repository.findOne({
             where: { id: current_user_id },
-            withDeleted: true,
         });
 
         if (!user) {
