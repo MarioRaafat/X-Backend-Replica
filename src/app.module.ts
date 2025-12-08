@@ -60,7 +60,6 @@ import { ScheduleModule } from '@nestjs/schedule';
         TypeOrmModule.forFeature([User, Tweet, UserFollows, TweetLike, TweetReply]),
         FcmModule,
         TrendModule,
-        ScheduleModule.forRoot(),
     ],
     controllers: [AppController, TestController],
     providers: [AppService],
