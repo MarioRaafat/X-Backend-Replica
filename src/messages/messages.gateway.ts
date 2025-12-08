@@ -149,10 +149,15 @@ export class MessagesGateway {
             );
 
             if (recipient_id) {
-                this.emitToUser(recipient_id, 'new_message', {
-                    chat_id,
-                    message: result,
-                });
+                this.emitToUser(
+                    recipient_id,
+                    'new_message',
+                    {
+                        chat_id,
+                        message: result,
+                    },
+                    client.id
+                );
 
                 this.emitToUser(
                     user_id,
@@ -176,10 +181,15 @@ export class MessagesGateway {
                         client.id
                     );
 
-                    this.emitToUser(recipient_id, 'first_message', {
-                        chat_id,
-                        message: result,
-                    });
+                    this.emitToUser(
+                        recipient_id,
+                        'first_message',
+                        {
+                            chat_id,
+                            message: result,
+                        },
+                        client.id
+                    );
                 }
             } else {
                 this.server.to(chat_id).emit('new_message', {
@@ -217,11 +227,16 @@ export class MessagesGateway {
 
             const recipient_id = result.recipient_id;
             if (recipient_id) {
-                this.emitToUser(recipient_id, 'message_updated', {
-                    chat_id,
-                    message_id,
-                    message: result,
-                });
+                this.emitToUser(
+                    recipient_id,
+                    'message_updated',
+                    {
+                        chat_id,
+                        message_id,
+                        message: result,
+                    },
+                    client.id
+                );
 
                 this.emitToUser(
                     user_id,
@@ -262,11 +277,17 @@ export class MessagesGateway {
 
             const recipient_id = result.recipient_id;
             if (recipient_id) {
-                this.emitToUser(recipient_id, 'message_deleted', {
-                    chat_id,
-                    message_id,
-                    message: result,
-                });
+                this.emitToUser(
+                    recipient_id,
+                    'message_deleted',
+                    {
+                        chat_id,
+                        message_id,
+                        message: result,
+                    },
+                    client.id
+                );
+
                 this.emitToUser(
                     user_id,
                     'message_deleted',
@@ -399,5 +420,66 @@ export class MessagesGateway {
             }
         }
         return false;
+    }
+
+    async handleAddReaction(
+        client: Socket,
+        data: { chat_id: string; message_id: string; emoji: string }
+    ) {
+        try {
+            const user_id = client.data.user?.id;
+            const { chat_id, message_id, emoji } = data;
+
+            const result = await this.messages_service.addReaction(user_id, chat_id, message_id, {
+                emoji,
+            });
+            this.server.to(chat_id).emit('reaction_added', {
+                chat_id,
+                message_id,
+                user_id,
+                emoji,
+                created_at: result.created_at,
+            });
+
+            return {
+                event: 'reaction_added',
+                data: result,
+            };
+        } catch (error) {
+            return {
+                event: 'error',
+                data: { message: error.message || 'Failed to add reaction' },
+            };
+        }
+    }
+
+    async handleRemoveReaction(
+        client: Socket,
+        data: { chat_id: string; message_id: string; emoji: string }
+    ) {
+        try {
+            const user_id = client.data.user?.id;
+            const { chat_id, message_id, emoji } = data;
+
+            await this.messages_service.removeReaction(user_id, chat_id, message_id, { emoji });
+            this.server.to(chat_id).emit('reaction_removed', {
+                chat_id,
+                message_id,
+                user_id,
+                emoji,
+            });
+
+            return {
+                event: 'reaction_removed',
+                data: {
+                    message: 'Reaction removed successfully',
+                },
+            };
+        } catch (error) {
+            return {
+                event: 'error',
+                data: { message: error.message || 'Failed to remove reaction' },
+            };
+        }
     }
 }

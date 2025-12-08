@@ -30,7 +30,7 @@ export class Chat {
     @Column()
     user2_id: string;
 
-    @OneToMany('Message', 'chat')
+    @OneToMany('Message', 'chat', { cascade: true, onDelete: 'CASCADE' })
     messages: Message[];
 
     // Denormalized fields for performance

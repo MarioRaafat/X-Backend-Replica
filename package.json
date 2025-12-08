@@ -29,7 +29,8 @@
         "prepare": "husky",
         "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts",
         "es:seed": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-seed.ts",
-        "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts"
+        "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts",
+        "generate-encryption-key": "node -r ts-node/register src/shared/services/encryption/generate-encryption-key.ts"
     },
     "lint-staged": {
         "*.ts": [

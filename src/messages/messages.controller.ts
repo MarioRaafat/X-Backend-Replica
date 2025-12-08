@@ -40,6 +40,7 @@ import {
 } from './dto';
 import {
     delete_message_swagger,
+    get_message_reactions_swagger,
     get_messages_swagger,
     send_message_swagger,
     update_message_swagger,
@@ -191,5 +192,21 @@ export class MessagesController {
         @GetUserId() user_id: string
     ) {
         return this.messages_service.deleteMessage(user_id, chat_id, message_id);
+    }
+
+    @ApiOperation(get_message_reactions_swagger.operation)
+    @ApiParam(get_message_reactions_swagger.params.chat_id)
+    @ApiParam(get_message_reactions_swagger.params.message_id)
+    @ApiOkResponse(get_message_reactions_swagger.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.MESSAGE_NOT_FOUND)
+    @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
+    @ResponseMessage(SUCCESS_MESSAGES.MESSAGE_REACTIONS_RETRIEVED)
+    @Get('chats/:chat_id/messages/:message_id/reactions')
+    async getMessageReactions(
+        @Param('chat_id') chat_id: string,
+        @Param('message_id') message_id: string,
+        @GetUserId() user_id: string
+    ) {
+        return this.messages_service.getMessageReactions(user_id, chat_id, message_id);
     }
 }
