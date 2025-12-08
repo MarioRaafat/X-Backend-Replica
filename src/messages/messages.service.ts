@@ -18,9 +18,14 @@ import { FCMService } from 'src/fcm/fcm.service';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 import { MessagesGateway } from './messages.gateway';
 import { MessageJobService } from 'src/background-jobs/notifications/message/message.service';
+import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
+import { ConfigService } from '@nestjs/config';
+import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_FILE_SIZE } from 'src/constants/variables';
 
 @Injectable()
 export class MessagesService {
+    private message_images_container: string;
+
     constructor(
         private readonly message_repository: MessageRepository,
         @InjectRepository(Chat)
@@ -29,8 +34,14 @@ export class MessagesService {
         private readonly fcm_service: FCMService,
         @Inject(forwardRef(() => MessagesGateway))
         private readonly message_gateway: MessagesGateway,
-        private readonly message_job_service: MessageJobService
-    ) {}
+        private readonly message_job_service: MessageJobService,
+        private readonly azure_storage_service: AzureStorageService,
+        private readonly config_service: ConfigService
+    ) {
+        this.message_images_container =
+            this.config_service.get<string>('AZURE_STORAGE_MESSAGE_IMAGE_CONTAINER') ||
+            'message-images';
+    }
 
     async validateChatParticipation(
         user_id: string,
@@ -257,5 +268,41 @@ export class MessagesService {
             });
 
         return unread_chats;
+    }
+
+    async uploadMessageImage(
+        user_id: string,
+        file: Express.Multer.File
+    ): Promise<{ image_url: string }> {
+        if (!file || !file.buffer) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+        }
+
+        if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.mimetype as any)) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_FILE_FORMAT);
+        }
+
+        if (file.size > MAX_IMAGE_FILE_SIZE) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_TOO_LARGE);
+        }
+
+        try {
+            const file_name = this.azure_storage_service.generateFileName(
+                user_id,
+                file.originalname
+            );
+
+            const image_url = await this.azure_storage_service.uploadFile(
+                file.buffer,
+                file_name,
+                this.message_images_container
+            );
+
+            return {
+                image_url,
+            };
+        } catch (error) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
+        }
     }
 }

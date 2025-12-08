@@ -4,6 +4,7 @@ import {
     IsNotEmpty,
     IsOptional,
     IsString,
+    IsUrl,
     IsUUID,
     MaxLength,
     MinLength,
@@ -49,4 +50,15 @@ export class SendMessageDto {
     @IsString()
     @IsUUID()
     reply_to_message_id?: string;
+
+    @ApiPropertyOptional({
+        description:
+            'URL of the image attached to the message (obtained from image upload endpoint)',
+        example:
+            'https://yapperdev.blob.core.windows.net/message-images/user-123-1234567890-image.jpg',
+    })
+    @IsOptional()
+    @IsString()
+    @IsUrl()
+    image_url?: string;
 }

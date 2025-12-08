@@ -707,3 +707,62 @@ Sent when an error occurs during any operation.
         },
     },
 };
+
+export const upload_message_image_swagger = {
+    operation: {
+        summary: 'Upload message image',
+        description: `
+**Upload an image to be attached to a message**
+
+Upload an image file that can be attached to a message. The image will be stored in Azure Blob Storage and you'll receive a URL that can be passed to the send message endpoint.
+
+**Features:**
+- Supports JPEG, PNG, WebP, and GIF formats
+- Maximum file size: 5MB
+- Images are automatically saved with unique filenames
+- Returns a direct URL to the uploaded image
+
+**File Requirements:**
+- Format: JPEG, PNG, WebP, GIF
+- Max Size: 5MB
+- The file must be provided as form-data with field name 'file'
+
+**Usage Flow:**
+1. Upload image using this endpoint
+2. Receive image_url from response
+3. Pass image_url in the send message DTO when sending message
+4. Message will be sent with the image attached
+        `,
+    },
+
+    body: {
+        description: 'Message image file',
+        schema: {
+            type: 'object',
+            properties: {
+                file: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Message image file (JPEG, PNG, etc.)',
+                },
+            },
+            required: ['file'],
+        },
+    },
+
+    responses: {
+        success: {
+            description: 'Image uploaded successfully',
+            schema: {
+                example: {
+                    data: {
+                        image_url:
+                            'https://yapperdev.blob.core.windows.net/message-images/user-123-1234567890-image.jpg',
+                    },
+                    count: 0,
+                    message: 'Image uploaded successfully',
+                },
+            },
+        },
+    },
+};

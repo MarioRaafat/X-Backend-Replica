@@ -10,6 +10,19 @@ export const POST_CONTENT_LENGTH = 280;
 export const MESSAGE_CONTENT_LENGTH = 300;
 export const OTP_LENGTH = 6;
 
+// File upload constants
+export const ALLOWED_IMAGE_MIME_TYPES = [
+    'image/jpeg',
+    'image/png',
+    'image/webp',
+    'image/gif',
+    'image/bmp',
+    'image/tiff',
+    'image/svg+xml',
+    'image/x-icon',
+] as const;
+export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
 // ------------------------- Email Templates ------------------------- //
 export const verification_email_object = (otp: string, link: string) => ({
     subject: `${otp} is your Y verification code`,

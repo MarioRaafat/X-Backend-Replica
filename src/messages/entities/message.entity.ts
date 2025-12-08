@@ -46,7 +46,7 @@ export class Message {
     @Column()
     chat_id: string;
 
-    @Column({ nullable: true })
+    @Column({ type: 'text', nullable: true })
     image_url: string | null;
 
     @ManyToOne(() => Message, { nullable: true })

@@ -10,12 +10,14 @@ import { MessagesGateway } from './messages.gateway';
 import { ChatModule } from 'src/chat/chat.module';
 import { FcmModule } from 'src/fcm/fcm.module';
 import { BackgroundJobsModule } from 'src/background-jobs';
+import { AzureStorageModule } from 'src/azure-storage/azure-storage.module';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Message, Chat]),
         ChatModule,
         FcmModule,
+        AzureStorageModule,
         forwardRef(() => BackgroundJobsModule),
     ],
     providers: [MessagesService, MessageRepository, PaginationService, MessagesGateway],
