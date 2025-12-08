@@ -347,7 +347,6 @@ export class SearchService {
             const search_body: any = {
                 query: {
                     bool: {
-                        must: [],
                         should: [],
                         minimum_should_match: 1,
                     },
@@ -675,23 +674,15 @@ export class SearchService {
                 match: {
                     'content.autocomplete': {
                         query: sanitized_query.trim(),
-                        boost: 5,
+                        boost: 8,
                     },
                 },
             },
             {
-                prefix: {
-                    username: {
-                        value: sanitized_query.trim().toLowerCase(),
-                        boost: 3,
-                    },
-                },
-            },
-            {
-                match_phrase_prefix: {
-                    name: {
+                match: {
+                    'name.autocomplete': {
                         query: sanitized_query.trim(),
-                        boost: 2,
+                        boost: 6,
                     },
                 },
             }
@@ -708,18 +699,23 @@ export class SearchService {
             { field: 'followers', factor: 0.001 },
         ];
 
-        const boost_queries = boosting_factors.map(({ field, factor }) => ({
-            function_score: {
-                field_value_factor: {
-                    field,
-                    factor,
-                    modifier: 'log1p',
-                    missing: 0,
-                },
-            },
-        }));
+        const original_query = { ...search_body.query };
 
-        search_body.query.bool.should.push(...boost_queries);
+        search_body.query = {
+            function_score: {
+                query: original_query,
+                functions: boosting_factors.map(({ field, factor }) => ({
+                    field_value_factor: {
+                        field,
+                        factor,
+                        modifier: 'log1p',
+                        missing: 0,
+                    },
+                })),
+                score_mode: 'sum',
+                boost_mode: 'multiply',
+            },
+        };
     }
 
     private async attachRelatedTweets(items: any[]): Promise<TweetResponseDTO[]> {

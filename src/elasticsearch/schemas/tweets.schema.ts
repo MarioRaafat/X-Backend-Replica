@@ -87,6 +87,11 @@ export const tweets_index_config = {
                         type: 'keyword',
                         ignore_above: 256,
                     },
+                    autocomplete: {
+                        type: 'text',
+                        analyzer: 'autocomplete_analyzer',
+                        search_analyzer: 'autocomplete_search_analyzer',
+                    },
                 },
             },
             username: {
