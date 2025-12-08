@@ -35,6 +35,13 @@ export class SendMessageDto {
     message_type?: MessageType = MessageType.TEXT;
 
     @ApiPropertyOptional({
+        description: 'Indicates if this is the first message in the conversation',
+        example: false,
+    })
+    @IsOptional()
+    is_first_message?: boolean;
+
+    @ApiPropertyOptional({
         description: 'ID of the message being replied to (only for reply messages)',
         example: 'msg_789def-012abc-345ghi',
     })

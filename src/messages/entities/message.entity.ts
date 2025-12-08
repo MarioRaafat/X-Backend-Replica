@@ -46,6 +46,9 @@ export class Message {
     @Column()
     chat_id: string;
 
+    @Column({ nullable: true })
+    image_url: string | null;
+
     @ManyToOne(() => Message, { nullable: true })
     @JoinColumn({ name: 'reply_to_message_id' })
     reply_to: Message | null;

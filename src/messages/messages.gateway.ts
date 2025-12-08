@@ -153,6 +153,24 @@ export class MessagesGateway {
                     },
                     client.id
                 );
+
+                if (message.is_first_message) {
+                    // If it's the first message, notify the front end to refresh chat list
+                    this.emitToUser(
+                        user_id,
+                        'first_message',
+                        {
+                            chat_id,
+                            message: result,
+                        },
+                        client.id
+                    );
+
+                    this.emitToUser(recipient_id, 'first_message', {
+                        chat_id,
+                        message: result,
+                    });
+                }
             } else {
                 this.server.to(chat_id).emit('new_message', {
                     chat_id,
