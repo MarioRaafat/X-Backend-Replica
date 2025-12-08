@@ -18,8 +18,8 @@ export class AiSummaryProcessor {
         @InjectRepository(TweetSummary)
         private readonly tweet_summary_repository: Repository<TweetSummary>
     ) {
-        const apiKey = process.env.GROQ_API_KEY ?? '';
-        this.groq = new Groq({ apiKey });
+        const api_key = process.env.GROQ_API_KEY ?? '';
+        this.groq = new Groq({ apiKey: api_key });
     }
 
     @Process(JOB_NAMES.AI_SUMMARY.GENERATE_TWEET_SUMMARY)
@@ -30,13 +30,13 @@ export class AiSummaryProcessor {
             this.logger.log(`Processing AI summary generation for tweet: ${tweet_id}`);
 
             // Check if summary already exists
-            const existingSummary = await this.tweet_summary_repository.findOne({
+            const existing_summary = await this.tweet_summary_repository.findOne({
                 where: { tweet_id },
             });
 
-            if (existingSummary) {
+            if (existing_summary) {
                 this.logger.log(`Summary already exists for tweet: ${tweet_id}`);
-                return { success: true, summary: existingSummary.summary };
+                return { success: true, summary: existing_summary.summary };
             }
 
             // Check if Groq is enabled
@@ -49,7 +49,7 @@ export class AiSummaryProcessor {
 
             // Generate summary using Groq
             const response = await this.groq.chat.completions.create({
-                model: process.env.MODEL_NAME!,
+                model: process.env.MODEL_NAME,
                 messages: [
                     {
                         role: 'user',
@@ -63,12 +63,12 @@ export class AiSummaryProcessor {
             const summary = response.choices[0]?.message?.content || '';
 
             // Save summary to database
-            const tweetSummary = this.tweet_summary_repository.create({
+            const tweet_summary = this.tweet_summary_repository.create({
                 tweet_id,
                 summary,
             });
 
-            await this.tweet_summary_repository.save(tweetSummary);
+            await this.tweet_summary_repository.save(tweet_summary);
 
             this.logger.log(`Successfully generated summary for tweet: ${tweet_id}`);
             return { success: true, summary };

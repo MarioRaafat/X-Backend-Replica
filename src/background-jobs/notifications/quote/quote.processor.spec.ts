@@ -12,12 +12,12 @@ import { NotificationType } from 'src/notifications/enums/notification-types';
 
 describe('QuoteProcessor', () => {
     let processor: QuoteProcessor;
-    let notificationsService: jest.Mocked<NotificationsService>;
-    let userRepository: jest.Mocked<Repository<User>>;
-    let tweetRepository: jest.Mocked<Repository<Tweet>>;
-    let tweetQuoteRepository: jest.Mocked<Repository<TweetQuote>>;
+    let notifications_service: jest.Mocked<NotificationsService>;
+    let user_repository: jest.Mocked<Repository<User>>;
+    let tweet_repository: jest.Mocked<Repository<Tweet>>;
+    let tweet_quote_repository: jest.Mocked<Repository<TweetQuote>>;
 
-    const mockJob = (
+    const mock_job = (
         data: Partial<QuoteBackGroundNotificationJobDTO>
     ): Job<QuoteBackGroundNotificationJobDTO> =>
         ({
@@ -26,21 +26,21 @@ describe('QuoteProcessor', () => {
         }) as Job<QuoteBackGroundNotificationJobDTO>;
 
     beforeEach(async () => {
-        const mockNotificationsService = {
+        const mock_notifications_service = {
             removeQuoteNotification: jest.fn(),
             sendNotificationOnly: jest.fn(),
             saveNotificationAndSend: jest.fn(),
         };
 
-        const mockUserRepository = {
+        const mock_user_repository = {
             findOne: jest.fn(),
         };
 
-        const mockTweetRepository = {
+        const mock_tweet_repository = {
             findOne: jest.fn(),
         };
 
-        const mockTweetQuoteRepository = {
+        const mock_tweet_quote_repository = {
             findOne: jest.fn(),
         };
 
@@ -49,28 +49,28 @@ describe('QuoteProcessor', () => {
                 QuoteProcessor,
                 {
                     provide: NotificationsService,
-                    useValue: mockNotificationsService,
+                    useValue: mock_notifications_service,
                 },
                 {
                     provide: getRepositoryToken(User),
-                    useValue: mockUserRepository,
+                    useValue: mock_user_repository,
                 },
                 {
                     provide: getRepositoryToken(Tweet),
-                    useValue: mockTweetRepository,
+                    useValue: mock_tweet_repository,
                 },
                 {
                     provide: getRepositoryToken(TweetQuote),
-                    useValue: mockTweetQuoteRepository,
+                    useValue: mock_tweet_quote_repository,
                 },
             ],
         }).compile();
 
         processor = module.get<QuoteProcessor>(QuoteProcessor);
-        notificationsService = module.get(NotificationsService);
-        userRepository = module.get(getRepositoryToken(User));
-        tweetRepository = module.get(getRepositoryToken(Tweet));
-        tweetQuoteRepository = module.get(getRepositoryToken(TweetQuote));
+        notifications_service = module.get(NotificationsService);
+        user_repository = module.get(getRepositoryToken(User));
+        tweet_repository = module.get(getRepositoryToken(Tweet));
+        tweet_quote_repository = module.get(getRepositoryToken(TweetQuote));
     });
 
     afterEach(() => {
@@ -79,7 +79,7 @@ describe('QuoteProcessor', () => {
 
     describe('handleSendQuoteNotification - add action', () => {
         it('should process quote notification successfully', async () => {
-            const mockQuoter = {
+            const mock_quoter = {
                 id: 'quoter-id',
                 username: 'quoter',
                 email: 'quoter@test.com',
@@ -87,36 +87,36 @@ describe('QuoteProcessor', () => {
                 avatar_url: 'avatar.jpg',
             };
 
-            const mockQuoteTweet = {
+            const mock_quote_tweet = {
                 tweet_id: 'quote-123',
                 text: 'This is a quote',
                 user_id: 'quoter-id',
             };
 
-            const mockParentTweet = {
+            const mock_parent_tweet = {
                 tweet_id: 'parent-123',
                 text: 'Original tweet',
                 user_id: 'quote-to-id',
             };
 
-            userRepository.findOne.mockResolvedValue(mockQuoter as User);
+            user_repository.findOne.mockResolvedValue(mock_quoter as User);
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
-                quote_tweet: mockQuoteTweet as any,
+                quote_tweet: mock_quote_tweet as any,
                 quote_tweet_id: 'quote-123',
-                parent_tweet: mockParentTweet as any,
+                parent_tweet: mock_parent_tweet as any,
                 action: 'add',
             });
 
             await processor.handleSendQuoteNotification(job);
 
-            expect(userRepository.findOne).toHaveBeenCalledWith({
+            expect(user_repository.findOne).toHaveBeenCalledWith({
                 where: { id: 'quoter-id' },
                 select: ['username', 'email', 'name', 'avatar_url'],
             });
-            expect(notificationsService.saveNotificationAndSend).toHaveBeenCalledWith(
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledWith(
                 'quote-to-id',
                 expect.objectContaining({
                     type: NotificationType.QUOTE,
@@ -131,40 +131,40 @@ describe('QuoteProcessor', () => {
         });
 
         it('should log warning when quoter not found', async () => {
-            const loggerSpy = jest.spyOn(processor['logger'], 'warn');
-            userRepository.findOne.mockResolvedValue(null);
+            const logger_spy = jest.spyOn(processor['logger'], 'warn');
+            user_repository.findOne.mockResolvedValue(null);
 
-            const mockQuoteTweet = {
+            const mock_quote_tweet = {
                 tweet_id: 'quote-123',
                 text: 'This is a quote',
             };
 
-            const mockParentTweet = {
+            const mock_parent_tweet = {
                 tweet_id: 'parent-123',
                 text: 'Original tweet',
             };
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
-                quote_tweet: mockQuoteTweet as any,
+                quote_tweet: mock_quote_tweet as any,
                 quote_tweet_id: 'quote-123',
-                parent_tweet: mockParentTweet as any,
+                parent_tweet: mock_parent_tweet as any,
                 action: 'add',
             });
 
             await processor.handleSendQuoteNotification(job);
 
-            expect(loggerSpy).toHaveBeenCalledWith(
+            expect(logger_spy).toHaveBeenCalledWith(
                 expect.stringContaining('Quoter with ID quoter-id not found')
             );
-            expect(notificationsService.saveNotificationAndSend).not.toHaveBeenCalled();
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
 
         it('should log warning when parent_tweet not provided', async () => {
-            const loggerSpy = jest.spyOn(processor['logger'], 'warn');
+            const logger_spy = jest.spyOn(processor['logger'], 'warn');
 
-            const mockQuoter = {
+            const mock_quoter = {
                 id: 'quoter-id',
                 username: 'quoter',
                 email: 'quoter@test.com',
@@ -172,33 +172,33 @@ describe('QuoteProcessor', () => {
                 avatar_url: 'avatar.jpg',
             };
 
-            const mockQuoteTweet = {
+            const mock_quote_tweet = {
                 tweet_id: 'quote-123',
                 text: 'This is a quote',
             };
 
-            userRepository.findOne.mockResolvedValue(mockQuoter as User);
+            user_repository.findOne.mockResolvedValue(mock_quoter as User);
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
-                quote_tweet: mockQuoteTweet as any,
+                quote_tweet: mock_quote_tweet as any,
                 quote_tweet_id: 'quote-123',
                 action: 'add',
             });
 
             await processor.handleSendQuoteNotification(job);
 
-            expect(loggerSpy).toHaveBeenCalledWith(
+            expect(logger_spy).toHaveBeenCalledWith(
                 expect.stringContaining('Parent tweet for quote tweet ID quote-123 not found')
             );
-            expect(notificationsService.saveNotificationAndSend).not.toHaveBeenCalled();
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
 
         it('should log warning when quote_tweet not provided', async () => {
-            const loggerSpy = jest.spyOn(processor['logger'], 'warn');
+            const logger_spy = jest.spyOn(processor['logger'], 'warn');
 
-            const mockQuoter = {
+            const mock_quoter = {
                 id: 'quoter-id',
                 username: 'quoter',
                 email: 'quoter@test.com',
@@ -206,35 +206,35 @@ describe('QuoteProcessor', () => {
                 avatar_url: 'avatar.jpg',
             };
 
-            const mockParentTweet = {
+            const mock_parent_tweet = {
                 tweet_id: 'parent-123',
                 text: 'Original tweet',
             };
 
-            userRepository.findOne.mockResolvedValue(mockQuoter as User);
+            user_repository.findOne.mockResolvedValue(mock_quoter as User);
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
                 quote_tweet_id: 'quote-123',
-                parent_tweet: mockParentTweet as any,
+                parent_tweet: mock_parent_tweet as any,
                 action: 'add',
             });
 
             await processor.handleSendQuoteNotification(job);
 
-            expect(loggerSpy).toHaveBeenCalledWith(
+            expect(logger_spy).toHaveBeenCalledWith(
                 expect.stringContaining('Quote tweet with ID quote-123 not found')
             );
-            expect(notificationsService.saveNotificationAndSend).not.toHaveBeenCalled();
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
     });
 
     describe('handleSendQuoteNotification - remove action', () => {
         it('should remove quote notification successfully', async () => {
-            notificationsService.removeQuoteNotification.mockResolvedValue(true);
+            notifications_service.removeQuoteNotification.mockResolvedValue(true);
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
                 quote_tweet_id: 'quote-123',
@@ -243,12 +243,12 @@ describe('QuoteProcessor', () => {
 
             await processor.handleSendQuoteNotification(job);
 
-            expect(notificationsService.removeQuoteNotification).toHaveBeenCalledWith(
+            expect(notifications_service.removeQuoteNotification).toHaveBeenCalledWith(
                 'quote-to-id',
                 'quote-123',
                 'quoter-id'
             );
-            expect(notificationsService.sendNotificationOnly).toHaveBeenCalledWith(
+            expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
                 NotificationType.QUOTE,
                 'quote-to-id',
                 expect.objectContaining({
@@ -258,9 +258,9 @@ describe('QuoteProcessor', () => {
         });
 
         it('should not send notification if removal failed', async () => {
-            notificationsService.removeQuoteNotification.mockResolvedValue(false);
+            notifications_service.removeQuoteNotification.mockResolvedValue(false);
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
                 quote_tweet_id: 'quote-123',
@@ -269,12 +269,12 @@ describe('QuoteProcessor', () => {
 
             await processor.handleSendQuoteNotification(job);
 
-            expect(notificationsService.removeQuoteNotification).toHaveBeenCalled();
-            expect(notificationsService.sendNotificationOnly).not.toHaveBeenCalled();
+            expect(notifications_service.removeQuoteNotification).toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
         });
 
         it('should handle missing quote_to during removal', async () => {
-            const job = mockJob({
+            const job = mock_job({
                 quoted_by: 'quoter-id',
                 quote_tweet_id: 'quote-123',
                 action: 'remove',
@@ -282,12 +282,12 @@ describe('QuoteProcessor', () => {
 
             await processor.handleSendQuoteNotification(job);
 
-            expect(notificationsService.removeQuoteNotification).not.toHaveBeenCalled();
-            expect(notificationsService.sendNotificationOnly).not.toHaveBeenCalled();
+            expect(notifications_service.removeQuoteNotification).not.toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
         });
 
         it('should handle missing quote_tweet_id during removal', async () => {
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
                 action: 'remove',
@@ -295,45 +295,45 @@ describe('QuoteProcessor', () => {
 
             await processor.handleSendQuoteNotification(job);
 
-            expect(notificationsService.removeQuoteNotification).not.toHaveBeenCalled();
-            expect(notificationsService.sendNotificationOnly).not.toHaveBeenCalled();
+            expect(notifications_service.removeQuoteNotification).not.toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
         });
     });
 
     describe('error handling', () => {
         it('should log and throw error on database failure', async () => {
-            const loggerSpy = jest.spyOn(processor['logger'], 'error');
+            const logger_spy = jest.spyOn(processor['logger'], 'error');
             const error = new Error('Database connection failed');
-            userRepository.findOne.mockRejectedValue(error);
+            user_repository.findOne.mockRejectedValue(error);
 
-            const mockQuoteTweet = {
+            const mock_quote_tweet = {
                 tweet_id: 'quote-123',
                 text: 'This is a quote',
             };
 
-            const mockParentTweet = {
+            const mock_parent_tweet = {
                 tweet_id: 'parent-123',
                 text: 'Original tweet',
             };
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
-                quote_tweet: mockQuoteTweet as any,
+                quote_tweet: mock_quote_tweet as any,
                 quote_tweet_id: 'quote-123',
-                parent_tweet: mockParentTweet as any,
+                parent_tweet: mock_parent_tweet as any,
                 action: 'add',
             });
 
             await expect(processor.handleSendQuoteNotification(job)).rejects.toThrow(error);
-            expect(loggerSpy).toHaveBeenCalledWith(
+            expect(logger_spy).toHaveBeenCalledWith(
                 expect.stringContaining('Error processing quote job'),
                 error
             );
         });
 
         it('should handle error during notification save', async () => {
-            const mockQuoter = {
+            const mock_quoter = {
                 id: 'quoter-id',
                 username: 'quoter',
                 email: 'quoter@test.com',
@@ -341,27 +341,27 @@ describe('QuoteProcessor', () => {
                 avatar_url: 'avatar.jpg',
             };
 
-            const mockQuoteTweet = {
+            const mock_quote_tweet = {
                 tweet_id: 'quote-123',
                 text: 'This is a quote',
             };
 
-            const mockParentTweet = {
+            const mock_parent_tweet = {
                 tweet_id: 'parent-123',
                 text: 'Original tweet',
             };
 
-            userRepository.findOne.mockResolvedValue(mockQuoter as User);
+            user_repository.findOne.mockResolvedValue(mock_quoter as User);
 
             const error = new Error('Save failed');
-            notificationsService.saveNotificationAndSend.mockRejectedValue(error);
+            notifications_service.saveNotificationAndSend.mockRejectedValue(error);
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
-                quote_tweet: mockQuoteTweet as any,
+                quote_tweet: mock_quote_tweet as any,
                 quote_tweet_id: 'quote-123',
-                parent_tweet: mockParentTweet as any,
+                parent_tweet: mock_parent_tweet as any,
                 action: 'add',
             });
 
@@ -370,9 +370,9 @@ describe('QuoteProcessor', () => {
 
         it('should handle error during notification removal', async () => {
             const error = new Error('Removal failed');
-            notificationsService.removeQuoteNotification.mockRejectedValue(error);
+            notifications_service.removeQuoteNotification.mockRejectedValue(error);
 
-            const job = mockJob({
+            const job = mock_job({
                 quote_to: 'quote-to-id',
                 quoted_by: 'quoter-id',
                 quote_tweet_id: 'quote-123',

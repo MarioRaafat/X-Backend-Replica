@@ -8,6 +8,9 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ERROR_MESSAGES } from '../constants/swagger-messages';
 import { MessageType } from './entities/message.entity';
+import { FCMService } from '../fcm/fcm.service';
+import { MessagesGateway } from './messages.gateway';
+import { MessageJobService } from '../background-jobs/notifications/message/message.service';
 
 describe('MessagesService', () => {
     let service: MessagesService;
@@ -80,6 +83,24 @@ describe('MessagesService', () => {
                     useValue: {
                         applyCursorPagination: jest.fn((qb) => qb),
                         generateNextCursor: jest.fn(() => 'next-cursor-123'),
+                    },
+                },
+                {
+                    provide: FCMService,
+                    useValue: {
+                        sendNotificationToUserDevice: jest.fn(),
+                    },
+                },
+                {
+                    provide: MessagesGateway,
+                    useValue: {
+                        isOnline: jest.fn(),
+                    },
+                },
+                {
+                    provide: MessageJobService,
+                    useValue: {
+                        queueMessageNotification: jest.fn(),
                     },
                 },
             ],
@@ -165,7 +186,7 @@ describe('MessagesService', () => {
                 mock_chat_id,
                 'Hello'
             );
-            expect(result).toEqual(mock_chat);
+            expect(result).toEqual({ chat: mock_chat, participant_id: mock_chat.user2_id });
         });
     });
 

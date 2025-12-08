@@ -121,4 +121,13 @@ export class CreateUserDto {
     @IsString()
     @MaxLength(LARGE_MAX_LENGTH)
     github_id?: string;
+
+    @ApiProperty({
+        description: 'FCM Token (optional)',
+        example: 'fcm_token_example',
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    fcm_token?: string;
 }

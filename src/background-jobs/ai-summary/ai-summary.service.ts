@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { BackgroundJobsService } from '../background-jobs';
-import { JOB_NAMES, JOB_PRIORITIES, JOB_DELAYS, QUEUE_NAMES } from '../constants/queue.constants';
+import { JOB_DELAYS, JOB_NAMES, JOB_PRIORITIES, QUEUE_NAMES } from '../constants/queue.constants';
 import type { GenerateTweetSummaryDto } from './ai-summary.dto';
 
 @Injectable()
