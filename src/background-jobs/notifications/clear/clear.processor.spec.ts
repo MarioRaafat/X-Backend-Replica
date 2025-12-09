@@ -58,7 +58,7 @@ describe('ClearProcessor', () => {
                 ['tweet-1', 'tweet-2', 'tweet-3']
             );
             expect(logger_spy).toHaveBeenCalledWith(
-                'Successfully cleared 3 notification(s) for user user-123'
+                'Successfully cleared 3 notification(s) by tweet IDs for user user-123'
             );
         });
 
@@ -220,7 +220,7 @@ describe('ClearProcessor', () => {
                 data: job_data,
             } as Job<ClearBackGroundNotificationJobDTO>;
 
-            notifications_service.deleteNotificationsByTweetIds.mockResolvedValue(undefined);
+            mock_notifications_service.deleteNotificationsByTweetIds.mockResolvedValue(undefined);
 
             await processor.handleClearNotification(job);
 
