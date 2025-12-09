@@ -111,6 +111,24 @@ Get a paginated list of messages from a specific chat, ordered by creation time.
                                     is_read: false,
                                     created_at: '2025-10-16T10:45:00.000Z',
                                     updated_at: '2025-10-16T10:45:00.000Z',
+                                    sender: {
+                                        id: 'user_456def-789abc-012ghi',
+                                        username: 'mariooo',
+                                        name: 'Mario Raafat',
+                                        avatar_url: 'https://wqjblkqbw.jpg',
+                                    },
+                                    reactions: [
+                                        {
+                                            emoji: '❤️',
+                                            count: 2,
+                                            reacted_by_me: true,
+                                        },
+                                        {
+                                            emoji: '😂',
+                                            count: 1,
+                                            reacted_by_me: false,
+                                        },
+                                    ],
                                 },
                                 {
                                     id: 'msg_456abc-789def-012ghi',
@@ -120,6 +138,13 @@ Get a paginated list of messages from a specific chat, ordered by creation time.
                                     is_read: true,
                                     created_at: '2025-10-16T10:46:00.000Z',
                                     updated_at: '2025-10-16T10:46:00.000Z',
+                                    sender: {
+                                        id: 'user_789abc-012def-345ghi',
+                                        username: 'john_doe',
+                                        name: 'John Doe',
+                                        avatar_url: 'https://example.com/john.jpg',
+                                    },
+                                    reactions: [],
                                 },
                             ],
                         },
@@ -941,10 +966,9 @@ Get a list of all emoji reactions on a specific message, grouped by emoji with r
 **Response Structure:**
 - \`emoji\`: The emoji character
 - \`count\`: Number of users who reacted with this emoji
-- \`user_reacted\`: Boolean indicating if authenticated user reacted with this emoji
-- \`users\`: Array of users who reacted with this emoji
+- \`users\`: Array of users who reacted with this emoji (includes id, username, name, avatar_url)
 
-**Use case:** Display reaction counts and user information when hovering over message reactions.
+**Use case:** Display detailed reaction information and user lists when viewing message reactions.
         `,
     },
 
@@ -962,7 +986,6 @@ Get a list of all emoji reactions on a specific message, grouped by emoji with r
                         {
                             emoji: '😀',
                             count: 3,
-                            user_reacted: true,
                             users: [
                                 {
                                     id: 'user_123abc-def456-789ghi',
@@ -987,7 +1010,6 @@ Get a list of all emoji reactions on a specific message, grouped by emoji with r
                         {
                             emoji: '❤️',
                             count: 2,
-                            user_reacted: false,
                             users: [
                                 {
                                     id: 'user_456def-789abc-012ghi',

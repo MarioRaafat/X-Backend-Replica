@@ -3,8 +3,8 @@ export const Y_LOGO_URL =
 export const Y_LOGO_HOST_URL = 'https://yapperdev.blob.core.windows.net/profile-images/';
 
 export const STRING_MAX_LENGTH = 100;
-export const USERNAME_MAX_LENGTH = 15;
-export const NAME_MAX_LENGTH = 20;
+export const USERNAME_MAX_LENGTH = 20;
+export const NAME_MAX_LENGTH = 25;
 export const LARGE_MAX_LENGTH = 3000;
 export const POST_CONTENT_LENGTH = 280;
 export const MESSAGE_CONTENT_LENGTH = 300;

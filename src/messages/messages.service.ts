@@ -185,22 +185,48 @@ export class MessagesService {
                 name: other_user.name,
                 avatar_url: other_user.avatar_url,
             },
-            messages: messages.map((msg) => ({
-                id: msg.id,
-                content: msg.content,
-                message_type: msg.message_type,
-                reply_to: msg.reply_to_message_id,
-                is_read: msg.is_read,
-                is_edited: msg.is_edited,
-                created_at: msg.created_at,
-                updated_at: msg.updated_at,
-                sender: {
-                    id: msg.sender.id,
-                    username: msg.sender.username,
-                    name: msg.sender.name,
-                    avatar_url: msg.sender.avatar_url,
-                },
-            })),
+            messages: messages.map((msg) => {
+                // Group reactions by emoji and count
+                const reaction_summary =
+                    msg.reactions?.reduce(
+                        (acc, reaction) => {
+                            if (!acc[reaction.emoji]) {
+                                acc[reaction.emoji] = {
+                                    emoji: reaction.emoji,
+                                    count: 0,
+                                    reacted_by_me: false,
+                                };
+                            }
+                            acc[reaction.emoji].count++;
+                            if (reaction.user_id === user_id) {
+                                acc[reaction.emoji].reacted_by_me = true;
+                            }
+                            return acc;
+                        },
+                        {} as Record<
+                            string,
+                            { emoji: string; count: number; reacted_by_me: boolean }
+                        >
+                    ) || {};
+
+                return {
+                    id: msg.id,
+                    content: msg.content,
+                    message_type: msg.message_type,
+                    reply_to: msg.reply_to_message_id,
+                    is_read: msg.is_read,
+                    is_edited: msg.is_edited,
+                    created_at: msg.created_at,
+                    updated_at: msg.updated_at,
+                    sender: {
+                        id: msg.sender.id,
+                        username: msg.sender.username,
+                        name: msg.sender.name,
+                        avatar_url: msg.sender.avatar_url,
+                    },
+                    reactions: Object.values(reaction_summary),
+                };
+            }),
         };
     }
 
