@@ -65,6 +65,7 @@ export class MentionProcessor {
                             NotificationType.MENTION,
                             user.id,
                             {
+                                type: NotificationType.MENTION,
                                 tweet_id,
                                 mentioned_by,
                                 action,

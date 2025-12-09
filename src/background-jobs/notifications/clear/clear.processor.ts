@@ -14,22 +14,30 @@ export class ClearProcessor {
     @Process(JOB_NAMES.NOTIFICATION.CLEAR)
     async handleClearNotification(job: Job<ClearBackGroundNotificationJobDTO>) {
         try {
-            const { user_id, tweet_ids } = job.data;
+            const { user_id, tweet_ids, user_ids } = job.data;
 
-            if (!user_id || !tweet_ids || tweet_ids.length === 0) {
+            if (!user_id || (!tweet_ids?.length && !user_ids?.length)) {
                 this.logger.warn(
-                    `Invalid job data for clear notification job ${job.id}: user_id=${user_id}, tweet_ids count=${tweet_ids?.length || 0}`
+                    `Invalid job data for clear notification job ${job.id}: user_id=${user_id}, tweet_ids count=${tweet_ids?.length || 0}, user_ids count=${user_ids?.length || 0}`
                 );
                 return;
             }
 
-            console.log('Clearing notifications for user:', user_id, 'Tweet IDs:', tweet_ids);
+            if (tweet_ids?.length) {
+                console.log('Clearing notifications for user:', user_id, 'Tweet IDs:', tweet_ids);
+                await this.notifications_service.deleteNotificationsByTweetIds(user_id, tweet_ids);
+                this.logger.log(
+                    `Successfully cleared ${tweet_ids.length} notification(s) by tweet IDs for user ${user_id}`
+                );
+            }
 
-            await this.notifications_service.deleteNotificationsByTweetIds(user_id, tweet_ids);
-
-            this.logger.log(
-                `Successfully cleared ${tweet_ids.length} notification(s) for user ${user_id}`
-            );
+            if (user_ids?.length) {
+                console.log('Clearing notifications for user:', user_id, 'User IDs:', user_ids);
+                await this.notifications_service.cleanupNotificationsByUserIds(user_id, user_ids);
+                this.logger.log(
+                    `Successfully cleared ${user_ids.length} notification(s) by user IDs for user ${user_id}`
+                );
+            }
         } catch (error) {
             this.logger.error(`Error processing clear notification job ${job.id}:`, error);
             throw error;
