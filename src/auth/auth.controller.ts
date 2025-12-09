@@ -419,7 +419,11 @@ export class AuthController {
         @Body() dto: MobileGoogleAuthDto,
         @Res({ passthrough: true }) response: Response
     ) {
-        const result = await this.auth_service.verifyGoogleMobileToken(dto.access_token);
+        const result = await this.auth_service.verifyGoogleMobileToken(
+            dto.code,
+            dto.redirect_uri,
+            dto.code_verifier
+        );
 
         // Check if user needs to complete OAuth registration
         if ('needs_completion' in result && result.needs_completion) {

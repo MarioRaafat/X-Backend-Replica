@@ -387,15 +387,21 @@ export const google_mobile_swagger = {
         description: `
 **Mobile Google OAuth Flow**
 
-This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView.
+This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through authorization code flow.
 
 **How it works:**
-- Mobile app obtains Google ID token through native OAuth flow
-- Mobile app sends the token to this endpoint
-- Backend verifies the token with Google's API
+- Mobile app initiates Google OAuth and receives authorization code
+- Mobile app sends the code and redirect_uri to this endpoint
+- Backend exchanges the code for an access token with Google's API
+- Backend retrieves user information from Google
 - Returns user data and JWT tokens (or session token for new users)
 
-export ${getOAuthResponseDescription('Google')}
+**Required Parameters:**
+- \`code\`: Authorization code from Google OAuth flow
+- \`redirect_uri\`: The redirect URI used in the OAuth flow (must match the one registered with Google)
+- \`code_verifier\`: (Optional) PKCE code verifier if using PKCE flow
+
+${getOAuthResponseDescription('Google')}
 
 **For web applications, use:** \`GET /auth/google\` instead
         `,

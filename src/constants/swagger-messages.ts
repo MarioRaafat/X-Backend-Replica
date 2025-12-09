@@ -24,6 +24,9 @@ export const ERROR_MESSAGES = {
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
     USER_NOT_FOUND_OAUTH_COMPLETION_REQUIRED: 'User not found, OAuth completion required',
     GOOGLE_TOKEN_INVALID: 'Invalid Google access token',
+    GOOGLE_CODE_INVALID:
+        'Google authorization code is invalid or expired. Please try signing in again',
+    GOOGLE_OAUTH_FAILED: 'Failed to authenticate with Google. Please try again',
     GITHUB_TOKEN_INVALID: 'Invalid GitHub access token',
     GITHUB_CODE_INVALID:
         'GitHub authorization code is invalid or expired. Please try signing in again',

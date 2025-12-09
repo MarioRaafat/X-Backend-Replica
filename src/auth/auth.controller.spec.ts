@@ -950,7 +950,11 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should return needs_completion when user needs to complete OAuth registration', async () => {
-            const mock_dto = { access_token: 'google-token' };
+            const mock_dto = {
+                code: 'google-code',
+                redirect_uri: 'redirect-uri',
+                code_verifier: 'verifier',
+            };
             const mock_result = {
                 needs_completion: true,
                 user: { id: 'user123', email: 'test@example.com' },
@@ -965,7 +969,9 @@ describe('AuthController', () => {
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyGoogleMobileToken).toHaveBeenCalledWith(
-                mock_dto.access_token
+                mock_dto.code,
+                mock_dto.redirect_uri,
+                mock_dto.code_verifier
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.createOAuthSession).toHaveBeenCalledWith(mock_result.user);
@@ -977,7 +983,11 @@ describe('AuthController', () => {
         });
 
         it('should return access token and user when authentication is successful', async () => {
-            const mock_dto = { access_token: 'google-token' };
+            const mock_dto = {
+                code: 'google-code',
+                redirect_uri: 'redirect-uri',
+                code_verifier: 'verifier',
+            };
             const mock_result = {
                 user: { id: 'user123', email: 'test@example.com' },
             };
@@ -997,7 +1007,9 @@ describe('AuthController', () => {
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyGoogleMobileToken).toHaveBeenCalledWith(
-                mock_dto.access_token
+                mock_dto.code,
+                mock_dto.redirect_uri,
+                mock_dto.code_verifier
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.generateTokens).toHaveBeenCalledWith(mock_result.user.id);
@@ -1011,7 +1023,11 @@ describe('AuthController', () => {
         });
 
         it('should throw BadRequestException if user data is invalid', async () => {
-            const mock_dto = { access_token: 'invalid-token' };
+            const mock_dto = {
+                code: 'invalid-code',
+                redirect_uri: 'redirect-uri',
+                code_verifier: 'verifier',
+            };
             const mock_result = { user: {} }; // Missing id
 
             mock_auth_service.verifyGoogleMobileToken.mockResolvedValue(mock_result as any);
@@ -1024,7 +1040,9 @@ describe('AuthController', () => {
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyGoogleMobileToken).toHaveBeenCalledWith(
-                mock_dto.access_token
+                mock_dto.code,
+                mock_dto.redirect_uri,
+                mock_dto.code_verifier
             );
         });
     });

@@ -793,30 +793,91 @@ export class AuthService {
 
     // ###################### MOBILE OAUTH VERIFICATION ######################
 
-    async verifyGoogleMobileToken(access_token: string) {
+    async getGoogleAccessToken(code: string, redirect_uri: string, code_verifier?: string) {
+        const google_mobile_client_id = this.config_service.get<string>('GOOGLE_CLIENT_ID_MOBILE');
+        const google_mobile_client_secret = this.config_service.get<string>(
+            'GOOGLE_CLIENT_SECRET_MOBILE'
+        );
+
         try {
-            const client = new OAuth2Client();
+            const request_body: any = {
+                client_id: google_mobile_client_id,
+                client_secret: google_mobile_client_secret,
+                code,
+                redirect_uri: redirect_uri,
+                grant_type: 'authorization_code',
+            };
 
-            // Verify the Google ID token
-            const ticket = await client.verifyIdToken({
-                idToken: access_token,
-            });
+            if (code_verifier) {
+                request_body.code_verifier = code_verifier;
+            }
 
-            const payload = ticket.getPayload();
-            if (!payload) {
+            const token_response = await axios.post(
+                'https://oauth2.googleapis.com/token',
+                request_body,
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+            );
+
+            // Check for error response
+            if (token_response.data.error) {
+                console.error('Google OAuth Error:', {
+                    error: token_response.data.error,
+                    description: token_response.data.error_description,
+                });
+
+                if (token_response.data.error === 'invalid_grant') {
+                    throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_CODE_INVALID);
+                }
+
+                throw new UnauthorizedException(
+                    `Google OAuth error: ${token_response.data.error_description}`
+                );
+            }
+
+            const { access_token } = token_response.data;
+            if (!access_token) {
                 throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
             }
 
-            if (!payload['email']) {
-                throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB);
+            return access_token;
+        } catch (error) {
+            if (error instanceof UnauthorizedException) {
+                throw error;
+            }
+
+            console.error('Google token exchange failed:', error.response?.data || error.message);
+            throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_OAUTH_FAILED);
+        }
+    }
+
+    async verifyGoogleMobileToken(code: string, redirect_uri: string, code_verifier?: string) {
+        try {
+            const access_token = await this.getGoogleAccessToken(code, redirect_uri, code_verifier);
+
+            // Get user info from Google
+            const response = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+                headers: {
+                    Authorization: `Bearer ${access_token}`,
+                },
+            });
+
+            if (!response.data) {
+                console.error('Google user fetch failed');
+                throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
+            }
+
+            const user_data = response.data;
+
+            if (!user_data.email) {
+                throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GOOGLE);
             }
 
             const google_user: GoogleLoginDTO = {
-                google_id: payload['sub'],
-                email: payload['email'],
-                first_name: payload['given_name'] || '',
-                last_name: payload['family_name'] || '',
-                avatar_url: payload['picture'],
+                google_id: user_data.id,
+                email: user_data.email,
+                first_name: user_data.given_name || '',
+                last_name: user_data.family_name || '',
+                avatar_url: user_data.picture,
             };
 
             return await this.validateGoogleUser(google_user);
@@ -829,7 +890,7 @@ export class AuthService {
         }
     }
 
-    async getGitHubAccessToken(code: string, redirect_uri: string, code_verifier: string) {
+    async getGitHubAccessToken(code: string, redirect_uri: string, code_verifier?: string) {
         const github_mobile_client_id = this.config_service.get<string>('GITHUB_MOBILE_CLIENT_ID');
         const github_mobile_client_secret = this.config_service.get<string>(
             'GITHUB_MOBILE_CLIENT_SECRET'
@@ -887,7 +948,7 @@ export class AuthService {
         }
     }
 
-    async verifyGitHubMobileToken(code: string, redirect_uri: string, code_verifier: string) {
+    async verifyGitHubMobileToken(code: string, redirect_uri: string, code_verifier?: string) {
         try {
             const access_token = await this.getGitHubAccessToken(code, redirect_uri, code_verifier);
             const response = await fetch('https://api.github.com/user', {
