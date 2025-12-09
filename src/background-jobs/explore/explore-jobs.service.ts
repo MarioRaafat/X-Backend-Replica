@@ -8,10 +8,10 @@ import { TweetCategory } from '../../tweets/entities/tweet-category.entity';
 import { RedisService } from '../../redis/redis.service';
 import {
     EXPLORE_CONFIG,
-    JOB_NAMES,
-    QUEUE_NAMES,
     EXPLORE_JOB_PRIORITIES,
     EXPLORE_JOB_RETRY,
+    JOB_NAMES,
+    QUEUE_NAMES,
 } from '../constants/queue.constants';
 import { ExploreScoreJobDto } from './explore-job.dto';
 
@@ -126,8 +126,8 @@ export class ExploreJobsService {
         max_age_hours: number,
         force_all: boolean
     ) {
-        const maxAgeDate = new Date();
-        maxAgeDate.setHours(maxAgeDate.getHours() - max_age_hours);
+        const max_age_date = new Date();
+        max_age_date.setHours(max_age_date.getHours() - max_age_hours);
 
         const query = this.tweet_repository
             .createQueryBuilder('tweet')
@@ -149,21 +149,21 @@ export class ExploreJobsService {
                 'tc.percentage',
             ])
             .where('tweet.deleted_at IS NULL')
-            .andWhere('tweet.created_at > :maxAgeDate', {
-                maxAgeDate,
+            .andWhere('tweet.created_at > :max_age_date', {
+                max_age_date,
             });
 
         if (!force_all) {
-            const sinceDate = new Date();
-            sinceDate.setHours(sinceDate.getHours() - since_hours);
+            const since_date = new Date();
+            since_date.setHours(since_date.getHours() - since_hours);
 
             // Only process tweets with recent engagement activity
             query.andWhere(
                 `(
-                            tweet.updated_at > :sinceDate
-                            OR tweet.created_at > :sinceDate
+                            tweet.updated_at > :since_date
+                            OR tweet.created_at > :since_date
                         )`,
-                { sinceDate }
+                { since_date }
             );
         }
 

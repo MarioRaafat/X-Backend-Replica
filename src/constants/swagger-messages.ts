@@ -83,6 +83,7 @@ export const ERROR_MESSAGES = {
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
     LAST_READ_MESSAGE_NOT_IN_CHAT: 'Last read message does not belong to this chat',
+    REACTION_NOT_FOUND: 'Reaction not found',
 
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
@@ -156,6 +157,9 @@ export const SUCCESS_MESSAGES = {
     MESSAGE_RETRIEVED: 'Message retrieved successfully',
     CHAT_RETRIEVED: 'Chat retrieved successfully',
     MESSAGE_READ_STATUS_UPDATED: 'Message read status updated successfully',
+    REACTION_ADDED: 'Reaction added successfully',
+    REACTION_REMOVED: 'Reaction removed successfully',
+    MESSAGE_REACTIONS_RETRIEVED: 'Message reactions retrieved successfully',
 
     //Timeline
     TIMELINE_RETRIEVED: 'Timeline retrieved successfully',

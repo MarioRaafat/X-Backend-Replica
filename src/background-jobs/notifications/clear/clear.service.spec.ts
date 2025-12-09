@@ -1,19 +1,29 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getQueueToken } from '@nestjs/bull';
-import type { Queue } from 'bull';
 import { ClearJobService } from './clear.service';
-import { QUEUE_NAMES } from '../../constants/queue.constants';
+import {
+    JOB_DELAYS,
+    JOB_NAMES,
+    JOB_PRIORITIES,
+    QUEUE_NAMES,
+} from '../../constants/queue.constants';
+import type { Queue } from 'bull';
 import { ClearBackGroundNotificationJobDTO } from './clear.dto';
 
 describe('ClearJobService', () => {
     let service: ClearJobService;
-    let queue: jest.Mocked<Queue>;
+    let mock_queue: any;
+
+    const mock_clear_dto: ClearBackGroundNotificationJobDTO = {
+        user_id: 'user-123',
+        tweet_ids: ['tweet-1', 'tweet-2', 'tweet-3'],
+    };
 
     beforeEach(async () => {
-        const mock_queue = {
-            add: jest.fn(),
-            getJob: jest.fn(),
-            getJobs: jest.fn(),
+        mock_queue = {
+            add: jest.fn().mockResolvedValue({ id: 'job-123' }),
+            process: jest.fn(),
+            on: jest.fn(),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -27,7 +37,6 @@ describe('ClearJobService', () => {
         }).compile();
 
         service = module.get<ClearJobService>(ClearJobService);
-        queue = module.get(getQueueToken(QUEUE_NAMES.NOTIFICATION));
     });
 
     afterEach(() => {
@@ -39,129 +48,87 @@ describe('ClearJobService', () => {
     });
 
     describe('queueClearNotification', () => {
-        it('should successfully queue a clear notification job with default priority and delay', async () => {
-            const dto: ClearBackGroundNotificationJobDTO = {
-                user_id: 'user-123',
-                tweet_ids: ['tweet-1', 'tweet-2'],
-            };
+        it('should queue a clear notification job successfully', async () => {
+            const result = await service.queueClearNotification(mock_clear_dto);
 
-            const mock_job = { id: 'job-123', data: dto };
-            queue.add.mockResolvedValue(mock_job as any);
-
-            const result = await service.queueClearNotification(dto);
-
-            expect(queue.add).toHaveBeenCalledTimes(1);
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.CLEAR,
+                mock_clear_dto,
+                expect.objectContaining({
+                    priority: JOB_PRIORITIES.HIGH,
+                    delay: JOB_DELAYS.IMMEDIATE,
+                    attempts: 3,
+                    backoff: { type: 'exponential', delay: 2000 },
+                    removeOnComplete: 10,
+                    removeOnFail: 5,
+                })
+            );
             expect(result).toEqual({ success: true, job_id: 'job-123' });
         });
 
-        it('should queue clear notification job with custom priority', async () => {
-            const dto: ClearBackGroundNotificationJobDTO = {
-                user_id: 'user-456',
-                tweet_ids: ['tweet-3'],
-            };
+        it('should queue a clear notification job with custom priority', async () => {
+            const custom_priority = 1;
+            const result = await service.queueClearNotification(mock_clear_dto, custom_priority);
 
-            const custom_priority = 5;
-            const mock_job = { id: 'job-456', data: dto };
-            queue.add.mockResolvedValue(mock_job as any);
-
-            const result = await service.queueClearNotification(dto, custom_priority);
-
-            expect(queue.add).toHaveBeenCalledTimes(1);
-            expect(result).toEqual({ success: true, job_id: 'job-456' });
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.CLEAR,
+                mock_clear_dto,
+                expect.objectContaining({
+                    priority: custom_priority,
+                    delay: JOB_DELAYS.IMMEDIATE,
+                })
+            );
+            expect(result).toEqual({ success: true, job_id: 'job-123' });
         });
 
-        it('should queue clear notification job with custom delay', async () => {
-            const dto: ClearBackGroundNotificationJobDTO = {
-                user_id: 'user-789',
-                tweet_ids: ['tweet-4', 'tweet-5', 'tweet-6'],
-            };
-
+        it('should queue a clear notification job with custom delay', async () => {
             const custom_delay = 5000;
-            const mock_job = { id: 'job-789', data: dto };
-            queue.add.mockResolvedValue(mock_job as any);
+            const result = await service.queueClearNotification(
+                mock_clear_dto,
+                undefined,
+                custom_delay
+            );
 
-            const result = await service.queueClearNotification(dto, undefined, custom_delay);
-
-            expect(queue.add).toHaveBeenCalledTimes(1);
-            expect(result).toEqual({ success: true, job_id: 'job-789' });
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.CLEAR,
+                mock_clear_dto,
+                expect.objectContaining({
+                    priority: JOB_PRIORITIES.HIGH,
+                    delay: custom_delay,
+                })
+            );
+            expect(result).toEqual({ success: true, job_id: 'job-123' });
         });
 
-        it('should queue clear notification job with both custom priority and delay', async () => {
-            const dto: ClearBackGroundNotificationJobDTO = {
-                user_id: 'user-custom',
-                tweet_ids: ['tweet-x', 'tweet-y'],
-            };
-
-            const custom_priority = 3;
-            const custom_delay = 10000;
-            const mock_job = { id: 'job-custom', data: dto };
-            queue.add.mockResolvedValue(mock_job as any);
-
-            const result = await service.queueClearNotification(dto, custom_priority, custom_delay);
-
-            expect(queue.add).toHaveBeenCalledTimes(1);
-            expect(result).toEqual({ success: true, job_id: 'job-custom' });
-        });
-
-        it('should handle queue errors and return error object', async () => {
-            const dto: ClearBackGroundNotificationJobDTO = {
-                user_id: 'user-error',
-                tweet_ids: ['tweet-error'],
-            };
-
+        it('should handle queue errors and log them', async () => {
             const error = new Error('Queue error');
-            queue.add.mockRejectedValue(error);
+            mock_queue.add.mockRejectedValue(error);
 
-            const result = await service.queueClearNotification(dto);
+            const logger_spy = jest.spyOn(service['logger'], 'error');
 
-            expect(queue.add).toHaveBeenCalledTimes(1);
-            expect(result).toEqual({ success: false, error: 'Queue error' });
+            const result = await service.queueClearNotification(mock_clear_dto);
+
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Failed to queue clear notification job:',
+                error
+            );
+            expect(result).toEqual({ success: false, error: error.message });
         });
 
-        it('should handle empty tweet_ids array', async () => {
-            const dto: ClearBackGroundNotificationJobDTO = {
-                user_id: 'user-empty',
+        it('should handle queue with empty tweet_ids array', async () => {
+            const empty_dto: ClearBackGroundNotificationJobDTO = {
+                user_id: 'user-123',
                 tweet_ids: [],
             };
 
-            const mock_job = { id: 'job-empty', data: dto };
-            queue.add.mockResolvedValue(mock_job as any);
+            const result = await service.queueClearNotification(empty_dto);
 
-            const result = await service.queueClearNotification(dto);
-
-            expect(queue.add).toHaveBeenCalledTimes(1);
-            expect(result).toEqual({ success: true, job_id: 'job-empty' });
-        });
-
-        it('should handle large tweet_ids array', async () => {
-            const large_tweet_ids = Array.from({ length: 100 }, (_, i) => `tweet-${i}`);
-            const dto: ClearBackGroundNotificationJobDTO = {
-                user_id: 'user-large',
-                tweet_ids: large_tweet_ids,
-            };
-
-            const mock_job = { id: 'job-large', data: dto };
-            queue.add.mockResolvedValue(mock_job as any);
-
-            const result = await service.queueClearNotification(dto);
-
-            expect(queue.add).toHaveBeenCalledTimes(1);
-            expect(result).toEqual({ success: true, job_id: 'job-large' });
-        });
-
-        it('should handle single tweet_id in array', async () => {
-            const dto: ClearBackGroundNotificationJobDTO = {
-                user_id: 'user-single',
-                tweet_ids: ['tweet-single'],
-            };
-
-            const mock_job = { id: 'job-single', data: dto };
-            queue.add.mockResolvedValue(mock_job as any);
-
-            const result = await service.queueClearNotification(dto);
-
-            expect(queue.add).toHaveBeenCalledTimes(1);
-            expect(result).toEqual({ success: true, job_id: 'job-single' });
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.CLEAR,
+                empty_dto,
+                expect.any(Object)
+            );
+            expect(result).toEqual({ success: true, job_id: 'job-123' });
         });
     });
 });

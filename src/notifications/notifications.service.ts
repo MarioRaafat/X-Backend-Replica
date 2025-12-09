@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { forwardRef, Inject, Injectable, OnModuleInit } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Notification } from './entities/notifications.entity';
@@ -18,6 +18,8 @@ import { MentionNotificationEntity } from './entities/mention-notification.entit
 import { NotificationDto } from './dto/notifications-response.dto';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { ClearJobService } from 'src/background-jobs/notifications/clear/clear.service';
+import { FCMService } from 'src/fcm/fcm.service';
+import { MessagesGateway } from 'src/messages/messages.gateway';
 
 @Injectable()
 export class NotificationsService implements OnModuleInit {
@@ -26,10 +28,14 @@ export class NotificationsService implements OnModuleInit {
         private readonly notificationModel: Model<Notification>,
         private readonly notificationsGateway: NotificationsGateway,
         @InjectRepository(User)
-        private readonly userRepository: Repository<User>,
+        private readonly user_repository: Repository<User>,
         @InjectRepository(Tweet)
-        private readonly tweetRepository: Repository<Tweet>,
-        private readonly clear_jobs_service: ClearJobService
+        private readonly tweet_repository: Repository<Tweet>,
+        private readonly clear_jobs_service: ClearJobService,
+        @Inject(forwardRef(() => FCMService))
+        private readonly fcmService: FCMService,
+        @Inject(forwardRef(() => MessagesGateway))
+        private readonly messagesGateway: MessagesGateway
     ) {}
 
     onModuleInit() {
@@ -66,11 +72,20 @@ export class NotificationsService implements OnModuleInit {
                 { upsert: true }
             );
 
-            // Send with 'add' action for new notification
-            this.notificationsGateway.sendToUser(notification_data.type, user_id, {
-                ...payload,
-                action: 'add',
-            });
+            const is_online = this.messagesGateway.isOnline(user_id);
+
+            if (is_online) {
+                this.notificationsGateway.sendToUser(notification_data.type, user_id, {
+                    ...payload,
+                    action: 'add',
+                });
+            } else {
+                await this.fcmService.sendNotificationToUserDevice(
+                    user_id,
+                    notification_data.type,
+                    payload
+                );
+            }
         } else {
             // Increment newest_count for aggregated notification
             await this.notificationModel.updateOne(
@@ -84,12 +99,24 @@ export class NotificationsService implements OnModuleInit {
                 aggregation_result.updated_notification
             );
 
-            // Send with 'aggregate' action for aggregated notification
-            this.notificationsGateway.sendToUser(notification_data.type, user_id, {
-                ...aggregated_notification_with_data,
-                action: 'aggregate',
-                old_notification: aggregation_result.old_notification,
-            });
+            const is_online = this.messagesGateway.isOnline(user_id);
+
+            if (is_online) {
+                this.notificationsGateway.sendToUser(notification_data.type, user_id, {
+                    ...aggregated_notification_with_data,
+                    action: 'aggregate',
+                    old_notification: aggregation_result.old_notification,
+                });
+            } else {
+                await this.fcmService.sendNotificationToUserDevice(
+                    user_id,
+                    notification_data.type,
+                    {
+                        ...aggregated_notification_with_data,
+                        action: 'aggregate',
+                    }
+                );
+            }
         }
     }
 
@@ -669,13 +696,13 @@ export class NotificationsService implements OnModuleInit {
         // Fetch all data in parallel
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
-                ? this.userRepository.find({
+                ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
                       select: ['id', 'username', 'name', 'avatar_url', 'email'],
                   })
                 : [],
             tweet_ids.size > 0
-                ? this.tweetRepository.find({
+                ? this.tweet_repository.find({
                       where: { tweet_id: In(Array.from(tweet_ids)) },
                   })
                 : [],
@@ -949,7 +976,7 @@ export class NotificationsService implements OnModuleInit {
         // Deduplicate notifications: merge those with same type, same people, and same tweet
         const deduplicated_notifications = this.deduplicateNotifications(response_notifications);
 
-        // Clean up notifications with missing tweets
+        // Clean notifications with missing tweets
         if (missing_tweet_ids.size > 0) {
             await this.clear_jobs_service.queueClearNotification({
                 user_id,
@@ -1070,13 +1097,13 @@ export class NotificationsService implements OnModuleInit {
         // Fetch all required data in parallel
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
-                ? this.userRepository.find({
+                ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
                       select: ['id', 'username', 'name', 'avatar_url', 'email'],
                   })
                 : [],
             tweet_ids.size > 0
-                ? this.tweetRepository.find({
+                ? this.tweet_repository.find({
                       where: { tweet_id: In(Array.from(tweet_ids)) },
                   })
                 : [],
@@ -1848,13 +1875,13 @@ export class NotificationsService implements OnModuleInit {
         // Fetch all data in parallel
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
-                ? this.userRepository.find({
+                ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
                       select: ['id', 'username', 'name', 'avatar_url', 'email'],
                   })
                 : [],
             tweet_ids.size > 0
-                ? this.tweetRepository.find({
+                ? this.tweet_repository.find({
                       where: { tweet_id: In(Array.from(tweet_ids)) },
                   })
                 : [],

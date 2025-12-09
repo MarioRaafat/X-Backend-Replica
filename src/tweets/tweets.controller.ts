@@ -64,6 +64,7 @@ import {
     get_tweet_quotes_swagger,
     get_tweet_replies_swagger,
     get_tweet_reposts_swagger,
+    get_tweet_summary_swagger,
     get_user_bookmarks_swagger,
     like_tweet_swagger,
     quote_tweet_swagger,
@@ -76,7 +77,6 @@ import {
     update_tweet_swagger,
     upload_image_swagger,
     upload_video_swagger,
-    get_tweet_summary_swagger,
 } from './tweets.swagger';
 import { ImageUploadInterceptor, VideoUploadInterceptor } from './utils/upload.interceptors';
 import { QueryCursorPaginationDTO } from './dto/get-tweet-quotes-query.dto';
@@ -514,7 +514,7 @@ export class TweetsController {
     @ResponseMessage(SUCCESS_MESSAGES.TWEET_VIEW_TRACKED)
     @UseGuards(OptionalJwtAuthGuard)
     @Post(':id/view')
-    async trackTweetView(@Param('id', ParseUUIDPipe) id: string, @GetUserId() _user_id: string) {
+    async trackTweetView(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
         return await this.tweets_service.incrementTweetViews(id);
     }
 

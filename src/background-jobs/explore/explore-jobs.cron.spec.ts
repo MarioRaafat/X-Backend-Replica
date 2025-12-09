@@ -6,7 +6,7 @@ describe('ExploreJobsCron', () => {
     let cron: ExploreJobsCron;
     let explore_service: ExploreJobsService;
 
-    const mockExploreJobsService = {
+    const mock_explore_jobs_service = {
         triggerScoreRecalculation: jest.fn(),
     };
 
@@ -14,7 +14,7 @@ describe('ExploreJobsCron', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ExploreJobsCron,
-                { provide: ExploreJobsService, useValue: mockExploreJobsService },
+                { provide: ExploreJobsService, useValue: mock_explore_jobs_service },
             ],
         }).compile();
 
@@ -32,12 +32,12 @@ describe('ExploreJobsCron', () => {
 
     describe('scheduleExploreScoreUpdate', () => {
         it('should schedule explore score update job with default config', async () => {
-            const mockResult = { success: true, job_id: '1', params: {} };
-            mockExploreJobsService.triggerScoreRecalculation.mockResolvedValue(mockResult);
+            const mock_result = { success: true, job_id: '1', params: {} };
+            mock_explore_jobs_service.triggerScoreRecalculation.mockResolvedValue(mock_result);
 
             await cron.scheduleExploreScoreUpdate();
 
-            expect(mockExploreJobsService.triggerScoreRecalculation).toHaveBeenCalledWith(
+            expect(mock_explore_jobs_service.triggerScoreRecalculation).toHaveBeenCalledWith(
                 expect.objectContaining({
                     force_all: false,
                 }),
@@ -46,7 +46,7 @@ describe('ExploreJobsCron', () => {
         });
 
         it('should handle queue errors gracefully', async () => {
-            mockExploreJobsService.triggerScoreRecalculation.mockResolvedValue({
+            mock_explore_jobs_service.triggerScoreRecalculation.mockResolvedValue({
                 success: false,
                 error: 'Queue is full',
             });
@@ -55,12 +55,12 @@ describe('ExploreJobsCron', () => {
         });
 
         it('should log job id on successful scheduling', async () => {
-            const mockResult = { success: true, job_id: '123', params: {} };
-            mockExploreJobsService.triggerScoreRecalculation.mockResolvedValue(mockResult);
+            const mock_result = { success: true, job_id: '123', params: {} };
+            mock_explore_jobs_service.triggerScoreRecalculation.mockResolvedValue(mock_result);
 
             await cron.scheduleExploreScoreUpdate();
 
-            expect(mockExploreJobsService.triggerScoreRecalculation).toHaveBeenCalled();
+            expect(mock_explore_jobs_service.triggerScoreRecalculation).toHaveBeenCalled();
         });
     });
 });
