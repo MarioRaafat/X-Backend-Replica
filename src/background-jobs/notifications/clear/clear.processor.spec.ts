@@ -217,7 +217,7 @@ describe('ClearProcessor', () => {
 
             expect(logger_log_spy).toHaveBeenCalledWith(
                 expect.stringContaining(
-                    'Successfully cleared 3 notification(s) for user user-success'
+                    'Successfully cleared 3 notification(s) by tweet IDs for user user-success'
                 )
             );
 

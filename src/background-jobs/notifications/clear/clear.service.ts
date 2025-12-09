@@ -28,4 +28,18 @@ export class ClearJobService extends BackgroundJobsService<ClearBackGroundNotifi
             'Failed to queue clear notification job:'
         );
     }
+
+    async queueClearNotificationByUsers(
+        user_id: string,
+        user_ids: string[],
+        priority?: number,
+        delay?: number
+    ) {
+        return await this.queueJob(
+            { user_id, user_ids },
+            priority ?? this.priority,
+            delay ?? this.delay,
+            'Failed to queue clear notification by users job:'
+        );
+    }
 }
