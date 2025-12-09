@@ -11,6 +11,10 @@ import { MessageType } from './entities/message.entity';
 import { FCMService } from '../fcm/fcm.service';
 import { MessagesGateway } from './messages.gateway';
 import { MessageJobService } from '../background-jobs/notifications/message/message.service';
+import { EncryptionService } from '../shared/services/encryption/encryption.service';
+import { AzureStorageService } from '../azure-storage/azure-storage.service';
+import { ConfigService } from '@nestjs/config';
+import { MessageReactionRepository } from './message-reaction.repository';
 
 describe('MessagesService', () => {
     let service: MessagesService;
@@ -101,6 +105,37 @@ describe('MessagesService', () => {
                     provide: MessageJobService,
                     useValue: {
                         queueMessageNotification: jest.fn(),
+                    },
+                },
+                {
+                    provide: EncryptionService,
+                    useValue: {
+                        encrypt: jest.fn((content) => `encrypted_${content}`),
+                        decrypt: jest.fn((content) => content.replace('encrypted_', '')),
+                    },
+                },
+                {
+                    provide: AzureStorageService,
+                    useValue: {
+                        uploadFromUrl: jest.fn(),
+                        deleteBlob: jest.fn(),
+                    },
+                },
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: jest.fn().mockReturnValue('message-images'),
+                    },
+                },
+                {
+                    provide: MessageReactionRepository,
+                    useValue: {
+                        findOne: jest.fn(),
+                        findAndCount: jest.fn(),
+                        addReaction: jest.fn(),
+                        removeReaction: jest.fn(),
+                        getMessageReactions: jest.fn(),
+                        getReactionsByMessageIds: jest.fn(),
                     },
                 },
             ],
@@ -479,6 +514,156 @@ describe('MessagesService', () => {
             const result = await service.getUnreadChatsForUser(mock_user_id);
 
             expect(result).toHaveLength(0);
+        });
+    });
+
+    describe('uploadMessageImage', () => {
+        it('should throw BadRequestException if file not provided', async () => {
+            await expect(service.uploadMessageImage(mock_user_id, null as any)).rejects.toThrow(
+                BadRequestException
+            );
+        });
+
+        it('should throw BadRequestException for invalid file format', async () => {
+            const invalid_file = {
+                fieldname: 'file',
+                originalname: 'test.txt',
+                encoding: '7bit',
+                mimetype: 'text/plain',
+                buffer: Buffer.from('test'),
+                size: 1024,
+            } as any;
+
+            await expect(service.uploadMessageImage(mock_user_id, invalid_file)).rejects.toThrow(
+                BadRequestException
+            );
+        });
+
+        it('should throw BadRequestException if file too large', async () => {
+            const large_file = {
+                fieldname: 'file',
+                originalname: 'test.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                buffer: Buffer.from('test'),
+                size: 100 * 1024 * 1024,
+            } as any;
+
+            await expect(service.uploadMessageImage(mock_user_id, large_file)).rejects.toThrow(
+                BadRequestException
+            );
+        });
+    });
+
+    describe('addReaction', () => {
+        it('should validate chat participation before adding reaction', async () => {
+            chat_repository.findOne.mockResolvedValue(null);
+
+            await expect(
+                service.addReaction(mock_user_id, mock_chat_id, mock_message_id, { emoji: '❤️' })
+            ).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw error if validation fails', async () => {
+            chat_repository.findOne.mockResolvedValue(mock_chat as any);
+            message_repository.findMessageById = jest.fn().mockResolvedValue(null);
+
+            await expect(
+                service.addReaction(mock_user_id, mock_chat_id, 'non-existent', { emoji: '❤️' })
+            ).rejects.toThrow();
+        });
+    });
+
+    describe('removeReaction', () => {
+        it('should throw NotFoundException if reaction not found', async () => {
+            // Mock validateChatParticipation to succeed
+            jest.spyOn(service as any, 'validateChatParticipation').mockResolvedValue(undefined);
+
+            // Mock message_reaction_repository through service
+            const reaction_repo = (service as any).message_reaction_repository;
+            jest.spyOn(reaction_repo, 'removeReaction').mockResolvedValue(false);
+
+            await expect(
+                service.removeReaction(mock_user_id, mock_chat_id, mock_message_id, { emoji: '❤️' })
+            ).rejects.toThrow(NotFoundException);
+        });
+
+        it('should successfully remove reaction', async () => {
+            // Mock validateChatParticipation to succeed
+            jest.spyOn(service as any, 'validateChatParticipation').mockResolvedValue(undefined);
+
+            // Mock message_reaction_repository through service
+            const reaction_repo = (service as any).message_reaction_repository;
+            jest.spyOn(reaction_repo, 'removeReaction').mockResolvedValue(true);
+
+            const result = await service.removeReaction(
+                mock_user_id,
+                mock_chat_id,
+                mock_message_id,
+                { emoji: '❤️' }
+            );
+
+            expect(result.message).toBeDefined();
+        });
+    });
+
+    describe('getMessageReactions', () => {
+        it('should return empty array when no reactions', async () => {
+            chat_repository.findOne.mockResolvedValue(mock_chat as any);
+
+            const reaction_repo = (service as any).message_reaction_repository;
+            jest.spyOn(reaction_repo, 'getMessageReactions').mockResolvedValue([]);
+
+            const result = await service.getMessageReactions(
+                mock_user_id,
+                mock_chat_id,
+                mock_message_id
+            );
+
+            expect(result).toEqual([]);
+        });
+
+        it('should group reactions by emoji', async () => {
+            chat_repository.findOne.mockResolvedValue(mock_chat as any);
+
+            const mock_reactions = [
+                {
+                    id: 'reaction-1',
+                    emoji: '❤️',
+                    user_id: mock_user_id,
+                    user: {
+                        id: mock_user_id,
+                        username: 'user1',
+                        name: 'User One',
+                        avatar_url: 'avatar.jpg',
+                    },
+                },
+                {
+                    id: 'reaction-2',
+                    emoji: '❤️',
+                    user_id: 'user-456',
+                    user: {
+                        id: 'user-456',
+                        username: 'user2',
+                        name: 'User Two',
+                        avatar_url: 'avatar2.jpg',
+                    },
+                },
+            ];
+
+            const reaction_repo = (service as any).message_reaction_repository;
+            jest.spyOn(reaction_repo, 'getMessageReactions').mockResolvedValue(mock_reactions);
+
+            const result = await service.getMessageReactions(
+                mock_user_id,
+                mock_chat_id,
+                mock_message_id
+            );
+
+            expect(result).toHaveLength(1);
+            expect((result[0] as any).emoji).toBe('❤️');
+            expect((result[0] as any).count).toBe(2);
+            expect((result[0] as any).user_reacted).toBe(true);
         });
     });
 });

@@ -166,6 +166,7 @@
             "!**/seeds/**",
             "!main.ts",
             "!**/*.spec.ts",
+            "!**/*-key.ts",
             "!**/node_modules/**"
         ],
         "coverageDirectory": "../coverage",
