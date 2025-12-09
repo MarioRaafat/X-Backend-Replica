@@ -50,6 +50,7 @@ export class ReplyProcessor {
 
                 if (was_deleted) {
                     payload = {
+                        type: NotificationType.REPLY,
                         ...job.data,
                         replied_by,
                     };

@@ -58,7 +58,7 @@ describe('ClearProcessor', () => {
                 ['tweet-1', 'tweet-2', 'tweet-3']
             );
             expect(logger_spy).toHaveBeenCalledWith(
-                'Successfully cleared 3 notification(s) for user user-123'
+                'Successfully cleared 3 notification(s) by tweet IDs for user user-123'
             );
         });
 
@@ -205,6 +205,32 @@ describe('ClearProcessor', () => {
             );
 
             console_spy.mockRestore();
+        });
+
+        it('should log success message after clearing notifications', async () => {
+            const logger_log_spy = jest.spyOn(Logger.prototype, 'log').mockImplementation();
+
+            const job_data: ClearBackGroundNotificationJobDTO = {
+                user_id: 'user-success',
+                tweet_ids: ['tweet-a', 'tweet-b', 'tweet-c'],
+            };
+
+            const job = {
+                id: 'job-success',
+                data: job_data,
+            } as Job<ClearBackGroundNotificationJobDTO>;
+
+            mock_notifications_service.deleteNotificationsByTweetIds.mockResolvedValue(undefined);
+
+            await processor.handleClearNotification(job);
+
+            expect(logger_log_spy).toHaveBeenCalledWith(
+                expect.stringContaining(
+                    'Successfully cleared 3 notification(s) by tweet IDs for user user-success'
+                )
+            );
+
+            logger_log_spy.mockRestore();
         });
     });
 });

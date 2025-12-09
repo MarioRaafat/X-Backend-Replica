@@ -48,6 +48,7 @@ export class QuoteProcessor {
                         NotificationType.QUOTE,
                         quote_to,
                         {
+                            type: NotificationType.QUOTE,
                             ...job.data,
                             quoted_by,
                         }
