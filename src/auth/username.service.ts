@@ -81,7 +81,7 @@ export class UsernameService {
 
         // Fill remaining slots with more random variations
         while (recommendations.length < 5) {
-            const random_num = Math.floor(Math.random() * 99999);
+            const random_num = Math.floor(Math.random() * 9999);
             const base = this.truncateForNumbers(first_name_only.toLowerCase(), random_num);
             const random_pattern = `${base}${random_num}`;
             if (await this.isUsernameAvailable(random_pattern)) {
@@ -112,7 +112,7 @@ export class UsernameService {
         if (str.length <= USERNAME_MAX_LENGTH) {
             return str;
         }
-        return str.substring(0, USERNAME_MAX_LENGTH);
+        return str.substring(0, USERNAME_MAX_LENGTH - 1);
     }
 
     private truncateForNumbers(base: string, number: number): string {
@@ -122,6 +122,6 @@ export class UsernameService {
         if (base.length <= max_base_length) {
             return base;
         }
-        return base.substring(0, max_base_length);
+        return base.substring(0, max_base_length - 1);
     }
 }
