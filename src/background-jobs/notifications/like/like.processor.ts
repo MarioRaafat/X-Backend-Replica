@@ -42,6 +42,7 @@ export class LikeProcessor {
                         NotificationType.LIKE,
                         like_to,
                         {
+                            type: NotificationType.LIKE,
                             ...job.data,
                             liked_by,
                         }
