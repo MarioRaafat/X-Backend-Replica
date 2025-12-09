@@ -7,30 +7,51 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { MessageRepository } from './messages.repository';
-import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
+import {
+    AddReactionDto,
+    GetMessagesQueryDto,
+    RemoveReactionDto,
+    SendMessageDto,
+    UpdateMessageDto,
+} from './dto';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Chat } from 'src/chat/entities/chat.entity';
-import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
+import { ERROR_MESSAGES, SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import { MessageType } from './entities/message.entity';
 import { ChatRepository } from 'src/chat/chat.repository';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { EncryptionService } from 'src/shared/services/encryption/encryption.service';
 import { FCMService } from 'src/fcm/fcm.service';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 import { MessagesGateway } from './messages.gateway';
 import { MessageJobService } from 'src/background-jobs/notifications/message/message.service';
+import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
+import { ConfigService } from '@nestjs/config';
+import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_FILE_SIZE } from 'src/constants/variables';
+import { MessageReactionRepository } from './message-reaction.repository';
 
 @Injectable()
 export class MessagesService {
+    private message_images_container: string;
+
     constructor(
         private readonly message_repository: MessageRepository,
         @InjectRepository(Chat)
         private readonly chat_repository: ChatRepository,
         private readonly pagination_service: PaginationService,
+        private readonly encryption_service: EncryptionService,
         private readonly fcm_service: FCMService,
         @Inject(forwardRef(() => MessagesGateway))
         private readonly message_gateway: MessagesGateway,
-        private readonly message_job_service: MessageJobService
-    ) {}
+        private readonly message_job_service: MessageJobService,
+        private readonly azure_storage_service: AzureStorageService,
+        private readonly config_service: ConfigService,
+        private readonly message_reaction_repository: MessageReactionRepository
+    ) {
+        this.message_images_container =
+            this.config_service.get<string>('AZURE_STORAGE_MESSAGE_IMAGE_CONTAINER') ||
+            'message-images';
+    }
 
     async validateChatParticipation(
         user_id: string,
@@ -257,5 +278,109 @@ export class MessagesService {
             });
 
         return unread_chats;
+    }
+
+    async uploadMessageImage(
+        user_id: string,
+        file: Express.Multer.File
+    ): Promise<{ image_url: string }> {
+        if (!file || !file.buffer) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+        }
+
+        if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.mimetype as any)) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_FILE_FORMAT);
+        }
+
+        if (file.size > MAX_IMAGE_FILE_SIZE) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_TOO_LARGE);
+        }
+
+        try {
+            const file_name = this.azure_storage_service.generateFileName(
+                user_id,
+                file.originalname
+            );
+
+            const image_url = await this.azure_storage_service.uploadFile(
+                file.buffer,
+                file_name,
+                this.message_images_container
+            );
+
+            return {
+                image_url,
+            };
+        } catch (error) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
+        }
+    }
+
+    async addReaction(user_id: string, chat_id: string, message_id: string, dto: AddReactionDto) {
+        await this.validateChatParticipation(user_id, chat_id, '');
+
+        const reaction = await this.message_reaction_repository.addReaction(
+            message_id,
+            user_id,
+            dto.emoji
+        );
+
+        return {
+            id: reaction.id,
+            message_id: reaction.message_id,
+            user_id: reaction.user_id,
+            emoji: reaction.emoji,
+            created_at: reaction.created_at,
+        };
+    }
+
+    async removeReaction(
+        user_id: string,
+        chat_id: string,
+        message_id: string,
+        dto: RemoveReactionDto
+    ) {
+        await this.validateChatParticipation(user_id, chat_id, '');
+
+        const removed = await this.message_reaction_repository.removeReaction(message_id, user_id);
+
+        if (!removed) {
+            throw new NotFoundException(ERROR_MESSAGES.REACTION_NOT_FOUND);
+        }
+
+        return {
+            message: SUCCESS_MESSAGES.REACTION_REMOVED,
+        };
+    }
+
+    async getMessageReactions(user_id: string, chat_id: string, message_id: string) {
+        await this.validateChatParticipation(user_id, chat_id);
+
+        const reactions = await this.message_reaction_repository.getMessageReactions(message_id);
+
+        // Group reactions by emoji
+        const grouped_reactions = reactions.reduce((acc, reaction) => {
+            if (!acc[reaction.emoji]) {
+                acc[reaction.emoji] = {
+                    emoji: reaction.emoji,
+                    count: 0,
+                    users: [],
+                    user_reacted: false,
+                };
+            }
+            acc[reaction.emoji].count++;
+            acc[reaction.emoji].users.push({
+                id: reaction.user.id,
+                username: reaction.user.username,
+                name: reaction.user.name,
+                avatar_url: reaction.user.avatar_url,
+            });
+            if (reaction.user_id === user_id) {
+                acc[reaction.emoji].user_reacted = true;
+            }
+            return acc;
+        }, {});
+
+        return Object.values(grouped_reactions);
     }
 }

@@ -29,7 +29,8 @@
         "prepare": "husky",
         "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts",
         "es:seed": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-seed.ts",
-        "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts"
+        "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts",
+        "generate-encryption-key": "node -r ts-node/register src/shared/services/encryption/generate-encryption-key.ts"
     },
     "lint-staged": {
         "*.ts": [
@@ -56,7 +57,6 @@
         "@nestjs/platform-express": "^11.0.1",
         "@nestjs/schedule": "^6.0.1",
         "@nestjs/platform-socket.io": "^11.1.9",
-        "@nestjs/schedule": "^6.0.1",
         "@nestjs/swagger": "^11.2.0",
         "@nestjs/typeorm": "^11.0.0",
         "@nestjs/websockets": "^11.1.9",
@@ -166,6 +166,7 @@
             "!**/seeds/**",
             "!main.ts",
             "!**/*.spec.ts",
+            "!**/*-key.ts",
             "!**/node_modules/**"
         ],
         "coverageDirectory": "../coverage",

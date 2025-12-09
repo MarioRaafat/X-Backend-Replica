@@ -77,6 +77,16 @@ export class BaseGateway {
         return this.messages.handleSendMessage(client, data);
     }
 
+    @SubscribeMessage('add_reaction')
+    async handleAddReaction(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
+        return this.messages.handleAddReaction(client, data);
+    }
+
+    @SubscribeMessage('remove_reaction')
+    async handleRemoveReaction(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
+        return this.messages.handleRemoveReaction(client, data);
+    }
+
     @SubscribeMessage('update_message')
     async handleUpdateMessage(@ConnectedSocket() client: Socket, @MessageBody() data: any) {
         return this.messages.handleUpdateMessage(client, data);
