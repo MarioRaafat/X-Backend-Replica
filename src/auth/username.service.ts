@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { UserRepository } from 'src/user/user.repository';
+import { USERNAME_MAX_LENGTH } from 'src/constants/variables';
 
 @Injectable()
 export class UsernameService {
@@ -26,7 +27,7 @@ export class UsernameService {
         const recommendations: string[] = [];
 
         // Pattern 1: firstname + lastname
-        const pattern1 = base_username.toLowerCase();
+        const pattern1 = this.truncateToMaxLength(base_username.toLowerCase());
         if (await this.isUsernameAvailable(pattern1)) {
             recommendations.push(pattern1);
         }
@@ -34,7 +35,8 @@ export class UsernameService {
         // Pattern 2: firstname + lastname + random numbers
         for (let i = 0; i < 3; i++) {
             const random_num = Math.floor(Math.random() * 9999);
-            const pattern2 = `${pattern1}${random_num}`;
+            const base = this.truncateForNumbers(base_username.toLowerCase(), random_num);
+            const pattern2 = `${base}${random_num}`;
             if (await this.isUsernameAvailable(pattern2)) {
                 recommendations.push(pattern2);
                 if (recommendations.length >= 5) break;
@@ -43,7 +45,9 @@ export class UsernameService {
 
         // Pattern 3: firstname + underscore + lastname
         if (recommendations.length < 5) {
-            const pattern3 = `${first_name_only.toLowerCase()}_${last_name_only.toLowerCase()}`;
+            const pattern3 = this.truncateToMaxLength(
+                `${first_name_only.toLowerCase()}_${last_name_only.toLowerCase()}`
+            );
             if (await this.isUsernameAvailable(pattern3)) {
                 recommendations.push(pattern3);
             }
@@ -53,7 +57,8 @@ export class UsernameService {
         if (recommendations.length < 5) {
             for (let i = 0; i < 3; i++) {
                 const random_num = Math.floor(Math.random() * 9999);
-                const pattern4 = `${first_name_only.toLowerCase()}${random_num}`;
+                const base = this.truncateForNumbers(first_name_only.toLowerCase(), random_num);
+                const pattern4 = `${base}${random_num}`;
                 if (await this.isUsernameAvailable(pattern4)) {
                     recommendations.push(pattern4);
                     if (recommendations.length >= 5) break;
@@ -62,10 +67,11 @@ export class UsernameService {
         }
 
         // Pattern 5: lastname + random numbers
-        if (recommendations.length < 5) {
+        if (recommendations.length < 5 && last_name_only.trim()) {
             for (let i = 0; i < 3; i++) {
                 const random_num = Math.floor(Math.random() * 9999);
-                const pattern5 = `${last_name_only.toLowerCase()}${random_num}`;
+                const base = this.truncateForNumbers(last_name_only.toLowerCase(), random_num);
+                const pattern5 = `${base}${random_num}`;
                 if (await this.isUsernameAvailable(pattern5)) {
                     recommendations.push(pattern5);
                     if (recommendations.length >= 5) break;
@@ -76,7 +82,8 @@ export class UsernameService {
         // Fill remaining slots with more random variations
         while (recommendations.length < 5) {
             const random_num = Math.floor(Math.random() * 99999);
-            const random_pattern = `${first_name_only.toLowerCase()}${random_num}`;
+            const base = this.truncateForNumbers(first_name_only.toLowerCase(), random_num);
+            const random_pattern = `${base}${random_num}`;
             if (await this.isUsernameAvailable(random_pattern)) {
                 recommendations.push(random_pattern);
             }
@@ -99,5 +106,22 @@ export class UsernameService {
         return name
             .replace(/[^a-zA-Z0-9]/g, '') // Remove special characters
             .replace(/\s+/g, ''); // Remove spaces
+    }
+
+    private truncateToMaxLength(str: string): string {
+        if (str.length <= USERNAME_MAX_LENGTH) {
+            return str;
+        }
+        return str.substring(0, USERNAME_MAX_LENGTH);
+    }
+
+    private truncateForNumbers(base: string, number: number): string {
+        const number_length = number.toString().length;
+        const max_base_length = USERNAME_MAX_LENGTH - number_length;
+
+        if (base.length <= max_base_length) {
+            return base;
+        }
+        return base.substring(0, max_base_length);
     }
 }
