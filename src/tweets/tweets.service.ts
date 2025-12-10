@@ -66,9 +66,9 @@ import { TweetSummary } from './entities/tweet-summary.entity';
 import { TweetSummaryResponseDTO } from './dto/tweet-summary-response.dto';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-import { TrendService } from 'src/trend/trend.service';
 import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 
+import { extractHashtags } from 'twitter-text';
 @Injectable()
 export class TweetsService {
     constructor(
@@ -1335,11 +1335,16 @@ export class TweetsService {
         const mentions = content.match(/@([a-zA-Z0-9_]+)/g) || [];
 
         // Extract hashtags and remove duplicates
-        // Extract hashtags and remove duplicates
-        const hashtags =
-            content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
+        const hashtags: string[] = extractHashtags(content) || [];
+
+        console.log(hashtags);
+
         const unique_hashtags = [...new Set(hashtags)];
-        await this.updateHashtags(unique_hashtags, user_id, query_runner);
+        const normalized_hashtags = hashtags.map((hashtag) => {
+            return hashtag.toLowerCase();
+        });
+
+        await this.updateHashtags([...new Set(normalized_hashtags)], user_id, query_runner);
 
         // Extract topics using Groq AI
         const topics = await this.extractTopics(content, unique_hashtags);
