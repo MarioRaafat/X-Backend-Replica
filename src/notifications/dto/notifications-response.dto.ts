@@ -5,6 +5,7 @@ import { ReplyNotificationDto } from './reply-notification.dto';
 import { RepostNotificationDto } from './repost-notification.dto';
 import { QuoteNotificationDto } from './quote-notification.dto';
 import { MentionNotificationDto } from './mention-notification.dto';
+import { MessageNotificationDto } from './message-notification.dto';
 
 export type NotificationDto =
     | FollowNotificationDto
@@ -12,7 +13,8 @@ export type NotificationDto =
     | ReplyNotificationDto
     | RepostNotificationDto
     | QuoteNotificationDto
-    | MentionNotificationDto;
+    | MentionNotificationDto
+    | MessageNotificationDto;
 
 export class NotificationsResponseDto {
     @ApiProperty({
@@ -26,6 +28,7 @@ export class NotificationsResponseDto {
                 { $ref: '#/components/schemas/RepostNotificationDto' },
                 { $ref: '#/components/schemas/QuoteNotificationDto' },
                 { $ref: '#/components/schemas/MentionNotificationDto' },
+                { $ref: '#/components/schemas/MessageNotificationDto' },
             ],
         },
         example: [

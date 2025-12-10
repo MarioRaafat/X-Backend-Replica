@@ -8,6 +8,7 @@ import { NotificationsGateway } from './notifications.gateway';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
 import { Tweet } from 'src/tweets/entities';
+import { Message } from 'src/messages/entities/message.entity';
 import { In, Repository } from 'typeorm';
 import { ReplyNotificationEntity } from './entities/reply-notification.entity';
 import { RepostNotificationEntity } from './entities/repost-notification.entity';
@@ -15,6 +16,7 @@ import { QuoteNotificationEntity } from './entities/quote-notification.entity';
 import { LikeNotificationEntity } from './entities/like-notification.entity';
 import { FollowNotificationEntity } from './entities/follow-notification.entity';
 import { MentionNotificationEntity } from './entities/mention-notification.entity';
+import { MessageNotificationEntity } from './entities/message-notification.entity';
 import { NotificationDto } from './dto/notifications-response.dto';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { ClearJobService } from 'src/background-jobs/notifications/clear/clear.service';
@@ -694,6 +696,13 @@ export class NotificationsService implements OnModuleInit {
                     }
                     break;
                 }
+                case NotificationType.MESSAGE: {
+                    const message_notification = notification as MessageNotificationEntity;
+                    if (message_notification.sent_by) {
+                        user_ids.add(message_notification.sent_by);
+                    }
+                    break;
+                }
             }
         });
 
@@ -969,6 +978,23 @@ export class NotificationsService implements OnModuleInit {
                             tweet: mention_tweet,
                             tweet_type: mention_notification.tweet_type,
                         };
+                    }
+                    case NotificationType.MESSAGE: {
+                        const message_notification = notification as MessageNotificationEntity;
+                        const sender = user_map.get(message_notification.sent_by);
+
+                        if (!sender) {
+                            missing_user_ids.add(message_notification.sent_by);
+                            return null;
+                        }
+
+                        return {
+                            type: notification.type,
+                            created_at: notification.created_at,
+                            sender,
+                            message_id: message_notification.message_id,
+                            chat_id: message_notification.chat_id,
+                        } as NotificationDto;
                     }
                     default:
                         return null;
