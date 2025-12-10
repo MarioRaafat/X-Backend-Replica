@@ -317,6 +317,8 @@ export class NotificationsService implements OnModuleInit {
                                 {
                                     'elem.type': NotificationType.LIKE,
                                     'elem.tweet_id': new_tweet_id,
+                                    'elem.tweet_id.0': { $exists: true },
+                                    'elem.tweet_id.1': { $exists: false },
                                     'elem.created_at': { $gte: one_day_ago },
                                 },
                             ],
@@ -341,6 +343,8 @@ export class NotificationsService implements OnModuleInit {
                                 {
                                     'elem.type': NotificationType.LIKE,
                                     'elem.liked_by': new_liked_by,
+                                    'elem.liked_by.0': { $exists: true },
+                                    'elem.liked_by.1': { $exists: false },
                                     'elem.created_at': { $gte: one_day_ago },
                                 },
                             ],
@@ -452,6 +456,8 @@ export class NotificationsService implements OnModuleInit {
                 let updated_doc_repost;
                 if (aggregation_type === 'tweet') {
                     // Add the new person to the existing notification for this tweet
+                    // Use $exists checks to ensure we only match notifications with exactly 1 tweet
+                    // (not aggregated by person)
                     updated_doc_repost = await this.notificationModel.findOneAndUpdate(
                         { user: user_id },
                         {
@@ -467,6 +473,8 @@ export class NotificationsService implements OnModuleInit {
                                 {
                                     'elem.type': NotificationType.REPOST,
                                     'elem.tweet_id': new_tweet_id,
+                                    'elem.tweet_id.0': { $exists: true },
+                                    'elem.tweet_id.1': { $exists: false },
                                     'elem.created_at': { $gte: one_day_ago },
                                 },
                             ],
@@ -491,6 +499,8 @@ export class NotificationsService implements OnModuleInit {
                                 {
                                     'elem.type': NotificationType.REPOST,
                                     'elem.reposted_by': new_reposted_by,
+                                    'elem.reposted_by.0': { $exists: true },
+                                    'elem.reposted_by.1': { $exists: false },
                                     'elem.created_at': { $gte: one_day_ago },
                                 },
                             ],
