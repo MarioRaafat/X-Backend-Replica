@@ -2188,28 +2188,33 @@ describe('AuthService', () => {
         });
 
         it('should verify Google mobile token successfully', async () => {
-            const mock_payload = {
-                sub: 'google-123',
+            const mock_access_token = 'mock-access-token';
+            const mock_user_data = {
+                id: 'google-123',
                 email: 'test@example.com',
                 given_name: 'John',
                 family_name: 'Doe',
                 picture: 'http://avatar.com/john',
             };
-            const mock_ticket = { getPayload: jest.fn().mockReturnValue(mock_payload) };
-
-            // Mock OAuth2Client constructor
-            const { OAuth2Client } = require('google-auth-library');
-            jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue(mock_ticket);
-
             const mock_validation_result = {
                 user: { id: 'user-1', email: 'test@example.com' },
                 needs_completion: false,
             };
-            jest.spyOn(service, 'validateGoogleUser').mockResolvedValue(
+
+            jest.spyOn(service, 'getGoogleAccessToken').mockResolvedValueOnce(mock_access_token);
+            jest.spyOn(service, 'validateGoogleUser').mockResolvedValueOnce(
                 mock_validation_result as any
             );
 
-            const result = await service.verifyGoogleMobileToken('valid-token');
+            // Mock axios to return user data
+            const axiosMock = require('axios');
+            axiosMock.get = jest.fn().mockResolvedValueOnce({ data: mock_user_data });
+
+            const result = await service.verifyGoogleMobileToken(
+                'code',
+                'redirect_uri',
+                'verifier'
+            );
 
             expect(result).toEqual(mock_validation_result);
             expect(service.validateGoogleUser).toHaveBeenCalledWith(
@@ -2223,39 +2228,41 @@ describe('AuthService', () => {
         });
 
         it('should throw UnauthorizedException if payload is null', async () => {
-            const mock_ticket = { getPayload: jest.fn().mockReturnValue(null) };
-            const { OAuth2Client } = require('google-auth-library');
-            jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue(mock_ticket);
+            jest.spyOn(service, 'getGoogleAccessToken').mockResolvedValueOnce('mock-token');
 
-            await expect(service.verifyGoogleMobileToken('invalid-token')).rejects.toThrow(
-                new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID)
-            );
+            const axiosMock = require('axios');
+            axiosMock.get = jest.fn().mockResolvedValueOnce({ data: null });
+
+            await expect(
+                service.verifyGoogleMobileToken('invalid-code', 'redirect_uri')
+            ).rejects.toThrow(new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID));
         });
 
         it('should throw BadRequestException if email not provided', async () => {
-            const mock_payload = {
-                sub: 'google-123',
-                // email missing
+            const mock_user_data = {
+                id: 'google-123',
                 given_name: 'John',
+                // email missing
             };
-            const mock_ticket = { getPayload: jest.fn().mockReturnValue(mock_payload) };
-            const { OAuth2Client } = require('google-auth-library');
-            jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockResolvedValue(mock_ticket);
 
-            await expect(service.verifyGoogleMobileToken('token')).rejects.toThrow(
-                new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB)
+            jest.spyOn(service, 'getGoogleAccessToken').mockResolvedValueOnce('mock-token');
+
+            const axiosMock = require('axios');
+            axiosMock.get = jest.fn().mockResolvedValueOnce({ data: mock_user_data });
+
+            await expect(service.verifyGoogleMobileToken('code', 'redirect_uri')).rejects.toThrow(
+                new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GOOGLE)
             );
         });
 
         it('should throw UnauthorizedException on verification error', async () => {
-            const { OAuth2Client } = require('google-auth-library');
-            jest.spyOn(OAuth2Client.prototype, 'verifyIdToken').mockRejectedValue(
-                new Error('Verification failed')
+            jest.spyOn(service, 'getGoogleAccessToken').mockRejectedValueOnce(
+                new UnauthorizedException('Token fetch failed')
             );
 
-            await expect(service.verifyGoogleMobileToken('bad-token')).rejects.toThrow(
-                new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID)
-            );
+            await expect(
+                service.verifyGoogleMobileToken('bad-code', 'redirect_uri')
+            ).rejects.toThrow(UnauthorizedException);
         });
     });
 

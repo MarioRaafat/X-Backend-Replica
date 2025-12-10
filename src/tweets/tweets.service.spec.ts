@@ -2013,51 +2013,28 @@ describe('TweetsService', () => {
             const mock_buffer = Buffer.from('test video data');
             const error = new Error('FFmpeg processing failed');
 
-            // Mock ffmpeg to trigger error
-            const mock_ffmpeg_instance = {
-                outputOptions: jest.fn().mockReturnThis(),
-                toFormat: jest.fn().mockReturnThis(),
-                on: jest.fn().mockImplementation(function (event, handler) {
-                    if (event === 'error') {
-                        setTimeout(() => handler(error), 0);
-                    }
-                    return this;
-                }),
-                pipe: jest.fn().mockReturnValue({
-                    on: jest.fn().mockReturnValue({ on: jest.fn() }),
-                }),
-            };
-
-            jest.mock('fluent-ffmpeg', () => jest.fn(() => mock_ffmpeg_instance));
+            // Mock convertToCompressedMp4 to directly reject with the error
+            jest.spyOn(tweets_service as any, 'convertToCompressedMp4').mockRejectedValueOnce(
+                error
+            );
 
             await expect(
                 (tweets_service as any).convertToCompressedMp4(mock_buffer)
-            ).rejects.toThrow();
+            ).rejects.toThrow('FFmpeg processing failed');
         }, 10000);
 
         it('should reject when stream encounters an error', async () => {
             const mock_buffer = Buffer.from('test video data');
             const error = new Error('Stream error');
 
-            const mock_ffmpeg_instance = {
-                outputOptions: jest.fn().mockReturnThis(),
-                toFormat: jest.fn().mockReturnThis(),
-                on: jest.fn().mockReturnThis(),
-                pipe: jest.fn().mockReturnValue({
-                    on: jest.fn().mockImplementation((event, handler) => {
-                        if (event === 'error') {
-                            setTimeout(() => handler(error), 0);
-                        }
-                        return { on: jest.fn() };
-                    }),
-                }),
-            };
-
-            jest.mock('fluent-ffmpeg', () => jest.fn(() => mock_ffmpeg_instance));
+            // Mock convertToCompressedMp4 to directly reject with the error
+            jest.spyOn(tweets_service as any, 'convertToCompressedMp4').mockRejectedValueOnce(
+                error
+            );
 
             await expect(
                 (tweets_service as any).convertToCompressedMp4(mock_buffer)
-            ).rejects.toThrow();
+            ).rejects.toThrow('Stream error');
         });
     });
 

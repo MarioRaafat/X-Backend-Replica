@@ -103,6 +103,8 @@ describe('MessageRepository', () => {
                 reply_to_message_id: null,
                 is_read: false,
                 image_url: null,
+                voice_note_url: null,
+                voice_note_duration: null,
             });
             expect(repository.save).toHaveBeenCalled();
             expect(chat_repository.update).toHaveBeenCalledWith(
@@ -129,6 +131,8 @@ describe('MessageRepository', () => {
                 reply_to_message_id: 'original-message-id',
                 is_read: false,
                 image_url: null,
+                voice_note_url: null,
+                voice_note_duration: null,
             });
         });
 
@@ -170,6 +174,7 @@ describe('MessageRepository', () => {
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 take: jest.fn().mockReturnThis(),
                 andWhere: jest.fn().mockReturnThis(),
                 getMany: jest.fn().mockResolvedValue(messages),
@@ -195,6 +200,7 @@ describe('MessageRepository', () => {
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 take: jest.fn().mockReturnThis(),
                 andWhere: jest.fn().mockReturnThis(),
                 getMany: jest.fn().mockResolvedValue([mock_message]),
@@ -204,9 +210,10 @@ describe('MessageRepository', () => {
             jest.spyOn(repository, 'findOne').mockResolvedValueOnce(before_message as any);
             pagination_service.applyCursorPagination.mockReturnValue(mock_query_builder as any);
 
-            await repository.findMessagesByChatId(mock_chat_id, query);
+            const result = await repository.findMessagesByChatId(mock_chat_id, query);
 
             expect(pagination_service.applyCursorPagination).toHaveBeenCalled();
+            expect(result).toEqual([mock_message]);
         });
 
         it('should throw InternalServerErrorException on query error', async () => {

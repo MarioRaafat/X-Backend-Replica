@@ -110,6 +110,66 @@ describe('ChatService', () => {
         });
     });
 
+    describe('getChatById', () => {
+        it('should get chat by id successfully', async () => {
+            const mock_chat_response = {
+                id: mock_chat_id,
+                participant: {
+                    id: mock_recipient_id,
+                    username: 'john_doe',
+                    name: 'John Doe',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                },
+                last_message: null,
+                unread_count: 0,
+                user1_id: mock_user_id,
+                user2_id: mock_recipient_id,
+                created_at: new Date(),
+                updated_at: new Date(),
+            };
+
+            chat_repository.getChatById = jest.fn().mockResolvedValue(mock_chat_response);
+
+            const result = await service.getChatById(mock_user_id, mock_chat_id);
+
+            expect(result).toEqual(mock_chat_response);
+        });
+
+        it('should throw NotFoundException if chat does not exist', async () => {
+            chat_repository.getChatById = jest.fn().mockResolvedValue(null);
+
+            await expect(service.getChatById(mock_user_id, mock_chat_id)).rejects.toThrow(
+                new NotFoundException(ERROR_MESSAGES.CHAT_NOT_FOUND)
+            );
+        });
+
+        it('should throw ForbiddenException if user is not a participant', async () => {
+            const mock_chat_response = {
+                id: mock_chat_id,
+                participant: null,
+                last_message: null,
+                unread_count: 0,
+                user1_id: 'other-user-1',
+                user2_id: 'other-user-2',
+                created_at: new Date(),
+                updated_at: new Date(),
+            };
+
+            chat_repository.getChatById = jest.fn().mockResolvedValue(mock_chat_response);
+
+            await expect(service.getChatById(mock_user_id, mock_chat_id)).rejects.toThrow(
+                new ForbiddenException(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
+            );
+        });
+
+        it('should handle errors from repository', async () => {
+            const error = new Error('Database error');
+            chat_repository.getChatById = jest.fn().mockRejectedValue(error);
+
+            await expect(service.getChatById(mock_user_id, mock_chat_id)).rejects.toThrow();
+        });
+    });
+
     describe('markMessagesAsRead', () => {
         it('should mark messages as read successfully', async () => {
             const dto: MarkMessagesReadDto = {};

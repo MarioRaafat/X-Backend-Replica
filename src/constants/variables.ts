@@ -3,8 +3,8 @@ export const Y_LOGO_URL =
 export const Y_LOGO_HOST_URL = 'https://yapperdev.blob.core.windows.net/profile-images/';
 
 export const STRING_MAX_LENGTH = 100;
-export const USERNAME_MAX_LENGTH = 15;
-export const NAME_MAX_LENGTH = 20;
+export const USERNAME_MAX_LENGTH = 20;
+export const NAME_MAX_LENGTH = 25;
 export const LARGE_MAX_LENGTH = 3000;
 export const POST_CONTENT_LENGTH = 280;
 export const MESSAGE_CONTENT_LENGTH = 300;
@@ -22,6 +22,18 @@ export const ALLOWED_IMAGE_MIME_TYPES = [
     'image/x-icon',
 ] as const;
 export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+
+// Voice note constants
+export const ALLOWED_VOICE_MIME_TYPES = [
+    'audio/mpeg',
+    'audio/wav',
+    'audio/ogg',
+    'audio/mp4',
+    'audio/webm',
+] as const;
+export const MAX_VOICE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_VOICE_DURATION = 300; // 5 minutes
+export const MIN_VOICE_DURATION = 1; // 1 second
 
 // ------------------------- Email Templates ------------------------- //
 export const verification_email_object = (otp: string, link: string) => ({

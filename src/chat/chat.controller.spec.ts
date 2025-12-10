@@ -18,6 +18,7 @@ describe('ChatController', () => {
                     useValue: {
                         createChat: jest.fn(),
                         getChats: jest.fn(),
+                        getChatById: jest.fn(),
                         getChat: jest.fn(),
                         deleteChat: jest.fn(),
                         sendMessage: jest.fn(),
@@ -109,6 +110,53 @@ describe('ChatController', () => {
             await expect(
                 controller.markMessagesAsRead(mock_chat_id, mock_dto, mock_user_id)
             ).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    describe('getChatById', () => {
+        it('should return a chat by id', async () => {
+            const mock_chat_id = 'chat-1';
+            const mock_result = {
+                id: mock_chat_id,
+                participant: {
+                    id: 'user-456',
+                    username: 'john_doe',
+                    name: 'John Doe',
+                    avatar_url: 'https://example.com/avatar.jpg',
+                },
+                last_message: {
+                    id: 'msg-1',
+                    content: 'Hello',
+                    message_type: 'text',
+                    sender_id: 'user-456',
+                    created_at: new Date(),
+                    is_read: false,
+                },
+                unread_count: 2,
+                user1_id: mock_user_id,
+                user2_id: 'user-456',
+                created_at: new Date(),
+                updated_at: new Date(),
+            };
+
+            mock_chat_service.getChatById.mockResolvedValue(mock_result as any);
+
+            const result = await controller.getChatById(mock_chat_id, mock_user_id);
+
+            expect(mock_chat_service.getChatById).toHaveBeenCalledWith(mock_user_id, mock_chat_id);
+            expect(result).toEqual(mock_result);
+        });
+
+        it('should throw NotFoundException when chat does not exist', async () => {
+            const mock_chat_id = 'chat-1';
+
+            mock_chat_service.getChatById.mockRejectedValue(
+                new NotFoundException('Chat not found')
+            );
+
+            await expect(controller.getChatById(mock_chat_id, mock_user_id)).rejects.toThrow(
+                NotFoundException
+            );
         });
     });
 });

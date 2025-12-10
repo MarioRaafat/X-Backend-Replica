@@ -31,6 +31,8 @@ export class MessageRepository extends Repository<Message> {
                 chat_id,
                 content: encrypted_content,
                 image_url: dto.image_url || null,
+                voice_note_url: dto.voice_note_url || null,
+                voice_note_duration: dto.voice_note_duration || null,
                 message_type: dto.message_type || MessageType.TEXT,
                 reply_to_message_id: dto.reply_to_message_id || null,
                 is_read: is_read,
@@ -71,9 +73,12 @@ export class MessageRepository extends Repository<Message> {
                 .leftJoinAndSelect('message.sender', 'sender')
                 .leftJoinAndSelect('message.reply_to', 'reply_to')
                 .leftJoinAndSelect('reply_to.sender', 'reply_sender')
+                .leftJoinAndSelect('message.reactions', 'reactions')
+                .leftJoinAndSelect('reactions.user', 'reaction_user')
                 .where('message.chat_id = :chat_id', { chat_id })
                 // .andWhere('message.is_deleted = :is_deleted', { is_deleted: false }) // commented until see if we want to hide deleted messages or show "This message was deleted"
                 .orderBy('message.created_at', 'DESC')
+                .addOrderBy('reactions.created_at', 'ASC')
                 .take(limit + 1); // Fetch one extra to check if there's a next page
 
             // Apply cursor-based pagination using PaginationService

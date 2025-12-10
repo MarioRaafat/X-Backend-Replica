@@ -27,12 +27,20 @@ import { MessagesGateway } from './messages.gateway';
 import { MessageJobService } from 'src/background-jobs/notifications/message/message.service';
 import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { ConfigService } from '@nestjs/config';
-import { ALLOWED_IMAGE_MIME_TYPES, MAX_IMAGE_FILE_SIZE } from 'src/constants/variables';
+import {
+    ALLOWED_IMAGE_MIME_TYPES,
+    ALLOWED_VOICE_MIME_TYPES,
+    MAX_IMAGE_FILE_SIZE,
+    MAX_VOICE_DURATION,
+    MAX_VOICE_FILE_SIZE,
+    MIN_VOICE_DURATION,
+} from 'src/constants/variables';
 import { MessageReactionRepository } from './message-reaction.repository';
 
 @Injectable()
 export class MessagesService {
     private message_images_container: string;
+    private message_voices_container: string;
 
     constructor(
         private readonly message_repository: MessageRepository,
@@ -51,6 +59,9 @@ export class MessagesService {
         this.message_images_container =
             this.config_service.get<string>('AZURE_STORAGE_MESSAGE_IMAGE_CONTAINER') ||
             'message-images';
+        this.message_voices_container =
+            this.config_service.get<string>('AZURE_STORAGE_MESSAGE_VOICE_CONTAINER') ||
+            'message-voices';
     }
 
     async validateChatParticipation(
@@ -185,22 +196,51 @@ export class MessagesService {
                 name: other_user.name,
                 avatar_url: other_user.avatar_url,
             },
-            messages: messages.map((msg) => ({
-                id: msg.id,
-                content: msg.content,
-                message_type: msg.message_type,
-                reply_to: msg.reply_to_message_id,
-                is_read: msg.is_read,
-                is_edited: msg.is_edited,
-                created_at: msg.created_at,
-                updated_at: msg.updated_at,
-                sender: {
-                    id: msg.sender.id,
-                    username: msg.sender.username,
-                    name: msg.sender.name,
-                    avatar_url: msg.sender.avatar_url,
-                },
-            })),
+            messages: messages.map((msg) => {
+                // Group reactions by emoji and count
+                const reaction_summary =
+                    msg.reactions?.reduce(
+                        (acc, reaction) => {
+                            if (!acc[reaction.emoji]) {
+                                acc[reaction.emoji] = {
+                                    emoji: reaction.emoji,
+                                    count: 0,
+                                    reacted_by_me: false,
+                                };
+                            }
+                            acc[reaction.emoji].count++;
+                            if (reaction.user_id === user_id) {
+                                acc[reaction.emoji].reacted_by_me = true;
+                            }
+                            return acc;
+                        },
+                        {} as Record<
+                            string,
+                            { emoji: string; count: number; reacted_by_me: boolean }
+                        >
+                    ) || {};
+
+                return {
+                    id: msg.id,
+                    content: msg.content,
+                    image_url: msg.image_url,
+                    voice_note_url: msg.voice_note_url,
+                    voice_note_duration: msg.voice_note_duration,
+                    message_type: msg.message_type,
+                    reply_to: msg.reply_to_message_id,
+                    is_read: msg.is_read,
+                    is_edited: msg.is_edited,
+                    created_at: msg.created_at,
+                    updated_at: msg.updated_at,
+                    sender: {
+                        id: msg.sender.id,
+                        username: msg.sender.username,
+                        name: msg.sender.name,
+                        avatar_url: msg.sender.avatar_url,
+                    },
+                    reactions: Object.values(reaction_summary),
+                };
+            }),
         };
     }
 
@@ -382,5 +422,61 @@ export class MessagesService {
         }, {});
 
         return Object.values(grouped_reactions);
+    }
+
+    async uploadVoiceNote(
+        user_id: string,
+        file: Express.Multer.File,
+        duration: string
+    ): Promise<{ voice_note_url: string; duration: string }> {
+        if (!file || !file.buffer) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
+        }
+
+        if (!ALLOWED_VOICE_MIME_TYPES.includes(file.mimetype as any)) {
+            throw new BadRequestException(ERROR_MESSAGES.INVALID_FILE_FORMAT);
+        }
+
+        if (file.size > MAX_VOICE_FILE_SIZE) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_TOO_LARGE);
+        }
+
+        try {
+            const file_name = this.azure_storage_service.generateFileName(
+                user_id,
+                file.originalname
+            );
+
+            const voice_note_url = await this.azure_storage_service.uploadFile(
+                file.buffer,
+                file_name,
+                this.message_voices_container
+            );
+
+            return {
+                voice_note_url,
+                duration,
+            };
+        } catch (error) {
+            throw new BadRequestException(ERROR_MESSAGES.FILE_UPLOAD_FAILED);
+        }
+    }
+
+    async sendVoiceMessage(
+        user_id: string,
+        chat_id: string,
+        voice_url: string,
+        duration: string,
+        is_first_message: boolean = false
+    ): Promise<any> {
+        const dto: SendMessageDto = {
+            content: '',
+            message_type: MessageType.VOICE,
+            voice_note_url: voice_url,
+            voice_note_duration: duration,
+            is_first_message,
+        };
+
+        return this.sendMessage(user_id, chat_id, dto);
     }
 }

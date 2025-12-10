@@ -6,6 +6,7 @@ import {
     IsString,
     IsUrl,
     IsUUID,
+    Matches,
     MaxLength,
     MinLength,
 } from 'class-validator';
@@ -61,4 +62,27 @@ export class SendMessageDto {
     @IsString()
     @IsUrl()
     image_url?: string;
+
+    @ApiPropertyOptional({
+        description:
+            'URL of the voice note attached to the message (obtained from voice upload endpoint)',
+        example:
+            'https://yapperdev.blob.core.windows.net/message-voices/user-123-1704067800-voice.mp3',
+    })
+    @IsOptional()
+    @IsString()
+    @IsUrl()
+    voice_note_url?: string;
+
+    @ApiPropertyOptional({
+        description: 'Duration of the voice note in MM:SS format',
+        example: '4:33',
+        pattern: '^\\d{1,3}:\\d{2}$',
+    })
+    @IsOptional()
+    @IsString()
+    @Matches(/^\d{1,3}:\d{2}$/, {
+        message: 'Duration must be in MM:SS format (e.g., "4:33")',
+    })
+    voice_note_duration?: string;
 }

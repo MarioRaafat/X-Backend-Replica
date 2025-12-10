@@ -6,6 +6,7 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { InternalServerErrorException, NotFoundException } from '@nestjs/common';
 import { CreateChatDto, GetChatsQueryDto } from './dto';
 import { UserRepository } from 'src/user/user.repository';
+import { EncryptionService } from 'src/shared/services/encryption/encryption.service';
 
 describe('ChatRepository', () => {
     let chat_repository: ChatRepository;
@@ -67,6 +68,13 @@ describe('ChatRepository', () => {
                 {
                     provide: UserRepository,
                     useValue: mock_user_repository,
+                },
+                {
+                    provide: EncryptionService,
+                    useValue: {
+                        encrypt: jest.fn((content: string) => `encrypted_${content}`),
+                        decrypt: jest.fn((content: string) => content.replace('encrypted_', '')),
+                    },
                 },
             ],
         }).compile();

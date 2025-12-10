@@ -37,6 +37,7 @@ import {
     SendMessageDto,
     UpdateMessageDto,
     UploadMessageImageDto,
+    UploadVoiceNoteDto,
 } from './dto';
 import {
     delete_message_swagger,
@@ -45,6 +46,7 @@ import {
     send_message_swagger,
     update_message_swagger,
     upload_message_image_swagger,
+    upload_voice_note_swagger,
     websocket_docs_swagger,
 } from './messages.swagger';
 import { MessagesService } from './messages.service';
@@ -208,5 +210,21 @@ export class MessagesController {
         @GetUserId() user_id: string
     ) {
         return this.messages_service.getMessageReactions(user_id, chat_id, message_id);
+    }
+
+    @ApiOperation(upload_voice_note_swagger.operation)
+    @ApiConsumes('multipart/form-data')
+    @ApiBody(upload_voice_note_swagger.body)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
+    @ResponseMessage(SUCCESS_MESSAGES.IMAGE_UPLOADED)
+    @Post('voices/upload')
+    @UseInterceptors(FileInterceptor('voice_note'))
+    async uploadVoiceNote(
+        @UploadedFile() file: Express.Multer.File,
+        @Body() body: { duration: string },
+        @GetUserId() user_id: string
+    ) {
+        return this.messages_service.uploadVoiceNote(user_id, file, body.duration);
     }
 }

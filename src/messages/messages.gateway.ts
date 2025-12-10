@@ -3,6 +3,7 @@ import { Injectable } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { ChatRepository } from 'src/chat/chat.repository';
 import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
+import { MessageType } from './entities/message.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { path } from '@ffmpeg-installer/ffmpeg';
 import { MESSAGE_CONTENT_LENGTH } from 'src/constants/variables';
@@ -123,14 +124,40 @@ export class MessagesGateway {
             const user_id = client.data.user?.id;
             const { chat_id, message } = data;
 
-            // Validate message content length
-            if (message.content.length > MESSAGE_CONTENT_LENGTH) {
+            // Validate message content length for text messages
+            if (
+                message.message_type !== MessageType.VOICE &&
+                message.content.length > MESSAGE_CONTENT_LENGTH
+            ) {
                 return {
                     event: 'error',
                     data: {
                         message: `Message content exceeds maximum length of ${MESSAGE_CONTENT_LENGTH} characters`,
                     },
                 };
+            }
+
+            // Validate voice message fields
+            if (message.message_type === MessageType.VOICE) {
+                if (!message.voice_note_url || !message.voice_note_duration) {
+                    return {
+                        event: 'error',
+                        data: {
+                            message:
+                                'Voice message must include voice_note_url and voice_note_duration',
+                        },
+                    };
+                }
+
+                // Validate duration format (MM:SS)
+                if (!/^\d{1,3}:\d{2}$/.test(message.voice_note_duration)) {
+                    return {
+                        event: 'error',
+                        data: {
+                            message: 'Voice note duration must be in MM:SS format (e.g., "4:33")',
+                        },
+                    };
+                }
             }
 
             // Check if recipient is actively in the chat room
