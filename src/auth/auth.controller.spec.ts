@@ -6,6 +6,17 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 describe('AuthController', () => {
     let controller: AuthController;
     let mock_auth_service: jest.Mocked<AuthService>;
+    let original_env: NodeJS.ProcessEnv;
+
+    beforeAll(() => {
+        original_env = { ...process.env };
+        process.env.FRONTEND_URL = 'http://localhost:3001';
+        process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
+    });
+
+    afterAll(() => {
+        process.env = original_env;
+    });
 
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
@@ -36,6 +47,9 @@ describe('AuthController', () => {
                         verifyGoogleMobileToken: jest.fn(),
                         verifyGitHubMobileToken: jest.fn(),
                         createOAuthSession: jest.fn(),
+                        createExchangeToken: jest.fn(),
+                        validateExchangeToken: jest.fn(),
+                        confirmPassword: jest.fn(),
                         oauthCompletionStep1: jest.fn(),
                         oauthCompletionStep2: jest.fn(),
                     },
@@ -144,6 +158,7 @@ describe('AuthController', () => {
             expect(result).toEqual({
                 user: mock_result.user,
                 access_token: mock_result.access_token,
+                refresh_token: mock_result.refresh_token,
             });
         });
 
@@ -275,6 +290,7 @@ describe('AuthController', () => {
             expect(mock_set_cookie).toHaveBeenCalledWith(mock_response, mock_result.refresh_token);
             expect(result).toEqual({
                 access_token: mock_result.access_token,
+                refresh_token: mock_result.refresh_token,
                 user: mock_result.user,
             });
         });
@@ -312,7 +328,7 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should generate a new access token when valid refresh token is provided', async () => {
-            const mock_req = { cookies: { refresh_token: 'valid-refresh' } } as any;
+            const mock_req = { cookies: { refresh_token: 'valid-refresh' }, body: {} } as any;
             const mock_res = { cookie: jest.fn() } as any;
 
             const mock_result = {
@@ -324,20 +340,20 @@ describe('AuthController', () => {
             const mock_set_cookie = jest.fn();
             controller['httpOnlyRefreshToken'] = mock_set_cookie;
 
-            const result = await controller.refresh(mock_req, mock_res);
+            const result = await controller.refresh({}, mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.refresh).toHaveBeenCalledWith('valid-refresh');
 
             expect(mock_set_cookie).toHaveBeenCalledWith(mock_res, 'new-refresh');
-            expect(result).toEqual({ access_token: 'new-access' });
+            expect(result).toEqual({ access_token: 'new-access', refresh_token: 'new-refresh' });
         });
 
         it('should throw BadRequestException if no refresh token is provided', async () => {
-            const mock_req = { cookies: {} } as any;
+            const mock_req = { cookies: {}, body: {} } as any;
             const mock_res = { cookie: jest.fn() } as any;
 
-            await expect(controller.refresh(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.refresh({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -345,14 +361,14 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.refresh throws', async () => {
-            const mock_req = { cookies: { refresh_token: 'invalid' } } as any;
+            const mock_req = { cookies: { refresh_token: 'invalid' }, body: {} } as any;
             const mock_res = { cookie: jest.fn() } as any;
 
             mock_auth_service.refresh.mockRejectedValue(
                 new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            await expect(controller.refresh(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.refresh({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
@@ -361,7 +377,7 @@ describe('AuthController', () => {
         });
 
         it('should throw if httpOnlyRefreshToken fails', async () => {
-            const mock_req = { cookies: { refresh_token: 'valid' } } as any;
+            const mock_req = { cookies: { refresh_token: 'valid' }, body: {} } as any;
             const mock_res = { cookie: jest.fn() } as any;
 
             const mock_result = {
@@ -374,7 +390,9 @@ describe('AuthController', () => {
             });
             controller['httpOnlyRefreshToken'] = mock_set_cookie;
 
-            await expect(controller.refresh(mock_req, mock_res)).rejects.toThrow('Cookie error');
+            await expect(controller.refresh({}, mock_req, mock_res)).rejects.toThrow(
+                'Cookie error'
+            );
         });
     });
 
@@ -382,13 +400,13 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should call auth_service.logout and return its result', async () => {
-            const mock_req = { cookies: { refresh_token: 'valid-refresh' } } as any;
+            const mock_req = { cookies: { refresh_token: 'valid-refresh' }, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
             const mock_result = { message: 'Successfully logged out' };
 
             mock_auth_service.logout.mockResolvedValue(mock_result as any);
 
-            const result = await controller.logout(mock_req, mock_res);
+            const result = await controller.logout({}, mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.logout).toHaveBeenCalledWith('valid-refresh', mock_res);
@@ -396,10 +414,10 @@ describe('AuthController', () => {
         });
 
         it('should throw BadRequestException if no refresh token is provided', async () => {
-            const mock_req = { cookies: {} } as any;
+            const mock_req = { cookies: {}, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
-            await expect(controller.logout(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.logout({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED
             );
 
@@ -408,14 +426,14 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.logout throws an error', async () => {
-            const mock_req = { cookies: { refresh_token: 'invalid' } } as any;
+            const mock_req = { cookies: { refresh_token: 'invalid' }, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
             mock_auth_service.logout.mockRejectedValue(
                 new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            await expect(controller.logout(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.logout({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
@@ -426,13 +444,13 @@ describe('AuthController', () => {
 
     describe('logoutAll', () => {
         it('should call auth_service.logoutAll and return its result', async () => {
-            const mock_req = { cookies: { refresh_token: 'valid-refresh' } } as any;
+            const mock_req = { cookies: { refresh_token: 'valid-refresh' }, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
             const mock_result = { message: 'Successfully logged out from all devices' };
 
             mock_auth_service.logoutAll.mockResolvedValue(mock_result as any);
 
-            const result = await controller.logoutAll(mock_req, mock_res);
+            const result = await controller.logoutAll({}, mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.logoutAll).toHaveBeenCalledWith('valid-refresh', mock_res);
@@ -440,10 +458,10 @@ describe('AuthController', () => {
         });
 
         it('should throw BadRequestException if no refresh token is provided', async () => {
-            const mock_req = { cookies: {} } as any;
+            const mock_req = { cookies: {}, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
-            await expect(controller.logoutAll(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.logoutAll({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.NO_REFRESH_TOKEN_PROVIDED
             );
 
@@ -452,14 +470,14 @@ describe('AuthController', () => {
         });
 
         it('should throw if auth_service.logoutAll throws an error', async () => {
-            const mock_req = { cookies: { refresh_token: 'expired-token' } } as any;
+            const mock_req = { cookies: { refresh_token: 'expired-token' }, body: {} } as any;
             const mock_res = { cookie: jest.fn(), clearCookie: jest.fn() } as any;
 
             mock_auth_service.logoutAll.mockRejectedValue(
                 new Error(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
             );
 
-            await expect(controller.logoutAll(mock_req, mock_res)).rejects.toThrow(
+            await expect(controller.logoutAll({}, mock_req, mock_res)).rejects.toThrow(
                 ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN
             );
 
@@ -645,45 +663,40 @@ describe('AuthController', () => {
     describe('googleLoginCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
 
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
-
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            const mock_tokens = {
-                access_token: 'access123',
-                refresh_token: 'refresh123',
-            };
+            const mock_exchange_token = 'exchange_token_123';
 
-            mock_auth_service.generateTokens.mockResolvedValue(mock_tokens as any);
-            const mock_set_cookie = jest.fn();
-            controller['httpOnlyRefreshToken'] = mock_set_cookie;
+            mock_auth_service.createExchangeToken.mockResolvedValue(mock_exchange_token);
 
             await controller.googleLoginCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
-
-            expect(mock_set_cookie).toHaveBeenCalledWith(mock_res, mock_tokens.refresh_token);
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
-                `${mock_frontend_url}/auth/success?token=${mock_tokens.access_token}`
+                `${mock_frontend_url}/auth/success?exchange_token=${encodeURIComponent(mock_exchange_token)}&provider=google`
             );
         });
 
-        it('should redirect to error page if generateTokens throws', async () => {
+        it('should redirect to error page if createExchangeToken throws', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn() } as any;
 
-            mock_auth_service.generateTokens.mockRejectedValue(new Error('OAuth failed'));
+            mock_auth_service.createExchangeToken.mockRejectedValue(new Error('OAuth failed'));
 
             await controller.googleLoginCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
                 `${mock_frontend_url}/auth/error?message=Authentication%20failed`
@@ -694,45 +707,40 @@ describe('AuthController', () => {
     describe('facebookLoginCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
 
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
-
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            const mock_tokens = {
-                access_token: 'access123',
-                refresh_token: 'refresh123',
-            };
+            const mock_exchange_token = 'exchange_token_123';
 
-            mock_auth_service.generateTokens.mockResolvedValue(mock_tokens as any);
-            const mock_set_cookie = jest.fn();
-            controller['httpOnlyRefreshToken'] = mock_set_cookie;
+            mock_auth_service.createExchangeToken.mockResolvedValue(mock_exchange_token);
 
             await controller.facebookLoginCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
-
-            expect(mock_set_cookie).toHaveBeenCalledWith(mock_res, mock_tokens.refresh_token);
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
-                `${mock_frontend_url}/auth/success?token=${mock_tokens.access_token}`
+                `${mock_frontend_url}/auth/success?exchange_token=${encodeURIComponent(mock_exchange_token)}&provider=facebook`
             );
         });
 
-        it('should redirect to error page if generateTokens throws', async () => {
+        it('should redirect to error page if createExchangeToken throws', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            mock_auth_service.generateTokens.mockRejectedValue(new Error('OAuth failed'));
+            mock_auth_service.createExchangeToken.mockRejectedValue(new Error('OAuth failed'));
 
             await controller.facebookLoginCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
                 `${mock_frontend_url}/auth/error?message=Authentication%20failed`
@@ -743,45 +751,40 @@ describe('AuthController', () => {
     describe('githubCallback', () => {
         const mock_frontend_url = 'http://localhost:3001';
 
-        beforeEach(() => {
-            process.env.FRONTEND_URL = mock_frontend_url;
-        });
-
         it('should generate tokens, set cookie, and redirect to success URL', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            const mock_tokens = {
-                access_token: 'access123',
-                refresh_token: 'refresh123',
-            };
+            const mock_exchange_token = 'exchange_token_123';
 
-            mock_auth_service.generateTokens.mockResolvedValue(mock_tokens as any);
-            const mock_set_cookie = jest.fn();
-            controller['httpOnlyRefreshToken'] = mock_set_cookie;
+            mock_auth_service.createExchangeToken.mockResolvedValue(mock_exchange_token);
 
             await controller.githubCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
-
-            expect(mock_set_cookie).toHaveBeenCalledWith(mock_res, mock_tokens.refresh_token);
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
-                `${mock_frontend_url}/auth/success?token=${mock_tokens.access_token}`
+                `${mock_frontend_url}/auth/success?exchange_token=${encodeURIComponent(mock_exchange_token)}&provider=github`
             );
         });
 
-        it('should redirect to error page if generateTokens throws', async () => {
+        it('should redirect to error page if createExchangeToken throws', async () => {
             const mock_req = { user: { id: 'user123' } } as any;
             const mock_res = { redirect: jest.fn(), cookie: jest.fn() } as any;
 
-            mock_auth_service.generateTokens.mockRejectedValue(new Error('OAuth failed'));
+            mock_auth_service.createExchangeToken.mockRejectedValue(new Error('OAuth failed'));
 
             await controller.githubCallback(mock_req, mock_res);
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
-            expect(mock_auth_service.generateTokens).toHaveBeenCalledWith('user123');
+            expect(mock_auth_service.createExchangeToken).toHaveBeenCalledWith({
+                user_id: 'user123',
+                type: 'auth',
+            });
 
             expect(mock_res.redirect).toHaveBeenCalledWith(
                 `${mock_frontend_url}/auth/error?message=Authentication%20failed`
@@ -908,7 +911,7 @@ describe('AuthController', () => {
         it('should call auth_service.verifyUpdateEmail with correct arguments and return its result', async () => {
             const mock_dto = { new_email: 'newemail@example.com', otp: '123456' };
             const mock_user_id = 'user123';
-            const mock_result = { message: 'Email updated successfully' };
+            const mock_result = { email: 'newemail@example.com' };
 
             mock_auth_service.verifyUpdateEmail.mockResolvedValue(mock_result as any);
 
@@ -917,7 +920,6 @@ describe('AuthController', () => {
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyUpdateEmail).toHaveBeenCalledWith(
                 mock_user_id,
-                mock_dto.new_email,
                 mock_dto.otp
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
@@ -939,7 +941,6 @@ describe('AuthController', () => {
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyUpdateEmail).toHaveBeenCalledWith(
                 mock_user_id,
-                mock_dto.new_email,
                 mock_dto.otp
             );
         });
@@ -949,7 +950,11 @@ describe('AuthController', () => {
         beforeEach(() => jest.clearAllMocks());
 
         it('should return needs_completion when user needs to complete OAuth registration', async () => {
-            const mock_dto = { access_token: 'google-token' };
+            const mock_dto = {
+                code: 'google-code',
+                redirect_uri: 'redirect-uri',
+                code_verifier: 'verifier',
+            };
             const mock_result = {
                 needs_completion: true,
                 user: { id: 'user123', email: 'test@example.com' },
@@ -964,7 +969,9 @@ describe('AuthController', () => {
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyGoogleMobileToken).toHaveBeenCalledWith(
-                mock_dto.access_token
+                mock_dto.code,
+                mock_dto.redirect_uri,
+                mock_dto.code_verifier
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.createOAuthSession).toHaveBeenCalledWith(mock_result.user);
@@ -976,7 +983,11 @@ describe('AuthController', () => {
         });
 
         it('should return access token and user when authentication is successful', async () => {
-            const mock_dto = { access_token: 'google-token' };
+            const mock_dto = {
+                code: 'google-code',
+                redirect_uri: 'redirect-uri',
+                code_verifier: 'verifier',
+            };
             const mock_result = {
                 user: { id: 'user123', email: 'test@example.com' },
             };
@@ -996,7 +1007,9 @@ describe('AuthController', () => {
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyGoogleMobileToken).toHaveBeenCalledWith(
-                mock_dto.access_token
+                mock_dto.code,
+                mock_dto.redirect_uri,
+                mock_dto.code_verifier
             );
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.generateTokens).toHaveBeenCalledWith(mock_result.user.id);
@@ -1005,11 +1018,16 @@ describe('AuthController', () => {
             expect(result).toEqual({
                 access_token: mock_tokens.access_token,
                 user: mock_result.user,
+                refresh_token: mock_tokens.refresh_token,
             });
         });
 
         it('should throw BadRequestException if user data is invalid', async () => {
-            const mock_dto = { access_token: 'invalid-token' };
+            const mock_dto = {
+                code: 'invalid-code',
+                redirect_uri: 'redirect-uri',
+                code_verifier: 'verifier',
+            };
             const mock_result = { user: {} }; // Missing id
 
             mock_auth_service.verifyGoogleMobileToken.mockResolvedValue(mock_result as any);
@@ -1022,7 +1040,9 @@ describe('AuthController', () => {
 
             // eslint-disable-next-line @typescript-eslint/unbound-method
             expect(mock_auth_service.verifyGoogleMobileToken).toHaveBeenCalledWith(
-                mock_dto.access_token
+                mock_dto.code,
+                mock_dto.redirect_uri,
+                mock_dto.code_verifier
             );
         });
     });
@@ -1099,6 +1119,7 @@ describe('AuthController', () => {
             expect(result).toEqual({
                 access_token: mock_tokens.access_token,
                 user: mock_result.user,
+                refresh_token: mock_tokens.refresh_token,
             });
         });
 
@@ -1129,19 +1150,22 @@ describe('AuthController', () => {
 
     describe('getCaptchaSiteKey', () => {
         it('should return the site key from environment variables', () => {
-            process.env.RECAPTCHA_SITE_KEY = 'test-site-key';
-
             const result = controller.getCaptchaSiteKey();
 
             expect(result).toEqual({ siteKey: 'test-site-key' });
         });
 
         it('should return an empty string if RECAPTCHA_SITE_KEY is not set', () => {
+            const original_key = process.env.RECAPTCHA_SITE_KEY;
             delete process.env.RECAPTCHA_SITE_KEY;
 
             const result = controller.getCaptchaSiteKey();
 
             expect(result).toEqual({ siteKey: '' });
+
+            if (original_key) {
+                process.env.RECAPTCHA_SITE_KEY = original_key;
+            }
         });
     });
 
@@ -1207,6 +1231,7 @@ describe('AuthController', () => {
             expect(result).toEqual({
                 access_token: mock_result.access_token,
                 user: mock_result.user,
+                refresh_token: mock_result.refresh_token,
             });
         });
 
@@ -1241,6 +1266,87 @@ describe('AuthController', () => {
             await expect(
                 controller.oauthCompletionStep2(mock_dto as any, { cookie: jest.fn() } as any)
             ).rejects.toThrow('Cookie error');
+        });
+    });
+
+    describe('getCaptchaSiteKey', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should return captcha site key', () => {
+            const result = controller.getCaptchaSiteKey();
+
+            expect(result).toHaveProperty('siteKey');
+            expect(typeof result.siteKey).toBe('string');
+        });
+    });
+
+    describe('exchangeToken', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should exchange token successfully', async () => {
+            const mock_dto = { exchange_token: 'exchange-token' };
+            const mock_validation_result = {
+                user_id: 'user-1',
+                type: 'auth' as const,
+            };
+            const mock_tokens = {
+                access_token: 'access-token',
+                refresh_token: 'refresh-token',
+            };
+
+            mock_auth_service.validateExchangeToken.mockResolvedValue(mock_validation_result);
+            mock_auth_service.generateTokens.mockResolvedValue(mock_tokens as any);
+            const mock_set_cookie = jest.fn();
+            controller['httpOnlyRefreshToken'] = mock_set_cookie;
+
+            const mock_response = {
+                cookie: jest.fn(),
+                json: jest.fn().mockReturnValue({ type: 'auth', access_token: 'access-token' }),
+            };
+            const result = await controller.exchangeToken(mock_dto as any, mock_response as any);
+
+            expect(mock_auth_service.validateExchangeToken).toHaveBeenCalledWith('exchange-token');
+            expect(result).toEqual({ type: 'auth', access_token: 'access-token' });
+        });
+
+        it('should throw if exchange token is invalid', async () => {
+            const mock_dto = { exchange_token: 'invalid-token' };
+
+            mock_auth_service.validateExchangeToken.mockRejectedValue(new Error('Invalid token'));
+
+            const mock_response = { cookie: jest.fn() };
+            await expect(
+                controller.exchangeToken(mock_dto as any, mock_response as any)
+            ).rejects.toThrow('Invalid token');
+        });
+    });
+
+    describe('confirmPassword', () => {
+        beforeEach(() => jest.clearAllMocks());
+
+        it('should confirm password successfully', async () => {
+            const mock_dto = { password: 'correct-password' };
+            const mock_user = { id: 'user-1' };
+            const mock_result = { valid: true };
+
+            mock_auth_service.confirmPassword.mockResolvedValue(mock_result as any);
+
+            const result = await controller.confirmPassword(mock_dto as any, 'user-1');
+
+            expect(mock_auth_service.confirmPassword).toHaveBeenCalledWith(mock_dto, 'user-1');
+            expect(result).toEqual(mock_result);
+        });
+
+        it('should throw if password is incorrect', async () => {
+            const mock_dto = { password: 'wrong-password' };
+
+            mock_auth_service.confirmPassword.mockRejectedValue(
+                new Error(ERROR_MESSAGES.WRONG_PASSWORD)
+            );
+
+            await expect(controller.confirmPassword(mock_dto as any, 'user-1')).rejects.toThrow(
+                ERROR_MESSAGES.WRONG_PASSWORD
+            );
         });
     });
 });

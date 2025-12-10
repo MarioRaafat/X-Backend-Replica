@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>WebSocket Heavy Testing Tool</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        margin: 20px;
+        background: #f0f0f0;
+      }
+      .section {
+        background: white;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+      h2 {
+        margin-top: 0;
+        color: #333;
+        border-bottom: 2px solid #007bff;
+        padding-bottom: 5px;
+      }
+      input,
+      textarea,
+      select {
+        padding: 8px;
+        margin: 5px 0;
+        border: 1px solid #ddd;
+        border-radius: 3px;
+      }
+      input[type="text"] {
+        width: 400px;
+      }
+      textarea {
+        width: 400px;
+        height: 60px;
+        font-family: monospace;
+      }
+      button {
+        padding: 10px 20px;
+        margin: 5px;
+        background: #007bff;
+        color: white;
+        border: none;
+        border-radius: 3px;
+        cursor: pointer;
+      }
+      button:hover {
+        background: #0056b3;
+      }
+      button:disabled {
+        background: #ccc;
+        cursor: not-allowed;
+      }
+      .status {
+        display: inline-block;
+        padding: 5px 10px;
+        border-radius: 3px;
+        margin-left: 10px;
+        font-weight: bold;
+      }
+      .connected {
+        background: #d4edda;
+        color: #155724;
+      }
+      .disconnected {
+        background: #f8d7da;
+        color: #721c24;
+      }
+      #output {
+        border: 1px solid #ddd;
+        padding: 10px;
+        min-height: 300px;
+        max-height: 400px;
+        overflow-y: auto;
+        font-family: monospace;
+        font-size: 12px;
+        background: #f8f9fa;
+      }
+      .log-success {
+        color: green;
+      }
+      .log-error {
+        color: red;
+      }
+      .log-info {
+        color: blue;
+      }
+      .inline {
+        display: inline-block;
+        margin-right: 10px;
+      }
+      label {
+        font-weight: bold;
+        display: block;
+        margin-top: 10px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>🔥 WebSocket Heavy Testing Tool</h1>
+
+    <div class="section">
+      <h2>Connection</h2>
+      <label>JWT Token:</label>
+      <input type="text" id="token" placeholder="Paste your JWT token here" />
+      <br />
+      <button onclick="testConnect()">Connect</button>
+      <button onclick="testDisconnect()">Disconnect</button>
+      <span id="status" class="status disconnected">⚫ Disconnected</span>
+    </div>
+
+    <div class="section">
+      <h2>Chat Operations</h2>
+      <label>Chat ID:</label>
+      <input
+        type="text"
+        id="chatId"
+        placeholder="Enter chat ID"
+        style="width: 300px"
+      />
+      <br />
+      <button onclick="joinChat()" id="joinBtn" disabled>Join Chat</button>
+      <button onclick="leaveChat()" id="leaveBtn" disabled>Leave Chat</button>
+    </div>
+
+    <div class="section">
+      <h2>Send Messages</h2>
+      <label>Message Content:</label>
+      <textarea
+        id="messageContent"
+        placeholder="Type your message here"
+      ></textarea>
+      <br />
+      <label>Message Type:</label>
+      <select id="messageType">
+        <option value="text">Text</option>
+        <option value="reply">Reply</option>
+      </select>
+      <input
+        type="text"
+        id="replyToId"
+        placeholder="Reply to message ID (optional)"
+        style="width: 250px"
+      />
+      <br />
+      <button onclick="sendMessage()" id="sendBtn" disabled>
+        Send Message
+      </button>
+      <button onclick="sendMultipleMessages()" id="multiSendBtn" disabled>
+        Send 10 Messages
+      </button>
+      <button onclick="sendStressTest()" id="stressBtn" disabled>
+        Stress Test (50 msgs)
+      </button>
+    </div>
+
+    <div class="section">
+      <h2>Get Messages</h2>
+      <div class="inline">
+        <label>Limit:</label>
+        <input
+          type="number"
+          id="msgLimit"
+          value="20"
+          min="1"
+          max="100"
+          style="width: 80px"
+        />
+      </div>
+      <div class="inline">
+        <label>Before Message ID:</label>
+        <input
+          type="text"
+          id="beforeMsgId"
+          placeholder="Optional"
+          style="width: 200px"
+        />
+      </div>
+      <br />
+      <button onclick="getMessages()" id="getBtn" disabled>Get Messages</button>
+    </div>
+
+    <div class="section">
+      <h2>Update/Delete Messages</h2>
+      <label>Message ID:</label>
+      <input
+        type="text"
+        id="updateMsgId"
+        placeholder="Enter message ID to update/delete"
+        style="width: 300px"
+      />
+      <br />
+      <label>New Content:</label>
+      <textarea
+        id="updateContent"
+        placeholder="New message content for update"
+      ></textarea>
+      <br />
+      <button onclick="updateMessage()" id="updateBtn" disabled>
+        Update Message
+      </button>
+      <button onclick="deleteMessage()" id="deleteBtn" disabled>
+        Delete Message
+      </button>
+    </div>
+
+    <div class="section">
+      <h2>Typing Indicators</h2>
+      <button onclick="startTyping()" id="typingStartBtn" disabled>
+        Start Typing
+      </button>
+      <button onclick="stopTyping()" id="typingStopBtn" disabled>
+        Stop Typing
+      </button>
+      <button onclick="typingTest()" id="typingTestBtn" disabled>
+        Typing Animation Test
+      </button>
+    </div>
+
+    <div class="section">
+      <h2>Message Reactions</h2>
+      <label>Message ID:</label>
+      <input
+        type="text"
+        id="reactionMsgId"
+        placeholder="Enter message ID for reactions"
+        style="width: 300px"
+      />
+      <br />
+      <label>Emoji to React:</label>
+      <input
+        type="text"
+        id="reactionEmoji"
+        placeholder="Enter emoji (e.g., 😀, ❤️, 👍)"
+        style="width: 200px"
+      />
+      <br />
+      <button onclick="addReaction()" id="addReactionBtn" disabled>
+        Add Reaction
+      </button>
+      <button onclick="removeReaction()" id="removeReactionBtn" disabled>
+        Remove Reaction
+      </button>
+      <button onclick="getReactions()" id="getReactionsBtn" disabled>
+        Get All Reactions
+      </button>
+    </div>
+
+    <div class="section">
+      <h2>Advanced Tests</h2>
+      <button onclick="roomBroadcastTest()" id="broadcastBtn" disabled>
+        Room Broadcast Test
+      </button>
+      <button onclick="reconnectionTest()" id="reconnectBtn" disabled>
+        Reconnection Test
+      </button>
+      <button onclick="rapidJoinLeaveTest()" id="rapidJLBtn" disabled>
+        Rapid Join/Leave (10x)
+      </button>
+      <button onclick="clearLogs()">Clear Logs</button>
+    </div>
+
+    <div class="section">
+      <h2>Event Logs</h2>
+      <div id="output">Waiting for action...</div>
+    </div>
+
+    <script>
+      let socket = null;
+      const output = document.getElementById("output");
+      let messageCount = 0;
+
+      function addLog(msg, type = "info") {
+        console.log(msg);
+        const time = new Date().toLocaleTimeString();
+        const className =
+          type === "error"
+            ? "log-error"
+            : type === "success"
+            ? "log-success"
+            : "log-info";
+        output.innerHTML += `<div class="${className}">${time}: ${msg}</div>`;
+        output.scrollTop = output.scrollHeight;
+      }
+
+      function clearLogs() {
+        output.innerHTML = "";
+        addLog("Logs cleared");
+      }
+
+      function updateButtons(connected) {
+        const buttons = [
+          "joinBtn",
+          "leaveBtn",
+          "sendBtn",
+          "multiSendBtn",
+          "stressBtn",
+          "getBtn",
+          "updateBtn",
+          "deleteBtn",
+          "typingStartBtn",
+          "typingStopBtn",
+          "typingTestBtn",
+          "broadcastBtn",
+          "reconnectBtn",
+          "rapidJLBtn",
+          "addReactionBtn",
+          "removeReactionBtn",
+          "getReactionsBtn",
+        ];
+        buttons.forEach((id) => {
+          document.getElementById(id).disabled = !connected;
+        });
+
+        const status = document.getElementById("status");
+        if (connected) {
+          status.className = "status connected";
+          status.textContent = "🟢 Connected";
+        } else {
+          status.className = "status disconnected";
+          status.textContent = "⚫ Disconnected";
+        }
+      }
+
+      window.onload = function () {
+        addLog(
+          "🚀 Heavy Testing Tool Ready! Enter token and connect.",
+          "success"
+        );
+      };
+
+      function testConnect() {
+        const token = document.getElementById("token").value;
+
+        if (!token) {
+          addLog("❌ ERROR: No token provided!", "error");
+          alert("Please enter a JWT token");
+          return;
+        }
+
+        addLog("🔌 Attempting to connect...", "info");
+        addLog("Token: " + token.substring(0, 20) + "...", "info");
+
+        try {
+          socket = io("http://localhost:3000", {
+            auth: { token: token },
+            transports: ["websocket", "polling"],
+            reconnection: true,
+            reconnectionAttempts: 5,
+            reconnectionDelay: 1000,
+          });
+
+          socket.on("connect", () => {
+            addLog("✅ CONNECTED! Socket ID: " + socket.id, "success");
+            updateButtons(true);
+          });
+
+          socket.on("connect_error", (err) => {
+            addLog("❌ Connection Error: " + err.message, "error");
+            updateButtons(false);
+          });
+
+          socket.on("disconnect", (reason) => {
+            addLog("⚠️ Disconnected: " + reason, "error");
+            updateButtons(false);
+          });
+
+          // Listen to all socket events
+          socket.on("joined_chat", (data) => {
+            addLog("✅ Joined chat: " + JSON.stringify(data), "success");
+          });
+
+          socket.on("left_chat", (data) => {
+            addLog("👋 Left chat: " + JSON.stringify(data), "info");
+          });
+
+          socket.on("new_message", (data) => {
+            addLog(
+              "📨 New message: " + JSON.stringify(data.message),
+              "success"
+            );
+          });
+
+          socket.on("message_sent", (data) => {
+            addLog("✉️ Message sent successfully", "success");
+          });
+
+          socket.on("messages_retrieved", (data) => {
+            addLog(
+              "📬 Retrieved " + data.data.messages.length + " messages",
+              "success"
+            );
+          });
+
+          socket.on("message_updated", (data) => {
+            addLog("✏️ Message updated: " + data.message_id, "success");
+          });
+
+          socket.on("message_deleted", (data) => {
+            addLog("🗑️ Message deleted: " + data.message_id, "success");
+          });
+
+          socket.on("user_typing", (data) => {
+            addLog("⌨️ User typing: " + data.username, "info");
+          });
+
+          socket.on("user_stopped_typing", (data) => {
+            addLog("⏸️ User stopped typing", "info");
+          });
+
+          socket.on("error", (data) => {
+            addLog("❌ Error: " + data.message, "error");
+          });
+
+          socket.on("reaction_added", (data) => {
+            addLog(
+              "😊 Reaction added: " + data.emoji + " by user " + data.user_id,
+              "success"
+            );
+          });
+
+          socket.on("reaction_removed", (data) => {
+            addLog(
+              "😔 Reaction removed: " + data.emoji + " by user " + data.user_id,
+              "info"
+            );
+          });
+
+          socket.on("first_message", (data) => {
+            addLog(
+              "📌 First message: " + JSON.stringify(data.message),
+              "success"
+            );
+          });
+        } catch (err) {
+          addLog("❌ Exception: " + err.message, "error");
+        }
+      }
+
+      function testDisconnect() {
+        if (socket) {
+          socket.disconnect();
+          addLog("👋 Disconnected by user", "info");
+          updateButtons(false);
+        }
+      }
+
+      function getChatId() {
+        const chatId = document.getElementById("chatId").value;
+        if (!chatId) {
+          alert("Please enter a chat ID");
+          return null;
+        }
+        return chatId;
+      }
+
+      function joinChat() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("🚪 Joining chat: " + chatId, "info");
+        socket.emit("join_chat", { chat_id: chatId });
+      }
+
+      function leaveChat() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("🚪 Leaving chat: " + chatId, "info");
+        socket.emit("leave_chat", { chat_id: chatId });
+      }
+
+      function sendMessage() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        const content = document.getElementById("messageContent").value;
+        if (!content) {
+          alert("Please enter message content");
+          return;
+        }
+
+        const messageType = document.getElementById("messageType").value;
+        const replyToId = document.getElementById("replyToId").value;
+
+        const message = {
+          content: content,
+          message_type: messageType,
+        };
+
+        if (messageType === "reply" && replyToId) {
+          message.reply_to_message_id = replyToId;
+        }
+
+        addLog("📤 Sending message: " + content, "info");
+        socket.emit("send_message", { chat_id: chatId, message: message });
+        messageCount++;
+      }
+
+      function sendMultipleMessages() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("🔥 Sending 10 messages...", "info");
+        for (let i = 1; i <= 10; i++) {
+          setTimeout(() => {
+            socket.emit("send_message", {
+              chat_id: chatId,
+              message: {
+                content: `Test message ${i}/10`,
+                message_type: "text",
+              },
+            });
+            addLog(`📤 Sent message ${i}/10`, "info");
+          }, i * 100);
+        }
+      }
+
+      function sendStressTest() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("⚡ STRESS TEST: Sending 50 messages rapidly!", "info");
+        for (let i = 1; i <= 50; i++) {
+          setTimeout(() => {
+            socket.emit("send_message", {
+              chat_id: chatId,
+              message: {
+                content: `Stress test message ${i}/50 - ${Date.now()}`,
+                message_type: "text",
+              },
+            });
+          }, i * 50);
+        }
+        setTimeout(() => {
+          addLog("✅ Stress test completed!", "success");
+        }, 2600);
+      }
+
+      function getMessages() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        const limit = parseInt(document.getElementById("msgLimit").value);
+        const beforeId = document.getElementById("beforeMsgId").value;
+
+        const query = { limit: limit };
+        if (beforeId) query.before = beforeId;
+
+        addLog("📥 Requesting messages...", "info");
+        socket.emit("get_messages", { chat_id: chatId, query: query });
+      }
+
+      function updateMessage() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        const messageId = document.getElementById("updateMsgId").value;
+        const content = document.getElementById("updateContent").value;
+
+        if (!messageId || !content) {
+          alert("Please enter message ID and new content");
+          return;
+        }
+
+        addLog("✏️ Updating message: " + messageId, "info");
+        socket.emit("update_message", {
+          chat_id: chatId,
+          message_id: messageId,
+          update: { content: content },
+        });
+      }
+
+      function deleteMessage() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        const messageId = document.getElementById("updateMsgId").value;
+        if (!messageId) {
+          alert("Please enter message ID");
+          return;
+        }
+
+        addLog("🗑️ Deleting message: " + messageId, "info");
+        socket.emit("delete_message", {
+          chat_id: chatId,
+          message_id: messageId,
+        });
+      }
+
+      function startTyping() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("⌨️ Started typing...", "info");
+        socket.emit("typing_start", { chat_id: chatId });
+      }
+
+      function stopTyping() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("⏸️ Stopped typing", "info");
+        socket.emit("typing_stop", { chat_id: chatId });
+      }
+
+      function typingTest() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("🔄 Running typing animation test...", "info");
+        let count = 0;
+        const interval = setInterval(() => {
+          if (count % 2 === 0) {
+            socket.emit("typing_start", { chat_id: chatId });
+            addLog("⌨️ Typing...", "info");
+          } else {
+            socket.emit("typing_stop", { chat_id: chatId });
+            addLog("⏸️ Stopped", "info");
+          }
+          count++;
+          if (count >= 10) {
+            clearInterval(interval);
+            addLog("✅ Typing test completed!", "success");
+          }
+        }, 1000);
+      }
+
+      function roomBroadcastTest() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("📡 Testing room broadcast...", "info");
+        socket.emit("join_chat", { chat_id: chatId });
+        setTimeout(() => {
+          socket.emit("send_message", {
+            chat_id: chatId,
+            message: {
+              content: "Broadcast test message",
+              message_type: "text",
+            },
+          });
+          addLog("✅ Broadcast test sent!", "success");
+        }, 500);
+      }
+
+      function reconnectionTest() {
+        addLog("🔄 Testing reconnection...", "info");
+        socket.disconnect();
+        addLog("⚠️ Disconnected, reconnecting in 2 seconds...", "info");
+        setTimeout(() => {
+          socket.connect();
+          addLog("🔌 Reconnection attempted", "info");
+        }, 2000);
+      }
+
+      function rapidJoinLeaveTest() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        addLog("🔥 Rapid join/leave test (10 times)...", "info");
+        let count = 0;
+        const interval = setInterval(() => {
+          if (count % 2 === 0) {
+            socket.emit("join_chat", { chat_id: chatId });
+            addLog(`🚪 Join #${count / 2 + 1}`, "info");
+          } else {
+            socket.emit("leave_chat", { chat_id: chatId });
+            addLog(`🚪 Leave #${(count + 1) / 2}`, "info");
+          }
+          count++;
+          if (count >= 20) {
+            clearInterval(interval);
+            addLog("✅ Rapid join/leave test completed!", "success");
+          }
+        }, 200);
+      }
+
+      function addReaction() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        const messageId = document.getElementById("reactionMsgId").value;
+        const emoji = document.getElementById("reactionEmoji").value;
+
+        if (!messageId || !emoji) {
+          alert("Please enter message ID and emoji");
+          return;
+        }
+
+        addLog(`😊 Adding reaction ${emoji} to message ${messageId}...`, "info");
+        socket.emit("add_reaction", {
+          chat_id: chatId,
+          message_id: messageId,
+          emoji: emoji,
+        });
+      }
+
+      function removeReaction() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        const messageId = document.getElementById("reactionMsgId").value;
+        const emoji = document.getElementById("reactionEmoji").value;
+
+        if (!messageId || !emoji) {
+          alert("Please enter message ID and emoji");
+          return;
+        }
+
+        addLog(`😔 Removing reaction ${emoji} from message ${messageId}...`, "info");
+        socket.emit("remove_reaction", {
+          chat_id: chatId,
+          message_id: messageId,
+          emoji: emoji,
+        });
+      }
+
+      function getReactions() {
+        const chatId = getChatId();
+        if (!chatId) return;
+
+        const messageId = document.getElementById("reactionMsgId").value;
+
+        if (!messageId) {
+          alert("Please enter message ID");
+          return;
+        }
+
+        addLog(`📊 Fetching reactions for message ${messageId}...`, "info");
+        // This is an HTTP request, not a socket event
+        fetch(
+          `http://localhost:3000/messages/chats/${chatId}/messages/${messageId}/reactions`,
+          {
+            headers: {
+              Authorization: `Bearer ${document.getElementById("token").value}`,
+            },
+          }
+        )
+          .then((res) => res.json())
+          .then((data) => {
+            addLog(
+              `✅ Reactions retrieved: ${JSON.stringify(data.data)}`,
+              "success"
+            );
+          })
+          .catch((err) => {
+            addLog(`❌ Error fetching reactions: ${err.message}`, "error");
+          });
+      }
+    </script>
+  </body>
+</html>

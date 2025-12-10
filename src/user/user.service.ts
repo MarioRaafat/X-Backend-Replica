@@ -11,7 +11,7 @@ import { In, Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserProfileDto } from './dto/user-profile.dto';
-import { plainToInstance } from 'class-transformer';
+import { instanceToInstance, plainToInstance } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { SelectQueryBuilder } from 'typeorm/browser';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
@@ -37,6 +37,18 @@ import { promises } from 'dns';
 import { UploadFileResponseDto } from './dto/upload-file-response.dto';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
+import { TweetsRepository } from 'src/tweets/tweets.repository';
+import { CursorPaginationDto } from './dto/cursor-pagination-params.dto';
+import { TweetResponseDTO } from 'src/tweets/dto';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { UserListResponseDto } from './dto/user-list-response.dto';
+import { UsernameService } from 'src/auth/username.service';
+import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
+import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
+import { EsUpdateUserJobService } from 'src/background-jobs/elasticsearch/es-update-user.service';
+import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-delete-user.service';
+import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
+import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
 
 @Injectable()
 export class UserService {
@@ -45,7 +57,14 @@ export class UserService {
         private readonly azure_storage_service: AzureStorageService,
         private readonly config_service: ConfigService,
         @InjectRepository(Category)
-        private readonly category_repository: Repository<Category>
+        private readonly category_repository: Repository<Category>,
+        private readonly tweets_repository: TweetsRepository,
+        private readonly pagination_service: PaginationService,
+        private readonly username_service: UsernameService,
+        private readonly follow_job_service: FollowJobService,
+        private readonly es_update_user_job_service: EsUpdateUserJobService,
+        private readonly es_delete_user_job_service: EsDeleteUserJobService,
+        private readonly es_follow_job_service: EsFollowJobService
     ) {}
 
     async getUsersByIds(
@@ -105,6 +124,11 @@ export class UserService {
     }
 
     async getMe(user_id: string): Promise<UserProfileDto> {
+        const user = await this.user_repository.findOne({ where: { id: user_id } });
+        if (!user) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
         const result = await this.user_repository.getMyProfile(user_id);
 
         return plainToInstance(UserProfileDto, result, {
@@ -149,50 +173,63 @@ export class UserService {
         current_user_id: string,
         target_user_id: string,
         query_dto: GetFollowersDto
-    ): Promise<UserListItemDto[]> {
+    ): Promise<UserListResponseDto> {
         const exists = await this.user_repository.exists({ where: { id: target_user_id } });
 
         if (!exists) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const { page_offset, page_size, following } = query_dto;
+        const { cursor, limit, following } = query_dto;
 
         const results = await this.user_repository.getFollowersList(
             current_user_id,
             target_user_id,
-            page_offset,
-            page_size,
+            cursor,
+            limit,
             following
         );
 
         const users = results.map((result) =>
             plainToInstance(UserListItemDto, result, {
                 enableImplicitConversion: true,
+                excludeExtraneousValues: true,
             })
         );
 
-        return users;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            results,
+            'created_at',
+            'user_id'
+        );
+
+        return {
+            data: users,
+            pagination: {
+                next_cursor,
+                has_more: users.length === limit,
+            },
+        };
     }
 
     async getFollowing(
         current_user_id: string,
         target_user_id: string,
-        query_dto: PaginationParamsDto
-    ): Promise<UserListItemDto[]> {
+        query_dto: CursorPaginationDto
+    ): Promise<UserListResponseDto> {
         const exists = await this.user_repository.exists({ where: { id: target_user_id } });
 
         if (!exists) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const { page_offset, page_size } = query_dto;
+        const { cursor, limit } = query_dto;
 
         const results = await this.user_repository.getFollowingList(
             current_user_id,
             target_user_id,
-            page_offset,
-            page_size
+            cursor,
+            limit
         );
         const users = results.map((result) =>
             plainToInstance(UserListItemDto, result, {
@@ -200,19 +237,31 @@ export class UserService {
             })
         );
 
-        return users;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            results,
+            'created_at',
+            'user_id'
+        );
+
+        return {
+            data: users,
+            pagination: {
+                next_cursor,
+                has_more: users.length === limit,
+            },
+        };
     }
 
     async getMutedList(
         current_user_id: string,
-        query_dto: PaginationParamsDto
-    ): Promise<UserListItemDto[]> {
-        const { page_offset, page_size } = query_dto;
+        query_dto: CursorPaginationDto
+    ): Promise<UserListResponseDto> {
+        const { cursor, limit } = query_dto;
 
         const results = await this.user_repository.getMutedUsersList(
             current_user_id,
-            page_offset,
-            page_size
+            cursor,
+            limit
         );
 
         const users = results.map((result) =>
@@ -221,19 +270,31 @@ export class UserService {
             })
         );
 
-        return users;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            results,
+            'created_at',
+            'user_id'
+        );
+
+        return {
+            data: users,
+            pagination: {
+                next_cursor,
+                has_more: users.length === limit,
+            },
+        };
     }
 
     async getBlockedList(
         current_user_id: string,
-        query_dto: PaginationParamsDto
-    ): Promise<UserListItemDto[]> {
-        const { page_offset, page_size } = query_dto;
+        query_dto: CursorPaginationDto
+    ): Promise<UserListResponseDto> {
+        const { cursor, limit } = query_dto;
 
         const results = await this.user_repository.getBlockedUsersList(
             current_user_id,
-            page_offset,
-            page_size
+            cursor,
+            limit
         );
 
         const users = results.map((result) =>
@@ -242,7 +303,19 @@ export class UserService {
             })
         );
 
-        return users;
+        const next_cursor = this.pagination_service.generateNextCursor(
+            results,
+            'created_at',
+            'user_id'
+        );
+
+        return {
+            data: users,
+            pagination: {
+                next_cursor,
+                has_more: users.length === limit,
+            },
+        };
     }
 
     async followUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -257,6 +330,8 @@ export class UserService {
             ),
             this.user_repository.verifyFollowPermissions(current_user_id, target_user_id),
         ]);
+
+        console.log('validation_result: ', validation_result);
 
         if (!validation_result || !validation_result.user_exists) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -275,6 +350,19 @@ export class UserService {
         }
 
         await this.user_repository.insertFollowRelationship(current_user_id, target_user_id);
+
+        await this.follow_job_service.queueFollowNotification({
+            follower_id: current_user_id,
+            followed_id: target_user_id,
+            action: 'add',
+            follower_avatar_url: validation_result.avatar_url,
+            follower_name: validation_result.name,
+        });
+
+        await this.es_follow_job_service.queueEsFollow({
+            follower_id: current_user_id,
+            followed_id: target_user_id,
+        });
     }
 
     async unfollowUser(current_user_id: string, target_user_id: string): Promise<void> {
@@ -290,6 +378,17 @@ export class UserService {
         if (!(result.affected && result.affected > 0)) {
             throw new ConflictException(ERROR_MESSAGES.NOT_FOLLOWED);
         }
+
+        await this.follow_job_service.queueFollowNotification({
+            follower_id: current_user_id,
+            followed_id: target_user_id,
+            action: 'remove',
+        });
+
+        await this.es_follow_job_service.queueEsFollow({
+            follower_id: current_user_id,
+            followed_id: target_user_id,
+        });
     }
 
     async removeFollower(current_user_id: string, target_user_id: string): Promise<void> {
@@ -381,25 +480,97 @@ export class UserService {
         }
     }
 
-    async getLikedPosts(current_user_id: string, query_dto: PaginationParamsDto) {}
+    async getLikedPosts(
+        current_user_id: string,
+        query_dto: CursorPaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+    }> {
+        const { cursor, limit } = query_dto;
+        return await this.tweets_repository.getLikedPostsByUserId(current_user_id, cursor, limit);
+    }
 
     async getPosts(
-        current_user_id: string,
+        current_user_id: string | null,
         target_user_id: string,
-        query_dto: PaginationParamsDto
-    ) {}
+        query_dto: CursorPaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+    }> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const { cursor, limit } = query_dto;
+        return await this.tweets_repository.getPostsByUserId(
+            target_user_id,
+            current_user_id ? current_user_id : undefined,
+            cursor,
+            limit
+        );
+    }
 
     async getReplies(
-        current_user_id: string,
+        current_user_id: string | null,
         target_user_id: string,
-        query_dto: PaginationParamsDto
-    ) {}
+        query_dto: CursorPaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+    }> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const { cursor, limit } = query_dto;
+        return await this.tweets_repository.getRepliesByUserId(
+            target_user_id,
+            current_user_id ? current_user_id : undefined,
+            cursor,
+            limit
+        );
+    }
 
     async getMedia(
-        current_user_id: string,
+        current_user_id: string | null,
         target_user_id: string,
-        query_dto: PaginationParamsDto
-    ) {}
+        query_dto: CursorPaginationDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        pagination: {
+            next_cursor: string | null;
+            has_more: boolean;
+        };
+    }> {
+        const exists = await this.user_repository.exists({ where: { id: target_user_id } });
+
+        if (!exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        const { cursor, limit } = query_dto;
+        return await this.tweets_repository.getMediaByUserId(
+            target_user_id,
+            current_user_id ? current_user_id : undefined,
+            cursor,
+            limit
+        );
+    }
 
     async updateUser(user_id: string, update_user_dto: UpdateUserDto): Promise<UserProfileDto> {
         const user = await this.user_repository.findOne({
@@ -410,9 +581,47 @@ export class UserService {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        Object.assign(user, update_user_dto);
+        const old_avatar_url = user.avatar_url;
+        const old_cover_url = user.cover_url;
+
+        Object.keys(update_user_dto).forEach((key) => {
+            if (update_user_dto[key] !== undefined) {
+                user[key] = update_user_dto[key];
+            }
+        });
 
         const updated_user = await this.user_repository.save(user);
+
+        if (update_user_dto.avatar_url !== undefined && old_avatar_url) {
+            const file_name = this.azure_storage_service.extractFileName(old_avatar_url);
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
+            );
+
+            try {
+                await this.azure_storage_service.deleteFile(file_name, container_name);
+            } catch (error) {
+                console.warn('Failed to delete old avatar file:', error.message);
+            }
+        }
+
+        if (update_user_dto.cover_url !== undefined && old_cover_url) {
+            const file_name = this.azure_storage_service.extractFileName(old_cover_url);
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
+            );
+            try {
+                await this.azure_storage_service.deleteFile(file_name, container_name);
+            } catch (error) {
+                console.warn('Failed to delete old cover file:', error.message);
+            }
+        }
+
+        await this.es_update_user_job_service.queueUpdateUser({
+            user_id,
+        });
 
         return plainToInstance(UserProfileDto, updated_user, {
             excludeExtraneousValues: true,
@@ -428,7 +637,39 @@ export class UserService {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        await this.user_repository.delete(current_user_id);
+        await this.user_repository.softDelete(current_user_id);
+
+        if (user.avatar_url) {
+            const file_name = this.azure_storage_service.extractFileName(user.avatar_url);
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
+            );
+
+            try {
+                await this.azure_storage_service.deleteFile(file_name, container_name);
+            } catch (error) {
+                console.warn('Failed to delete avatar file:', error.message);
+            }
+        }
+
+        if (user.cover_url) {
+            const file_name = this.azure_storage_service.extractFileName(user.cover_url);
+
+            const container_name = this.config_service.get<string>(
+                'AZURE_STORAGE_COVER_IMAGE_CONTAINER'
+            );
+
+            try {
+                await this.azure_storage_service.deleteFile(file_name, container_name);
+            } catch (error) {
+                console.warn('Failed to delete cover file:', error.message);
+            }
+        }
+
+        await this.es_delete_user_job_service.queueDeleteUser({
+            user_id: current_user_id,
+        });
     }
 
     async uploadAvatar(
@@ -564,5 +805,27 @@ export class UserService {
         await this.user_repository.save(user);
 
         return { language: user.language };
+    }
+
+    async getUsernameRecommendations(user_id: string): Promise<UsernameRecommendationsResponseDto> {
+        const user = await this.user_repository.findOne({ where: { id: user_id } });
+
+        if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(user.name);
+
+        return { recommendations };
+    }
+
+    async getUserRelationsCounts(user_id: string): Promise<UserRelationsResponseDto> {
+        const manager = this.user_repository.manager;
+
+        const [blocked_count, muted_count] = await Promise.all([
+            manager.count('user_blocks', { where: { blocker_id: user_id } }),
+            manager.count('user_mutes', { where: { muter_id: user_id } }),
+        ]);
+
+        return { blocked_count, muted_count };
     }
 }

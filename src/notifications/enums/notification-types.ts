@@ -1,9 +1,10 @@
 export enum NotificationType {
     LIKE = 'like',
-    REPLY = 'following',
+    REPLY = 'reply',
     REPOST = 'repost',
     QUOTE = 'quote',
     FOLLOW = 'follow',
     MENTION = 'mention',
-    SYSTEM = 'system',
+    MESSAGE = 'message',
+    NEWEST_COUNT = 'newest_count',
 }

@@ -1,28 +1,54 @@
-// // src/constants.ts
-// import { BlobServiceClient } from "@azure/storage-blob";
+export const TOPICS = ['Sports', 'Entertainment', 'News'];
 
-// export const AZURE_CONNECTION_STRING = process.env.AZURE_STORAGE_CONNECTION_STRING ?? "";
+export const categorize_prompt = (content: string, hashtags: string[]) => {
+    const hashtags_section =
+        hashtags.length > 0
+            ? `\n\nHashtags to categorize separately:\n${hashtags.map((h) => `- ${h}`).join('\n')}`
+            : '';
+    return `
+You are an expert text classifier.
 
-// // Container for tweet images
-// export const TWEET_IMAGES_CONTAINER = "tweet-images";
+Analyze the following text and assign a percentage (0-100) to EACH of these topics:
+${TOPICS.join(', ')}.
 
-// export const blobServiceClient = BlobServiceClient.fromConnectionString(
-//   AZURE_CONNECTION_STRING
-// );
+IMPORTANT RULES:
+- Always return ALL topics.
+- Percentages MUST sum to 100.
+- If a topic is not relevant, assign 0 to it (do NOT omit it).
+- Return ONLY a JSON object. No explanations. No extra text.
+- Categorize the text content AND each hashtag separately.
 
-// export const uploadImageToAzure = async (
-//   imageBuffer: Buffer,
-//   imageName: string,
-//   containerName: string
-// ) => {
-//   const containerClient = blobServiceClient.getContainerClient(containerName);
 
-//   await containerClient.createIfNotExists(); // creates container if missing
+Structure your response as:
+{
+  "text": { "Sports": 80, "Entertainment": 20, "News": 0, ... },
+  "hashtag1": { "Sports": 100, "Entertainment": 0, "News": 0, ... },
+  "hashtag2": { "Sports": 0, "Entertainment": 90, "News": 10, ... }
+}
 
-//   const blockBlobClient = containerClient.getBlockBlobClient(imageName);
+Text:
+"${content}" ${hashtags_section}
 
-//   // Upload the image buffer directly
-//   await blockBlobClient.upload(imageBuffer, imageBuffer.length);
+Return ONLY the JSON object.
+`;
+};
 
-//   return blockBlobClient.url; // ✅ Azure URL returned
-// };
+export const summarize_prompt = (content: string) => `
+You are an expert tweet summarizer.
+
+Summarize the tweet below. 
+If the tweet is already very short or simple, produce a **more concise rewrite** rather than repeating it.
+If the tweet contains multiple ideas, summarize in **1–2 short sentences**.
+
+Rules:
+- Provide a summary that is **meaningfully shorter** than the original.
+- Do NOT repeat the original phrasing or structure.
+- Do NOT add any new information.
+- Keep the tone neutral and simple.
+- Remove emojis, hashtags, and usernames.
+
+Tweet:
+"${content}"
+
+Return only the summary text.
+`;

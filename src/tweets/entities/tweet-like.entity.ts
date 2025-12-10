@@ -1,9 +1,11 @@
-import { CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { CreateDateColumn, Entity, Index, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
 
 @Entity('tweet_likes')
+// @Index('IDX_USER_TWEET', ['user_id', 'tweet_id']) // Already done due to primary columns
+@Index('IDX_TWEET_USER', ['tweet_id', 'user_id'])
 export class TweetLike {
     @PrimaryColumn({ type: 'uuid' })
     user_id: string;
@@ -11,7 +13,7 @@ export class TweetLike {
     @PrimaryColumn({ type: 'uuid' })
     tweet_id: string;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })

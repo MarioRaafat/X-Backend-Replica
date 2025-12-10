@@ -4,16 +4,6 @@ import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 export class VerifyUpdateEmailDto {
     @ApiProperty({
-        description: 'New email address being verified',
-        example: 'mariorafat10@gmail.com',
-        type: String,
-    })
-    @IsEmail()
-    @IsNotEmpty()
-    @MaxLength(STRING_MAX_LENGTH)
-    new_email: string;
-
-    @ApiProperty({
         description: 'OTP code sent to the new email',
         example: '123456',
         type: String,

@@ -20,6 +20,22 @@ describe('VerificationService', () => {
     let redis_service: jest.Mocked<RedisService>;
     let jwt_service: jest.Mocked<JwtService>;
     let config_service: jest.Mocked<ConfigService>;
+    let original_env: NodeJS.ProcessEnv;
+
+    beforeAll(() => {
+        // Save original environment
+        original_env = { ...process.env };
+        // Set default test env vars
+        process.env.NOT_ME_LINK_EXPIRATION_TIME = '15m';
+        process.env.NOT_ME_LINK_SECRET = 'test-secret';
+        process.env.PASSWORD_RESET_TOKEN_EXPIRATION = '15m';
+        process.env.PASSWORD_RESET_TOKEN_SECRET = 'reset-secret';
+    });
+
+    afterAll(() => {
+        // Restore original environment
+        process.env = original_env;
+    });
 
     beforeEach(async () => {
         const mock_redis_service = {
@@ -173,8 +189,6 @@ describe('VerificationService', () => {
 
     describe('generateNotMeLink', () => {
         it('should generate not-me link successfully', async () => {
-            process.env.NOT_ME_LINK_EXPIRATION_TIME = '15m';
-            process.env.NOT_ME_LINK_SECRET = 'test-secret';
             jwt_service.signAsync.mockResolvedValue('mock-jwt-token');
 
             const link = await service.generateNotMeLink(
@@ -195,6 +209,8 @@ describe('VerificationService', () => {
         });
 
         it('should use default values when env variables are not set', async () => {
+            const original_expiration = process.env.NOT_ME_LINK_EXPIRATION_TIME;
+            const original_secret = process.env.NOT_ME_LINK_SECRET;
             delete process.env.NOT_ME_LINK_EXPIRATION_TIME;
             delete process.env.NOT_ME_LINK_SECRET;
             jwt_service.signAsync.mockResolvedValue('mock-jwt-token');
@@ -213,12 +229,15 @@ describe('VerificationService', () => {
                     secret: 'secret-key',
                 })
             );
+
+            // Restore
+            if (original_expiration) process.env.NOT_ME_LINK_EXPIRATION_TIME = original_expiration;
+            if (original_secret) process.env.NOT_ME_LINK_SECRET = original_secret;
         });
     });
 
     describe('validateNotMeLink', () => {
         it('should validate not-me link successfully', async () => {
-            process.env.NOT_ME_LINK_SECRET = 'test-secret';
             jwt_service.verifyAsync.mockResolvedValue({ email: 'test@example.com' });
 
             const result = await service.validateNotMeLink('valid-token');
@@ -231,7 +250,6 @@ describe('VerificationService', () => {
         });
 
         it('should return null for invalid token', async () => {
-            process.env.NOT_ME_LINK_SECRET = 'test-secret';
             jwt_service.verifyAsync.mockRejectedValue(new Error('Invalid token'));
             const console_spy = jest.spyOn(console, 'log').mockImplementation();
 
@@ -244,6 +262,7 @@ describe('VerificationService', () => {
         });
 
         it('should use default secret when env variable is not set', async () => {
+            const original_secret = process.env.NOT_ME_LINK_SECRET;
             delete process.env.NOT_ME_LINK_SECRET;
             jwt_service.verifyAsync.mockResolvedValue({ email: 'test@example.com' });
 
@@ -253,13 +272,15 @@ describe('VerificationService', () => {
             expect(jwt_service.verifyAsync).toHaveBeenCalledWith('valid-token', {
                 secret: 'secret-key',
             });
+
+            if (original_secret) {
+                process.env.NOT_ME_LINK_SECRET = original_secret;
+            }
         });
     });
 
     describe('generatePasswordResetToken', () => {
         it('should generate password reset token successfully', async () => {
-            process.env.PASSWORD_RESET_TOKEN_EXPIRATION = '15m';
-            process.env.PASSWORD_RESET_TOKEN_SECRET = 'reset-secret';
             jwt_service.signAsync.mockResolvedValue('reset-token');
 
             const token = await service.generatePasswordResetToken('user123');
@@ -276,6 +297,8 @@ describe('VerificationService', () => {
         });
 
         it('should use default values when env variables are not set', async () => {
+            const original_expiration = process.env.PASSWORD_RESET_TOKEN_EXPIRATION;
+            const original_secret = process.env.PASSWORD_RESET_TOKEN_SECRET;
             delete process.env.PASSWORD_RESET_TOKEN_EXPIRATION;
             delete process.env.PASSWORD_RESET_TOKEN_SECRET;
             jwt_service.signAsync.mockResolvedValue('reset-token');
@@ -291,12 +314,18 @@ describe('VerificationService', () => {
                     secret: 'password-reset-secret',
                 })
             );
+
+            if (original_expiration) {
+                process.env.PASSWORD_RESET_TOKEN_EXPIRATION = original_expiration;
+            }
+            if (original_secret) {
+                process.env.PASSWORD_RESET_TOKEN_SECRET = original_secret;
+            }
         });
     });
 
     describe('validatePasswordResetToken', () => {
         it('should validate password reset token successfully', async () => {
-            process.env.PASSWORD_RESET_TOKEN_SECRET = 'reset-secret';
             jwt_service.verifyAsync.mockResolvedValue({
                 user_id: 'user123',
                 purpose: 'password-reset',
@@ -312,7 +341,6 @@ describe('VerificationService', () => {
         });
 
         it('should return null when purpose is incorrect', async () => {
-            process.env.PASSWORD_RESET_TOKEN_SECRET = 'reset-secret';
             jwt_service.verifyAsync.mockResolvedValue({
                 user_id: 'user123',
                 purpose: 'wrong-purpose',
@@ -324,7 +352,6 @@ describe('VerificationService', () => {
         });
 
         it('should return null for invalid token', async () => {
-            process.env.PASSWORD_RESET_TOKEN_SECRET = 'reset-secret';
             jwt_service.verifyAsync.mockRejectedValue(new Error('Invalid token'));
             const console_spy = jest.spyOn(console, 'log').mockImplementation();
 

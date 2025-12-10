@@ -254,6 +254,153 @@ describe('RedisService', () => {
         });
     });
 
+    describe('zadd', () => {
+        it('should add member to sorted set with score', async () => {
+            (mock_redis_client as any).zadd = jest.fn().mockResolvedValue(1);
+
+            const result = await service.zadd('trending:tech', 100, 'tweet-123');
+
+            expect(result).toBe(1);
+            expect((mock_redis_client as any).zadd).toHaveBeenCalledWith(
+                'trending:tech',
+                100,
+                'tweet-123'
+            );
+        });
+
+        it('should update score for existing member', async () => {
+            (mock_redis_client as any).zadd = jest.fn().mockResolvedValue(0);
+
+            const result = await service.zadd('trending:sports', 250, 'tweet-456');
+
+            expect(result).toBe(0);
+        });
+    });
+
+    describe('zrevrange', () => {
+        it('should return top members from sorted set', async () => {
+            const expected_tweets = ['tweet-1', 'tweet-2', 'tweet-3'];
+            (mock_redis_client as any).zrevrange = jest.fn().mockResolvedValue(expected_tweets);
+
+            const result = await service.zrevrange('trending:music', 0, 3);
+
+            expect(result).toEqual(expected_tweets);
+            expect((mock_redis_client as any).zrevrange).toHaveBeenCalledWith(
+                'trending:music',
+                0,
+                2
+            );
+        });
+
+        it('should handle offset and limit correctly', async () => {
+            (mock_redis_client as any).zrevrange = jest
+                .fn()
+                .mockResolvedValue(['tweet-4', 'tweet-5']);
+
+            await service.zrevrange('trending:all', 3, 2);
+
+            expect((mock_redis_client as any).zrevrange).toHaveBeenCalledWith('trending:all', 3, 4);
+        });
+
+        it('should return empty array for non-existent set', async () => {
+            (mock_redis_client as any).zrevrange = jest.fn().mockResolvedValue([]);
+
+            const result = await service.zrevrange('non_existent', 0, 10);
+
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('zremrangebyrank', () => {
+        it('should remove range by rank from sorted set', async () => {
+            (mock_redis_client as any).zremrangebyrank = jest.fn().mockResolvedValue(5);
+
+            const result = await service.zremrangebyrank('trending:tech', 100, -1);
+
+            expect(result).toBe(5);
+            expect((mock_redis_client as any).zremrangebyrank).toHaveBeenCalledWith(
+                'trending:tech',
+                100,
+                -1
+            );
+        });
+
+        it('should return 0 when no members removed', async () => {
+            (mock_redis_client as any).zremrangebyrank = jest.fn().mockResolvedValue(0);
+
+            const result = await service.zremrangebyrank('trending:sports', 1000, 2000);
+
+            expect(result).toBe(0);
+        });
+    });
+
+    describe('zrevrangeMultiple', () => {
+        it('should return results from multiple sorted sets', async () => {
+            const mock_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([
+                    [null, ['tweet-1', 'tweet-2']],
+                    [null, ['tweet-3', 'tweet-4']],
+                    [null, ['tweet-5']],
+                ]),
+            };
+            (mock_redis_client as any).pipeline = jest.fn().mockReturnValue(mock_pipeline);
+
+            const result = await service.zrevrangeMultiple(
+                ['trending:tech', 'trending:sports', 'trending:music'],
+                0,
+                2
+            );
+
+            expect(result).toEqual([['tweet-1', 'tweet-2'], ['tweet-3', 'tweet-4'], ['tweet-5']]);
+            expect(mock_pipeline.zrevrange).toHaveBeenCalledTimes(3);
+            expect(mock_pipeline.zrevrange).toHaveBeenCalledWith('trending:tech', 0, 1);
+            expect(mock_pipeline.zrevrange).toHaveBeenCalledWith('trending:sports', 0, 1);
+            expect(mock_pipeline.zrevrange).toHaveBeenCalledWith('trending:music', 0, 1);
+        });
+
+        it('should handle errors in pipeline execution', async () => {
+            const mock_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([
+                    [null, ['tweet-1']],
+                    [new Error('Redis error'), null],
+                    [null, ['tweet-3']],
+                ]),
+            };
+            (mock_redis_client as any).pipeline = jest.fn().mockReturnValue(mock_pipeline);
+
+            const result = await service.zrevrangeMultiple(['key1', 'key2', 'key3'], 0, 5);
+
+            expect(result).toEqual([['tweet-1'], [], ['tweet-3']]);
+        });
+
+        it('should return empty array when pipeline returns null', async () => {
+            const mock_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue(null),
+            };
+            (mock_redis_client as any).pipeline = jest.fn().mockReturnValue(mock_pipeline);
+
+            const result = await service.zrevrangeMultiple(['key1'], 0, 10);
+
+            expect(result).toEqual([]);
+        });
+
+        it('should handle empty keys array', async () => {
+            const mock_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            (mock_redis_client as any).pipeline = jest.fn().mockReturnValue(mock_pipeline);
+
+            const result = await service.zrevrangeMultiple([], 0, 10);
+
+            expect(result).toEqual([]);
+            expect(mock_pipeline.zrevrange).not.toHaveBeenCalled();
+        });
+    });
+
     describe('pipeline', () => {
         it('should return pipeline instance', () => {
             const mock_pipeline = {

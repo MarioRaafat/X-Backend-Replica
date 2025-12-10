@@ -3,9 +3,11 @@ import {
     CreateDateColumn,
     DeleteDateColumn,
     Entity,
+    Index,
     JoinColumn,
     ManyToOne,
     OneToMany,
+    OneToOne,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
@@ -14,11 +16,14 @@ import { TweetLike } from './tweet-like.entity';
 import { TweetQuote } from './tweet-quote.entity';
 import { TweetRepost } from './tweet-repost.entity';
 import { TweetReply } from './tweet-reply.entity';
+import { TweetBookmark } from './tweet-bookmark.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
 import { TweetType } from '../../shared/enums/tweet-types.enum';
+import { TweetSummary } from './tweet-summary.entity';
 
 // removed conversation_id
 @Entity('tweets')
+@Index('IDX_USER_TWEETS', ['user_id', 'created_at'])
 export class Tweet {
     @PrimaryGeneratedColumn('uuid')
     tweet_id: string;
@@ -54,10 +59,13 @@ export class Tweet {
     @Column({ name: 'num_replies', type: 'int', default: 0 })
     num_replies: number;
 
-    @CreateDateColumn({ type: 'timestamp' })
+    @Column({ name: 'num_bookmarks', type: 'int', default: 0 })
+    num_bookmarks: number;
+
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
-    @UpdateDateColumn({ type: 'timestamp' })
+    @UpdateDateColumn({ type: 'timestamptz' })
     updated_at: Date;
 
     @DeleteDateColumn({ name: 'deleted_at' })
@@ -85,8 +93,17 @@ export class Tweet {
     @OneToMany(() => TweetRepost, (tweet_repost) => tweet_repost.tweet, { onDelete: 'CASCADE' })
     reposts: TweetRepost[];
 
+    @OneToMany(() => TweetBookmark, (tweet_bookmark) => tweet_bookmark.tweet, {
+        onDelete: 'CASCADE',
+    })
+    bookmarks: TweetBookmark[];
+
+    @OneToOne(() => TweetSummary, (summary) => summary.tweet, { onDelete: 'CASCADE' })
+    summary: TweetSummary;
+
     // Virtual fields for current user interactions (loaded via leftJoinAndMapOne in queries)
     current_user_like?: TweetLike | null;
     current_user_repost?: TweetRepost | null;
+    current_user_bookmark?: TweetBookmark | null;
     user_follows_author?: UserFollows | null;
 }

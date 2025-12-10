@@ -13,7 +13,6 @@ import { User } from '../../user/entities/user.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
 
 @Entity('tweet_reposts')
-// @Unique('UQ_tweet_reposts_user_tweet', ['user_id', 'tweet_id'])
 export class TweetRepost {
     @PrimaryColumn({ type: 'uuid' })
     user_id: string;
@@ -21,7 +20,7 @@ export class TweetRepost {
     @PrimaryColumn({ type: 'uuid' })
     tweet_id: string;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
     @ManyToOne(() => User, { onDelete: 'CASCADE' })

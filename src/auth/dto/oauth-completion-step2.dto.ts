@@ -1,6 +1,6 @@
 import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
+import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH, USERNAME_MAX_LENGTH } from 'src/constants/variables';
 
 export class OAuthCompletionStep2Dto {
     @ApiProperty({
@@ -18,6 +18,6 @@ export class OAuthCompletionStep2Dto {
     })
     @IsNotEmpty()
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(USERNAME_MAX_LENGTH)
     username: string;
 }

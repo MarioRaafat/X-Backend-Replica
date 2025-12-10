@@ -38,8 +38,10 @@ export const create_tweet_swagger = {
                         views_count: 0,
                         quotes_count: 0,
                         replies_count: 0,
+                        bookmarks_count: 0,
                         is_liked: false,
                         is_reposted: false,
+                        is_bookmarked: false,
                         created_at: '2025-10-31T12:00:00.000Z',
                         updated_at: '2025-10-31T12:00:00.000Z',
                         user: {
@@ -147,8 +149,10 @@ export const get_all_tweets_swagger = {
                             views_count: 1250,
                             quotes_count: 8,
                             replies_count: 23,
+                            bookmarks_count: 10,
                             is_liked: false,
                             is_reposted: false,
+                            is_bookmarked: false,
                             created_at: '2025-10-31T12:00:00.000Z',
                             updated_at: '2025-10-31T12:00:00.000Z',
                             user: {
@@ -174,8 +178,10 @@ export const get_all_tweets_swagger = {
                             views_count: 120,
                             quotes_count: 0,
                             replies_count: 2,
+                            bookmarks_count: 3,
                             is_liked: true,
                             is_reposted: false,
+                            is_bookmarked: false,
                             created_at: '2025-10-31T05:04:29.187Z',
                             updated_at: '2025-10-31T05:04:29.187Z',
                             user: {
@@ -200,8 +206,10 @@ export const get_all_tweets_swagger = {
                             views_count: 5000,
                             quotes_count: 12,
                             replies_count: 30,
+                            bookmarks_count: 25,
                             is_liked: false,
                             is_reposted: true,
+                            is_bookmarked: true,
                             created_at: '2025-10-30T14:30:00.000Z',
                             updated_at: '2025-10-30T14:30:00.000Z',
                             user: {
@@ -271,8 +279,10 @@ export const get_tweet_by_id_swagger = {
                         views_count: 1250,
                         quotes_count: 8,
                         replies_count: 23,
+                        bookmarks_count: 10,
                         is_liked: true,
                         is_reposted: false,
+                        is_bookmarked: true,
                         created_at: '2025-10-31T12:00:00.000Z',
                         updated_at: '2025-10-31T12:00:00.000Z',
                         user: {
@@ -307,8 +317,10 @@ export const get_tweet_by_id_swagger = {
                         views_count: 120,
                         quotes_count: 0,
                         replies_count: 2,
+                        bookmarks_count: 2,
                         is_liked: true,
                         is_reposted: false,
+                        is_bookmarked: false,
                         created_at: '2025-10-31T05:04:29.187Z',
                         updated_at: '2025-10-31T05:04:29.187Z',
                         user: {
@@ -364,8 +376,10 @@ export const update_tweet_swagger = {
                         views_count: 1250,
                         quotes_count: 8,
                         replies_count: 23,
+                        bookmarks_count: 10,
                         is_liked: true,
                         is_reposted: false,
+                        is_bookmarked: true,
                         created_at: '2025-10-31T12:00:00.000Z',
                         updated_at: '2025-10-31T15:30:00.000Z',
                         user: {
@@ -523,8 +537,10 @@ export const quote_tweet_swagger = {
                         views_count: 0,
                         quotes_count: 0,
                         replies_count: 0,
+                        bookmarks_count: 0,
                         is_liked: false,
                         is_reposted: false,
+                        is_bookmarked: false,
                         created_at: '2025-10-31T12:15:00.000Z',
                         updated_at: '2025-10-31T12:15:00.000Z',
                         user: {
@@ -590,8 +606,10 @@ export const reply_to_tweet_swagger = {
                         views_count: 0,
                         quotes_count: 0,
                         replies_count: 0,
+                        bookmarks_count: 0,
                         is_liked: false,
                         is_reposted: false,
+                        is_bookmarked: false,
                         created_at: '2025-10-31T05:04:29.187Z',
                         updated_at: '2025-10-31T05:04:29.187Z',
                         user: {
@@ -656,6 +674,57 @@ export const unlike_tweet_swagger = {
             schema: {
                 example: {
                     message: 'Tweet unliked successfully',
+                },
+            },
+        },
+    },
+};
+
+export const bookmark_tweet_swagger = {
+    operation: {
+        summary: 'Bookmark a tweet',
+        description:
+            'Adds a bookmark to a tweet. A user can only bookmark a tweet once. User ID is from JWT token.',
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'Tweet ID to bookmark (UUID format)',
+        example: UUID_EXAMPLE,
+    },
+
+    responses: {
+        noContent: {
+            description: 'Tweet bookmarked successfully',
+            schema: {
+                example: {
+                    message: 'Tweet bookmarked successfully',
+                },
+            },
+        },
+    },
+};
+
+export const unbookmark_tweet_swagger = {
+    operation: {
+        summary: 'Unbookmark a tweet',
+        description: 'Removes a bookmark from a tweet. User ID is from JWT token.',
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'Tweet ID to unbookmark (UUID format)',
+        example: UUID_EXAMPLE,
+    },
+
+    responses: {
+        noContent: {
+            description: 'Tweet unbookmarked successfully',
+            schema: {
+                example: {
+                    message: 'Tweet unbookmarked successfully',
                 },
             },
         },
@@ -1060,8 +1129,10 @@ Returns full tweet objects for each quote tweet:
                             views_count: 156,
                             quotes_count: 1,
                             replies_count: 4,
+                            bookmarks_count: 5,
                             is_liked: false,
                             is_reposted: false,
+                            is_bookmarked: false,
                             created_at: '2025-10-31T14:30:00.000Z',
                             updated_at: '2025-10-31T14:30:00.000Z',
                             user: {
@@ -1085,19 +1156,35 @@ Returns full tweet objects for each quote tweet:
 
 export const get_tweet_replies_swagger = {
     operation: {
-        summary: 'Get replies for a specific tweet',
+        summary: 'Get replies for a specific tweet with nested owner responses',
         description:
-            'Retrieves all replies for a given tweet with pagination support using cursor-based pagination.\n\n' +
+            'Retrieves all first-level replies to a given tweet with cursor-based pagination. ' +
+            'Each reply may include the first second-level reply from the original tweet owner (if one exists), ' +
+            'creating a Twitter/X-like conversation experience.\n\n' +
+            '**Reply Structure:**\n' +
+            '- First-level replies: Direct responses to the original tweet\n' +
+            '- Nested replies: For each first-level reply, includes the FIRST response from the original tweet owner (if exists)\n' +
+            '- This shows how the tweet author engages with their community\n\n' +
+            '**Example Structure:**\n' +
+            '```\n' +
+            'Original Tweet (by @alice)\n' +
+            '  ├─ Reply 1 (by @bob)\n' +
+            '  │   └─ Reply from @alice ← Included in Reply 1\'s "replies" array\n' +
+            '  ├─ Reply 2 (by @charlie)\n' +
+            '      └─ Reply from @alice ← Included in Reply 2\'s "replies" array\n' +
+            '```\n\n' +
             '**Pagination:**\n' +
             '- Use `cursor` parameter for pagination (timestamp_tweetId format)\n' +
-            '- `limit` parameter controls number of replies returned (default: 20, max: 100)\n' +
+            '- `limit` parameter controls number of first-level replies returned (default: 20, max: 100)\n' +
             '- `next_cursor` in response contains cursor for next page\n' +
             '- `has_more` indicates if there are more replies available\n\n' +
             '**Response Structure:**\n' +
-            '- `data`: Array of reply tweets (parent_tweet object omitted for simplicity)\n' +
-            '- `count`: Number of replies in current response\n' +
+            '- `data`: Array of reply tweets\n' +
+            "  - Each reply may contain a `replies` array with one item (the owner's first response)\n" +
+            '  - `parent_tweet` object is omitted for simplicity (only `parent_tweet_id` included)\n' +
+            '- `count`: Number of first-level replies in current response\n' +
             '- `next_cursor`: Cursor for next page (null if no more replies)\n' +
-            '- `has_more`: Boolean indicating if more replies exist',
+            '- `has_more`: Boolean indicating if more first-level replies exist',
     },
 
     params: {
@@ -1112,7 +1199,7 @@ export const get_tweet_replies_swagger = {
 
     responses: {
         success: {
-            description: 'Tweet replies retrieved successfully',
+            description: 'Tweet replies retrieved successfully with nested owner responses',
             schema: {
                 example: {
                     data: [
@@ -1128,9 +1215,11 @@ export const get_tweet_replies_swagger = {
                             reposts_count: 2,
                             views_count: 50,
                             quotes_count: 0,
-                            replies_count: 0,
+                            replies_count: 1,
+                            bookmarks_count: 1,
                             is_liked: false,
                             is_reposted: false,
+                            is_bookmarked: false,
                             created_at: '2025-10-31T11:30:00.000Z',
                             updated_at: '2025-10-31T11:30:00.000Z',
                             user: {
@@ -1145,6 +1234,40 @@ export const get_tweet_replies_swagger = {
                                 followers: 150,
                                 following: 89,
                             },
+                            // Nested reply from original tweet owner (if exists)
+                            replies: [
+                                {
+                                    tweet_id: '550e8400-e29b-41d4-a716-446655440002',
+                                    type: 'reply',
+                                    content: 'Thanks for your reply, Jane!',
+                                    parent_tweet_id: '550e8400-e29b-41d4-a716-446655440001',
+                                    images: [],
+                                    videos: [],
+                                    likes_count: 3,
+                                    reposts_count: 0,
+                                    views_count: 25,
+                                    quotes_count: 0,
+                                    replies_count: 0,
+                                    bookmarks_count: 0,
+                                    is_liked: false,
+                                    is_reposted: false,
+                                    is_bookmarked: false,
+                                    created_at: '2025-10-31T11:35:00.000Z',
+                                    updated_at: '2025-10-31T11:35:00.000Z',
+                                    user: {
+                                        id: '16945dc1-7853-46db-93b9-3f4201cfb77e',
+                                        username: 'johndoe',
+                                        name: 'John Doe',
+                                        avatar_url:
+                                            'https://pbs.twimg.com/profile_images/1974533037804122111/XYZ_normal.jpg',
+                                        verified: true,
+                                        bio: 'Original tweet author',
+                                        cover_url: 'https://example.com/john_cover.jpg',
+                                        followers: 1500,
+                                        following: 200,
+                                    },
+                                },
+                            ],
                             // Note: parent_tweet object is intentionally omitted to keep replies response simple
                             // Only parent_tweet_id is included for reference
                         },
@@ -1163,6 +1286,168 @@ export const get_tweet_replies_swagger = {
                     message: 'Tweet not found',
                     error: 'Not Found',
                     status_code: 404,
+                },
+            },
+        },
+    },
+};
+
+export const get_user_bookmarks_swagger = {
+    operation: {
+        summary: 'Get bookmarked tweets for the authenticated user',
+        description:
+            'Retrieves all tweets bookmarked by the currently authenticated user with cursor-based pagination.\n\n' +
+            '**Access Restriction:**\n' +
+            '- Only the authenticated user can view their own bookmarks\n' +
+            '- Bookmarks are completely private and not visible to other users\n' +
+            '- User ID is automatically extracted from the JWT token\n\n' +
+            '**Pagination Flow:**\n' +
+            '1. First request: GET /tweets/bookmarks?limit=20\n' +
+            '2. Response includes `next_cursor` (timestamp_tweetId format)\n' +
+            '3. Next page: GET /tweets/bookmarks?cursor={next_cursor}&limit=20\n' +
+            '4. Repeat until `has_more` is false\n\n' +
+            '**Response Fields:**\n' +
+            '- `data`: Array of bookmarked tweets (full tweet objects)\n' +
+            '- `count`: Number of bookmarks in current response\n' +
+            '- `next_cursor`: Cursor for next page (null if no more bookmarks)\n' +
+            '- `has_more`: Boolean indicating if more bookmarks are available\n\n' +
+            '**Sorting:**\n' +
+            '- Bookmarks are sorted by bookmark creation time (most recently bookmarked first)\n' +
+            '- Not sorted by the original tweet creation time',
+    },
+
+    queries: {
+        cursor: {
+            name: 'cursor',
+            required: false,
+            type: String,
+            description:
+                'Cursor for pagination (timestamp_tweetId format). Use next_cursor from previous response.',
+            example: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+        },
+        limit: {
+            name: 'limit',
+            required: false,
+            type: Number,
+            description: 'Number of bookmarks to return (default: 20, max: 100)',
+            example: 20,
+        },
+    },
+
+    responses: {
+        success: {
+            description: 'User bookmarks retrieved successfully with pagination metadata',
+            schema: {
+                example: {
+                    data: [
+                        {
+                            tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                            type: 'tweet',
+                            content: 'This is an interesting tweet I bookmarked!',
+                            images: ['https://example.com/image1.jpg'],
+                            videos: [],
+                            likes_count: 42,
+                            reposts_count: 15,
+                            views_count: 1250,
+                            quotes_count: 8,
+                            replies_count: 23,
+                            bookmarks_count: 10,
+                            is_liked: false,
+                            is_reposted: false,
+                            is_bookmarked: true,
+                            created_at: '2025-10-30T12:00:00.000Z',
+                            updated_at: '2025-10-30T12:00:00.000Z',
+                            user: {
+                                id: '26945dc1-7853-46db-93b9-3f4201cfb77e',
+                                username: 'johndoe',
+                                name: 'John Doe',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1974533037804122112/YNWfB1cr_normal.jpg',
+                                verified: true,
+                            },
+                        },
+                        {
+                            tweet_id: '660e8400-e29b-41d4-a716-446655440001',
+                            type: 'tweet',
+                            content: 'Another great tweet for my collection',
+                            images: [],
+                            videos: ['https://example.com/video1.mp4'],
+                            likes_count: 128,
+                            reposts_count: 45,
+                            views_count: 3200,
+                            quotes_count: 12,
+                            replies_count: 56,
+                            bookmarks_count: 34,
+                            is_liked: true,
+                            is_reposted: false,
+                            is_bookmarked: true,
+                            created_at: '2025-10-29T15:30:00.000Z',
+                            updated_at: '2025-10-29T15:30:00.000Z',
+                            user: {
+                                id: '36945dc1-7853-46db-93b9-3f4201cfb77e',
+                                username: 'janedoe',
+                                name: 'Jane Doe',
+                                avatar_url:
+                                    'https://pbs.twimg.com/profile_images/1234567890/avatar.jpg',
+                                verified: false,
+                            },
+                        },
+                    ],
+                    pagination: {
+                        count: 2,
+                        next_cursor:
+                            '2025-10-28T18:45:00.000Z_660e8400-e29b-41d4-a716-446655440001',
+                        has_more: true,
+                    },
+                    message: 'User bookmarks retrieved successfully',
+                },
+            },
+        },
+    },
+};
+
+export const get_tweet_summary_swagger = {
+    operation: {
+        summary: 'Get AI-generated summary of a tweet',
+        description:
+            "Retrieves or generates an AI-powered summary of a tweet's content.\n\n" +
+            '**How it works:**\n' +
+            '- First checks if a summary already exists in the database\n' +
+            '- If not found, queues an AI summary generation job\n' +
+            '- Waits up to 3.75 seconds (15 attempts × 250ms) for the summary to be generated\n' +
+            '- Returns the generated summary once available\n\n' +
+            '**Summary Generation:**\n' +
+            '- Uses AI (Groq API) to analyze tweet content\n' +
+            '- Generates concise, meaningful summaries\n' +
+            '- Summaries are cached for future requests\n\n' +
+            '**Response:**\n' +
+            '- Returns the summary as plain text\n' +
+            '- Summary is stored and reused for subsequent requests\n\n' +
+            '**Error Cases:**\n' +
+            '- 404: Tweet not found\n' +
+            '- 404: Failed to generate summary after retry attempts\n' +
+            '- 500: Internal server error during processing',
+    },
+
+    param: {
+        name: 'id',
+        type: String,
+        description: 'UUID of the tweet to summarize',
+        example: UUID_EXAMPLE,
+    },
+
+    responses: {
+        success: {
+            description: 'Tweet summary retrieved or generated successfully',
+            schema: {
+                example: {
+                    data: {
+                        tweet_id: '550e8400-e29b-41d4-a716-446655440000',
+                        summary:
+                            'This tweet discusses the latest advancements in AI technology, highlighting the importance of ethical considerations and responsible development.',
+                    },
+                    count: 1,
+                    message: 'Tweet summary retrieved successfully',
                 },
             },
         },

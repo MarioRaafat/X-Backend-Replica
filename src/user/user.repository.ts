@@ -8,10 +8,14 @@ import { RelationshipType } from './enums/relationship-type.enum';
 import { UserInterests } from './entities/user-interests.entity';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 
 @Injectable()
 export class UserRepository extends Repository<User> {
-    constructor(private data_source: DataSource) {
+    constructor(
+        private data_source: DataSource,
+        private readonly paginate_service: PaginationService
+    ) {
         super(User, data_source.createEntityManager());
     }
 
@@ -59,10 +63,16 @@ export class UserRepository extends Repository<User> {
     }
 
     async getMyProfile(current_user_id: string): Promise<UserProfileDto | null> {
-        const profile = await this.buildProfileQuery(
-            current_user_id,
-            'id'
-        ).getRawOne<UserProfileDto>();
+        const query = this.buildProfileQuery(current_user_id, 'id');
+        query.addSelect('user.email AS email');
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweet_likes', 'tl')
+                .where('tl.user_id = user.id');
+        }, 'num_likes');
+
+        const profile = await query.getRawOne<UserProfileDto>();
         return profile ?? null;
     }
 
@@ -115,11 +125,40 @@ export class UserRepository extends Repository<User> {
             'user.bio AS bio',
             'user.avatar_url AS avatar_url',
             'user.cover_url AS cover_url',
+            'user.verified AS verified',
+            'user.language AS language',
             'user.country AS country',
             'user.created_at AS created_at',
+            'user.birth_date AS birth_date',
             'user.followers AS followers_count',
             'user.following AS following_count',
         ]);
+
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweets', 't')
+                .where('t.user_id = user.id')
+                .andWhere("t.type = 'reply'")
+                .andWhere('t.deleted_at IS NULL');
+        }, 'num_replies');
+
+        query.addSelect(
+            `(
+            (SELECT COUNT(*) FROM tweets t WHERE t.user_id = user.id AND t.type != 'reply' AND t.deleted_at IS NULL) +
+            (SELECT COUNT(*) FROM tweet_reposts r WHERE r.user_id = user.id)
+            )`,
+            'num_posts'
+        );
+
+        query.addSelect((sub_query) => {
+            return sub_query
+                .select('COUNT(*)', 'count')
+                .from('tweets', 't')
+                .where('t.user_id = user.id')
+                .andWhere('(array_length(t.images, 1) > 0 OR array_length(t.videos, 1) > 0)')
+                .andWhere('t.deleted_at IS NULL');
+        }, 'num_media');
 
         if (identifier_type === 'id') {
             query.where('user.id = :identifier', { identifier });
@@ -302,19 +341,23 @@ export class UserRepository extends Repository<User> {
     async getFollowersList(
         current_user_id: string,
         target_user_id: string,
-        page_offset: number,
-        page_size: number,
+        cursor?: string,
+        limit: number = 20,
         following?: boolean
     ): Promise<UserListItemDto[]> {
-        const query = this.buildUserListQuery(current_user_id);
+        let query = this.buildUserListQuery(current_user_id);
 
         query
+            .addSelect('target_followers.created_at', 'created_at')
             .innerJoin(
                 'user_follows',
                 'target_followers',
                 'target_followers.follower_id = "user"."id" AND target_followers.followed_id = :target_user_id'
             )
-            .setParameter('target_user_id', target_user_id);
+            .setParameter('target_user_id', target_user_id)
+            .orderBy('target_followers.created_at', 'DESC')
+            .addOrderBy('target_followers.follower_id', 'DESC')
+            .limit(limit);
 
         if (following === true) {
             query.innerJoin(
@@ -324,99 +367,122 @@ export class UserRepository extends Repository<User> {
             );
         }
 
-        return await query.limit(page_size).offset(page_offset).getRawMany();
+        query = this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'target_followers',
+            'created_at',
+            'follower_id'
+        );
+
+        return await query.getRawMany();
     }
 
     async getFollowingList(
         current_user_id: string,
         target_user_id: string,
-        page_offset: number,
-        page_size: number
+        cursor?: string,
+        limit: number = 20
     ): Promise<UserListItemDto[]> {
-        const query = this.buildUserListQuery(current_user_id);
+        let query = this.buildUserListQuery(current_user_id);
 
-        return await query
+        query
+            .addSelect('target_following.created_at', 'created_at')
             .innerJoin(
                 'user_follows',
                 'target_following',
                 'target_following.follower_id = :target_user_id AND target_following.followed_id = "user"."id"'
             )
             .setParameter('target_user_id', target_user_id)
-            .limit(page_size)
-            .offset(page_offset)
-            .getRawMany();
+            .orderBy('target_following.created_at', 'DESC')
+            .addOrderBy('target_following.followed_id', 'DESC')
+            .limit(limit);
+
+        query = this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'target_following',
+            'created_at',
+            'followed_id'
+        );
+
+        return await query.getRawMany();
     }
 
     async getMutedUsersList(
         current_user_id: string,
-        page_offset: number,
-        page_size: number
+        cursor?: string,
+        limit: number = 20
     ): Promise<UserListItemDto[]> {
-        const query = this.buildUserListQuery(current_user_id);
+        let query = this.buildUserListQuery(current_user_id);
 
-        return await query
+        query
+            .addSelect('target_muted.created_at', 'created_at')
             .innerJoin(
                 'user_mutes',
                 'target_muted',
                 'target_muted.muter_id = :current_user_id AND target_muted.muted_id = "user"."id"'
             )
             .setParameter('current_user_id', current_user_id)
-            .limit(page_size)
-            .offset(page_offset)
-            .getRawMany();
+            .orderBy('target_muted.created_at', 'DESC')
+            .addOrderBy('target_muted.muted_id', 'DESC')
+            .limit(limit);
+
+        query = this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'target_muted',
+            'created_at',
+            'muted_id'
+        );
+        return await query.getRawMany();
     }
 
     async getBlockedUsersList(
         current_user_id: string,
-        page_offset: number,
-        page_size: number
+        cursor?: string,
+        limit: number = 20
     ): Promise<UserListItemDto[]> {
-        const query = this.buildUserListQuery(current_user_id);
+        let query = this.buildUserListQuery(current_user_id);
 
-        return await query
+        query
+            .addSelect('target_blocked.created_at', 'created_at')
             .innerJoin(
                 'user_blocks',
                 'target_blocked',
                 'target_blocked.blocker_id = :current_user_id AND target_blocked.blocked_id = "user"."id"'
             )
             .setParameter('current_user_id', current_user_id)
-            .limit(page_size)
-            .offset(page_offset)
-            .getRawMany();
+            .orderBy('target_blocked.created_at', 'DESC')
+            .addOrderBy('target_blocked.blocked_id', 'DESC')
+            .limit(limit);
+
+        query = this.paginate_service.applyCursorPagination(
+            query,
+            cursor,
+            'target_blocked',
+            'created_at',
+            'blocked_id'
+        );
+
+        return await query.getRawMany();
     }
 
     async insertFollowRelationship(
         follower_id: string,
         followed_id: string
     ): Promise<InsertResult> {
-        return await this.data_source.transaction(async (manager) => {
-            const user_follows = new UserFollows({ follower_id, followed_id });
-            const insert_result = await manager.insert(UserFollows, user_follows);
-
-            await manager.increment(User, { id: follower_id }, 'following', 1);
-            await manager.increment(User, { id: followed_id }, 'followers', 1);
-
-            return insert_result;
-        });
+        const user_follows = new UserFollows({ follower_id, followed_id });
+        return await this.data_source.getRepository(UserFollows).insert(user_follows);
     }
 
     async deleteFollowRelationship(
         follower_id: string,
         followed_id: string
     ): Promise<DeleteResult> {
-        return await this.data_source.transaction(async (manager) => {
-            const delete_result = await manager.delete(UserFollows, {
-                follower_id,
-                followed_id,
-            });
-
-            if (delete_result.affected && delete_result.affected > 0) {
-                await manager.decrement(User, { id: follower_id }, 'following', 1);
-                await manager.decrement(User, { id: followed_id }, 'followers', 1);
-            }
-
-            return delete_result;
-        });
+        return await this.data_source
+            .getRepository(UserFollows)
+            .delete({ follower_id, followed_id });
     }
 
     async insertMuteRelationship(muter_id: string, muted_id: string): Promise<InsertResult> {
@@ -430,32 +496,9 @@ export class UserRepository extends Repository<User> {
 
     async insertBlockRelationship(blocker_id: string, blocked_id: string) {
         await this.data_source.transaction(async (manager) => {
-            const [remove_followed, remove_follower] = await Promise.all([
-                manager.delete(UserFollows, { follower_id: blocker_id, followed_id: blocked_id }),
-                manager.delete(UserFollows, { follower_id: blocked_id, followed_id: blocker_id }),
-                manager.insert(UserBlocks, { blocker_id, blocked_id }),
-            ]);
-
-            const decrement_following_conditions: { id: string }[] = [];
-            const decrement_followers_conditions: { id: string }[] = [];
-
-            if (remove_followed.affected && remove_followed.affected > 0) {
-                decrement_followers_conditions.push({ id: blocked_id });
-                decrement_following_conditions.push({ id: blocker_id });
-            }
-
-            if (remove_follower.affected && remove_follower.affected > 0) {
-                decrement_followers_conditions.push({ id: blocker_id });
-                decrement_following_conditions.push({ id: blocked_id });
-            }
-
-            if (decrement_followers_conditions.length > 0) {
-                await manager.decrement(User, decrement_followers_conditions, 'followers', 1);
-            }
-
-            if (decrement_following_conditions.length > 0) {
-                await manager.decrement(User, decrement_following_conditions, 'following', 1);
-            }
+            await manager.delete(UserFollows, { follower_id: blocker_id, followed_id: blocked_id });
+            await manager.delete(UserFollows, { follower_id: blocked_id, followed_id: blocker_id });
+            await manager.insert(UserBlocks, { blocker_id, blocked_id });
         });
     }
 
@@ -472,7 +515,11 @@ export class UserRepository extends Repository<User> {
             this.getRelationshipConfig(relationship_type);
 
         return this.createQueryBuilder('user')
-            .select('user.id', 'user_exists')
+            .select([
+                'user.id AS user_exists',
+                'user.avatar_url AS avatar_url',
+                'user.name AS name',
+            ])
             .addSelect(
                 `EXISTS(
                     SELECT 1 FROM ${table_name} ur
@@ -543,5 +590,16 @@ export class UserRepository extends Repository<User> {
             conflictPaths: ['user_id', 'category_id'],
             skipUpdateIfNoValuesChanged: true,
         });
+    }
+
+    async getUserInterests(user_id: string): Promise<{ category_id: number; score: number }[]> {
+        return this.data_source
+            .createQueryBuilder()
+            .select('category_id')
+            .addSelect('COALESCE(score, 0)', 'score')
+            .from(UserInterests, 'ui')
+            .where('ui.user_id = :user_id', { user_id })
+            .orderBy('score', 'DESC')
+            .getRawMany();
     }
 }

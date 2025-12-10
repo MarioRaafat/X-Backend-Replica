@@ -20,7 +20,6 @@ import { UsernameService } from './username.service';
 import { LoginDTO } from './dto/login.dto';
 import { RedisService } from 'src/redis/redis.service';
 import { VerificationService } from 'src/verification/verification.service';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 import { GitHubUserDto } from './dto/github-user.dto';
 import { CaptchaService } from './captcha.service';
 import * as crypto from 'crypto';
@@ -31,6 +30,8 @@ import { ConfigService } from '@nestjs/config';
 import { instanceToPlain } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import {
+    OAUTH_EXCHANGE_TOKEN_KEY,
+    OAUTH_EXCHANGE_TOKEN_OBJECT,
     OAUTH_SESSION_KEY,
     OAUTH_SESSION_OBJECT,
     OTP_KEY,
@@ -46,6 +47,8 @@ import { StringValue } from 'ms'; // Add this import
 import { OAuth2Client } from 'google-auth-library';
 import axios from 'axios';
 import { UserRepository } from 'src/user/user.repository';
+import { ConfirmPasswordDto } from './dto/confirm-password.dto';
+import { EmailJobsService } from 'src/background-jobs/email/email.service';
 
 @Injectable()
 export class AuthService {
@@ -55,7 +58,7 @@ export class AuthService {
         private readonly username_service: UsernameService,
         private readonly redis_service: RedisService,
         private readonly verification_service: VerificationService,
-        private readonly background_jobs_service: BackgroundJobsService,
+        private readonly background_jobs_service: EmailJobsService,
         private readonly captcha_service: CaptchaService,
         private readonly config_service: ConfigService
     ) {}
@@ -92,19 +95,6 @@ export class AuthService {
         };
     }
 
-    async getRecommendedUsernames(name: string): Promise<string[]> {
-        const name_parts = name.split(' ');
-        const first_name = name_parts[0];
-        const last_name = name_parts.length > 1 ? name_parts.slice(1).join(' ') : '';
-
-        const recommendations = await this.username_service.generateUsernameRecommendations(
-            first_name,
-            last_name
-        );
-
-        return recommendations;
-    }
-
     async validateUser(identifier: string, password: string, type: string): Promise<string> {
         const user =
             type === 'email'
@@ -123,6 +113,7 @@ export class AuthService {
             if (!unverified_user) {
                 throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
             } else {
+                console.log(`pass ${password} vs ${unverified_user.password}`);
                 const is_password_valid = await bcrypt.compare(password, unverified_user.password);
                 if (!is_password_valid) {
                     throw new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD);
@@ -146,11 +137,11 @@ export class AuthService {
         const { name, birth_date, email, captcha_token } = dto;
 
         // Verify CAPTCHA first
-        try {
-            await this.captcha_service.validateCaptcha(captcha_token);
-        } catch (error) {
-            throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
-        }
+        // try {
+        //     await this.captcha_service.validateCaptcha(captcha_token);
+        // } catch (error) {
+        //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
+        // }
 
         const existing_user = await this.user_repository.findByEmail(email);
         if (existing_user) {
@@ -207,7 +198,10 @@ export class AuthService {
         );
 
         // generate username recommendations for step 3
-        const recommendations = await this.getRecommendedUsernames(signup_session.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(
+                signup_session.name
+            );
 
         return {
             isVerified: true,
@@ -478,11 +472,12 @@ export class AuthService {
             // Also remove from user's set
             const user_tokens_remove = USER_REFRESH_TOKENS_REMOVE(payload.id, payload.jti);
             await this.redis_service.srem(user_tokens_remove.key, user_tokens_remove.value);
+            const is_production = process.env.NODE_ENV === 'production';
 
             res.clearCookie('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: is_production ? 'strict' : 'none',
             });
 
             return {};
@@ -507,11 +502,12 @@ export class AuthService {
                 pipeline.del(user_tokens_key);
                 await pipeline.exec();
             }
+            const is_production = process.env.NODE_ENV === 'production';
 
             res.clearCookie('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: is_production ? 'strict' : 'none',
             });
 
             return {};
@@ -544,6 +540,9 @@ export class AuthService {
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
+        if (user.username === new_username) {
+            return { username: new_username };
+        }
 
         // Check if username is already taken
         const is_available = await this.username_service.isUsernameAvailable(new_username);
@@ -563,34 +562,45 @@ export class AuthService {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
+        if (user.email === new_email) {
+            throw new BadRequestException(ERROR_MESSAGES.EMAIL_AS_SAME_AS_OLD);
+        }
+
         const existing_user = await this.user_repository.findByEmail(new_email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
         // I will not use the old key here to avoid conflicts with signup flow (if there is one ongoing)
-        const otp = await this.verification_service.generateOtp(user_id + '_email_update', 'email');
+        const identifier = user_id + '_email_update';
+        const otp = await this.verification_service.generateOtp(identifier, 'email');
         const email_update_session_key = `email_update:${user_id}`;
         await this.redis_service.set(email_update_session_key, new_email, 3600); // 1 hour
 
-        // there is no code for now as I finished my emails on X, so I don't know their flow
-
-        return {
-            message: 'no available for now, contact Mario',
+        const otp_data = {
+            email: new_email,
+            username: user.username,
+            otp,
+            email_type: 'update_email' as const,
+            not_me_link: undefined,
         };
+        const email_result = await this.background_jobs_service.queueOtpEmail(otp_data);
+
+        if (!email_result.success) {
+            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL);
+        }
+
+        return { isEmailSent: true };
     }
 
-    async verifyUpdateEmail(user_id: string, new_email: string, otp: string) {
+    async verifyUpdateEmail(user_id: string, otp: string) {
         const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
-        const is_valid = await this.verification_service.validateOtp(
-            user_id + '_email_update',
-            otp,
-            'email'
-        );
+        const identifier = user_id + '_email_update';
+        const is_valid = await this.verification_service.validateOtp(identifier, otp, 'email');
         if (!is_valid) {
             throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
         }
@@ -598,26 +608,25 @@ export class AuthService {
         // Check if the new_email matches what was stored
         const email_update_session_key = `email_update:${user_id}`;
         const stored_email = await this.redis_service.get(email_update_session_key);
-        if (!stored_email || stored_email !== new_email) {
-            throw new BadRequestException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        if (!stored_email) {
+            throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_FOUND);
         }
 
-        // Check if email is still available
-        const existing_user = await this.user_repository.findByEmail(new_email);
+        const existing_user = await this.user_repository.findByEmail(stored_email);
         if (existing_user) {
             throw new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS);
         }
 
         // Update user email
-        await this.user_repository.updateUserById(user_id, { email: new_email });
+        await this.user_repository.updateUserById(user_id, { email: stored_email });
 
         // Clean up
         await this.redis_service.del(email_update_session_key);
-        const otp_key = OTP_KEY('email', user_id + '_email_update');
+        const otp_key = OTP_KEY('email', identifier);
         await this.redis_service.del(otp_key);
 
         return {
-            email: new_email,
+            email: stored_email,
         };
     }
 
@@ -784,30 +793,91 @@ export class AuthService {
 
     // ###################### MOBILE OAUTH VERIFICATION ######################
 
-    async verifyGoogleMobileToken(access_token: string) {
+    async getGoogleAccessToken(code: string, redirect_uri: string, code_verifier?: string) {
+        const google_mobile_client_id = this.config_service.get<string>('GOOGLE_CLIENT_ID_MOBILE');
+        const google_mobile_client_secret = this.config_service.get<string>(
+            'GOOGLE_CLIENT_SECRET_MOBILE'
+        );
+
         try {
-            const client = new OAuth2Client();
+            const request_body: any = {
+                client_id: google_mobile_client_id,
+                client_secret: google_mobile_client_secret,
+                code,
+                redirect_uri: redirect_uri,
+                grant_type: 'authorization_code',
+            };
 
-            // Verify the Google ID token
-            const ticket = await client.verifyIdToken({
-                idToken: access_token,
-            });
+            if (code_verifier) {
+                request_body.code_verifier = code_verifier;
+            }
 
-            const payload = ticket.getPayload();
-            if (!payload) {
+            const token_response = await axios.post(
+                'https://oauth2.googleapis.com/token',
+                request_body,
+                { headers: { 'Content-Type': 'application/x-www-form-urlencoded' } }
+            );
+
+            // Check for error response
+            if (token_response.data.error) {
+                console.error('Google OAuth Error:', {
+                    error: token_response.data.error,
+                    description: token_response.data.error_description,
+                });
+
+                if (token_response.data.error === 'invalid_grant') {
+                    throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_CODE_INVALID);
+                }
+
+                throw new UnauthorizedException(
+                    `Google OAuth error: ${token_response.data.error_description}`
+                );
+            }
+
+            const { access_token } = token_response.data;
+            if (!access_token) {
                 throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
             }
 
-            if (!payload['email']) {
-                throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB);
+            return access_token;
+        } catch (error) {
+            if (error instanceof UnauthorizedException) {
+                throw error;
+            }
+
+            console.error('Google token exchange failed:', error.response?.data || error.message);
+            throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_OAUTH_FAILED);
+        }
+    }
+
+    async verifyGoogleMobileToken(code: string, redirect_uri: string, code_verifier?: string) {
+        try {
+            const access_token = await this.getGoogleAccessToken(code, redirect_uri, code_verifier);
+
+            // Get user info from Google
+            const response = await axios.get('https://www.googleapis.com/oauth2/v2/userinfo', {
+                headers: {
+                    Authorization: `Bearer ${access_token}`,
+                },
+            });
+
+            if (!response.data) {
+                console.error('Google user fetch failed');
+                throw new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID);
+            }
+
+            const user_data = response.data;
+
+            if (!user_data.email) {
+                throw new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GOOGLE);
             }
 
             const google_user: GoogleLoginDTO = {
-                google_id: payload['sub'],
-                email: payload['email'],
-                first_name: payload['given_name'] || '',
-                last_name: payload['family_name'] || '',
-                avatar_url: payload['picture'],
+                google_id: user_data.id,
+                email: user_data.email,
+                first_name: user_data.given_name || '',
+                last_name: user_data.family_name || '',
+                avatar_url: user_data.picture,
             };
 
             return await this.validateGoogleUser(google_user);
@@ -820,7 +890,7 @@ export class AuthService {
         }
     }
 
-    async getGitHubAccessToken(code: string, redirect_uri: string, code_verifier: string) {
+    async getGitHubAccessToken(code: string, redirect_uri: string, code_verifier?: string) {
         const github_mobile_client_id = this.config_service.get<string>('GITHUB_MOBILE_CLIENT_ID');
         const github_mobile_client_secret = this.config_service.get<string>(
             'GITHUB_MOBILE_CLIENT_SECRET'
@@ -878,7 +948,7 @@ export class AuthService {
         }
     }
 
-    async verifyGitHubMobileToken(code: string, redirect_uri: string, code_verifier: string) {
+    async verifyGitHubMobileToken(code: string, redirect_uri: string, code_verifier?: string) {
         try {
             const access_token = await this.getGitHubAccessToken(code, redirect_uri, code_verifier);
             const response = await fetch('https://api.github.com/user', {
@@ -978,7 +1048,8 @@ export class AuthService {
             updated_session_data.ttl
         );
 
-        const recommendations = await this.getRecommendedUsernames(user_data.name);
+        const recommendations =
+            await this.username_service.generateUsernameRecommendationsSingleName(user_data.name);
 
         return {
             usernames: recommendations,
@@ -1028,5 +1099,70 @@ export class AuthService {
             access_token,
             refresh_token,
         };
+    }
+
+    async createExchangeToken(payload: {
+        user_id?: string;
+        session_token?: string;
+        type: 'auth' | 'completion';
+    }): Promise<string> {
+        const token_id = crypto.randomUUID();
+        const exchange_token = this.jwt_service.sign(
+            { token_id, type: payload.type },
+            {
+                secret:
+                    process.env.OAUTH_EXCHANGE_TOKEN_SECRET ?? 'fallback-exchange-secret-change-me',
+                expiresIn: '5m',
+            }
+        );
+
+        const redis_object = OAUTH_EXCHANGE_TOKEN_OBJECT(token_id, payload);
+        await this.redis_service.set(redis_object.key, redis_object.value, redis_object.ttl);
+
+        return exchange_token;
+    }
+
+    async validateExchangeToken(exchange_token: string): Promise<{
+        user_id?: string;
+        session_token?: string;
+        type: 'auth' | 'completion';
+    }> {
+        try {
+            const decoded = this.jwt_service.verify(exchange_token, {
+                secret:
+                    process.env.OAUTH_EXCHANGE_TOKEN_SECRET ?? 'fallback-exchange-secret-change-me',
+            });
+
+            const { token_id, type } = decoded;
+            const redis_key = OAUTH_EXCHANGE_TOKEN_KEY(token_id);
+            const stored_data = await this.redis_service.get(redis_key);
+
+            if (!stored_data) {
+                throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+            }
+
+            await this.redis_service.del(redis_key);
+            const payload = JSON.parse(stored_data);
+            return { ...payload, type };
+        } catch (error) {
+            throw new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN);
+        }
+    }
+    async confirmPassword(confirm_password_dto: ConfirmPasswordDto, user_id: string) {
+        const user = await this.user_repository.findById(user_id);
+
+        if (!user) throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+        if (user.password) {
+            const is_password_valid = await bcrypt.compare(
+                confirm_password_dto.password,
+                user.password
+            );
+            if (!is_password_valid) throw new ForbiddenException(ERROR_MESSAGES.WRONG_PASSWORD);
+        } else {
+            throw new ConflictException(ERROR_MESSAGES.ACCOUNT_HAS_NO_PASSWORD);
+        }
+
+        return { valid: true };
     }
 }

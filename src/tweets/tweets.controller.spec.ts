@@ -29,6 +29,9 @@ describe('TweetsController', () => {
         uploadImage: jest.fn(),
         uploadVideo: jest.fn(),
         incrementTweetViews: jest.fn(),
+        bookmarkTweet: jest.fn(),
+        unbookmarkTweet: jest.fn(),
+        getUserBookmarks: jest.fn(),
     };
 
     beforeEach(async () => {
@@ -210,7 +213,7 @@ describe('TweetsController', () => {
         it('should return tweet likes', async () => {
             const tweet_id = 'tweet-123';
             const user_id = 'user-123';
-            const query = { page: 1, limit: 20 };
+            const query = { cursor: undefined, limit: 20 };
             const mock_likes = { data: [], pagination: {} };
 
             mock_tweets_service.getTweetLikes.mockResolvedValue(mock_likes);
@@ -220,7 +223,7 @@ describe('TweetsController', () => {
             expect(service.getTweetLikes).toHaveBeenCalledWith(
                 tweet_id,
                 user_id,
-                query.page,
+                query.cursor,
                 query.limit
             );
             expect(result).toEqual(mock_likes);
@@ -231,7 +234,7 @@ describe('TweetsController', () => {
         it('should return tweet reposts', async () => {
             const tweet_id = 'tweet-123';
             const user_id = 'user-123';
-            const query = { page: 1, limit: 20 };
+            const query = { cursor: undefined, limit: 20 };
             const mock_reposts = { data: [], pagination: {} };
 
             mock_tweets_service.getTweetReposts.mockResolvedValue(mock_reposts);
@@ -241,7 +244,7 @@ describe('TweetsController', () => {
             expect(service.getTweetReposts).toHaveBeenCalledWith(
                 tweet_id,
                 user_id,
-                query.page,
+                query.cursor,
                 query.limit
             );
             expect(result).toEqual(mock_reposts);
@@ -316,16 +319,16 @@ describe('TweetsController', () => {
 
             mock_tweets_service.uploadVideo.mockResolvedValue(mock_response);
 
-            const result = await controller.uploadVideo(file, user_id);
+            const result = await controller.uploadVideo(file);
 
-            expect(service.uploadVideo).toHaveBeenCalledWith(file, user_id);
+            expect(service.uploadVideo).toHaveBeenCalledWith(file);
             expect(result).toEqual(mock_response);
         });
 
         it('should throw BadRequestException if no file provided', async () => {
             const user_id = 'user-123';
 
-            await expect(controller.uploadVideo(undefined as any, user_id)).rejects.toThrow(
+            await expect(controller.uploadVideo(undefined as any)).rejects.toThrow(
                 BadRequestException
             );
         });
@@ -343,6 +346,71 @@ describe('TweetsController', () => {
 
             expect(service.incrementTweetViews).toHaveBeenCalledWith(tweet_id);
             expect(result).toEqual(mock_response);
+        });
+    });
+
+    describe('bookmarkTweet', () => {
+        it('should bookmark a tweet', async () => {
+            const tweet_id = 'tweet-456';
+            const user_id = 'user-789';
+
+            mock_tweets_service.bookmarkTweet.mockResolvedValue(undefined);
+
+            const result = await controller.bookmarkTweet(tweet_id, user_id);
+
+            expect(service.bookmarkTweet).toHaveBeenCalledWith(tweet_id, user_id);
+            expect(result).toBeUndefined();
+        });
+    });
+
+    describe('unbookmarkTweet', () => {
+        it('should unbookmark a tweet', async () => {
+            const tweet_id = 'tweet-456';
+            const user_id = 'user-789';
+
+            mock_tweets_service.unbookmarkTweet.mockResolvedValue(undefined);
+
+            const result = await controller.unbookmarkTweet(tweet_id, user_id);
+
+            expect(service.unbookmarkTweet).toHaveBeenCalledWith(tweet_id, user_id);
+            expect(result).toBeUndefined();
+        });
+    });
+
+    describe('getUserBookmarks', () => {
+        it('should return user bookmarks', async () => {
+            const user_id = 'user-123';
+            const query = { cursor: null, limit: 10 };
+            const mock_bookmarks = {
+                tweets: [{ tweet_id: 'tweet-1' }, { tweet_id: 'tweet-2' }],
+                next_cursor: 'cursor-abc',
+            };
+
+            mock_tweets_service.getUserBookmarks.mockResolvedValue(mock_bookmarks as any);
+
+            const result = await controller.getUserBookmarks(query as any, user_id);
+
+            expect(service.getUserBookmarks).toHaveBeenCalledWith(
+                user_id,
+                query.cursor,
+                query.limit
+            );
+            expect(result).toEqual(mock_bookmarks);
+        });
+    });
+
+    describe('createTweet error handling', () => {
+        it('should handle and rethrow errors', async () => {
+            const create_tweet_dto = { content: 'Test' } as any;
+            const user_id = 'user-123';
+            const error = new Error('Database error');
+
+            mock_tweets_service.createTweet.mockRejectedValue(error);
+
+            await expect(controller.createTweet(create_tweet_dto, user_id)).rejects.toThrow(
+                'Database error'
+            );
+            expect(service.createTweet).toHaveBeenCalledWith(create_tweet_dto, user_id);
         });
     });
 });

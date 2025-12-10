@@ -1,3 +1,4 @@
+import { isEmail } from 'class-validator';
 import { SUCCESS_MESSAGES } from '../constants/swagger-messages';
 
 // OAuth Response Constants
@@ -27,6 +28,8 @@ const OAUTH_RESPONSE_EXISTING_USER = {
                 following: 150,
             },
             access_token: "messi doesn't need a token to be authenticated bro",
+            refresh_token:
+                'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImp0aSI6IjEyMzQ1Njc4LTkwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4NzUyNjY5fQ.abc123',
         },
         count: 1,
         message: SUCCESS_MESSAGES.LOGGED_IN,
@@ -168,6 +171,8 @@ Complete your registration by setting a password, choosing a username, and optio
                         },
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        refresh_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImp0aSI6IjEyMzQ1Njc4LTkwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4NzUyNjY5fQ.abc123',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.SIGNUP_STEP3_COMPLETED,
@@ -238,7 +243,7 @@ export const login_swagger = {
     operation: {
         summary: 'User login',
         description:
-            'Authenticate user and receive access token. Refresh token is set as httpOnly cookie.',
+            'Authenticate user and receive access token and refresh token. Refresh token is also set as httpOnly cookie for web clients.',
     },
 
     responses: {
@@ -249,6 +254,8 @@ export const login_swagger = {
                     data: {
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        refresh_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImp0aSI6IjEyMzQ1Njc4LTkwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4NzUyNjY5fQ.abc123',
                         user: {
                             id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
                             email: 'amirakhaled928@gmail.com',
@@ -285,17 +292,20 @@ export const login_swagger = {
 export const refresh_token_swagger = {
     operation: {
         summary: 'Refresh access token',
-        description: 'Use refresh token from httpOnly cookie to get a new access token.',
+        description:
+            'Use refresh token from httpOnly cookie or request body to get a new access token. For mobile apps, provide refresh_token in the request body.',
     },
 
     responses: {
         success: {
-            description: 'New access token generated',
+            description: 'New access token and refresh token generated',
             schema: {
                 example: {
                     data: {
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNjZTM3YjEzLWQ2ZGUtNDhjZC1iNzQ2LWRmMjY0ODQ1N2E0NiIsImlhdCI6MTc1ODE0OTI2NywiZXhwIjoxNzU4MTUyODY3fQ.M1ennV-LC8xiJpsRKCsUo9Y4o7_6mydG0SPURuNzh6I',
+                        refresh_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImNjZTM3YjEzLWQ2ZGUtNDhjZC1iNzQ2LWRmMjY0ODQ1N2E0NiIsImp0aSI6Ijk4NzY1NDMyLTEwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0OTI2NywiZXhwIjoxNzU4NzU0MDY3fQ.xyz789',
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.NEW_ACCESS_TOKEN,
@@ -377,15 +387,21 @@ export const google_mobile_swagger = {
         description: `
 **Mobile Google OAuth Flow**
 
-This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through native APIs or WebView.
+This endpoint is specifically designed for mobile applications (React Native/Expo) that handle OAuth through authorization code flow.
 
 **How it works:**
-- Mobile app obtains Google ID token through native OAuth flow
-- Mobile app sends the token to this endpoint
-- Backend verifies the token with Google's API
+- Mobile app initiates Google OAuth and receives authorization code
+- Mobile app sends the code and redirect_uri to this endpoint
+- Backend exchanges the code for an access token with Google's API
+- Backend retrieves user information from Google
 - Returns user data and JWT tokens (or session token for new users)
 
-export ${getOAuthResponseDescription('Google')}
+**Required Parameters:**
+- \`code\`: Authorization code from Google OAuth flow
+- \`redirect_uri\`: The redirect URI used in the OAuth flow (must match the one registered with Google)
+- \`code_verifier\`: (Optional) PKCE code verifier if using PKCE flow
+
+${getOAuthResponseDescription('Google')}
 
 **For web applications, use:** \`GET /auth/google\` instead
         `,
@@ -975,7 +991,7 @@ export const oauth_completion_step2_swagger = {
         summary: 'OAuth Step 2: Complete registration with username',
         description: `
             Complete OAuth registration step 2. Finalizes user account creation with the chosen username.
-            Returns access token and user data. Refresh token is set as httpOnly cookie.
+            Returns access token, refresh token, and user data. Refresh token is also set as httpOnly cookie for web clients.
         `,
     },
 
@@ -987,6 +1003,8 @@ export const oauth_completion_step2_swagger = {
                     data: {
                         access_token:
                             'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                        refresh_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImp0aSI6IjEyMzQ1Njc4LTkwYWItY2RlZi0xMjM0LTU2Nzg5MGFiY2RlZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4NzUyNjY5fQ.abc123',
                         user: {
                             id: 'd102dadc-0b17-4e83-812b-00103b606a1f',
                             email: 'mariorafat10@gmail.com',
@@ -1108,8 +1126,7 @@ export const update_email_swagger = {
             schema: {
                 example: {
                     data: {
-                        new_email: 'newemail@example.com',
-                        verification_sent: true,
+                        isEmailSent: true,
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.EMAIL_UPDATE_INITIATED,
@@ -1135,6 +1152,101 @@ export const verify_update_email_swagger = {
                     },
                     count: 1,
                     message: SUCCESS_MESSAGES.EMAIL_UPDATED,
+                },
+            },
+        },
+    },
+};
+
+export const exchange_token_swagger = {
+    operation: {
+        summary: 'Exchange one-time token for credentials',
+        description: `
+**Secure OAuth Token Exchange**
+
+This endpoint exchanges a one-time exchange token (received from OAuth callback redirect) for the actual credentials.
+
+**Security features:**
+- One-time use only - token is deleted after exchange
+- Short-lived (5 minutes)
+- Encrypted and stored in Redis
+- Prevents token exposure in URLs from being exploited
+
+**Use cases:**
+1. **After successful OAuth login**: Exchange token for access_token and refresh_token
+2. **After OAuth requiring completion**: Exchange token for session_token to complete registration
+
+**Flow:**
+1. User authenticates via OAuth (Google/Facebook/GitHub)
+2. Backend creates exchange token and stores only user_id or session_token in Redis (NO actual tokens stored)
+3. User is redirected to frontend with exchange token in URL
+4. Frontend immediately calls this endpoint to exchange token
+5. Backend generates fresh access_token and refresh_token on-the-fly (for auth type)
+6. Exchange token is deleted from Redis (single-use)
+
+**Important:** 
+- The exchange token can only be used once and expires after 5 minutes
+        `,
+    },
+
+    responses: {
+        auth_success: {
+            description: 'Exchange successful - credentials returned (type: auth)',
+            schema: {
+                example: {
+                    data: {
+                        type: 'auth',
+                        access_token:
+                            'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpZCI6ImQxMDJkYWRjLTBiMTctNGU4My04MTJiLTAwMTAzYjYwNmExZiIsImlhdCI6MTc1ODE0Nzg2OSwiZXhwIjoxNzU4MTUxNDY5fQ.DV3oA5Fn-cj-KHrGcafGaoWGyvYFx4N50L9Ke4_n6OU',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.TOKEN_EXCHANGE_SUCCESS,
+                },
+            },
+            headers: {
+                'Set-Cookie': {
+                    description: 'HttpOnly cookie containing refresh token (only for auth type)',
+                    schema: {
+                        type: 'string',
+                        example:
+                            'refresh_token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...; HttpOnly; Secure; SameSite=Strict',
+                    },
+                },
+            },
+        },
+        completion_success: {
+            description: 'Exchange successful - session token returned (type: completion)',
+            schema: {
+                example: {
+                    data: {
+                        type: 'completion',
+                        session_token: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                        provider: 'google',
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.TOKEN_EXCHANGE_SUCCESS,
+                },
+            },
+        },
+    },
+};
+
+export const confirm_password_swagger = {
+    operation: {
+        summary: 'Confirm password',
+        description: 'Confirm that the password is valid',
+    },
+
+    responses: {
+        success: {
+            description: 'Password confirmed successfully',
+            schema: {
+                example: {
+                    data: {
+                        valid: true,
+                    },
+                    count: 1,
+                    message: SUCCESS_MESSAGES.PASSWORD_CONFIRMED,
                 },
             },
         },

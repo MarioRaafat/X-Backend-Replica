@@ -1,6 +1,11 @@
 import { IsEmail, IsOptional, IsString, MaxLength, Validate } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
+import {
+    LARGE_MAX_LENGTH,
+    NAME_MAX_LENGTH,
+    STRING_MAX_LENGTH,
+    USERNAME_MAX_LENGTH,
+} from 'src/constants/variables';
 import { AgeRangeValidator } from 'src/validations/birth-date';
 
 export class CreateUserDto {
@@ -27,7 +32,7 @@ export class CreateUserDto {
         example: 'Alyaa Amira',
     })
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(NAME_MAX_LENGTH)
     name: string;
 
     @ApiProperty({
@@ -35,7 +40,7 @@ export class CreateUserDto {
         example: 'mario2252004',
     })
     @IsString()
-    @MaxLength(STRING_MAX_LENGTH)
+    @MaxLength(USERNAME_MAX_LENGTH)
     username: string;
 
     @ApiProperty({
@@ -116,4 +121,13 @@ export class CreateUserDto {
     @IsString()
     @MaxLength(LARGE_MAX_LENGTH)
     github_id?: string;
+
+    @ApiProperty({
+        description: 'FCM Token (optional)',
+        example: 'fcm_token_example',
+        required: false,
+    })
+    @IsOptional()
+    @IsString()
+    fcm_token?: string;
 }

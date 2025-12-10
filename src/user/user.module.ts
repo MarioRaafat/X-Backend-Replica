@@ -10,6 +10,11 @@ import { ConfigModule } from '@nestjs/config';
 import { AzureStorageModule } from 'src/azure-storage/azure-storage.module';
 import { CategoryModule } from 'src/category/category.module';
 import { TweetsModule } from 'src/tweets/tweets.module';
+import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { UsernameService } from 'src/auth/username.service';
+import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
+import { BackgroundJobsModule } from 'src/background-jobs';
+import { CommunicationModule } from 'src/communication/communication.module';
 
 @Module({
     imports: [
@@ -18,8 +23,10 @@ import { TweetsModule } from 'src/tweets/tweets.module';
         AzureStorageModule,
         CategoryModule,
         TweetsModule,
+        BackgroundJobsModule,
     ],
     controllers: [UserController],
-    providers: [UserService, UserRepository],
+    providers: [UserService, UserRepository, PaginationService, UsernameService, FollowJobService],
+    exports: [UserRepository],
 })
 export class UserModule {}

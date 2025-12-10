@@ -36,7 +36,7 @@ export class UserResponseDTO {
         description: 'Whether the user is verified',
         example: true,
     })
-    verified: boolean;
+    verified?: boolean = false;
 
     @Expose()
     @ApiProperty({
@@ -75,4 +75,12 @@ export class UserResponseDTO {
         required: false,
     })
     is_following?: boolean;
+
+    @Expose()
+    @ApiProperty({
+        description: 'Whether the current user is followed by this user',
+        example: false,
+        required: false,
+    })
+    is_follower?: boolean;
 }

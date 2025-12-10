@@ -11,6 +11,14 @@ export class TweetResponseDTO {
         example: '550e8400-e29b-41d4-a716-446655440000',
     })
     tweet_id: string;
+    //will be removed just for now to debug trending scores
+    @Expose()
+    @ApiProperty({
+        description: 'Trending Score (Debug)',
+        example: 123.45,
+        required: false,
+    })
+    score?: number;
 
     @Expose()
     @ApiProperty({
@@ -71,6 +79,15 @@ export class TweetResponseDTO {
     @Expose()
     @Type(() => TweetResponseDTO)
     @ApiProperty({
+        description: 'Main Conversation tweet (if this is a reply)',
+        type: () => TweetResponseDTO,
+        required: false,
+    })
+    conversation_tweet?: TweetResponseDTO;
+
+    @Expose()
+    @Type(() => TweetResponseDTO)
+    @ApiProperty({
         description: 'Limited number of replies to this tweet',
         type: [TweetResponseDTO],
         required: false,
@@ -118,20 +135,36 @@ export class TweetResponseDTO {
     replies_count: number;
 
     @Expose()
-    @Transform(({ obj }) => !!obj.current_user_like)
+    @Transform(({ obj }) => obj.num_bookmarks)
+    @ApiProperty({
+        description: 'Number of bookmarks',
+        example: 15,
+    })
+    bookmarks_count?: number = 0;
+
+    @Expose()
+    @Transform(({ obj }) => !!obj.current_user_like || obj.is_liked)
     @ApiProperty({
         description: 'Whether the current user has liked this tweet',
         example: true,
     })
-    is_liked: boolean;
+    is_liked?: boolean = false;
 
     @Expose()
-    @Transform(({ obj }) => !!obj.current_user_repost)
+    @Transform(({ obj }) => !!obj.current_user_repost || obj.is_reposted)
     @ApiProperty({
         description: 'Whether the current user has reposted this tweet',
         example: false,
     })
-    is_reposted: boolean;
+    is_reposted?: boolean = false;
+
+    @Expose()
+    @Transform(({ obj }) => !!obj.current_user_bookmark)
+    @ApiProperty({
+        description: 'Whether the current user has bookmarked this tweet',
+        example: false,
+    })
+    is_bookmarked?: boolean = false;
 
     @Expose()
     @ApiProperty({

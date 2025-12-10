@@ -3,7 +3,7 @@ import { Logger } from '@nestjs/common';
 import type { Job } from 'bull';
 import { EmailProcessor } from './email.processor';
 import { EmailService } from '../../communication/email.service';
-import type { OtpEmailJobDto } from '../dto/email-job.dto';
+import type { OtpEmailJobDto } from './email-job.dto';
 
 describe('EmailProcessor', () => {
     let processor: EmailProcessor;

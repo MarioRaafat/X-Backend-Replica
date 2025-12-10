@@ -17,13 +17,13 @@ import * as bcrypt from 'bcrypt';
 import { RedisService } from 'src/redis/redis.service';
 import { JwtService } from '@nestjs/jwt';
 import { VerificationService } from 'src/verification/verification.service';
-import { EmailService } from 'src/communication/email.service';
+import { EmailJobsService } from 'src/background-jobs/email/email.service';
 import { CaptchaService } from './captcha.service';
 import { ConfigService } from '@nestjs/config';
-import { BackgroundJobsService } from 'src/background-jobs/background-jobs.service';
 import {
     BadRequestException,
     ConflictException,
+    ForbiddenException,
     InternalServerErrorException,
     NotFoundException,
     UnauthorizedException,
@@ -35,15 +35,7 @@ describe('AuthService', () => {
     let service: AuthService;
 
     const mock_user_service = {
-        findByEmail: jest.fn(async (email: string) => {
-            return {
-                id: '1',
-                email,
-                password: 'hashedPassword',
-                name: 'Test User',
-                phone_number: '1234567890',
-            };
-        }),
+        findByEmail: jest.fn(),
         findById: jest.fn(),
         findByGoogleId: jest.fn(),
         findByFacebookId: jest.fn(),
@@ -60,6 +52,7 @@ describe('AuthService', () => {
     const mock_jwt_service = {
         sign: jest.fn(),
         verifyAsync: jest.fn(),
+        verify: jest.fn(),
     };
     const mock_redis_service = {
         set: jest.fn(),
@@ -75,6 +68,8 @@ describe('AuthService', () => {
     };
     const mock_username_service = {
         generateUsername: jest.fn(),
+        generateUsernameRecommendationsSingleName: jest.fn(),
+        isUsernameAvailable: jest.fn(),
     };
     const mock_verification_service = {
         generateOtp: jest.fn(),
@@ -84,8 +79,12 @@ describe('AuthService', () => {
         validatePasswordResetToken: jest.fn(),
         validateNotMeLink: jest.fn(),
     };
-    const mock_email_service = {
-        sendEmail: jest.fn(),
+    const mock_email_jobs_service = {
+        queueOtpEmail: jest.fn().mockResolvedValue({ success: true }),
+        getEmailQueueStats: jest.fn(),
+        pauseEmailQueue: jest.fn(),
+        resumeEmailQueue: jest.fn(),
+        cleanEmailQueue: jest.fn(),
     };
     const mock_captcha_service = {
         createCaptcha: jest.fn(),
@@ -116,8 +115,7 @@ describe('AuthService', () => {
                 { provide: UsernameService, useValue: mock_username_service },
                 { provide: RedisService, useValue: mock_redis_service },
                 { provide: VerificationService, useValue: mock_verification_service },
-                { provide: EmailService, useValue: mock_email_service },
-                { provide: BackgroundJobsService, useValue: mock_background_jobs_service },
+                { provide: EmailJobsService, useValue: mock_email_jobs_service },
                 { provide: CaptchaService, useValue: mock_captcha_service },
                 { provide: ConfigService, useValue: mock_config_service },
             ],
@@ -143,12 +141,26 @@ describe('AuthService', () => {
         });
 
         it('should return id when email and password are correct', async () => {
+            mock_user_service.findByEmail.mockResolvedValueOnce({
+                id: '1',
+                email: 'test@example.com',
+                password: 'hashedPassword',
+                name: 'Test User',
+                phone_number: '1234567890',
+            });
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
             const id = await service.validateUser('test@example.com', 'password', 'email');
             expect(id).toBe('1');
         });
 
         it('should throw "Wrong password" when password is incorrect', async () => {
+            mock_user_service.findByEmail.mockResolvedValueOnce({
+                id: '1',
+                email: 'test@example.com',
+                password: 'hashedPassword',
+                name: 'Test User',
+                phone_number: '1234567890',
+            });
             (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
             await expect(
                 service.validateUser('test@example.com', 'wrongpassword', 'email')
@@ -156,7 +168,7 @@ describe('AuthService', () => {
         });
 
         it('should throw "User not found" when user does not exist', async () => {
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
             await expect(
                 service.validateUser('missing@example.com', 'password', 'email')
             ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -356,7 +368,7 @@ describe('AuthService', () => {
             expect(mock_res.clearCookie).toHaveBeenCalledWith('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: 'none',
             });
 
             expect(result).toEqual({});
@@ -429,7 +441,7 @@ describe('AuthService', () => {
             expect(mock_res.clearCookie).toHaveBeenCalledWith('refresh_token', {
                 httpOnly: true,
                 secure: true,
-                sameSite: 'strict',
+                sameSite: 'none',
             });
 
             expect(result).toEqual({});
@@ -476,7 +488,7 @@ describe('AuthService', () => {
             mock_verification_service.generateNotMeLink = jest
                 .fn()
                 .mockResolvedValueOnce('https://notme.link');
-            mock_background_jobs_service.queueOtpEmail = jest
+            mock_email_jobs_service.queueOtpEmail = jest
                 .fn()
                 .mockResolvedValueOnce({ success: true });
 
@@ -488,7 +500,7 @@ describe('AuthService', () => {
                 'email'
             );
             expect(mock_verification_service.generateNotMeLink).toHaveBeenCalled();
-            expect(mock_background_jobs_service.queueOtpEmail).toHaveBeenCalledWith(
+            expect(mock_email_jobs_service.queueOtpEmail).toHaveBeenCalledWith(
                 expect.objectContaining({
                     email: 'test@example.com',
                     username: 'John',
@@ -509,7 +521,7 @@ describe('AuthService', () => {
             );
 
             expect(mock_verification_service.generateOtp).not.toHaveBeenCalled();
-            expect(mock_email_service.sendEmail).not.toHaveBeenCalled();
+            expect(mock_email_jobs_service.queueOtpEmail).not.toHaveBeenCalled();
         });
 
         it('should throw InternalServerErrorException if emailService.sendEmail fails', async () => {
@@ -518,7 +530,7 @@ describe('AuthService', () => {
             mock_verification_service.generateNotMeLink = jest
                 .fn()
                 .mockResolvedValueOnce('https://notme.link');
-            mock_background_jobs_service.queueOtpEmail = jest
+            mock_email_jobs_service.queueOtpEmail = jest
                 .fn()
                 .mockResolvedValueOnce({ success: false });
 
@@ -545,7 +557,7 @@ describe('AuthService', () => {
             mock_user_service.findByEmail.mockResolvedValueOnce(mock_user);
             mock_user_service.findById.mockResolvedValueOnce(mock_user);
             mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
-            mock_background_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: true });
+            mock_email_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: true });
 
             const result = await service.sendResetPasswordEmail('test@example.com');
 
@@ -554,7 +566,7 @@ describe('AuthService', () => {
                 'user-1',
                 'password'
             );
-            expect(mock_background_jobs_service.queueOtpEmail).toHaveBeenCalledWith(
+            expect(mock_email_jobs_service.queueOtpEmail).toHaveBeenCalledWith(
                 expect.objectContaining({
                     email: 'test@example.com',
                     username: undefined, // user object doesn't have username property
@@ -574,14 +586,14 @@ describe('AuthService', () => {
             );
 
             expect(mock_verification_service.generateOtp).not.toHaveBeenCalled();
-            expect(mock_background_jobs_service.queueOtpEmail).not.toHaveBeenCalled();
+            expect(mock_email_jobs_service.queueOtpEmail).not.toHaveBeenCalled();
         });
 
         it('should throw InternalServerErrorException if email sending fails', async () => {
             mock_user_service.findByEmail.mockResolvedValueOnce(mock_user);
             mock_user_service.findById.mockResolvedValueOnce(mock_user);
             mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
-            mock_background_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: false });
+            mock_email_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: false });
 
             await expect(service.sendResetPasswordEmail('test@example.com')).rejects.toThrow(
                 new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SEND_OTP_EMAIL)
@@ -1012,9 +1024,7 @@ describe('AuthService', () => {
             const user_by_email = { id: '2', email: 'test@example.com' };
             const updated_user = { ...user_by_email, google_id: 'google123' };
 
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(
-                user_by_email as any
-            );
+            mock_user_service.findByEmail.mockResolvedValueOnce(user_by_email as any);
             mock_user_service.updateUserById.mockResolvedValueOnce(updated_user);
 
             const result = await service.validateGoogleUser(mock_google_user);
@@ -1034,9 +1044,7 @@ describe('AuthService', () => {
         it('should throw if updateUser fails to return user', async () => {
             mock_user_service.findByGoogleId.mockResolvedValueOnce(null);
             const user_by_email = { id: '2', email: 'test@example.com' };
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(
-                user_by_email as any
-            );
+            mock_user_service.findByEmail.mockResolvedValueOnce(user_by_email as any);
             mock_user_service.updateUserById.mockResolvedValueOnce(null);
 
             await expect(service.validateGoogleUser(mock_google_user)).rejects.toThrow(
@@ -1046,7 +1054,7 @@ describe('AuthService', () => {
 
         it('should create a new user if not found by googleId or email', async () => {
             mock_user_service.findByGoogleId.mockResolvedValueOnce(null);
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
 
             const created_user = { id: '3', ...mock_google_user };
             mock_user_service.createUser.mockResolvedValueOnce(created_user);
@@ -1109,7 +1117,7 @@ describe('AuthService', () => {
             const user_by_email = { id: '2', email: 'test@example.com' };
             const updated_user = { ...user_by_email, facebook_id: 'fb123' };
 
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(user_by_email);
+            mock_user_service.findByEmail.mockResolvedValueOnce(user_by_email);
             mock_user_service.updateUserById.mockResolvedValueOnce(updated_user);
 
             const result = await service.validateFacebookUser(mock_facebook_user);
@@ -1129,7 +1137,7 @@ describe('AuthService', () => {
         it('should throw if updateUser fails to return user', async () => {
             mock_user_service.findByFacebookId.mockResolvedValueOnce(null);
             const user_by_email = { id: '2', email: 'test@example.com' };
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(user_by_email);
+            mock_user_service.findByEmail.mockResolvedValueOnce(user_by_email);
             mock_user_service.updateUserById.mockResolvedValueOnce(null);
 
             await expect(service.validateFacebookUser(mock_facebook_user)).rejects.toThrow(
@@ -1139,7 +1147,7 @@ describe('AuthService', () => {
 
         it('should create a new user if not found by facebook_id or email', async () => {
             mock_user_service.findByFacebookId.mockResolvedValueOnce(null);
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
 
             const created_user = { id: '3', ...mock_facebook_user };
             mock_user_service.createUser.mockResolvedValueOnce(created_user);
@@ -1193,7 +1201,7 @@ describe('AuthService', () => {
             const user_by_email = { id: '2', email: 'dev@example.com' };
             const updated_user = { ...user_by_email, github_id: 'gh123' };
 
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(user_by_email);
+            mock_user_service.findByEmail.mockResolvedValueOnce(user_by_email);
             mock_user_service.updateUserById.mockResolvedValueOnce(updated_user);
 
             const result = await service.validateGitHubUser(mock_git_hub_user);
@@ -1213,7 +1221,7 @@ describe('AuthService', () => {
         it('should throw if updateUser fails to return user', async () => {
             mock_user_service.findByGithubId.mockResolvedValueOnce(null);
             const user_by_email = { id: '2', email: 'dev@example.com' };
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(user_by_email);
+            mock_user_service.findByEmail.mockResolvedValueOnce(user_by_email);
             mock_user_service.updateUserById.mockResolvedValueOnce(null);
 
             await expect(service.validateGitHubUser(mock_git_hub_user)).rejects.toThrow(
@@ -1223,7 +1231,7 @@ describe('AuthService', () => {
 
         it('should create a new user if not found by github_id or email', async () => {
             mock_user_service.findByGithubId.mockResolvedValueOnce(null);
-            (mock_user_service.findByEmail as jest.Mock).mockResolvedValueOnce(null);
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
 
             const created_user = { id: '3', ...mock_git_hub_user };
             mock_user_service.createUser.mockResolvedValueOnce(created_user);
@@ -1243,4 +1251,1219 @@ describe('AuthService', () => {
             });
         });
     });
+
+    describe('signupStep1', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should create signup session and send verification email', async () => {
+            const dto = {
+                name: 'John Doe',
+                birth_date: '1990-01-01',
+                email: 'john@example.com',
+                captcha_token: 'valid-captcha',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hset.mockResolvedValueOnce(true);
+            mock_redis_service.hget.mockResolvedValueOnce({
+                name: 'John Doe',
+                email: 'john@example.com',
+            });
+            mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
+            mock_verification_service.generateNotMeLink.mockResolvedValueOnce('https://notme.link');
+            mock_email_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: true });
+
+            const result = await service.signupStep1(dto as any);
+
+            expect(mock_user_service.findByEmail).toHaveBeenCalledWith('john@example.com');
+            expect(mock_redis_service.hset).toHaveBeenCalled();
+            expect(result).toEqual({ isEmailSent: true });
+        });
+
+        it('should throw ConflictException if email already exists', async () => {
+            const dto = {
+                name: 'John Doe',
+                birth_date: '1990-01-01',
+                email: 'existing@example.com',
+                captcha_token: 'valid-captcha',
+            };
+
+            mock_captcha_service.validateCaptcha.mockResolvedValueOnce(true);
+            mock_user_service.findByEmail.mockResolvedValueOnce({
+                id: '1',
+                email: 'existing@example.com',
+            });
+
+            await expect(service.signupStep1(dto as any)).rejects.toThrow(ConflictException);
+        });
+
+        it('should throw InternalServerErrorException if email sending fails', async () => {
+            const dto = {
+                name: 'John Doe',
+                birth_date: '1990-01-01',
+                email: 'john@example.com',
+                captcha_token: 'valid-captcha',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hset.mockResolvedValueOnce(1);
+            mock_redis_service.hget.mockResolvedValueOnce({
+                name: 'John Doe',
+                email: 'john@example.com',
+            });
+            mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
+            mock_verification_service.generateNotMeLink.mockResolvedValueOnce('https://notme.link');
+            mock_email_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: false });
+
+            await expect(service.signupStep1(dto as any)).rejects.toThrow(
+                InternalServerErrorException
+            );
+        });
+    });
+
+    describe('signupStep2', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should verify OTP and return username recommendations', async () => {
+            const dto = {
+                email: 'john@example.com',
+                token: '123456',
+            };
+
+            const signup_session = {
+                name: 'John Doe',
+                birth_date: '1990-01-01',
+                email: 'john@example.com',
+                email_verified: 'false',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hget.mockResolvedValueOnce(signup_session);
+            mock_verification_service.validateOtp.mockResolvedValueOnce(true);
+            mock_redis_service.hset.mockResolvedValueOnce(true);
+            mock_username_service.generateUsernameRecommendationsSingleName = jest
+                .fn()
+                .mockResolvedValueOnce(['johndoe', 'johndoe123']);
+
+            const result = await service.signupStep2(dto as any);
+
+            expect(mock_verification_service.validateOtp).toHaveBeenCalledWith(
+                'john@example.com',
+                '123456',
+                'email'
+            );
+            expect(result).toEqual({
+                isVerified: true,
+                recommendations: ['johndoe', 'johndoe123'],
+            });
+        });
+
+        it('should throw NotFoundException if signup session not found', async () => {
+            const dto = {
+                email: 'john@example.com',
+                token: '123456',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hget.mockResolvedValueOnce(null);
+
+            await expect(service.signupStep2(dto as any)).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw BadRequestException if OTP is invalid', async () => {
+            const dto = {
+                email: 'john@example.com',
+                token: 'wrong-otp',
+            };
+
+            const signup_session = {
+                name: 'John Doe',
+                email: 'john@example.com',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hget.mockResolvedValueOnce(signup_session);
+            mock_verification_service.validateOtp.mockResolvedValueOnce(false);
+
+            await expect(service.signupStep2(dto as any)).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    describe('signupStep3', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should create user and return tokens', async () => {
+            const dto = {
+                email: 'john@example.com',
+                password: 'Password123!',
+                username: 'johndoe',
+                language: 'en',
+            };
+
+            const signup_session = {
+                name: 'John Doe',
+                birth_date: '1990-01-01',
+                email: 'john@example.com',
+                email_verified: 'true',
+            };
+
+            const created_user = {
+                id: 'user-123',
+                email: 'john@example.com',
+                username: 'johndoe',
+                name: 'John Doe',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_user_service.findByUsername.mockResolvedValueOnce(null);
+            mock_redis_service.hget.mockResolvedValueOnce(signup_session);
+            (bcrypt.hash as jest.Mock).mockResolvedValueOnce('hashed-password');
+            mock_user_service.createUser.mockResolvedValueOnce(created_user);
+            mock_jwt_service.sign
+                .mockReturnValueOnce('access-token')
+                .mockReturnValueOnce('refresh-token');
+            mock_redis_service.set.mockResolvedValueOnce(true);
+            mock_redis_service.sadd.mockResolvedValueOnce(true);
+            mock_redis_service.expire.mockResolvedValueOnce(true);
+            mock_redis_service.del.mockResolvedValueOnce(true);
+
+            const result = await service.signupStep3(dto as any);
+
+            expect(result.user).toBeDefined();
+            expect(result.access_token).toBe('access-token');
+            expect(result.refresh_token).toBe('refresh-token');
+        });
+
+        it('should throw ConflictException if username is taken', async () => {
+            const dto = {
+                email: 'john@example.com',
+                password: 'Password123!',
+                username: 'taken',
+                language: 'en',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_user_service.findByUsername.mockResolvedValueOnce({ id: '1', username: 'taken' });
+
+            await expect(service.signupStep3(dto as any)).rejects.toThrow(ConflictException);
+        });
+    });
+
+    describe('checkIdentifier', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should identify email and return user info', async () => {
+            const user = { id: 'user-1', email: 'test@example.com' };
+            mock_user_service.findByEmail.mockResolvedValueOnce(user);
+
+            const result = await service.checkIdentifier('test@example.com');
+
+            expect(result).toEqual({
+                identifier_type: 'email',
+                user_id: 'user-1',
+            });
+        });
+
+        it('should identify phone number and return user info', async () => {
+            const user = { id: 'user-2', phone_number: '+1234567890' };
+            mock_user_service.findByPhoneNumber.mockResolvedValueOnce(user);
+
+            const result = await service.checkIdentifier('+1234567890');
+
+            expect(result).toEqual({
+                identifier_type: 'phone_number',
+                user_id: 'user-2',
+            });
+        });
+
+        it('should identify username and return user info', async () => {
+            const user = { id: 'user-3', username: 'johndoe' };
+            mock_user_service.findByUsername.mockResolvedValueOnce(user);
+
+            const result = await service.checkIdentifier('johndoe');
+
+            expect(result).toEqual({
+                identifier_type: 'username',
+                user_id: 'user-3',
+            });
+        });
+
+        it('should throw NotFoundException if user not found', async () => {
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+
+            await expect(service.checkIdentifier('notfound@example.com')).rejects.toThrow(
+                NotFoundException
+            );
+        });
+    });
+
+    describe('updateUsername', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should update username successfully', async () => {
+            const user = { id: 'user-1', username: 'oldname' };
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            mock_username_service.isUsernameAvailable = jest.fn().mockResolvedValueOnce(true);
+            mock_user_service.updateUserById.mockResolvedValueOnce(true);
+
+            const result = await service.updateUsername('user-1', 'newname');
+
+            expect(result).toEqual({ username: 'newname' });
+            expect(mock_user_service.updateUserById).toHaveBeenCalledWith('user-1', {
+                username: 'newname',
+            });
+        });
+
+        it('should throw ConflictException if username is taken', async () => {
+            const user = { id: 'user-1', username: 'oldname' };
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            mock_username_service.isUsernameAvailable = jest.fn().mockResolvedValueOnce(false);
+
+            await expect(service.updateUsername('user-1', 'taken')).rejects.toThrow(
+                ConflictException
+            );
+        });
+    });
+
+    describe('updateEmail', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should initiate email update process', async () => {
+            const user = { id: 'user-1', email: 'old@example.com', username: 'testuser' };
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_verification_service.generateOtp.mockResolvedValueOnce('123456');
+            mock_redis_service.set.mockResolvedValueOnce(true);
+            mock_email_jobs_service.queueOtpEmail.mockResolvedValueOnce({ success: true });
+
+            const result = await service.updateEmail('user-1', 'new@example.com');
+
+            expect(result).toBeDefined();
+            expect(result).toEqual({ isEmailSent: true });
+            expect(mock_email_jobs_service.queueOtpEmail).toHaveBeenCalled();
+        });
+    });
+
+    describe('verifyUpdateEmail', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should verify OTP and update email', async () => {
+            const user = { id: 'user-1', email: 'old@example.com' };
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            mock_verification_service.validateOtp.mockResolvedValueOnce(true);
+            mock_redis_service.get.mockResolvedValueOnce('new@example.com');
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_user_service.updateUserById.mockResolvedValueOnce(true);
+            mock_redis_service.del.mockResolvedValueOnce(true);
+
+            const result = await service.verifyUpdateEmail('user-1', 'new@example.com', '123456');
+
+            expect(result).toEqual({ email: 'new@example.com' });
+        });
+    });
+
+    describe('createOAuthSession', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should create OAuth session in Redis', async () => {
+            const user_data = {
+                email: 'oauth@example.com',
+                name: 'OAuth User',
+                google_id: 'google-123',
+            };
+
+            mock_redis_service.hset.mockResolvedValueOnce(true);
+
+            const result = await service.createOAuthSession(user_data);
+
+            expect(result).toBe('oauth@example.com');
+            expect(mock_redis_service.hset).toHaveBeenCalled();
+        });
+    });
+
+    describe('oauthCompletionStep1', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should update session with birth_date and return username recommendations', async () => {
+            const dto = {
+                oauth_session_token: 'session-token',
+                birth_date: '1990-01-01',
+            };
+
+            const session_data = {
+                user_data: JSON.stringify({
+                    name: 'OAuth User',
+                    email: 'oauth@example.com',
+                }),
+            };
+
+            mock_redis_service.hget.mockResolvedValueOnce(session_data);
+            mock_redis_service.hset.mockResolvedValueOnce(true);
+            mock_username_service.generateUsernameRecommendationsSingleName = jest
+                .fn()
+                .mockResolvedValueOnce(['oauthuser', 'oauthuser123']);
+
+            const result = await service.oauthCompletionStep1(dto as any);
+
+            expect(result.usernames).toEqual(['oauthuser', 'oauthuser123']);
+            expect(result.token).toBe('session-token');
+        });
+    });
+
+    describe('oauthCompletionStep2', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should create user and return tokens', async () => {
+            const dto = {
+                oauth_session_token: 'session-token',
+                username: 'oauthuser',
+            };
+
+            const session_data = {
+                user_data: JSON.stringify({
+                    name: 'OAuth User',
+                    email: 'oauth@example.com',
+                    birth_date: '1990-01-01',
+                    google_id: 'google-123',
+                }),
+            };
+
+            const created_user = {
+                id: 'user-123',
+                email: 'oauth@example.com',
+                username: 'oauthuser',
+            };
+
+            mock_redis_service.hget.mockResolvedValueOnce(session_data);
+            mock_username_service.isUsernameAvailable = jest.fn().mockResolvedValueOnce(true);
+            mock_user_service.createUser.mockResolvedValueOnce(created_user);
+            mock_jwt_service.sign
+                .mockReturnValueOnce('access-token')
+                .mockReturnValueOnce('refresh-token');
+            mock_redis_service.set.mockResolvedValueOnce(true);
+            mock_redis_service.sadd.mockResolvedValueOnce(true);
+            mock_redis_service.expire.mockResolvedValueOnce(true);
+            mock_redis_service.del.mockResolvedValueOnce(true);
+
+            const result = await service.oauthCompletionStep2(dto as any);
+
+            expect(result.user).toBeDefined();
+            expect(result.access_token).toBe('access-token');
+            expect(result.refresh_token).toBe('refresh-token');
+        });
+    });
+
+    describe('createExchangeToken', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should create exchange token and store in Redis', async () => {
+            const payload = {
+                user_id: 'user-123',
+                type: 'auth' as const,
+            };
+
+            mock_jwt_service.sign.mockReturnValueOnce('exchange-token');
+            mock_redis_service.set.mockResolvedValueOnce(true);
+
+            const result = await service.createExchangeToken(payload);
+
+            expect(result).toBe('exchange-token');
+            expect(mock_jwt_service.sign).toHaveBeenCalled();
+            expect(mock_redis_service.set).toHaveBeenCalled();
+        });
+    });
+
+    describe('validateExchangeToken', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should validate exchange token and return payload', async () => {
+            const mock_payload = { token_id: 'token-123', type: 'auth' };
+            const stored_payload = { user_id: 'user-123' };
+            const stored_data = JSON.stringify(stored_payload);
+
+            mock_jwt_service.verify = jest.fn().mockReturnValueOnce(mock_payload);
+            mock_redis_service.get.mockResolvedValueOnce(stored_data);
+            mock_redis_service.del.mockResolvedValueOnce(true);
+
+            const result = await service.validateExchangeToken('exchange-token');
+
+            expect(result).toEqual({ user_id: 'user-123', type: 'auth' });
+        });
+    });
+
+    describe('confirmPassword', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should confirm password successfully', async () => {
+            const user = { id: 'user-1', password: 'hashed-password' };
+            const dto = { password: 'correct-password' };
+
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+
+            const result = await service.confirmPassword(dto as any, 'user-1');
+
+            expect(result).toEqual({ valid: true });
+        });
+
+        it('should throw ForbiddenException for wrong password', async () => {
+            const user = { id: 'user-1', password: 'hashed-password' };
+            const dto = { password: 'wrong-password' };
+
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
+
+            await expect(service.confirmPassword(dto as any, 'user-1')).rejects.toThrow(
+                ForbiddenException
+            );
+        });
+
+        it('should throw ConflictException for OAuth users without password', async () => {
+            const user = { id: 'user-1', password: null };
+            const dto = { password: 'any-password' };
+
+            mock_user_service.findById.mockResolvedValueOnce(user);
+
+            await expect(service.confirmPassword(dto as any, 'user-1')).rejects.toThrow(
+                ConflictException
+            );
+        });
+
+        it('should throw NotFoundException if user not found', async () => {
+            const dto = { password: 'any-password' };
+
+            mock_user_service.findById.mockResolvedValueOnce(null);
+
+            await expect(service.confirmPassword(dto as any, 'user-1')).rejects.toThrow(
+                NotFoundException
+            );
+        });
+    });
+
+    describe('validateUser - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should validate user by phone number', async () => {
+            const user = {
+                id: 'user-2',
+                phone_number: '+1234567890',
+                password: 'hashedPassword',
+            };
+
+            mock_user_service.findByPhoneNumber.mockResolvedValueOnce(user);
+            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+
+            const result = await service.validateUser('+1234567890', 'password', 'phone_number');
+
+            expect(result).toBe('user-2');
+            expect(mock_user_service.findByPhoneNumber).toHaveBeenCalledWith('+1234567890');
+        });
+
+        it('should validate user by username', async () => {
+            const user = {
+                id: 'user-3',
+                username: 'testuser',
+                password: 'hashedPassword',
+            };
+
+            mock_user_service.findByUsername.mockResolvedValueOnce(user);
+            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+
+            const result = await service.validateUser('testuser', 'password', 'username');
+
+            expect(result).toBe('user-3');
+            expect(mock_user_service.findByUsername).toHaveBeenCalledWith('testuser');
+        });
+
+        it('should throw for user without password (OAuth)', async () => {
+            const user = {
+                id: 'user-4',
+                email: 'oauth@example.com',
+                password: null,
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(user);
+
+            await expect(
+                service.validateUser('oauth@example.com', 'password', 'email')
+            ).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should handle unverified email in signup session', async () => {
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hget.mockResolvedValueOnce({
+                email: 'unverified@example.com',
+                email_verified: 'false',
+            });
+
+            await expect(
+                service.validateUser('unverified@example.com', 'password', 'email')
+            ).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should throw ForbiddenException for unverified user with correct password', async () => {
+            const unverified_user = { email: 'test@example.com', password: 'hashedPass' };
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hget.mockResolvedValueOnce(unverified_user);
+            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(true);
+
+            await expect(
+                service.validateUser('test@example.com', 'correctPass', 'email')
+            ).rejects.toThrow(new ForbiddenException(ERROR_MESSAGES.EMAIL_NOT_VERIFIED));
+
+            expect(mock_redis_service.hget).toHaveBeenCalledWith('signup:session:test@example.com');
+            expect(bcrypt.compare).toHaveBeenCalledWith('correctPass', 'hashedPass');
+        });
+
+        it('should throw UnauthorizedException for unverified user with wrong password', async () => {
+            const unverified_user = { email: 'test@example.com', password: 'hashedPass' };
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_redis_service.hget.mockResolvedValueOnce(unverified_user);
+            (bcrypt.compare as jest.Mock).mockResolvedValueOnce(false);
+
+            await expect(
+                service.validateUser('test@example.com', 'wrongPass', 'email')
+            ).rejects.toThrow(new UnauthorizedException(ERROR_MESSAGES.WRONG_PASSWORD));
+
+            expect(mock_redis_service.hget).toHaveBeenCalledWith('signup:session:test@example.com');
+            expect(bcrypt.compare).toHaveBeenCalledWith('wrongPass', 'hashedPass');
+        });
+    });
+
+    describe('signupStep2 - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should throw ConflictException if email already exists', async () => {
+            const dto = {
+                email: 'existing@example.com',
+                token: '123456',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce({
+                id: '1',
+                email: 'existing@example.com',
+            });
+
+            await expect(service.signupStep2(dto as any)).rejects.toThrow(ConflictException);
+        });
+    });
+
+    describe('signupStep3 - additional cases', () => {
+        beforeEach(() => {
+            jest.resetAllMocks();
+        });
+
+        it('should throw ConflictException if email already exists', async () => {
+            const dto = {
+                email: 'existing@example.com',
+                password: 'Password123!',
+                username: 'newuser',
+                language: 'en',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce({
+                id: '1',
+                email: 'existing@example.com',
+            });
+
+            await expect(service.signupStep3(dto as any)).rejects.toThrow(ConflictException);
+        });
+
+        it('should throw NotFoundException if session not verified', async () => {
+            const dto = {
+                email: 'john@example.com',
+                password: 'Password123!',
+                username: 'johndoe',
+                language: 'en',
+            };
+
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_user_service.findByUsername.mockResolvedValueOnce(null);
+            mock_redis_service.hget.mockResolvedValueOnce({
+                email_verified: 'false',
+            });
+
+            await expect(service.signupStep3(dto as any)).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw InternalServerErrorException if user creation fails', async () => {
+            const session_data = {
+                email: 'test@example.com',
+                password: 'hashedPass',
+                name: 'Test',
+                birth_date: '1990-01-01',
+                email_verified: 'true', // Must be string 'true' for verification check
+            };
+            mock_redis_service.hget.mockResolvedValueOnce(session_data);
+            mock_username_service.isUsernameAvailable.mockResolvedValueOnce(true);
+            mock_user_service.findByEmail.mockResolvedValueOnce(null);
+            mock_user_service.findByUsername.mockResolvedValueOnce(null); // Username not taken
+            mock_user_service.createUser.mockResolvedValueOnce(null); // Creation fails
+
+            await expect(
+                service.signupStep3({ username: 'testuser', email: 'test@example.com' } as any)
+            ).rejects.toThrow(
+                new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB)
+            );
+
+            expect(mock_user_service.createUser).toHaveBeenCalled();
+        });
+    });
+
+    describe('sendResetPasswordEmail - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should throw NotFoundException if user not found after checkIdentifier', async () => {
+            jest.spyOn(service, 'checkIdentifier').mockResolvedValueOnce({
+                identifier_type: 'email',
+                user_id: 'user-123',
+            });
+            mock_user_service.findById.mockResolvedValueOnce(null);
+
+            await expect(service.sendResetPasswordEmail('test@example.com')).rejects.toThrow(
+                new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND)
+            );
+
+            expect(service.checkIdentifier).toHaveBeenCalledWith('test@example.com');
+            expect(mock_user_service.findById).toHaveBeenCalledWith('user-123');
+            expect(mock_verification_service.generateOtp).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('checkIdentifier - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should throw NotFoundException for phone number not found', async () => {
+            mock_user_service.findByPhoneNumber.mockResolvedValueOnce(null);
+
+            await expect(service.checkIdentifier('+9999999999')).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw NotFoundException for username not found', async () => {
+            mock_user_service.findByUsername.mockResolvedValueOnce(null);
+
+            await expect(service.checkIdentifier('unknownuser')).rejects.toThrow(NotFoundException);
+        });
+    });
+
+    describe('updateUsername - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should throw NotFoundException if user not found', async () => {
+            mock_user_service.findById.mockResolvedValueOnce(null);
+
+            await expect(service.updateUsername('user-999', 'newname')).rejects.toThrow(
+                NotFoundException
+            );
+        });
+    });
+
+    describe('updateEmail - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should throw NotFoundException if user not found', async () => {
+            mock_user_service.findById.mockResolvedValueOnce(null);
+
+            await expect(service.updateEmail('user-999', 'new@example.com')).rejects.toThrow(
+                NotFoundException
+            );
+        });
+
+        it('should throw ConflictException if new email already exists', async () => {
+            const user = { id: 'user-1', email: 'old@example.com' };
+            const existing_user = { id: 'user-2', email: 'new@example.com' };
+
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            mock_user_service.findByEmail.mockResolvedValueOnce(existing_user);
+
+            await expect(service.updateEmail('user-1', 'new@example.com')).rejects.toThrow(
+                ConflictException
+            );
+        });
+    });
+
+    describe('verifyUpdateEmail - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should throw NotFoundException if user not found', async () => {
+            mock_user_service.findById.mockResolvedValueOnce(null);
+
+            await expect(
+                service.verifyUpdateEmail('user-999', 'new@example.com', '123456')
+            ).rejects.toThrow(NotFoundException);
+        });
+
+        it('should throw BadRequestException if OTP is invalid', async () => {
+            const user = { id: 'user-1', email: 'old@example.com' };
+
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            mock_verification_service.validateOtp.mockResolvedValueOnce(false);
+
+            await expect(
+                service.verifyUpdateEmail('user-1', 'new@example.com', 'wrong-otp')
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw BadRequestException if stored email does not match', async () => {
+            const user = { id: 'user-1', email: 'old@example.com' };
+
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            mock_verification_service.validateOtp.mockResolvedValueOnce(true);
+            mock_redis_service.get.mockResolvedValueOnce(null); // No stored email
+
+            await expect(service.verifyUpdateEmail('user-1', '123456')).rejects.toThrow(
+                BadRequestException
+            );
+        });
+
+        it('should throw ConflictException if new email is already taken', async () => {
+            const user = { id: 'user-1', email: 'old@example.com' };
+
+            mock_user_service.findById.mockResolvedValueOnce(user);
+            mock_verification_service.validateOtp.mockResolvedValueOnce(true);
+            mock_redis_service.get.mockResolvedValueOnce('takenemail@example.com');
+            mock_user_service.findByEmail.mockResolvedValueOnce({
+                id: 'user-2',
+                email: 'takenemail@example.com',
+            });
+
+            await expect(service.verifyUpdateEmail('user-1', '123456')).rejects.toThrow(
+                ConflictException
+            );
+        });
+
+        it('should throw ConflictException when email already exists during final check', async () => {
+            mock_user_service.findById.mockResolvedValueOnce({ id: 'user-123' });
+            mock_verification_service.validateOtp.mockResolvedValueOnce(true);
+            mock_redis_service.get.mockResolvedValueOnce('taken@example.com'); // Use .get() not .hget()
+            mock_user_service.findByEmail.mockResolvedValueOnce({ id: 'another-user' });
+
+            await expect(
+                service.verifyUpdateEmail('user-123', 'taken@example.com', '123456')
+            ).rejects.toThrow(new ConflictException(ERROR_MESSAGES.EMAIL_ALREADY_EXISTS));
+
+            expect(mock_user_service.findByEmail).toHaveBeenCalledWith('taken@example.com');
+            expect(mock_user_service.updateUserById).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('oauthCompletionStep1 - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should throw NotFoundException if session not found', async () => {
+            const dto = {
+                oauth_session_token: 'invalid-token',
+                birth_date: '1990-01-01',
+            };
+
+            mock_redis_service.hget.mockResolvedValueOnce(null);
+
+            await expect(service.oauthCompletionStep1(dto as any)).rejects.toThrow(
+                new NotFoundException(ERROR_MESSAGES.INVALID_OAUTH_SESSION_TOKEN)
+            );
+
+            expect(mock_redis_service.hget).toHaveBeenCalledWith('oauth:session:invalid-token');
+        });
+    });
+
+    describe('oauthCompletionStep2 - additional cases', () => {
+        beforeEach(() => {
+            jest.resetAllMocks();
+        });
+
+        it('should throw NotFoundException if session not found', async () => {
+            const dto = {
+                oauth_session_token: 'invalid-token',
+                username: 'testuser',
+            };
+
+            mock_redis_service.hget.mockResolvedValueOnce(null);
+
+            await expect(service.oauthCompletionStep2(dto as any)).rejects.toThrow(
+                NotFoundException
+            );
+        });
+
+        it('should throw ConflictException if username is taken', async () => {
+            const dto = {
+                oauth_session_token: 'session-token',
+                username: 'taken',
+            };
+
+            const session_data = {
+                birth_date: '1990-01-01',
+                oauth_provider: 'google',
+                user_data: JSON.stringify({
+                    google_id: 'google-123',
+                    email: 'oauth@example.com',
+                    first_name: 'John',
+                    last_name: 'Doe',
+                }),
+            };
+
+            mock_redis_service.hget.mockResolvedValueOnce(session_data);
+            mock_username_service.isUsernameAvailable.mockResolvedValueOnce(false);
+
+            await expect(service.oauthCompletionStep2(dto as any)).rejects.toThrow(
+                new ConflictException(ERROR_MESSAGES.USERNAME_ALREADY_TAKEN)
+            );
+
+            expect(mock_username_service.isUsernameAvailable).toHaveBeenCalledWith('taken');
+        });
+    });
+
+    describe('validateExchangeToken - additional cases', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should throw UnauthorizedException if token is invalid', async () => {
+            mock_jwt_service.verify = jest.fn().mockImplementationOnce(() => {
+                throw new Error('Invalid token');
+            });
+
+            await expect(service.validateExchangeToken('invalid-token')).rejects.toThrow(
+                UnauthorizedException
+            );
+        });
+
+        it('should throw UnauthorizedException if token not found in Redis', async () => {
+            const mock_payload = { token_id: 'token-123', type: 'auth' };
+
+            mock_jwt_service.verify = jest.fn().mockReturnValueOnce(mock_payload);
+            mock_redis_service.get.mockResolvedValueOnce(null);
+
+            await expect(service.validateExchangeToken('exchange-token')).rejects.toThrow(
+                UnauthorizedException
+            );
+        });
+    });
+
+    /* eslint-disable @typescript-eslint/no-require-imports, @typescript-eslint/naming-convention */
+    describe('verifyGoogleMobileToken', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should verify Google mobile token successfully', async () => {
+            const mock_access_token = 'mock-access-token';
+            const mock_user_data = {
+                id: 'google-123',
+                email: 'test@example.com',
+                given_name: 'John',
+                family_name: 'Doe',
+                picture: 'http://avatar.com/john',
+            };
+            const mock_validation_result = {
+                user: { id: 'user-1', email: 'test@example.com' },
+                needs_completion: false,
+            };
+
+            jest.spyOn(service, 'getGoogleAccessToken').mockResolvedValueOnce(mock_access_token);
+            jest.spyOn(service, 'validateGoogleUser').mockResolvedValueOnce(
+                mock_validation_result as any
+            );
+
+            // Mock axios to return user data
+            const axiosMock = require('axios');
+            axiosMock.get = jest.fn().mockResolvedValueOnce({ data: mock_user_data });
+
+            const result = await service.verifyGoogleMobileToken(
+                'code',
+                'redirect_uri',
+                'verifier'
+            );
+
+            expect(result).toEqual(mock_validation_result);
+            expect(service.validateGoogleUser).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    google_id: 'google-123',
+                    email: 'test@example.com',
+                    first_name: 'John',
+                    last_name: 'Doe',
+                })
+            );
+        });
+
+        it('should throw UnauthorizedException if payload is null', async () => {
+            jest.spyOn(service, 'getGoogleAccessToken').mockResolvedValueOnce('mock-token');
+
+            const axiosMock = require('axios');
+            axiosMock.get = jest.fn().mockResolvedValueOnce({ data: null });
+
+            await expect(
+                service.verifyGoogleMobileToken('invalid-code', 'redirect_uri')
+            ).rejects.toThrow(new UnauthorizedException(ERROR_MESSAGES.GOOGLE_TOKEN_INVALID));
+        });
+
+        it('should throw BadRequestException if email not provided', async () => {
+            const mock_user_data = {
+                id: 'google-123',
+                given_name: 'John',
+                // email missing
+            };
+
+            jest.spyOn(service, 'getGoogleAccessToken').mockResolvedValueOnce('mock-token');
+
+            const axiosMock = require('axios');
+            axiosMock.get = jest.fn().mockResolvedValueOnce({ data: mock_user_data });
+
+            await expect(service.verifyGoogleMobileToken('code', 'redirect_uri')).rejects.toThrow(
+                new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GOOGLE)
+            );
+        });
+
+        it('should throw UnauthorizedException on verification error', async () => {
+            jest.spyOn(service, 'getGoogleAccessToken').mockRejectedValueOnce(
+                new UnauthorizedException('Token fetch failed')
+            );
+
+            await expect(
+                service.verifyGoogleMobileToken('bad-code', 'redirect_uri')
+            ).rejects.toThrow(UnauthorizedException);
+        });
+    });
+
+    describe('getGitHubAccessToken', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+            mock_config_service.get.mockImplementation((key: string) => {
+                if (key === 'GITHUB_MOBILE_CLIENT_ID') return 'client-id';
+                if (key === 'GITHUB_MOBILE_CLIENT_SECRET') return 'client-secret';
+                return null;
+            });
+        });
+
+        it('should get GitHub access token successfully', async () => {
+            const axios = require('axios');
+            jest.spyOn(axios, 'post').mockResolvedValue({
+                data: { access_token: 'github-access-token' },
+            });
+
+            const result = await service.getGitHubAccessToken(
+                'code123',
+                'http://redirect',
+                'verifier'
+            );
+
+            expect(result).toBe('github-access-token');
+            expect(axios.post).toHaveBeenCalledWith(
+                'https://github.com/login/oauth/access_token',
+                expect.objectContaining({
+                    client_id: 'client-id',
+                    code: 'code123',
+                    redirect_uri: 'http://redirect',
+                    code_verifier: 'verifier',
+                }),
+                expect.any(Object)
+            );
+        });
+
+        it('should throw UnauthorizedException for bad_verification_code error', async () => {
+            const axios = require('axios');
+            jest.spyOn(axios, 'post').mockResolvedValue({
+                data: {
+                    error: 'bad_verification_code',
+                    error_description: 'Bad verification code',
+                },
+            });
+
+            await expect(
+                service.getGitHubAccessToken('bad-code', 'http://redirect', 'verifier')
+            ).rejects.toThrow(new UnauthorizedException(ERROR_MESSAGES.GITHUB_CODE_INVALID));
+        });
+
+        it('should throw UnauthorizedException for invalid_grant error', async () => {
+            const axios = require('axios');
+            jest.spyOn(axios, 'post').mockResolvedValue({
+                data: {
+                    error: 'invalid_grant',
+                    error_description: 'Invalid grant',
+                },
+            });
+
+            await expect(
+                service.getGitHubAccessToken('code', 'http://redirect', 'bad-verifier')
+            ).rejects.toThrow(
+                new UnauthorizedException(ERROR_MESSAGES.GITHUB_CODE_VERIFIER_REQUIRED)
+            );
+        });
+
+        it('should throw UnauthorizedException for other GitHub errors', async () => {
+            const axios = require('axios');
+            jest.spyOn(axios, 'post').mockResolvedValue({
+                data: {
+                    error: 'some_error',
+                    error_description: 'Some error occurred',
+                },
+            });
+
+            await expect(
+                service.getGitHubAccessToken('code', 'http://redirect', 'verifier')
+            ).rejects.toThrow(UnauthorizedException);
+        });
+
+        it('should throw UnauthorizedException if access_token is missing', async () => {
+            const axios = require('axios');
+            jest.spyOn(axios, 'post').mockResolvedValue({
+                data: {}, // No access_token
+            });
+
+            await expect(
+                service.getGitHubAccessToken('code', 'http://redirect', 'verifier')
+            ).rejects.toThrow(new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID));
+        });
+
+        it('should throw UnauthorizedException on network error', async () => {
+            const axios = require('axios');
+            jest.spyOn(axios, 'post').mockRejectedValue(new Error('Network error'));
+
+            await expect(
+                service.getGitHubAccessToken('code', 'http://redirect', 'verifier')
+            ).rejects.toThrow(new UnauthorizedException(ERROR_MESSAGES.GITHUB_OAUTH_FAILED));
+        });
+    });
+
+    describe('verifyGitHubMobileToken', () => {
+        beforeEach(() => {
+            jest.clearAllMocks();
+        });
+
+        it('should verify GitHub mobile token successfully', async () => {
+            jest.spyOn(service, 'getGitHubAccessToken').mockResolvedValue('access-token');
+
+            global.fetch = jest
+                .fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => ({
+                        id: 12345,
+                        login: 'johndoe',
+                        name: 'John Doe',
+                        email: 'john@example.com',
+                        avatar_url: 'http://avatar.com/john',
+                    }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => [
+                        { email: 'john@example.com', primary: true, verified: true },
+                    ],
+                }) as any;
+
+            const mock_validation_result = {
+                user: { id: 'user-1' },
+                needs_completion: false,
+            };
+            jest.spyOn(service, 'validateGitHubUser').mockResolvedValue(
+                mock_validation_result as any
+            );
+
+            const result = await service.verifyGitHubMobileToken(
+                'code',
+                'http://redirect',
+                'verifier'
+            );
+
+            expect(result).toEqual(mock_validation_result);
+            expect(service.getGitHubAccessToken).toHaveBeenCalledWith(
+                'code',
+                'http://redirect',
+                'verifier'
+            );
+        });
+
+        it('should throw UnauthorizedException if user fetch fails', async () => {
+            jest.spyOn(service, 'getGitHubAccessToken').mockResolvedValue('access-token');
+
+            global.fetch = jest.fn().mockResolvedValueOnce({
+                ok: false,
+                text: async () => 'User fetch failed',
+            }) as any;
+
+            await expect(
+                service.verifyGitHubMobileToken('code', 'http://redirect', 'verifier')
+            ).rejects.toThrow(new UnauthorizedException(ERROR_MESSAGES.GITHUB_TOKEN_INVALID));
+        });
+
+        it('should throw BadRequestException if email not provided', async () => {
+            jest.spyOn(service, 'getGitHubAccessToken').mockResolvedValue('access-token');
+
+            global.fetch = jest
+                .fn()
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => ({
+                        id: 12345,
+                        login: 'johndoe',
+                        name: 'John Doe',
+                        email: null, // No email
+                        avatar_url: 'http://avatar.com/john',
+                    }),
+                })
+                .mockResolvedValueOnce({
+                    ok: true,
+                    json: async () => [], // No emails
+                }) as any;
+
+            await expect(
+                service.verifyGitHubMobileToken('code', 'http://redirect', 'verifier')
+            ).rejects.toThrow(
+                new BadRequestException(ERROR_MESSAGES.EMAIL_NOT_PROVIDED_BY_OAUTH_GITHUB)
+            );
+        });
+
+        it('should throw UnauthorizedException on general error', async () => {
+            jest.spyOn(service, 'getGitHubAccessToken').mockRejectedValue(
+                new Error('Token fetch failed')
+            );
+
+            await expect(
+                service.verifyGitHubMobileToken('code', 'http://redirect', 'verifier')
+            ).rejects.toThrow(UnauthorizedException);
+        });
+    });
+    /* eslint-enable @typescript-eslint/no-require-imports, @typescript-eslint/naming-convention */
 });
