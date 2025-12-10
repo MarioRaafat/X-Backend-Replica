@@ -47,15 +47,18 @@ export class TrendService {
             hashtag_names.push(trending[i]);
         }
 
+        const normalized_hashtags = hashtag_names.map((hashtag) => {
+            return hashtag.toLowerCase();
+        });
         const hashtags = await this.hashtag_repository.find({
-            where: { name: In(hashtag_names) },
+            where: { name: In(normalized_hashtags) },
             select: ['name', 'usage_count'],
         });
+
         const hashtag_categories = await this.getHashtagCategories(hashtag_names);
-        console.log(hashtag_categories);
 
         const trends: HashtagResponseDto[] = result.map((item, index) => {
-            const hashtag_data = hashtags.find((h) => h.name === item.hashtag);
+            const hashtag_data = hashtags.find((h) => h.name === item.hashtag.toLowerCase());
 
             return {
                 text: '#' + item.hashtag,
@@ -78,14 +81,12 @@ export class TrendService {
 
         for (const hashtag of hashtag_names) {
             for (const category of this.CATEGORIES) {
-                console.log(hashtag, category);
                 pipeline.zscore(`candidates:${category}`, hashtag);
             }
         }
         const results = await pipeline.exec();
 
         const hashtag_categories: Record<string, string> = {};
-        console.log(results);
 
         if (!results) {
             // Return default categories if pipeline fails
@@ -169,7 +170,7 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    @Cron('0 * * * *')
+    @Cron('* * * * *')
     async calculateTrend() {
         try {
             console.log('Calculate Trend.....');
@@ -199,8 +200,6 @@ export class TrendService {
             const global_top_30 = global_scored.slice(0, this.TOP_N);
             await this.updateTrendingList('trending:global', global_top_30);
             await this.calculateCategoryTrendsFromScores(hashtag_scores, one_hour_ago);
-
-            console.log(global_top_30);
         } catch (err) {
             console.log(err);
             throw err;
@@ -278,7 +277,6 @@ export class TrendService {
             const volume_score = this.calculateTweetVolume(bucket_data);
             // const acceleration_score = this.calculateAccelerationScore(bucket_data);
             const acceleration_score = this.velocity_calculator.calculateFinalMomentum(bucket_data);
-            console.log(acceleration_score);
 
             const last_seen = await this.redis_service.zscore('candidates:active', hashtag);
             const last_seen_time = last_seen ? parseInt(last_seen) : null;
