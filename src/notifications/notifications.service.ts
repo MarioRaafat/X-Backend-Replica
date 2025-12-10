@@ -702,15 +702,6 @@ export class NotificationsService implements OnModuleInit {
             user_ids.size > 0
                 ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
-                      select: [
-                          'id',
-                          'username',
-                          'name',
-                          'avatar_url',
-                          'email',
-                          'followers',
-                          'following',
-                      ],
                   })
                 : [],
             tweet_ids.size > 0
@@ -1111,7 +1102,6 @@ export class NotificationsService implements OnModuleInit {
             user_ids.size > 0
                 ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
-                      select: ['id', 'username', 'name', 'avatar_url', 'email'],
                   })
                 : [],
             tweet_ids.size > 0
