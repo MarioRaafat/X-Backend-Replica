@@ -103,6 +103,8 @@ describe('MessageRepository', () => {
                 reply_to_message_id: null,
                 is_read: false,
                 image_url: null,
+                voice_note_url: null,
+                voice_note_duration: null,
             });
             expect(repository.save).toHaveBeenCalled();
             expect(chat_repository.update).toHaveBeenCalledWith(
@@ -129,6 +131,8 @@ describe('MessageRepository', () => {
                 reply_to_message_id: 'original-message-id',
                 is_read: false,
                 image_url: null,
+                voice_note_url: null,
+                voice_note_duration: null,
             });
         });
 

@@ -16,6 +16,7 @@ import { MessageReaction } from './message-reaction.entity';
 export enum MessageType {
     TEXT = 'text',
     REPLY = 'reply',
+    VOICE = 'voice',
 }
 
 @Entity('messages')
@@ -56,6 +57,12 @@ export class Message {
 
     @Column({ type: 'text', nullable: true })
     image_url: string | null;
+
+    @Column({ type: 'text', nullable: true })
+    voice_note_url: string | null;
+
+    @Column({ type: 'text', nullable: true })
+    voice_note_duration: string | null;
 
     @ManyToOne(() => Message, { nullable: true })
     @JoinColumn({ name: 'reply_to_message_id' })

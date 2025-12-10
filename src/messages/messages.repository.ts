@@ -31,6 +31,8 @@ export class MessageRepository extends Repository<Message> {
                 chat_id,
                 content: encrypted_content,
                 image_url: dto.image_url || null,
+                voice_note_url: dto.voice_note_url || null,
+                voice_note_duration: dto.voice_note_duration || null,
                 message_type: dto.message_type || MessageType.TEXT,
                 reply_to_message_id: dto.reply_to_message_id || null,
                 is_read: is_read,
