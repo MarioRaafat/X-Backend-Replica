@@ -11,13 +11,15 @@ import { Chat } from './entities/chat.entity';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { PaginationService } from '../shared/services/pagination/pagination.service';
 import { UserRepository } from '../user/user.repository';
+import { EncryptionService } from 'src/shared/services/encryption/encryption.service';
 
 @Injectable()
 export class ChatRepository extends Repository<Chat> {
     constructor(
         private data_source: DataSource,
         private pagination_service: PaginationService,
-        private user_repository: UserRepository
+        private user_repository: UserRepository,
+        private encryption_service: EncryptionService
     ) {
         super(Chat, data_source.createEntityManager());
     }
@@ -73,6 +75,55 @@ export class ChatRepository extends Repository<Chat> {
         return chat;
     }
 
+    async getChatById(user_id: string, chat_id: string) {
+        try {
+            const chat = await this.createQueryBuilder('chat')
+                .leftJoinAndSelect('chat.user1', 'user1')
+                .leftJoinAndSelect('chat.user2', 'user2')
+                .leftJoinAndSelect('chat.last_message', 'last_message')
+                .where('chat.id = :chat_id', { chat_id })
+                .andWhere('(chat.user1_id = :user_id OR chat.user2_id = :user_id)', { user_id })
+                .getOne();
+
+            if (!chat) {
+                return null;
+            }
+
+            const participant = chat.user1_id === user_id ? chat.user2 : chat.user1;
+            const unread_count =
+                chat.user1_id === user_id ? chat.unread_count_user1 : chat.unread_count_user2;
+
+            return {
+                id: chat.id,
+                participant: participant
+                    ? {
+                          id: participant.id,
+                          username: participant.username,
+                          name: participant.name,
+                          avatar_url: participant.avatar_url,
+                      }
+                    : null,
+                last_message: chat.last_message
+                    ? {
+                          id: chat.last_message.id,
+                          content: this.encryption_service.decrypt(chat.last_message.content),
+                          message_type: chat.last_message.message_type,
+                          sender_id: chat.last_message.sender_id,
+                          created_at: chat.last_message.created_at,
+                          is_read: chat.last_message.is_read,
+                      }
+                    : null,
+                unread_count,
+                user1_id: chat.user1_id,
+                user2_id: chat.user2_id,
+                created_at: chat.created_at,
+                updated_at: chat.updated_at,
+            };
+        } catch (error) {
+            throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_FETCH_FROM_DB);
+        }
+    }
+
     async getChats(user_id: string, query: GetChatsQueryDto) {
         try {
             const qb = this.createQueryBuilder('chat')
@@ -80,7 +131,7 @@ export class ChatRepository extends Repository<Chat> {
                 .leftJoinAndSelect('chat.user2', 'user2')
                 .leftJoinAndSelect('chat.last_message', 'last_message')
                 .where('(chat.user1_id = :user_id OR chat.user2_id = :user_id)', { user_id })
-                .andWhere('(chat.last_message_id IS NOT NULL OR chat.user1_id = :user_id)', {
+                .andWhere('(chat.last_message_id IS NOT NULL)', {
                     user_id,
                 }) // to include your chats
                 .orderBy('last_message.created_at', 'DESC', 'NULLS LAST')
@@ -151,7 +202,7 @@ export class ChatRepository extends Repository<Chat> {
                     last_message: chat.last_message
                         ? {
                               id: chat.last_message.id,
-                              content: chat.last_message.content,
+                              content: this.encryption_service.decrypt(chat.last_message.content),
                               message_type: chat.last_message.message_type,
                               sender_id: chat.last_message.sender_id,
                               created_at: chat.last_message.created_at,

@@ -22,6 +22,7 @@ import { CreateChatDto, GetChatsQueryDto, MarkMessagesReadDto } from './dto';
 import {
     create_chat_swagger,
     delete_chat_swagger,
+    get_chat_by_id_swagger,
     get_chats_swagger,
     mark_messages_read_swagger,
 } from './chat.swagger';
@@ -75,5 +76,16 @@ export class ChatController {
         @GetUserId() user_id: string
     ) {
         return this.chat_service.markMessagesAsRead(user_id, chat_id, mark_messages_read_dto);
+    }
+
+    @ApiOperation(get_chat_by_id_swagger.operation)
+    @ApiParam(get_chat_by_id_swagger.params.chat_id)
+    @ApiOkResponse(get_chat_by_id_swagger.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.CHAT_NOT_FOUND)
+    @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
+    @ResponseMessage(SUCCESS_MESSAGES.CHAT_RETRIEVED)
+    @Get(':chat_id')
+    async getChatById(@Param('chat_id') chat_id: string, @GetUserId() user_id: string) {
+        return this.chat_service.getChatById(user_id, chat_id);
     }
 }

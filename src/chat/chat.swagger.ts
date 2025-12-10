@@ -146,6 +146,66 @@ Get a paginated list of chats that the authenticated user is part of, ordered by
     },
 };
 
+export const get_chat_by_id_swagger = {
+    operation: {
+        summary: 'Get chat by ID',
+        description: `
+**Retrieve a specific chat by ID**
+
+Get details of a specific chat conversation that the authenticated user is part of.
+
+**What happens:**
+1. System validates that the chat exists
+2. Checks that the authenticated user is a participant in the chat
+3. Returns the chat details with participant info and last message
+
+**Response includes:**
+- Chat ID
+- Participant information (excluding current user)
+- Last message details
+- Unread message count
+- Created and updated timestamps
+
+**Note:** You can only view chats that you are a participant in.
+        `,
+    },
+
+    params: {
+        chat_id: chat_id_param,
+    },
+
+    responses: {
+        success: {
+            description: 'Chat retrieved successfully',
+            schema: {
+                example: {
+                    data: {
+                        id: 'chat_123abc-def456-789ghi',
+                        participant: {
+                            id: 'user_456def-789abc-012ghi',
+                            username: 'mariooo',
+                            name: 'Mario Raafat',
+                            avatar_url: 'https://ana.jpg',
+                        },
+                        last_message: {
+                            id: 'msg_789def-012abc-345ghi',
+                            content: 'Hey, how are you?',
+                            message_type: 'text',
+                            sender_id: 'user_456def-789abc-012ghi',
+                            created_at: '2025-10-16T10:45:00.000Z',
+                            is_read: false,
+                        },
+                        unread_count: 2,
+                        created_at: '2025-10-16T10:30:00.000Z',
+                        updated_at: '2025-10-16T10:45:00.000Z',
+                    },
+                    message: SUCCESS_MESSAGES.CHAT_RETRIEVED,
+                },
+            },
+        },
+    },
+};
+
 export const mark_messages_read_swagger = {
     operation: {
         summary: 'Mark messages as read',
