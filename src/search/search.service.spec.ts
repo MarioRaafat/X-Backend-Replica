@@ -7,12 +7,14 @@ import { PostsSearchDto } from './dto/post-search.dto';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
 import { DataSource } from 'typeorm';
 import { mock } from 'node:test';
+import { RedisService } from 'src/redis/redis.service';
 
 describe('SearchService', () => {
     let service: SearchService;
     let elasticsearch_service: jest.Mocked<ElasticsearchService>;
     let user_repository: jest.Mocked<UserRepository>;
     let data_source: jest.Mocked<DataSource>;
+    let redis_service: jest.Mocked<RedisService>;
 
     beforeEach(async () => {
         const mock_elasticsearch_service = {
@@ -41,12 +43,17 @@ describe('SearchService', () => {
             query: jest.fn(),
         };
 
+        const mock_redis_service = {
+            zrevrange: jest.fn(),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 SearchService,
                 { provide: ElasticsearchService, useValue: mock_elasticsearch_service },
                 { provide: UserRepository, useValue: mock_user_repository },
                 { provide: DataSource, useValue: mock_data_source },
+                { provide: RedisService, useValue: mock_redis_service },
             ],
         }).compile();
 
@@ -54,6 +61,7 @@ describe('SearchService', () => {
         elasticsearch_service = module.get(ElasticsearchService);
         user_repository = module.get(UserRepository);
         data_source = module.get(DataSource);
+        redis_service = module.get(RedisService);
     });
 
     afterEach(() => jest.clearAllMocks());

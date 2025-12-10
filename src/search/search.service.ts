@@ -32,10 +32,9 @@ export class SearchService {
     ): Promise<SuggestionsResponseDto> {
         const { query } = query_dto;
 
-        const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+        const sanitized_query = this.validateAndSanitizeQuery(query);
 
-        if (!sanitized_query.trim()) {
+        if (!sanitized_query) {
             return { suggested_queries: [], suggested_users: [] };
         }
 
@@ -94,11 +93,10 @@ export class SearchService {
     ): Promise<UserListResponseDto> {
         const { query, cursor, limit = 20, username } = query_dto;
 
-        const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+        const sanitized_query = this.validateAndSanitizeQuery(query);
 
-        if (!sanitized_query.trim()) {
-            return { data: [], pagination: { next_cursor: null, has_more: false } };
+        if (!sanitized_query) {
+            return this.createEmptyResponse();
         }
 
         const prefix_query = sanitized_query
@@ -209,55 +207,18 @@ export class SearchService {
     ): Promise<TweetListResponseDto> {
         const { query, cursor, limit = 20, has_media, username } = query_dto;
 
-        const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+        const sanitized_query = this.validateAndSanitizeQuery(query);
 
-        if (!sanitized_query || sanitized_query.trim().length === 0) {
-            return {
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
-            };
+        if (!sanitized_query) {
+            return this.createEmptyResponse();
         }
 
         try {
-            const search_body: any = {
-                query: {
-                    bool: {
-                        must: [],
-                        should: [],
-                    },
-                },
-                size: limit + 1,
-                sort: [
-                    { _score: { order: 'desc' } },
-                    { created_at: { order: 'desc' } },
-                    { tweet_id: { order: 'desc' } },
-                ],
-            };
+            const search_body: any = this.buildBaseSearchBody('relevance', limit, cursor);
 
-            if (cursor) {
-                search_body.search_after = this.decodeCursor(cursor);
-            }
+            const { hashtags, remaining_text } = this.extractHashtagsAndText(sanitized_query);
 
-            const hashtag_pattern = /#\w+/g;
-            const hashtags = sanitized_query.match(hashtag_pattern) || [];
-            const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
-
-            if (hashtags.length > 0) {
-                hashtags.forEach((hashtag) => {
-                    search_body.query.bool.must.push({
-                        term: {
-                            hashtags: {
-                                value: hashtag.toLowerCase(),
-                                boost: 10,
-                            },
-                        },
-                    });
-                });
-            }
+            this.addHashtagFilters(search_body, hashtags);
 
             if (remaining_text.length > 0) {
                 this.buildTweetsSearchQuery(search_body, remaining_text);
@@ -268,65 +229,17 @@ export class SearchService {
             this.applyTweetsBoosting(search_body, trending_hashtags);
 
             if (has_media) {
-                search_body.query.bool.filter = search_body.query.bool.filter || [];
-                search_body.query.bool.filter.push({
-                    script: {
-                        script: {
-                            source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
-                        },
-                    },
-                });
+                this.addMediaFilter(search_body);
             }
 
             if (username) {
-                search_body.query.bool.filter = search_body.query.bool.filter || [];
-                search_body.query.bool.filter.push({
-                    term: {
-                        username,
-                    },
-                });
+                this.addTweetsUsernameFilter(search_body, username);
             }
 
-            const result = await this.elasticsearch_service.search({
-                index: ELASTICSEARCH_INDICES.TWEETS,
-                body: search_body,
-            });
-
-            const hits = result.hits.hits;
-
-            const has_more = hits.length > limit;
-            const items = has_more ? hits.slice(0, limit) : hits;
-
-            let next_cursor: string | null = null;
-
-            if (has_more) {
-                const last_hit = hits[limit - 1];
-                next_cursor = this.encodeCursor(last_hit.sort) ?? null;
-            }
-
-            const mapped_tweets = await this.attachRelatedTweets(items);
-
-            const tweets_with_interactions = await this.attachUserInteractions(
-                mapped_tweets,
-                current_user_id
-            );
-
-            return {
-                data: tweets_with_interactions,
-                pagination: {
-                    next_cursor,
-                    has_more,
-                },
-            };
+            return await this.executeTweetsSearch(search_body, current_user_id);
         } catch (error) {
             console.log(error);
-            return {
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
-            };
+            return this.createEmptyResponse();
         }
     }
 
@@ -336,55 +249,18 @@ export class SearchService {
     ): Promise<TweetListResponseDto> {
         const { query, cursor, limit = 20, username } = query_dto;
 
-        const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+        const sanitized_query = this.validateAndSanitizeQuery(query);
 
-        if (!sanitized_query || sanitized_query.trim().length === 0) {
-            return {
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
-            };
+        if (!sanitized_query) {
+            return this.createEmptyResponse();
         }
 
         try {
-            const search_body: any = {
-                query: {
-                    bool: {
-                        must: [],
-                        should: [],
-                    },
-                },
-                size: limit + 1,
-                sort: [
-                    { created_at: { order: 'desc' } },
-                    { _score: { order: 'desc' } },
-                    { tweet_id: { order: 'desc' } },
-                ],
-            };
+            const search_body: any = this.buildBaseSearchBody('recency', limit, cursor);
 
-            if (cursor) {
-                search_body.search_after = this.decodeCursor(cursor);
-            }
+            const { hashtags, remaining_text } = this.extractHashtagsAndText(sanitized_query);
 
-            const hashtag_pattern = /#\w+/g;
-            const hashtags = sanitized_query.match(hashtag_pattern) || [];
-            const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
-
-            if (hashtags.length > 0) {
-                hashtags.forEach((hashtag) => {
-                    search_body.query.bool.must.push({
-                        term: {
-                            hashtags: {
-                                value: hashtag.toLowerCase(),
-                                boost: 10,
-                            },
-                        },
-                    });
-                });
-            }
+            this.addHashtagFilters(search_body, hashtags);
 
             if (remaining_text.length > 0) {
                 this.buildTweetsSearchQuery(search_body, remaining_text);
@@ -395,55 +271,13 @@ export class SearchService {
             this.applyTweetsBoosting(search_body, trending_hashtags);
 
             if (username) {
-                search_body.query.bool.filter = search_body.query.bool.filter || [];
-                search_body.query.bool.filter.push({
-                    term: {
-                        username,
-                    },
-                });
+                this.addTweetsUsernameFilter(search_body, username);
             }
 
-            const result = await this.elasticsearch_service.search({
-                index: ELASTICSEARCH_INDICES.TWEETS,
-                body: search_body,
-            });
-
-            const hits = result.hits.hits;
-
-            const has_more = hits.length > limit;
-            const items = has_more ? hits.slice(0, limit) : hits;
-
-            let next_cursor: string | null = null;
-
-            if (has_more) {
-                const last_hit = hits[limit - 1];
-                next_cursor = this.encodeCursor(last_hit.sort) ?? null;
-            }
-
-            console.log(items[0]);
-            const mapped_tweets = await this.attachRelatedTweets(items);
-
-            const tweets_with_interactions = await this.attachUserInteractions(
-                mapped_tweets,
-                current_user_id
-            );
-
-            return {
-                data: tweets_with_interactions,
-                pagination: {
-                    next_cursor,
-                    has_more,
-                },
-            };
+            return await this.executeTweetsSearch(search_body, current_user_id);
         } catch (error) {
             console.log(error);
-            return {
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
-            };
+            return this.createEmptyResponse();
         }
     }
 
@@ -453,10 +287,9 @@ export class SearchService {
     ): Promise<SuggestedUserDto[]> {
         const { query } = query_dto;
 
-        const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+        const sanitized_query = this.validateAndSanitizeQuery(query);
 
-        if (!sanitized_query.trim()) {
+        if (!sanitized_query) {
             return [];
         }
 
@@ -489,6 +322,102 @@ export class SearchService {
         );
 
         return users_list;
+    }
+
+    private validateAndSanitizeQuery(query: string): string | null {
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+
+        if (!sanitized_query || sanitized_query.trim().length === 0) {
+            return null;
+        }
+
+        return sanitized_query;
+    }
+
+    private createEmptyResponse(): {
+        data: [];
+        pagination: { next_cursor: string | null; has_more: boolean };
+    } {
+        return {
+            data: [],
+            pagination: {
+                next_cursor: null,
+                has_more: false,
+            },
+        };
+    }
+
+    private buildBaseSearchBody(
+        type: 'relevance' | 'recency',
+        limit: number,
+        cursor?: string | null
+    ): any {
+        const search_body: any = {
+            query: {
+                bool: {
+                    must: [],
+                    should: [],
+                },
+            },
+            size: limit + 1,
+            sort:
+                type === 'relevance'
+                    ? [
+                          { _score: { order: 'desc' } },
+                          { created_at: { order: 'desc' } },
+                          { tweet_id: { order: 'desc' } },
+                      ]
+                    : [
+                          { created_at: { order: 'desc' } },
+                          { _score: { order: 'desc' } },
+                          { tweet_id: { order: 'desc' } },
+                      ],
+        };
+
+        if (cursor) {
+            search_body.search_after = this.decodeCursor(cursor);
+        }
+
+        return search_body;
+    }
+
+    private async executeTweetsSearch(
+        search_body: any,
+        current_user_id: string
+    ): Promise<TweetListResponseDto> {
+        const result = await this.elasticsearch_service.search({
+            index: ELASTICSEARCH_INDICES.TWEETS,
+            body: search_body,
+        });
+
+        const limit = search_body.size - 1;
+
+        const hits = result.hits.hits;
+
+        const has_more = hits.length > limit;
+        const items = has_more ? hits.slice(0, limit) : hits;
+
+        let next_cursor: string | null = null;
+
+        if (has_more) {
+            const last_hit = hits[limit - 1];
+            next_cursor = this.encodeCursor(last_hit.sort) ?? null;
+        }
+
+        const mapped_tweets = await this.attachRelatedTweets(items);
+        const tweets_with_interactions = await this.attachUserInteractions(
+            mapped_tweets,
+            current_user_id
+        );
+
+        return {
+            data: tweets_with_interactions,
+            pagination: {
+                next_cursor,
+                has_more,
+            },
+        };
     }
 
     private mapTweet(hit: any, parent_source?: any, conversation_source?: any): TweetResponseDTO {
@@ -615,6 +544,52 @@ export class SearchService {
                 },
             }
         );
+    }
+
+    private extractHashtagsAndText(sanitized_query: string): {
+        hashtags: string[];
+        remaining_text: string;
+    } {
+        const hashtag_pattern = /#\w+/g;
+        const hashtags = sanitized_query.match(hashtag_pattern) || [];
+        const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
+
+        return { hashtags, remaining_text };
+    }
+
+    private addHashtagFilters(search_body: any, hashtags: string[]): void {
+        if (hashtags.length > 0) {
+            hashtags.forEach((hashtag) => {
+                search_body.query.bool.must.push({
+                    term: {
+                        hashtags: {
+                            value: hashtag.toLowerCase(),
+                            boost: 10,
+                        },
+                    },
+                });
+            });
+        }
+    }
+
+    private addMediaFilter(search_body: any): void {
+        search_body.query.bool.filter = search_body.query.bool.filter || [];
+        search_body.query.bool.filter.push({
+            script: {
+                script: {
+                    source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
+                },
+            },
+        });
+    }
+
+    private addTweetsUsernameFilter(search_body: any, username: string): void {
+        search_body.query.bool.filter = search_body.query.bool.filter || [];
+        search_body.query.bool.filter.push({
+            term: {
+                username,
+            },
+        });
     }
 
     private applyTweetsBoosting(search_body: any, trending_hashtags?: Map<string, number>): void {
