@@ -11,6 +11,7 @@ import { Repository } from 'typeorm';
 import { User, UserFollows } from 'src/user/entities';
 import { EsSyncUserDto } from './dtos/es-sync-user.dto';
 import { EsSyncFollowDto } from './dtos/es-sync-follow.dto';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
 
 @Processor(QUEUE_NAMES.ELASTICSEARCH)
 export class EsSyncProcessor {
@@ -41,10 +42,31 @@ export class EsSyncProcessor {
                 return;
             }
 
+            let final_parent_id = parent_id;
+            let final_conversation_id = conversation_id;
+
+            if ((!parent_id || !conversation_id) && tweet.type !== TweetType.TWEET) {
+                try {
+                    const existing_doc = await this.elasticsearch_service.get<{
+                        parent_id?: string;
+                        conversation_id?: string;
+                    }>({
+                        index: ELASTICSEARCH_INDICES.TWEETS,
+                        id: tweet_id,
+                    });
+
+                    final_parent_id = parent_id || existing_doc._source?.parent_id;
+                    final_conversation_id =
+                        conversation_id || existing_doc._source?.conversation_id;
+                } catch (error) {
+                    this.logger.debug(`No existing ES document for tweet ${tweet_id}`);
+                }
+            }
+
             await this.elasticsearch_service.index({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 id: tweet_id,
-                document: this.transformTweetForES(tweet, parent_id, conversation_id),
+                document: this.transformTweetForES(tweet, final_parent_id, final_conversation_id),
             });
 
             this.logger.log(`Indexed tweet ${tweet_id} to Elasticsearch`);
