@@ -600,6 +600,11 @@ export class NotificationsService implements OnModuleInit {
         const user_ids = new Set<string>();
         const tweet_ids = new Set<string>();
 
+        // sort the returned notifications by created_at descending
+        user_notifications.notifications.sort(
+            (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+        );
+
         user_notifications.notifications.forEach((notification: any) => {
             switch (notification.type) {
                 case NotificationType.FOLLOW: {
