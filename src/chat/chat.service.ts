@@ -40,6 +40,22 @@ export class ChatService {
         };
     }
 
+    async getChatById(user_id: string, chat_id: string) {
+        try {
+            const chat = await this.chat_repository.getChatById(user_id, chat_id);
+            if (!chat) {
+                throw new NotFoundException(ERROR_MESSAGES.CHAT_NOT_FOUND);
+            }
+            return chat;
+        } catch (error) {
+            if (error instanceof NotFoundException) {
+                throw error;
+            }
+            console.error('Error in getChatById:', error);
+            throw error;
+        }
+    }
+
     // I know it's a confusing to add last_messages_as_read in the dto
     // the reason: the mobile could send at specific time the last read message id so I should handle it here
     async markMessagesAsRead(user_id: string, chat_id: string, dto: MarkMessagesReadDto) {
