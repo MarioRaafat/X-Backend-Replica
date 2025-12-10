@@ -267,7 +267,6 @@ export class NotificationsService implements OnModuleInit {
                     if (new Date(n.created_at) < one_day_ago) return false;
 
                     const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
-                    const liked_by_array = Array.isArray(n.liked_by) ? n.liked_by : [n.liked_by];
                     // Match if: same tweet, only one tweet in array (not aggregated by person)
                     return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
                 });
@@ -279,7 +278,6 @@ export class NotificationsService implements OnModuleInit {
                     if (new Date(n.created_at) < one_day_ago) return false;
 
                     const liked_by_array = Array.isArray(n.liked_by) ? n.liked_by : [n.liked_by];
-                    const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
                     // Match if: same person, only one person in array (not aggregated by tweet)
                     return liked_by_array.includes(new_liked_by) && liked_by_array.length === 1;
                 });
