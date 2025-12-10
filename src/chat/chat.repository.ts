@@ -131,7 +131,7 @@ export class ChatRepository extends Repository<Chat> {
                 .leftJoinAndSelect('chat.user2', 'user2')
                 .leftJoinAndSelect('chat.last_message', 'last_message')
                 .where('(chat.user1_id = :user_id OR chat.user2_id = :user_id)', { user_id })
-                .andWhere('(chat.last_message_id IS NOT NULL OR chat.user1_id = :user_id)', {
+                .andWhere('(chat.last_message_id IS NOT NULL)', {
                     user_id,
                 }) // to include your chats
                 .orderBy('last_message.created_at', 'DESC', 'NULLS LAST')

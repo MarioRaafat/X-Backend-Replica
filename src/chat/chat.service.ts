@@ -29,9 +29,7 @@ export class ChatService {
     }
 
     async getChats(user_id: string, query: GetChatsQueryDto) {
-        console.log('GetChats called with user_id:', user_id, 'and query:', query);
         const result = await this.chat_repository.getChats(user_id, query);
-        console.log('GetChats result:', result);
 
         return {
             data: result.data,
