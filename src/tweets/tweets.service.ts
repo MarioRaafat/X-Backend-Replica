@@ -653,12 +653,7 @@ export class TweetsService {
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: saved_quote_tweet.tweet_id,
-                parent_id: saved_quote_tweet.tweet_id,
-            });
-
-            await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id: saved_quote_tweet.tweet_id,
-                parent_id: saved_quote_tweet.tweet_id,
+                parent_id: tweet_id,
             });
 
             const response = plainToInstance(TweetQuoteResponseDTO, {

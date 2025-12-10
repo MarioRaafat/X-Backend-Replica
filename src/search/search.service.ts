@@ -547,6 +547,7 @@ export class SearchService {
                 next_cursor = this.encodeCursor(last_hit.sort) ?? null;
             }
 
+            console.log(items[0]);
             const mapped_tweets = await this.attachRelatedTweets(items);
 
             const tweets_with_interactions = await this.attachUserInteractions(
