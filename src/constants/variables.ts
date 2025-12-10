@@ -23,6 +23,18 @@ export const ALLOWED_IMAGE_MIME_TYPES = [
 ] as const;
 export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 
+// Voice note constants
+export const ALLOWED_VOICE_MIME_TYPES = [
+    'audio/mpeg',
+    'audio/wav',
+    'audio/ogg',
+    'audio/mp4',
+    'audio/webm',
+] as const;
+export const MAX_VOICE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
+export const MAX_VOICE_DURATION = 300; // 5 minutes
+export const MIN_VOICE_DURATION = 1; // 1 second
+
 // ------------------------- Email Templates ------------------------- //
 export const verification_email_object = (otp: string, link: string) => ({
     subject: `${otp} is your Y verification code`,
