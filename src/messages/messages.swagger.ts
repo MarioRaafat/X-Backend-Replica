@@ -401,16 +401,29 @@ Leave a chat room to stop receiving real-time messages.
 ---
 
 ### 3. **send_message**
-Send a new message in a chat.
+Send a new message in a chat. Supports text, reply, image, and voice messages.
 
-**Emit:**
+**Emit (Text Message):**
 \`\`\`json
 {
   "chat_id": "chat_123abc-def456-789ghi",
   "message": {
     "content": "Hello, how are you?",
+    "reply_to_message_id": "msg_789def-012abc-345ghi", 
     "message_type": "text",
-    "reply_to": null
+    image_url: null,
+  }
+}
+\`\`\`
+
+**Emit (Voice Message):**
+\`\`\`json
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "message": {
+    "message_type": "voice",
+    "voice_note_url": "https://yapperdev.blob.core.windows.net/message-voices/...",
+    "voice_note_duration": "4:33"
   }
 }
 \`\`\`
@@ -421,10 +434,27 @@ Send a new message in a chat.
   "event": "message_sent",
   "data": {
     "id": "msg_456abc-789def-012ghi",
+    "chat_id": "chat_123abc-def456-789ghi",
     "content": "Hello, how are you?",
+    "message_type": "text",
     "sender_id": "user_123abc",
+    "image_url": null,
+    "voice_note_url": null,
+    "voice_note_duration": null,
+    "reply_to": null,
+    "reply_to_message_id": null,
     "is_read": true,
-    "created_at": "2025-11-29T10:45:00.000Z"
+    "is_edited": false,
+    "is_deleted": false,
+    "created_at": "2025-11-29T10:45:00.000Z",
+    "updated_at": "2025-11-29T10:45:00.000Z",
+    "sender": {
+      "id": "user_123abc",
+      "username": "john_doe",
+      "name": "John Doe",
+      "avatar_url": "https://example.com/john.jpg"
+    },
+    "reactions": []
   }
 }
 \`\`\`
@@ -436,10 +466,27 @@ Event: "new_message"
   "chat_id": "chat_123abc-def456-789ghi",
   "message": {
     "id": "msg_456abc-789def-012ghi",
+    "chat_id": "chat_123abc-def456-789ghi",
     "content": "Hello, how are you?",
+    "message_type": "text",
     "sender_id": "user_123abc",
+    "image_url": null,
+    "voice_note_url": null,
+    "voice_note_duration": null,
+    "reply_to": null,
+    "reply_to_message_id": null,
     "is_read": true,
-    "created_at": "2025-11-29T10:45:00.000Z"
+    "is_edited": false,
+    "is_deleted": false,
+    "created_at": "2025-11-29T10:45:00.000Z",
+    "updated_at": "2025-11-29T10:45:00.000Z",
+    "sender": {
+      "id": "user_123abc",
+      "username": "john_doe",
+      "name": "John Doe",
+      "avatar_url": "https://example.com/john.jpg"
+    },
+    "reactions": []
   }
 }
 \`\`\`
@@ -606,7 +653,7 @@ Retrieve paginated messages from a chat using cursor-based pagination.
   "event": "messages_retrieved",
   "data": {
     "chat_id": "chat_123abc-def456-789ghi",
-    "sender": {
+    "other_user": {
       "id": "user_456def-789abc-012ghi",
       "username": "mariooo",
       "name": "Mario Raafat",
@@ -615,11 +662,18 @@ Retrieve paginated messages from a chat using cursor-based pagination.
     "messages": [
       {
         "id": "msg_789def-012abc-345ghi",
+        "chat_id": "chat_123abc-def456-789ghi",
         "content": "Hello!",
         "message_type": "text",
+        "sender_id": "user_123abc",
+        "image_url": null,
+        "voice_note_url": null,
+        "voice_note_duration": null,
         "reply_to": null,
+        "reply_to_message_id": null,
         "is_read": true,
         "is_edited": false,
+        "is_deleted": false,
         "created_at": "2025-11-29T10:45:00.000Z",
         "updated_at": "2025-11-29T10:45:00.000Z",
         "sender": {
@@ -627,7 +681,65 @@ Retrieve paginated messages from a chat using cursor-based pagination.
           "username": "john_doe",
           "name": "John Doe",
           "avatar_url": "https://example.com/john.jpg"
-        }
+        },
+        "reactions": [
+          {
+            "id": "reaction_123",
+            "emoji": "😀",
+            "user": {
+              "id": "user_456def",
+              "username": "jane_smith"
+            }
+          }
+        ]
+      },
+      {
+        "id": "msg_456abc-789def-012ghi",
+        "chat_id": "chat_123abc-def456-789ghi",
+        "content": "Check this out!",
+        "message_type": "text",
+        "sender_id": "user_456def-789abc-012ghi",
+        "image_url": "https://yapperdev.blob.core.windows.net/message-images/user-456-1704067800-image.jpg",
+        "voice_note_url": null,
+        "voice_note_duration": null,
+        "reply_to": null,
+        "reply_to_message_id": null,
+        "is_read": true,
+        "is_edited": false,
+        "is_deleted": false,
+        "created_at": "2025-11-29T10:46:00.000Z",
+        "updated_at": "2025-11-29T10:46:00.000Z",
+        "sender": {
+          "id": "user_456def-789abc-012ghi",
+          "username": "mariooo",
+          "name": "Mario Raafat",
+          "avatar_url": "https://example.com/avatar.jpg"
+        },
+        "reactions": []
+      },
+      {
+        "id": "msg_voice-789abc-345def",
+        "chat_id": "chat_123abc-def456-789ghi",
+        "content": "",
+        "message_type": "voice",
+        "sender_id": "user_456def-789abc-012ghi",
+        "image_url": null,
+        "voice_note_url": "https://yapperdev.blob.core.windows.net/message-voices/user-456-1704067800-voice.mp3",
+        "voice_note_duration": "4:33",
+        "reply_to": null,
+        "reply_to_message_id": null,
+        "is_read": true,
+        "is_edited": false,
+        "is_deleted": false,
+        "created_at": "2025-11-29T10:47:00.000Z",
+        "updated_at": "2025-11-29T10:47:00.000Z",
+        "sender": {
+          "id": "user_456def-789abc-012ghi",
+          "username": "mariooo",
+          "name": "Mario Raafat",
+          "avatar_url": "https://example.com/avatar.jpg"
+        },
+        "reactions": []
       }
     ],
     "has_more": true,
@@ -761,11 +873,18 @@ Sent when a user first joins a chat to provide initial message context.
   "chat_id": "chat_123abc-def456-789ghi",
   "message": {
     "id": "msg_789def-012abc-345ghi",
+    "chat_id": "chat_123abc-def456-789ghi",
     "content": "Hello! Welcome to the chat",
     "message_type": "text",
     "sender_id": "user_456def-789abc-012ghi",
+    "image_url": null,
+    "voice_note_url": null,
+    "voice_note_duration": null,
+    "reply_to": null,
+    "reply_to_message_id": null,
     "is_read": false,
     "is_edited": false,
+    "is_deleted": false,
     "created_at": "2025-11-29T10:45:00.000Z",
     "updated_at": "2025-11-29T10:45:00.000Z",
     "sender": {
@@ -773,7 +892,8 @@ Sent when a user first joins a chat to provide initial message context.
       "username": "john_doe",
       "name": "John Doe",
       "avatar_url": "https://example.com/john.jpg"
-    }
+    },
+    "reactions": []
   }
 }
 \`\`\`
@@ -1030,6 +1150,96 @@ Get a list of all emoji reactions on a specific message, grouped by emoji with r
                     message: SUCCESS_MESSAGES.MESSAGE_REACTIONS_RETRIEVED,
                 },
             },
+        },
+    },
+};
+
+export const upload_voice_note_swagger = {
+    operation: {
+        summary: 'Upload a voice note file',
+        description: `
+**Upload an audio file to be attached to a message**
+
+Upload a voice recording that will be attached to a message. The file is stored in Azure Blob Storage and a URL is returned for use in sending the message.
+
+**Supported Formats:**
+- MP3 (\`audio/mpeg\`)
+- WAV (\`audio/wav\`)
+- OGG (\`audio/ogg\`)
+- M4A (\`audio/mp4\`)
+
+**Constraints:**
+- File size: Maximum 25 MB
+- Duration: Provided as MM:SS format (e.g., "4:33" for 4 minutes 33 seconds)
+
+**What happens:**
+1. System validates file format and size
+2. File is uploaded to Azure Blob Storage in the \`message-voices\` container
+3. Returns the Azure URL and echo of the duration
+4. URL can then be used in the send message endpoint to attach the voice note
+
+**Note:** Upload the file first, then use the returned URL in the send message endpoint.
+        `,
+    },
+
+    consumes: ['multipart/form-data'],
+
+    parameters: {
+        voice_note: {
+            name: 'voice_note',
+            description: 'Audio file in MP3, WAV, OGG, or M4A format',
+            type: 'file',
+            required: true,
+            in: 'formData',
+        },
+        duration: {
+            name: 'duration',
+            description: 'Duration of the voice note in MM:SS format (e.g., "4:33")',
+            type: 'string',
+            pattern: '^\\d{1,3}:\\d{2}$',
+            example: '4:33',
+            required: true,
+            in: 'formData',
+        },
+    },
+
+    body: {
+        description: 'Voice note file and duration',
+        schema: {
+            type: 'object',
+            properties: {
+                voice_note: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Audio file in MP3, WAV, OGG, or M4A format',
+                },
+                duration: {
+                    type: 'string',
+                    description: 'Duration of the voice note in MM:SS format (e.g., "4:33")',
+                    pattern: '^\\d{1,3}:\\d{2}$',
+                    example: '4:33',
+                },
+            },
+            required: ['voice_note', 'duration'],
+        },
+    },
+
+    responses: {
+        success: {
+            description: 'Voice note uploaded successfully',
+            schema: {
+                example: {
+                    data: {
+                        voice_note_url:
+                            'https://yapperdev.blob.core.windows.net/message-voices/user-123-1704067800-voice.mp3',
+                        duration: '4:33',
+                    },
+                    message: 'Voice note uploaded successfully',
+                },
+            },
+        },
+        badRequest: {
+            description: 'Invalid file format, size, or missing required fields',
         },
     },
 };

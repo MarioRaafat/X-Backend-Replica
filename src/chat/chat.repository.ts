@@ -107,6 +107,9 @@ export class ChatRepository extends Repository<Chat> {
                     ? {
                           id: chat.last_message.id,
                           content: this.encryption_service.decrypt(chat.last_message.content),
+                          image_url: chat.last_message.image_url,
+                          voice_note_url: chat.last_message.voice_note_url,
+                          voice_note_duration: chat.last_message.voice_note_duration,
                           message_type: chat.last_message.message_type,
                           sender_id: chat.last_message.sender_id,
                           created_at: chat.last_message.created_at,
@@ -203,6 +206,9 @@ export class ChatRepository extends Repository<Chat> {
                         ? {
                               id: chat.last_message.id,
                               content: this.encryption_service.decrypt(chat.last_message.content),
+                              image_url: chat.last_message.image_url,
+                              voice_note_url: chat.last_message.voice_note_url,
+                              voice_note_duration: chat.last_message.voice_note_duration,
                               message_type: chat.last_message.message_type,
                               sender_id: chat.last_message.sender_id,
                               created_at: chat.last_message.created_at,
