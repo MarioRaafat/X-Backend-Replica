@@ -15,13 +15,15 @@ import { SuggestionsResponseDto } from './dto/suggestions-response.dto';
 import { SuggestedUserDto } from './dto/suggested-user.dto';
 import { bool } from 'sharp';
 import { TweetResponseDTO } from 'src/tweets/dto';
+import { RedisService } from 'src/redis/redis.service';
 
 @Injectable()
 export class SearchService {
     constructor(
         private readonly elasticsearch_service: ElasticsearchService,
         private readonly user_repository: UserRepository,
-        private readonly data_source: DataSource
+        private readonly data_source: DataSource,
+        private readonly redis_service: RedisService
     ) {}
 
     async getSuggestions(
@@ -52,6 +54,8 @@ export class SearchService {
             prefix_query,
         });
 
+        const trending_hashtags: Map<string, number> = await this.getTrendingHashtags();
+
         const [users_result, queries_result] = await Promise.all([
             query_builder
                 .orderBy('total_score', 'DESC')
@@ -59,7 +63,9 @@ export class SearchService {
                 .limit(10)
                 .getRawMany(),
 
-            this.elasticsearch_service.search(this.buildEsSuggestionsQuery(sanitized_query)),
+            this.elasticsearch_service.search(
+                this.buildEsSuggestionsQuery(sanitized_query, trending_hashtags)
+            ),
         ]);
 
         const users_list = users_result.map((user) =>
@@ -69,15 +75,15 @@ export class SearchService {
             })
         );
 
-        const suggestions = this.extractSuggestionsFromHits(queries_result.hits.hits, query, 3);
-
-        const suggested_queries = suggestions.map((query) => ({
+        const suggestions = this.extractSuggestionsFromHits(
+            queries_result.hits.hits,
             query,
-            is_trending: false,
-        }));
+            trending_hashtags,
+            3
+        );
 
         return {
-            suggested_queries: suggested_queries,
+            suggested_queries: suggestions,
             suggested_users: users_list,
         };
     }
@@ -347,8 +353,8 @@ export class SearchService {
             const search_body: any = {
                 query: {
                     bool: {
+                        must: [],
                         should: [],
-                        minimum_should_match: 1,
                     },
                 },
                 size: limit + 1,
@@ -384,7 +390,9 @@ export class SearchService {
                 this.buildTweetsSearchQuery(search_body, remaining_text);
             }
 
-            this.applyTweetsBoosting(search_body);
+            const trending_hashtags: Map<string, number> = await this.getTrendingHashtags();
+
+            this.applyTweetsBoosting(search_body, trending_hashtags);
 
             if (has_media) {
                 search_body.query.bool.filter = search_body.query.bool.filter || [];
@@ -509,7 +517,9 @@ export class SearchService {
                 this.buildTweetsSearchQuery(search_body, remaining_text);
             }
 
-            this.applyTweetsBoosting(search_body);
+            const trending_hashtags: Map<string, number> = await this.getTrendingHashtags();
+
+            this.applyTweetsBoosting(search_body, trending_hashtags);
 
             if (username) {
                 search_body.query.bool.filter = search_body.query.bool.filter || [];
@@ -689,7 +699,7 @@ export class SearchService {
         );
     }
 
-    private applyTweetsBoosting(search_body: any): void {
+    private applyTweetsBoosting(search_body: any, trending_hashtags?: Map<string, number>): void {
         const boosting_factors = [
             { field: 'num_likes', factor: 0.01 },
             { field: 'num_reposts', factor: 0.02 },
@@ -699,19 +709,40 @@ export class SearchService {
             { field: 'followers', factor: 0.001 },
         ];
 
+        const functions: any[] = [
+            ...boosting_factors.map(({ field, factor }) => ({
+                field_value_factor: {
+                    field,
+                    factor,
+                    modifier: 'log1p',
+                    missing: 0,
+                },
+            })),
+        ];
+
+        if (trending_hashtags && trending_hashtags.size > 0) {
+            const max_score = Math.max(...Array.from(trending_hashtags.values()), 1);
+
+            const trending_functions = Array.from(trending_hashtags.entries()).map(
+                ([hashtag, score]) => ({
+                    filter: {
+                        term: {
+                            hashtags: { value: hashtag },
+                        },
+                    },
+                    weight: 5 + (score / max_score) * 5,
+                })
+            );
+
+            functions.push(...trending_functions);
+        }
+
         const original_query = { ...search_body.query };
 
         search_body.query = {
             function_score: {
                 query: original_query,
-                functions: boosting_factors.map(({ field, factor }) => ({
-                    field_value_factor: {
-                        field,
-                        factor,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                })),
+                functions,
                 score_mode: 'sum',
                 boost_mode: 'multiply',
             },
@@ -961,7 +992,10 @@ export class SearchService {
         `;
     }
 
-    private buildEsSuggestionsQuery(sanitized_query: string) {
+    private buildEsSuggestionsQuery(
+        sanitized_query: string,
+        trending_hashtags: Map<string, number>
+    ) {
         const is_hashtag = sanitized_query.startsWith('#');
 
         const search_body = {
@@ -971,27 +1005,30 @@ export class SearchService {
             query: {
                 bool: {
                     should: [
-                        ...(!is_hashtag
-                            ? [
-                                  {
-                                      prefix: {
-                                          hashtags: {
-                                              value: `#${sanitized_query.toLowerCase()}`,
-                                              boost: 3,
-                                          },
-                                      },
-                                  },
-                              ]
-                            : []),
                         {
-                            match_phrase_prefix: {
-                                content: {
-                                    query: sanitized_query,
-                                    slop: 0,
-                                    boost: 2,
+                            prefix: {
+                                hashtags: {
+                                    value: is_hashtag
+                                        ? sanitized_query.toLowerCase()
+                                        : `#${sanitized_query.toLowerCase()}`,
+                                    boost: 3,
                                 },
                             },
                         },
+
+                        ...(is_hashtag
+                            ? []
+                            : [
+                                  {
+                                      match_phrase_prefix: {
+                                          content: {
+                                              query: sanitized_query,
+                                              slop: 0,
+                                              boost: 2,
+                                          },
+                                      },
+                                  },
+                              ]),
                     ],
                     minimum_should_match: 1,
                 },
@@ -1009,13 +1046,18 @@ export class SearchService {
             },
         };
 
-        this.applyTweetsBoosting(search_body);
+        this.applyTweetsBoosting(search_body, trending_hashtags);
 
         return search_body;
     }
 
-    private extractSuggestionsFromHits(hits: any[], query: string, max_suggestions = 3): string[] {
-        const suggestions = new Set<string>();
+    private extractSuggestionsFromHits(
+        hits: any[],
+        query: string,
+        trending_hashtags: Map<string, number>,
+        max_suggestions = 3
+    ): Array<{ query: string; is_trending: boolean }> {
+        const suggestions = new Map<string, boolean>();
         const query_lower = query.toLowerCase().trim();
         const is_hashtag_query = query_lower.startsWith('#');
 
@@ -1052,10 +1094,14 @@ export class SearchService {
             const from_query = text.substring(query_index);
 
             let completion: string;
+            let is_trending = false;
+
             if (is_hashtag) {
                 const hashtag_match = from_query.match(/^#\w+/);
                 if (!hashtag_match) return;
                 completion = hashtag_match[0];
+
+                is_trending = trending_hashtags.has(completion.toLowerCase());
             } else {
                 const sentence_end_match = from_query.match(/[.!?\n]/);
                 const end_index = sentence_end_match
@@ -1071,11 +1117,46 @@ export class SearchService {
                 const middle_content = completion.substring(0, completion.length - 1);
                 if (/[.!?]/.test(middle_content)) return;
             }
-            suggestions.add(completion);
+            suggestions.set(completion, is_trending);
         });
 
-        return Array.from(suggestions)
-            .sort((a, b) => a.length - b.length)
-            .slice(0, max_suggestions);
+        return Array.from(suggestions.entries())
+            .sort((a, b) => {
+                if (a[1] !== b[1]) return a[1] ? -1 : 1;
+                return a[0].length - b[0].length;
+            })
+            .slice(0, max_suggestions)
+            .map(([query, is_trending]) => ({ query, is_trending }));
+    }
+
+    private async getTrendingHashtags(): Promise<Map<string, number>> {
+        try {
+            const result = await this.redis_service.zrevrange(
+                'trending:global',
+                0,
+                29,
+                'WITHSCORES'
+            );
+
+            if (!result || result.length === 0) return new Map();
+
+            const trending_map = new Map<string, number>();
+
+            for (let i = 0; i < result.length; i += 2) {
+                const hashtag = result[i];
+                const score = parseFloat(result[i + 1]);
+
+                const normalized = hashtag.toLowerCase().startsWith('#')
+                    ? hashtag.toLowerCase()
+                    : `#${hashtag.toLowerCase()}`;
+
+                trending_map.set(normalized, score);
+            }
+
+            return trending_map;
+        } catch (error) {
+            console.error('Error fetching trending hashtags:', error);
+            return new Map();
+        }
     }
 }

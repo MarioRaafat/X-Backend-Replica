@@ -169,7 +169,7 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    @Cron('0 * * * *')
+    @Cron('*/2 * * * *')
     async calculateTrend() {
         try {
             console.log('Calculate Trend.....');
