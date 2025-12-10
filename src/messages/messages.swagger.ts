@@ -410,7 +410,9 @@ Send a new message in a chat.
   "message": {
     "content": "Hello, how are you?",
     "message_type": "text",
-    "reply_to": null
+    "is_first_message": false,
+    "reply_to_message_id": null,
+    "image_url": null
   }
 }
 \`\`\`
