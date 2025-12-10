@@ -11,6 +11,7 @@ import { Tweet } from 'src/tweets/entities';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { FcmModule } from 'src/fcm/fcm.module';
 import { MessagesModule } from 'src/messages/messages.module';
+import { Message } from 'src/messages/entities/message.entity';
 
 @Module({
     imports: [
