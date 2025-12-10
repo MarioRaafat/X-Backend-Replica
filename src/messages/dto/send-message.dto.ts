@@ -4,6 +4,7 @@ import {
     IsNotEmpty,
     IsOptional,
     IsString,
+    IsUrl,
     IsUUID,
     MaxLength,
     MinLength,
@@ -35,6 +36,13 @@ export class SendMessageDto {
     message_type?: MessageType = MessageType.TEXT;
 
     @ApiPropertyOptional({
+        description: 'Indicates if this is the first message in the conversation',
+        example: false,
+    })
+    @IsOptional()
+    is_first_message?: boolean;
+
+    @ApiPropertyOptional({
         description: 'ID of the message being replied to (only for reply messages)',
         example: 'msg_789def-012abc-345ghi',
     })
@@ -42,4 +50,15 @@ export class SendMessageDto {
     @IsString()
     @IsUUID()
     reply_to_message_id?: string;
+
+    @ApiPropertyOptional({
+        description:
+            'URL of the image attached to the message (obtained from image upload endpoint)',
+        example:
+            'https://yapperdev.blob.core.windows.net/message-images/user-123-1234567890-image.jpg',
+    })
+    @IsOptional()
+    @IsString()
+    @IsUrl()
+    image_url?: string;
 }

@@ -53,6 +53,18 @@ export interface ITypingStopPayload {
     chat_id: string;
 }
 
+export interface IAddReactionPayload {
+    chat_id: string;
+    message_id: string;
+    emoji: string;
+}
+
+export interface IRemoveReactionPayload {
+    chat_id: string;
+    message_id: string;
+    emoji: string;
+}
+
 // ============ INCOMING EVENTS (Server -> Client) ============
 
 export interface IJoinedChatResponse {
@@ -171,6 +183,21 @@ export interface IUserStoppedTypingBroadcast {
     user_id: string;
 }
 
+export interface IReactionAddedBroadcast {
+    chat_id: string;
+    message_id: string;
+    user_id: string;
+    emoji: string;
+    created_at: string;
+}
+
+export interface IReactionRemovedBroadcast {
+    chat_id: string;
+    message_id: string;
+    user_id: string;
+    emoji: string;
+}
+
 export interface IErrorResponse {
     event: 'error';
     data: {
@@ -194,6 +221,8 @@ export const SocketEvents = {
     DELETE_MESSAGE: 'delete_message',
     TYPING_START: 'typing_start',
     TYPING_STOP: 'typing_stop',
+    ADD_REACTION: 'add_reaction',
+    REMOVE_REACTION: 'remove_reaction',
 
     // Incoming
     JOINED_CHAT: 'joined_chat',
@@ -205,5 +234,7 @@ export const SocketEvents = {
     MESSAGE_DELETED: 'message_deleted',
     USER_TYPING: 'user_typing',
     USER_STOPPED_TYPING: 'user_stopped_typing',
+    REACTION_ADDED: 'reaction_added',
+    REACTION_REMOVED: 'reaction_removed',
     ERROR: 'error',
 } as const;

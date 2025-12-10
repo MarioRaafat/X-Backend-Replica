@@ -5,9 +5,9 @@ import type { Job } from 'bull';
 
 describe('ExploreJobsProcessor', () => {
     let processor: ExploreJobsProcessor;
-    let exploreJobsService: ExploreJobsService;
+    let explore_jobs_service: ExploreJobsService;
 
-    const mockExploreJobsService = {
+    const mock_explore_jobs_service = {
         countTweetsForRecalculation: jest.fn(),
         fetchTweetsForRecalculation: jest.fn(),
         calculateScore: jest.fn(),
@@ -18,12 +18,12 @@ describe('ExploreJobsProcessor', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ExploreJobsProcessor,
-                { provide: ExploreJobsService, useValue: mockExploreJobsService },
+                { provide: ExploreJobsService, useValue: mock_explore_jobs_service },
             ],
         }).compile();
 
         processor = module.get<ExploreJobsProcessor>(ExploreJobsProcessor);
-        exploreJobsService = module.get<ExploreJobsService>(ExploreJobsService);
+        explore_jobs_service = module.get<ExploreJobsService>(ExploreJobsService);
     });
 
     afterEach(() => {
@@ -37,7 +37,7 @@ describe('ExploreJobsProcessor', () => {
 
     describe('handleRecalculateExploreScores', () => {
         it('should process tweets and return result', async () => {
-            const mockJob = {
+            const mock_job = {
                 id: '1',
                 data: {
                     since_hours: 24,
@@ -60,13 +60,15 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
-            mockExploreJobsService.countTweetsForRecalculation.mockResolvedValue(1);
-            mockExploreJobsService.fetchTweetsForRecalculation.mockResolvedValueOnce(mock_tweets);
-            mockExploreJobsService.fetchTweetsForRecalculation.mockResolvedValueOnce([]);
-            mockExploreJobsService.calculateScore.mockReturnValue(50);
-            mockExploreJobsService.updateRedisCategoryScores.mockResolvedValue(1);
+            mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(1);
+            mock_explore_jobs_service.fetchTweetsForRecalculation.mockResolvedValueOnce(
+                mock_tweets
+            );
+            mock_explore_jobs_service.fetchTweetsForRecalculation.mockResolvedValueOnce([]);
+            mock_explore_jobs_service.calculateScore.mockReturnValue(50);
+            mock_explore_jobs_service.updateRedisCategoryScores.mockResolvedValue(1);
 
-            const result = await processor.handleRecalculateExploreScores(mockJob);
+            const result = await processor.handleRecalculateExploreScores(mock_job);
 
             expect(result.tweets_processed).toBe(1);
             expect(result.tweets_updated).toBe(1);
@@ -76,23 +78,23 @@ describe('ExploreJobsProcessor', () => {
         });
 
         it('should handle empty tweet list', async () => {
-            const mockJob = {
+            const mock_job = {
                 id: '2',
                 data: {},
                 progress: jest.fn().mockResolvedValue(undefined),
             } as unknown as Job;
 
-            mockExploreJobsService.countTweetsForRecalculation.mockResolvedValue(0);
+            mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(0);
 
-            const result = await processor.handleRecalculateExploreScores(mockJob);
+            const result = await processor.handleRecalculateExploreScores(mock_job);
 
             expect(result.tweets_processed).toBe(0);
             expect(result.tweets_updated).toBe(0);
-            expect(mockJob.progress).toHaveBeenCalledWith(100);
+            expect(mock_job.progress).toHaveBeenCalledWith(100);
         });
 
         it('should handle multiple batches', async () => {
-            const mockJob = {
+            const mock_job = {
                 id: '3',
                 data: {
                     batch_size: 2,
@@ -133,26 +135,26 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
-            mockExploreJobsService.countTweetsForRecalculation.mockResolvedValue(3);
-            mockExploreJobsService.fetchTweetsForRecalculation
+            mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(3);
+            mock_explore_jobs_service.fetchTweetsForRecalculation
                 .mockResolvedValueOnce(batch1)
                 .mockResolvedValueOnce(batch2)
                 .mockResolvedValueOnce([]);
-            mockExploreJobsService.calculateScore.mockReturnValue(50);
-            mockExploreJobsService.updateRedisCategoryScores
+            mock_explore_jobs_service.calculateScore.mockReturnValue(50);
+            mock_explore_jobs_service.updateRedisCategoryScores
                 .mockResolvedValueOnce(2)
                 .mockResolvedValueOnce(1);
 
-            const result = await processor.handleRecalculateExploreScores(mockJob);
+            const result = await processor.handleRecalculateExploreScores(mock_job);
 
             expect(result.tweets_processed).toBe(3);
             expect(result.tweets_updated).toBe(3);
             // Should call twice (batch1 has 2 tweets, batch2 has 1 tweet = 3 total)
-            expect(mockExploreJobsService.fetchTweetsForRecalculation).toHaveBeenCalledTimes(2);
+            expect(mock_explore_jobs_service.fetchTweetsForRecalculation).toHaveBeenCalledTimes(2);
         });
 
         it('should handle batch processing errors', async () => {
-            const mockJob = {
+            const mock_job = {
                 id: '4',
                 data: {
                     batch_size: 100,
@@ -172,22 +174,22 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
-            mockExploreJobsService.countTweetsForRecalculation.mockResolvedValue(1);
-            mockExploreJobsService.fetchTweetsForRecalculation
+            mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(1);
+            mock_explore_jobs_service.fetchTweetsForRecalculation
                 .mockResolvedValueOnce(mock_tweets)
                 .mockResolvedValueOnce([]);
-            mockExploreJobsService.calculateScore.mockImplementation(() => {
+            mock_explore_jobs_service.calculateScore.mockImplementation(() => {
                 throw new Error('Calculation error');
             });
 
-            const result = await processor.handleRecalculateExploreScores(mockJob);
+            const result = await processor.handleRecalculateExploreScores(mock_job);
 
             expect(result.errors.length).toBeGreaterThan(0);
             expect(result.errors[0]).toContain('Page 1 failed');
         });
 
         it('should update progress correctly', async () => {
-            const mockJob = {
+            const mock_job = {
                 id: '5',
                 data: {
                     batch_size: 1,
@@ -207,52 +209,52 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
-            mockExploreJobsService.countTweetsForRecalculation.mockResolvedValue(1);
-            mockExploreJobsService.fetchTweetsForRecalculation
+            mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(1);
+            mock_explore_jobs_service.fetchTweetsForRecalculation
                 .mockResolvedValueOnce(mock_tweets)
                 .mockResolvedValueOnce([]);
-            mockExploreJobsService.calculateScore.mockReturnValue(50);
-            mockExploreJobsService.updateRedisCategoryScores.mockResolvedValue(1);
+            mock_explore_jobs_service.calculateScore.mockReturnValue(50);
+            mock_explore_jobs_service.updateRedisCategoryScores.mockResolvedValue(1);
 
-            await processor.handleRecalculateExploreScores(mockJob);
+            await processor.handleRecalculateExploreScores(mock_job);
 
-            expect(mockJob.progress).toHaveBeenCalledWith(5);
-            expect(mockJob.progress).toHaveBeenCalledWith(100);
+            expect(mock_job.progress).toHaveBeenCalledWith(5);
+            expect(mock_job.progress).toHaveBeenCalledWith(100);
         });
 
         it('should handle fatal errors', async () => {
-            const mockJob = {
+            const mock_job = {
                 id: '6',
                 data: {},
                 progress: jest.fn().mockResolvedValue(undefined),
             } as unknown as Job;
 
-            mockExploreJobsService.countTweetsForRecalculation.mockRejectedValue(
+            mock_explore_jobs_service.countTweetsForRecalculation.mockRejectedValue(
                 new Error('Database connection failed')
             );
 
-            await expect(processor.handleRecalculateExploreScores(mockJob)).rejects.toThrow(
+            await expect(processor.handleRecalculateExploreScores(mock_job)).rejects.toThrow(
                 'Database connection failed'
             );
         });
 
         it('should use default values when job data is empty', async () => {
-            const mockJob = {
+            const mock_job = {
                 id: '7',
                 data: {},
                 progress: jest.fn().mockResolvedValue(undefined),
             } as unknown as Job;
 
-            mockExploreJobsService.countTweetsForRecalculation.mockResolvedValue(0);
+            mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(0);
 
-            const result = await processor.handleRecalculateExploreScores(mockJob);
+            const result = await processor.handleRecalculateExploreScores(mock_job);
 
-            expect(mockExploreJobsService.countTweetsForRecalculation).toHaveBeenCalled();
+            expect(mock_explore_jobs_service.countTweetsForRecalculation).toHaveBeenCalled();
             expect(result).toBeDefined();
         });
 
         it('should track maximum categories_updated across batches', async () => {
-            const mockJob = {
+            const mock_job = {
                 id: '8',
                 data: {
                     batch_size: 1,
@@ -287,17 +289,17 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
-            mockExploreJobsService.countTweetsForRecalculation.mockResolvedValue(2);
-            mockExploreJobsService.fetchTweetsForRecalculation
+            mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(2);
+            mock_explore_jobs_service.fetchTweetsForRecalculation
                 .mockResolvedValueOnce(batch1)
                 .mockResolvedValueOnce(batch2)
                 .mockResolvedValueOnce([]);
-            mockExploreJobsService.calculateScore.mockReturnValue(50);
-            mockExploreJobsService.updateRedisCategoryScores
+            mock_explore_jobs_service.calculateScore.mockReturnValue(50);
+            mock_explore_jobs_service.updateRedisCategoryScores
                 .mockResolvedValueOnce(1)
                 .mockResolvedValueOnce(2);
 
-            const result = await processor.handleRecalculateExploreScores(mockJob);
+            const result = await processor.handleRecalculateExploreScores(mock_job);
 
             expect(result.categories_updated).toBe(2);
         });

@@ -52,6 +52,7 @@ export class RepostProcessor {
                         NotificationType.REPOST,
                         tweet_owner_id,
                         {
+                            type: NotificationType.REPOST,
                             ...job.data,
                             reposted_by,
                         }

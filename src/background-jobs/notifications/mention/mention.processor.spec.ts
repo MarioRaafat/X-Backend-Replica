@@ -12,12 +12,12 @@ import { NotificationType } from 'src/notifications/enums/notification-types';
 
 describe('MentionProcessor', () => {
     let processor: MentionProcessor;
-    let notificationsService: jest.Mocked<NotificationsService>;
-    let userRepository: jest.Mocked<Repository<User>>;
-    let tweetRepository: jest.Mocked<Repository<Tweet>>;
-    let tweetQuoteRepository: jest.Mocked<Repository<TweetQuote>>;
+    let notifications_service: jest.Mocked<NotificationsService>;
+    let user_repository: jest.Mocked<Repository<User>>;
+    let tweet_repository: jest.Mocked<Repository<Tweet>>;
+    let tweet_quote_repository: jest.Mocked<Repository<TweetQuote>>;
 
-    const mockJob = (
+    const mock_job = (
         data: Partial<MentionBackGroundNotificationJobDTO>
     ): Job<MentionBackGroundNotificationJobDTO> =>
         ({
@@ -26,22 +26,22 @@ describe('MentionProcessor', () => {
         }) as Job<MentionBackGroundNotificationJobDTO>;
 
     beforeEach(async () => {
-        const mockNotificationsService = {
+        const mock_notifications_service = {
             removeMentionNotification: jest.fn(),
             sendNotificationOnly: jest.fn(),
             saveNotificationAndSend: jest.fn(),
         };
 
-        const mockUserRepository = {
+        const mock_user_repository = {
             find: jest.fn(),
             findOne: jest.fn(),
         };
 
-        const mockTweetRepository = {
+        const mock_tweet_repository = {
             findOne: jest.fn(),
         };
 
-        const mockTweetQuoteRepository = {
+        const mock_tweet_quote_repository = {
             findOne: jest.fn(),
         };
 
@@ -50,28 +50,28 @@ describe('MentionProcessor', () => {
                 MentionProcessor,
                 {
                     provide: NotificationsService,
-                    useValue: mockNotificationsService,
+                    useValue: mock_notifications_service,
                 },
                 {
                     provide: getRepositoryToken(User),
-                    useValue: mockUserRepository,
+                    useValue: mock_user_repository,
                 },
                 {
                     provide: getRepositoryToken(Tweet),
-                    useValue: mockTweetRepository,
+                    useValue: mock_tweet_repository,
                 },
                 {
                     provide: getRepositoryToken(TweetQuote),
-                    useValue: mockTweetQuoteRepository,
+                    useValue: mock_tweet_quote_repository,
                 },
             ],
         }).compile();
 
         processor = module.get<MentionProcessor>(MentionProcessor);
-        notificationsService = module.get(NotificationsService);
-        userRepository = module.get(getRepositoryToken(User));
-        tweetRepository = module.get(getRepositoryToken(Tweet));
-        tweetQuoteRepository = module.get(getRepositoryToken(TweetQuote));
+        notifications_service = module.get(NotificationsService);
+        user_repository = module.get(getRepositoryToken(User));
+        tweet_repository = module.get(getRepositoryToken(Tweet));
+        tweet_quote_repository = module.get(getRepositoryToken(TweetQuote));
     });
 
     afterEach(() => {
@@ -80,18 +80,18 @@ describe('MentionProcessor', () => {
 
     describe('handleSendMentionNotification - add action', () => {
         it('should process mention for multiple users successfully', async () => {
-            const mockTweet = {
+            const mock_tweet = {
                 tweet_id: 'tweet-123',
                 text: 'Test tweet @user1 @user2',
                 user_id: 'user-author',
             };
 
-            const mockUsers = [
+            const mock_users = [
                 { id: 'user-1', username: 'user1' },
                 { id: 'user-2', username: 'user2' },
             ];
 
-            const mockMentioner = {
+            const mock_mentioner = {
                 id: 'user-author',
                 username: 'author',
                 email: 'author@test.com',
@@ -99,68 +99,68 @@ describe('MentionProcessor', () => {
                 avatar_url: 'avatar.jpg',
             };
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
-            userRepository.findOne.mockResolvedValue(mockMentioner as User);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
+            user_repository.findOne.mockResolvedValue(mock_mentioner as User);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1', 'user2'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
-                tweet: mockTweet as unknown as Tweet,
+                tweet: mock_tweet as unknown as Tweet,
                 tweet_type: 'tweet',
                 action: 'add',
             });
 
             await processor.handleSendMentionNotification(job);
 
-            expect(userRepository.find).toHaveBeenCalledWith({
+            expect(user_repository.find).toHaveBeenCalledWith({
                 where: [{ username: 'user1' }, { username: 'user2' }],
                 select: ['id'],
             });
-            expect(userRepository.findOne).toHaveBeenCalledTimes(2);
-            expect(notificationsService.saveNotificationAndSend).toHaveBeenCalledTimes(2);
+            expect(user_repository.findOne).toHaveBeenCalledTimes(2);
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledTimes(2);
         });
 
         it('should skip mentioning the author themselves', async () => {
-            const mockTweet = {
+            const mock_tweet = {
                 tweet_id: 'tweet-123',
                 text: 'Test tweet @author',
                 user_id: 'user-author',
             };
 
-            const mockUsers = [{ id: 'user-author', username: 'author' }];
+            const mock_users = [{ id: 'user-author', username: 'author' }];
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['author'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
-                tweet: mockTweet as unknown as Tweet,
+                tweet: mock_tweet as unknown as Tweet,
                 tweet_type: 'tweet',
                 action: 'add',
             });
 
             await processor.handleSendMentionNotification(job);
 
-            expect(notificationsService.saveNotificationAndSend).not.toHaveBeenCalled();
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
 
         it('should handle quote tweet mentions with parent_tweet', async () => {
-            const mockTweet = {
+            const mock_tweet = {
                 tweet_id: 'quote-123',
                 text: 'Quoting @user1',
                 user_id: 'user-author',
             };
 
-            const mockParentTweet = {
+            const mock_parent_tweet = {
                 tweet_id: 'parent-123',
                 text: 'Original tweet',
             };
 
-            const mockUsers = [{ id: 'user-1', username: 'user1' }];
+            const mock_users = [{ id: 'user-1', username: 'user1' }];
 
-            const mockMentioner = {
+            const mock_mentioner = {
                 id: 'user-author',
                 username: 'author',
                 email: 'author@test.com',
@@ -168,22 +168,22 @@ describe('MentionProcessor', () => {
                 avatar_url: 'avatar.jpg',
             };
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
-            userRepository.findOne.mockResolvedValue(mockMentioner as User);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
+            user_repository.findOne.mockResolvedValue(mock_mentioner as User);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1'],
                 mentioned_by: 'user-author',
                 tweet_id: 'quote-123',
-                tweet: mockTweet as unknown as Tweet,
-                parent_tweet: mockParentTweet as any,
+                tweet: mock_tweet as unknown as Tweet,
+                parent_tweet: mock_parent_tweet as any,
                 tweet_type: 'quote',
                 action: 'add',
             });
 
             await processor.handleSendMentionNotification(job);
 
-            expect(notificationsService.saveNotificationAndSend).toHaveBeenCalledWith(
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledWith(
                 'user-1',
                 expect.objectContaining({
                     type: NotificationType.MENTION,
@@ -200,20 +200,20 @@ describe('MentionProcessor', () => {
         });
 
         it('should handle reply tweet mentions', async () => {
-            const mockTweet = {
+            const mock_tweet = {
                 tweet_id: 'reply-123',
                 text: 'Reply to @user1',
                 user_id: 'user-author',
             };
 
-            const mockParentTweet = {
+            const mock_parent_tweet = {
                 tweet_id: 'parent-123',
                 text: 'Original tweet',
             };
 
-            const mockUsers = [{ id: 'user-1', username: 'user1' }];
+            const mock_users = [{ id: 'user-1', username: 'user1' }];
 
-            const mockMentioner = {
+            const mock_mentioner = {
                 id: 'user-author',
                 username: 'author',
                 email: 'author@test.com',
@@ -221,22 +221,22 @@ describe('MentionProcessor', () => {
                 avatar_url: 'avatar.jpg',
             };
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
-            userRepository.findOne.mockResolvedValue(mockMentioner as User);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
+            user_repository.findOne.mockResolvedValue(mock_mentioner as User);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1'],
                 mentioned_by: 'user-author',
                 tweet_id: 'reply-123',
-                tweet: mockTweet as unknown as Tweet,
-                parent_tweet: mockParentTweet as any,
+                tweet: mock_tweet as unknown as Tweet,
+                parent_tweet: mock_parent_tweet as any,
                 tweet_type: 'reply',
                 action: 'add',
             });
 
             await processor.handleSendMentionNotification(job);
 
-            expect(notificationsService.saveNotificationAndSend).toHaveBeenCalledWith(
+            expect(notifications_service.saveNotificationAndSend).toHaveBeenCalledWith(
                 'user-1',
                 expect.objectContaining({
                     type: NotificationType.MENTION,
@@ -250,9 +250,9 @@ describe('MentionProcessor', () => {
         });
 
         it('should log warning when tweet data not provided', async () => {
-            const loggerSpy = jest.spyOn(processor['logger'], 'warn');
+            const logger_spy = jest.spyOn(processor['logger'], 'warn');
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
@@ -262,53 +262,53 @@ describe('MentionProcessor', () => {
 
             await processor.handleSendMentionNotification(job);
 
-            expect(loggerSpy).toHaveBeenCalledWith(
+            expect(logger_spy).toHaveBeenCalledWith(
                 expect.stringContaining('Tweet data not provided')
             );
-            expect(notificationsService.saveNotificationAndSend).not.toHaveBeenCalled();
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
 
         it('should log warning when mentioner not found', async () => {
-            const mockTweet = {
+            const mock_tweet = {
                 tweet_id: 'tweet-123',
                 text: 'Test tweet @user1',
                 user_id: 'user-author',
             };
 
-            const mockUsers = [{ id: 'user-1', username: 'user1' }];
+            const mock_users = [{ id: 'user-1', username: 'user1' }];
 
-            const loggerSpy = jest.spyOn(processor['logger'], 'warn');
+            const logger_spy = jest.spyOn(processor['logger'], 'warn');
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
-            userRepository.findOne.mockResolvedValue(null);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
+            user_repository.findOne.mockResolvedValue(null);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
-                tweet: mockTweet as unknown as Tweet,
+                tweet: mock_tweet as unknown as Tweet,
                 tweet_type: 'tweet',
                 action: 'add',
             });
 
             await processor.handleSendMentionNotification(job);
 
-            expect(loggerSpy).toHaveBeenCalledWith(expect.stringContaining('Mentioner with ID'));
-            expect(notificationsService.saveNotificationAndSend).not.toHaveBeenCalled();
+            expect(logger_spy).toHaveBeenCalledWith(expect.stringContaining('Mentioner with ID'));
+            expect(notifications_service.saveNotificationAndSend).not.toHaveBeenCalled();
         });
     });
 
     describe('handleSendMentionNotification - remove action', () => {
         it('should remove mention notifications for multiple users', async () => {
-            const mockUsers = [
+            const mock_users = [
                 { id: 'user-1', username: 'user1' },
                 { id: 'user-2', username: 'user2' },
             ];
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
-            notificationsService.removeMentionNotification.mockResolvedValue(true);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
+            notifications_service.removeMentionNotification.mockResolvedValue(true);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1', 'user2'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
@@ -317,22 +317,22 @@ describe('MentionProcessor', () => {
 
             await processor.handleSendMentionNotification(job);
 
-            expect(notificationsService.removeMentionNotification).toHaveBeenCalledTimes(2);
-            expect(notificationsService.removeMentionNotification).toHaveBeenCalledWith(
+            expect(notifications_service.removeMentionNotification).toHaveBeenCalledTimes(2);
+            expect(notifications_service.removeMentionNotification).toHaveBeenCalledWith(
                 'user-1',
                 'tweet-123',
                 'user-author'
             );
-            expect(notificationsService.sendNotificationOnly).toHaveBeenCalledTimes(2);
+            expect(notifications_service.sendNotificationOnly).toHaveBeenCalledTimes(2);
         });
 
         it('should skip sending notification if removal failed', async () => {
-            const mockUsers = [{ id: 'user-1', username: 'user1' }];
+            const mock_users = [{ id: 'user-1', username: 'user1' }];
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
-            notificationsService.removeMentionNotification.mockResolvedValue(false);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
+            notifications_service.removeMentionNotification.mockResolvedValue(false);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
@@ -341,20 +341,20 @@ describe('MentionProcessor', () => {
 
             await processor.handleSendMentionNotification(job);
 
-            expect(notificationsService.removeMentionNotification).toHaveBeenCalled();
-            expect(notificationsService.sendNotificationOnly).not.toHaveBeenCalled();
+            expect(notifications_service.removeMentionNotification).toHaveBeenCalled();
+            expect(notifications_service.sendNotificationOnly).not.toHaveBeenCalled();
         });
 
         it('should not remove mention for the author themselves', async () => {
-            const mockUsers = [
+            const mock_users = [
                 { id: 'user-author', username: 'author' },
                 { id: 'user-1', username: 'user1' },
             ];
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
-            notificationsService.removeMentionNotification.mockResolvedValue(true);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
+            notifications_service.removeMentionNotification.mockResolvedValue(true);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['author', 'user1'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
@@ -363,8 +363,8 @@ describe('MentionProcessor', () => {
 
             await processor.handleSendMentionNotification(job);
 
-            expect(notificationsService.removeMentionNotification).toHaveBeenCalledTimes(1);
-            expect(notificationsService.removeMentionNotification).toHaveBeenCalledWith(
+            expect(notifications_service.removeMentionNotification).toHaveBeenCalledTimes(1);
+            expect(notifications_service.removeMentionNotification).toHaveBeenCalledWith(
                 'user-1',
                 'tweet-123',
                 'user-author'
@@ -372,7 +372,7 @@ describe('MentionProcessor', () => {
         });
 
         it('should handle empty mentioned_usernames array', async () => {
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: [],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
@@ -381,12 +381,12 @@ describe('MentionProcessor', () => {
 
             await processor.handleSendMentionNotification(job);
 
-            expect(userRepository.find).not.toHaveBeenCalled();
-            expect(notificationsService.removeMentionNotification).not.toHaveBeenCalled();
+            expect(user_repository.find).not.toHaveBeenCalled();
+            expect(notifications_service.removeMentionNotification).not.toHaveBeenCalled();
         });
 
         it('should handle missing tweet_id', async () => {
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1'],
                 mentioned_by: 'user-author',
                 action: 'remove',
@@ -394,49 +394,49 @@ describe('MentionProcessor', () => {
 
             await processor.handleSendMentionNotification(job);
 
-            expect(userRepository.find).not.toHaveBeenCalled();
-            expect(notificationsService.removeMentionNotification).not.toHaveBeenCalled();
+            expect(user_repository.find).not.toHaveBeenCalled();
+            expect(notifications_service.removeMentionNotification).not.toHaveBeenCalled();
         });
     });
 
     describe('error handling', () => {
         it('should log and throw error on database failure', async () => {
-            const mockTweet = {
+            const mock_tweet = {
                 tweet_id: 'tweet-123',
                 text: 'Test tweet @user1',
                 user_id: 'user-author',
             };
 
-            const loggerSpy = jest.spyOn(processor['logger'], 'error');
+            const logger_spy = jest.spyOn(processor['logger'], 'error');
             const error = new Error('Database connection failed');
-            userRepository.find.mockRejectedValue(error);
+            user_repository.find.mockRejectedValue(error);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
-                tweet: mockTweet as unknown as Tweet,
+                tweet: mock_tweet as unknown as Tweet,
                 tweet_type: 'tweet',
                 action: 'add',
             });
 
             await expect(processor.handleSendMentionNotification(job)).rejects.toThrow(error);
-            expect(loggerSpy).toHaveBeenCalledWith(
+            expect(logger_spy).toHaveBeenCalledWith(
                 expect.stringContaining('Error processing mention job'),
                 error
             );
         });
 
         it('should handle error during notification save', async () => {
-            const mockTweet = {
+            const mock_tweet = {
                 tweet_id: 'tweet-123',
                 text: 'Test tweet @user1',
                 user_id: 'user-author',
             };
 
-            const mockUsers = [{ id: 'user-1', username: 'user1' }];
+            const mock_users = [{ id: 'user-1', username: 'user1' }];
 
-            const mockMentioner = {
+            const mock_mentioner = {
                 id: 'user-author',
                 username: 'author',
                 email: 'author@test.com',
@@ -444,17 +444,17 @@ describe('MentionProcessor', () => {
                 avatar_url: 'avatar.jpg',
             };
 
-            userRepository.find.mockResolvedValue(mockUsers as User[]);
-            userRepository.findOne.mockResolvedValue(mockMentioner as User);
+            user_repository.find.mockResolvedValue(mock_users as User[]);
+            user_repository.findOne.mockResolvedValue(mock_mentioner as User);
 
             const error = new Error('Save failed');
-            notificationsService.saveNotificationAndSend.mockRejectedValue(error);
+            notifications_service.saveNotificationAndSend.mockRejectedValue(error);
 
-            const job = mockJob({
+            const job = mock_job({
                 mentioned_usernames: ['user1'],
                 mentioned_by: 'user-author',
                 tweet_id: 'tweet-123',
-                tweet: mockTweet as unknown as Tweet,
+                tweet: mock_tweet as unknown as Tweet,
                 tweet_type: 'tweet',
                 action: 'add',
             });

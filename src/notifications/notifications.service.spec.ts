@@ -8,6 +8,8 @@ import { NotificationsGateway } from './notifications.gateway';
 import { User } from '../user/entities/user.entity';
 import { Tweet } from '../tweets/entities/tweet.entity';
 import { ClearJobService } from '../background-jobs/notifications/clear/clear.service';
+import { FCMService } from '../fcm/fcm.service';
+import { MessagesGateway } from '../messages/messages.gateway';
 
 describe('NotificationsService', () => {
     let service: NotificationsService;
@@ -64,7 +66,21 @@ describe('NotificationsService', () => {
                 {
                     provide: ClearJobService,
                     useValue: {
-                        addClearJob: jest.fn(),
+                        queueClearNotification: jest.fn(),
+                    },
+                },
+                {
+                    provide: FCMService,
+                    useValue: {
+                        sendNotificationToUserDevice: jest.fn(),
+                        addUserDeviceToken: jest.fn(),
+                        removeUserDeviceToken: jest.fn(),
+                    },
+                },
+                {
+                    provide: MessagesGateway,
+                    useValue: {
+                        sendMessageNotificationToUser: jest.fn(),
                     },
                 },
             ],

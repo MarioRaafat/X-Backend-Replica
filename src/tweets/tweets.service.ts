@@ -117,6 +117,7 @@ export class TweetsService {
      * Handles image upload processing
      * @param file - The uploaded image file (in memory, not saved to disk)
      * @param user_id - The authenticated user's ID
+     * @param user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
     async uploadImage(file: Express.Multer.File, user_id: string) {
@@ -164,6 +165,7 @@ export class TweetsService {
     /**
      * Handles video upload processing
      * @param file - The uploaded video file (in memory, not saved to disk)
+     * @param user_id - The authenticated user's ID
      * @returns Upload response with file metadata
      */
     async uploadVideo(file: Express.Multer.File): Promise<UploadMediaResponseDTO> {
@@ -1058,9 +1060,12 @@ export class TweetsService {
         cursor?: string,
         limit: number = 20
     ) {
-        const tweet = await this.tweet_repository.findOne({
-            where: { tweet_id },
-        });
+        const tweet = await this.tweet_repository
+            .createQueryBuilder('tweet')
+            .leftJoinAndSelect('tweet.user', 'user')
+            .where('tweet.tweet_id = :tweet_id', { tweet_id })
+            .select(tweet_fields_slect)
+            .getOne();
 
         if (!tweet) throw new NotFoundException('Tweet not found');
 

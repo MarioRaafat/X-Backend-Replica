@@ -4,13 +4,15 @@ import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
 import { Message, MessageType } from './entities/message.entity';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { PaginationService } from '../shared/services/pagination/pagination.service';
+import { EncryptionService } from '../shared/services/encryption/encryption.service';
 import { Chat } from 'src/chat/entities/chat.entity';
 
 @Injectable()
 export class MessageRepository extends Repository<Message> {
     constructor(
         private data_source: DataSource,
-        private pagination_service: PaginationService
+        private pagination_service: PaginationService,
+        private encryption_service: EncryptionService
     ) {
         super(Message, data_source.createEntityManager());
     }
@@ -22,10 +24,13 @@ export class MessageRepository extends Repository<Message> {
         is_read: boolean = false
     ): Promise<Message> {
         try {
+            const encrypted_content = this.encryption_service.encrypt(dto.content);
+
             const message = this.create({
                 sender_id,
                 chat_id,
-                content: dto.content,
+                content: encrypted_content,
+                image_url: dto.image_url || null,
                 message_type: dto.message_type || MessageType.TEXT,
                 reply_to_message_id: dto.reply_to_message_id || null,
                 is_read: is_read,
@@ -48,6 +53,10 @@ export class MessageRepository extends Repository<Message> {
                 throw new InternalServerErrorException('Failed to retrieve created message');
             }
 
+            message_with_relations.content = this.encryption_service.decrypt(
+                message_with_relations.content
+            );
+
             return message_with_relations;
         } catch (error) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_SAVE_IN_DB);
@@ -62,9 +71,12 @@ export class MessageRepository extends Repository<Message> {
                 .leftJoinAndSelect('message.sender', 'sender')
                 .leftJoinAndSelect('message.reply_to', 'reply_to')
                 .leftJoinAndSelect('reply_to.sender', 'reply_sender')
+                .leftJoinAndSelect('message.reactions', 'reactions')
+                .leftJoinAndSelect('reactions.user', 'reaction_user')
                 .where('message.chat_id = :chat_id', { chat_id })
                 // .andWhere('message.is_deleted = :is_deleted', { is_deleted: false }) // commented until see if we want to hide deleted messages or show "This message was deleted"
                 .orderBy('message.created_at', 'DESC')
+                .addOrderBy('reactions.created_at', 'ASC')
                 .take(limit + 1); // Fetch one extra to check if there's a next page
 
             // Apply cursor-based pagination using PaginationService
@@ -78,7 +90,12 @@ export class MessageRepository extends Repository<Message> {
 
             const messages = await query_builder.getMany();
 
-            return messages;
+            return messages.map((msg) => ({
+                ...msg,
+                content: msg.is_deleted
+                    ? msg.content
+                    : this.encryption_service.decrypt(msg.content),
+            }));
         } catch (error) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_FETCH_FROM_DB);
         }
@@ -86,10 +103,18 @@ export class MessageRepository extends Repository<Message> {
 
     async findMessageById(message_id: string): Promise<Message | null> {
         try {
-            return await this.findOne({
+            const message = await this.findOne({
                 where: { id: message_id, is_deleted: false },
                 relations: ['sender', 'chat', 'reply_to', 'reply_to.sender'],
             });
+
+            if (!message) return null;
+
+            // Decrypt content
+            return {
+                ...message,
+                content: this.encryption_service.decrypt(message.content),
+            };
         } catch (error) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_FETCH_FROM_DB);
         }
@@ -97,10 +122,12 @@ export class MessageRepository extends Repository<Message> {
 
     async updateMessageContent(message_id: string, content: string): Promise<Message> {
         try {
+            const encrypted_content = this.encryption_service.encrypt(content);
+
             await this.update(
                 { id: message_id },
                 {
-                    content,
+                    content: encrypted_content,
                     is_edited: true,
                 }
             );
@@ -114,7 +141,10 @@ export class MessageRepository extends Repository<Message> {
                 throw new InternalServerErrorException('Failed to retrieve updated message');
             }
 
-            return updated_message;
+            return {
+                ...updated_message,
+                content: this.encryption_service.decrypt(updated_message.content),
+            };
         } catch (error) {
             throw new InternalServerErrorException(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB);
         }

@@ -13,15 +13,15 @@ describe('ExploreJobsService', () => {
     let redis_service: RedisService;
     let explore_queue: any;
 
-    const mockTweetRepository = {
+    const mock_tweet_repository = {
         createQueryBuilder: jest.fn(),
     };
 
-    const mockRedisService = {
+    const mock_redis_service = {
         pipeline: jest.fn(),
     };
 
-    const mockQueue = {
+    const mock_queue = {
         add: jest.fn(),
         getWaiting: jest.fn(),
         getActive: jest.fn(),
@@ -33,9 +33,9 @@ describe('ExploreJobsService', () => {
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 ExploreJobsService,
-                { provide: getRepositoryToken(Tweet), useValue: mockTweetRepository },
-                { provide: RedisService, useValue: mockRedisService },
-                { provide: getQueueToken(QUEUE_NAMES.EXPLORE), useValue: mockQueue },
+                { provide: getRepositoryToken(Tweet), useValue: mock_tweet_repository },
+                { provide: RedisService, useValue: mock_redis_service },
+                { provide: getQueueToken(QUEUE_NAMES.EXPLORE), useValue: mock_queue },
             ],
         }).compile();
 
@@ -55,8 +55,8 @@ describe('ExploreJobsService', () => {
 
     describe('triggerScoreRecalculation', () => {
         it('should trigger score recalculation successfully', async () => {
-            const mockJob = { id: '123' };
-            mockQueue.add.mockResolvedValue(mockJob);
+            const mock_job = { id: '123' };
+            mock_queue.add.mockResolvedValue(mock_job);
 
             const job_data = {
                 since_hours: 24,
@@ -70,11 +70,11 @@ describe('ExploreJobsService', () => {
             expect(result.success).toBe(true);
             expect(result.job_id).toBe('123');
             expect(result.params).toEqual(job_data);
-            expect(mockQueue.add).toHaveBeenCalled();
+            expect(mock_queue.add).toHaveBeenCalled();
         });
 
         it('should handle queue errors gracefully', async () => {
-            mockQueue.add.mockRejectedValue(new Error('Queue unavailable'));
+            mock_queue.add.mockRejectedValue(new Error('Queue unavailable'));
 
             const job_data = {
                 since_hours: 24,
@@ -92,10 +92,10 @@ describe('ExploreJobsService', () => {
 
     describe('getQueueStats', () => {
         it('should return queue statistics', async () => {
-            mockQueue.getWaiting.mockResolvedValue([1, 2]);
-            mockQueue.getActive.mockResolvedValue([1]);
-            mockQueue.getCompleted.mockResolvedValue([1, 2, 3]);
-            mockQueue.getFailed.mockResolvedValue([]);
+            mock_queue.getWaiting.mockResolvedValue([1, 2]);
+            mock_queue.getActive.mockResolvedValue([1]);
+            mock_queue.getCompleted.mockResolvedValue([1, 2, 3]);
+            mock_queue.getFailed.mockResolvedValue([]);
 
             const stats = await service.getQueueStats();
 
@@ -179,7 +179,7 @@ describe('ExploreJobsService', () => {
 
     describe('countTweetsForRecalculation', () => {
         it('should count tweets correctly', async () => {
-            const mockQueryBuilder = {
+            const mock_query_builder = {
                 leftJoinAndMapMany: jest.fn().mockReturnThis(),
                 select: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
@@ -187,16 +187,16 @@ describe('ExploreJobsService', () => {
                 getCount: jest.fn().mockResolvedValue(42),
             };
 
-            mockTweetRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
 
             const count = await service.countTweetsForRecalculation(24, 168, false);
 
             expect(count).toBe(42);
-            expect(mockQueryBuilder.getCount).toHaveBeenCalled();
+            expect(mock_query_builder.getCount).toHaveBeenCalled();
         });
 
         it('should handle force_all parameter', async () => {
-            const mockQueryBuilder = {
+            const mock_query_builder = {
                 leftJoinAndMapMany: jest.fn().mockReturnThis(),
                 select: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
@@ -204,7 +204,7 @@ describe('ExploreJobsService', () => {
                 getCount: jest.fn().mockResolvedValue(100),
             };
 
-            mockTweetRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
 
             const count = await service.countTweetsForRecalculation(24, 168, true);
 
@@ -225,7 +225,7 @@ describe('ExploreJobsService', () => {
                 },
             ];
 
-            const mockQueryBuilder = {
+            const mock_query_builder = {
                 leftJoinAndMapMany: jest.fn().mockReturnThis(),
                 select: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
@@ -236,17 +236,17 @@ describe('ExploreJobsService', () => {
                 getMany: jest.fn().mockResolvedValue(mock_tweets),
             };
 
-            mockTweetRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
 
             const tweets = await service.fetchTweetsForRecalculation(24, 168, false, 0, 100);
 
             expect(tweets).toEqual(mock_tweets);
-            expect(mockQueryBuilder.skip).toHaveBeenCalledWith(0);
-            expect(mockQueryBuilder.take).toHaveBeenCalledWith(100);
+            expect(mock_query_builder.skip).toHaveBeenCalledWith(0);
+            expect(mock_query_builder.take).toHaveBeenCalledWith(100);
         });
 
         it('should handle empty results', async () => {
-            const mockQueryBuilder = {
+            const mock_query_builder = {
                 leftJoinAndMapMany: jest.fn().mockReturnThis(),
                 select: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
@@ -257,7 +257,7 @@ describe('ExploreJobsService', () => {
                 getMany: jest.fn().mockResolvedValue([]),
             };
 
-            mockTweetRepository.createQueryBuilder.mockReturnValue(mockQueryBuilder);
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
 
             const tweets = await service.fetchTweetsForRecalculation(24, 168, false, 500, 100);
 
@@ -278,20 +278,20 @@ describe('ExploreJobsService', () => {
                 },
             ];
 
-            const mockPipeline = {
+            const mock_pipeline = {
                 zadd: jest.fn().mockReturnThis(),
                 exec: jest.fn().mockResolvedValue([]),
                 zremrangebyrank: jest.fn().mockReturnThis(),
                 expire: jest.fn().mockReturnThis(),
             };
 
-            mockRedisService.pipeline.mockReturnValue(mockPipeline);
+            mock_redis_service.pipeline.mockReturnValue(mock_pipeline);
 
             const categories_updated = await service.updateRedisCategoryScores(tweets);
 
             expect(categories_updated).toBe(2);
-            expect(mockPipeline.zadd).toHaveBeenCalledTimes(2);
-            expect(mockPipeline.exec).toHaveBeenCalled();
+            expect(mock_pipeline.zadd).toHaveBeenCalledTimes(2);
+            expect(mock_pipeline.exec).toHaveBeenCalled();
         });
 
         it('should skip tweets with score below threshold', async () => {
@@ -303,18 +303,18 @@ describe('ExploreJobsService', () => {
                 },
             ];
 
-            const mockPipeline = {
+            const mock_pipeline = {
                 zadd: jest.fn().mockReturnThis(),
                 exec: jest.fn().mockResolvedValue([]),
                 zremrangebyrank: jest.fn().mockReturnThis(),
                 expire: jest.fn().mockReturnThis(),
             };
 
-            mockRedisService.pipeline.mockReturnValue(mockPipeline);
+            mock_redis_service.pipeline.mockReturnValue(mock_pipeline);
 
             await service.updateRedisCategoryScores(tweets);
 
-            expect(mockPipeline.zadd).not.toHaveBeenCalled();
+            expect(mock_pipeline.zadd).not.toHaveBeenCalled();
         });
 
         it('should return 0 when no tweets provided', async () => {
@@ -337,14 +337,14 @@ describe('ExploreJobsService', () => {
                 },
             ];
 
-            const mockPipeline = {
+            const mock_pipeline = {
                 zadd: jest.fn().mockReturnThis(),
                 exec: jest.fn().mockResolvedValue([]),
                 zremrangebyrank: jest.fn().mockReturnThis(),
                 expire: jest.fn().mockReturnThis(),
             };
 
-            mockRedisService.pipeline.mockReturnValue(mockPipeline);
+            mock_redis_service.pipeline.mockReturnValue(mock_pipeline);
 
             const categories_updated = await service.updateRedisCategoryScores(tweets);
 

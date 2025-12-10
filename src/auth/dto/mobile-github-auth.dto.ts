@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsString, MaxLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, MaxLength } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { LARGE_MAX_LENGTH, STRING_MAX_LENGTH } from 'src/constants/variables';
 
@@ -28,5 +28,6 @@ export class MobileGitHubAuthDto {
     })
     @IsString()
     @MaxLength(LARGE_MAX_LENGTH)
-    code_verifier: string;
+    @IsOptional()
+    code_verifier?: string;
 }

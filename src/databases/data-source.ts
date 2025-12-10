@@ -21,6 +21,7 @@ import { UserInterests } from '../user/entities/user-interests.entity';
 import { TweetCategory } from '../tweets/entities/tweet-category.entity';
 import { Chat } from '../chat/entities/chat.entity';
 import { Message } from '../messages/entities/message.entity';
+import { MessageReaction } from '../messages/entities/message-reaction.entity';
 import { readFileSync } from 'fs';
 
 config({ path: resolve(__dirname, '../../config/.env') });
@@ -73,6 +74,7 @@ const base_config: any = {
         TweetCategory,
         Chat,
         Message,
+        MessageReaction,
         TweetSummary,
     ],
 

@@ -29,7 +29,8 @@
         "prepare": "husky",
         "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts",
         "es:seed": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-seed.ts",
-        "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts"
+        "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts",
+        "generate-encryption-key": "node -r ts-node/register src/shared/services/encryption/generate-encryption-key.ts"
     },
     "lint-staged": {
         "*.ts": [
@@ -56,7 +57,6 @@
         "@nestjs/platform-express": "^11.0.1",
         "@nestjs/schedule": "^6.0.1",
         "@nestjs/platform-socket.io": "^11.1.9",
-        "@nestjs/schedule": "^6.0.1",
         "@nestjs/swagger": "^11.2.0",
         "@nestjs/typeorm": "^11.0.0",
         "@nestjs/websockets": "^11.1.9",
@@ -70,6 +70,7 @@
         "class-transformer": "^0.5.1",
         "class-validator": "^0.14.2",
         "cookie-parser": "^1.4.7",
+        "firebase-admin": "^13.6.0",
         "fluent-ffmpeg": "^2.1.3",
         "google-auth-library": "^10.4.1",
         "groq-sdk": "^0.37.0",
@@ -165,6 +166,7 @@
             "!**/seeds/**",
             "!main.ts",
             "!**/*.spec.ts",
+            "!**/*-key.ts",
             "!**/node_modules/**"
         ],
         "coverageDirectory": "../coverage",

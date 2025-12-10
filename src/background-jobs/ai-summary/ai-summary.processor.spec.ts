@@ -7,7 +7,7 @@ import type { Job } from 'bull';
 describe('AiSummaryProcessor', () => {
     let processor: AiSummaryProcessor;
     let tweet_summary_repository: any;
-    let originalEnv: NodeJS.ProcessEnv;
+    let original_env: NodeJS.ProcessEnv;
 
     const mock_tweet_summary_repository = {
         findOne: jest.fn(),
@@ -24,12 +24,12 @@ describe('AiSummaryProcessor', () => {
 
     beforeAll(() => {
         // Save original environment
-        originalEnv = { ...process.env };
+        original_env = { ...process.env };
     });
 
     afterAll(() => {
         // Restore original environment
-        process.env = originalEnv;
+        process.env = original_env;
     });
 
     beforeEach(async () => {
@@ -86,7 +86,7 @@ describe('AiSummaryProcessor', () => {
         });
 
         it('should skip generation if Groq is disabled', async () => {
-            const originalEnableGroq = process.env.ENABLE_GROQ;
+            const original_enable_groq = process.env.ENABLE_GROQ;
             delete process.env.ENABLE_GROQ;
             mock_tweet_summary_repository.findOne.mockResolvedValue(null);
 
@@ -99,11 +99,11 @@ describe('AiSummaryProcessor', () => {
             expect(mock_tweet_summary_repository.save).not.toHaveBeenCalled();
 
             // Restore
-            if (originalEnableGroq) process.env.ENABLE_GROQ = originalEnableGroq;
+            if (original_enable_groq) process.env.ENABLE_GROQ = original_enable_groq;
         });
 
         it('should skip generation if MODEL_NAME is not set', async () => {
-            const originalModelName = process.env.MODEL_NAME;
+            const original_model_name = process.env.MODEL_NAME;
             delete process.env.MODEL_NAME;
             mock_tweet_summary_repository.findOne.mockResolvedValue(null);
 
@@ -116,7 +116,7 @@ describe('AiSummaryProcessor', () => {
             expect(mock_tweet_summary_repository.save).not.toHaveBeenCalled();
 
             // Restore
-            if (originalModelName) process.env.MODEL_NAME = originalModelName;
+            if (original_model_name) process.env.MODEL_NAME = original_model_name;
         });
 
         it('should handle database errors when finding existing summary', async () => {

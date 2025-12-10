@@ -5,11 +5,13 @@ import {
     Index,
     JoinColumn,
     ManyToOne,
+    OneToMany,
     PrimaryGeneratedColumn,
     UpdateDateColumn,
 } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 import { Chat } from '../../chat/entities/chat.entity';
+import { MessageReaction } from './message-reaction.entity';
 
 export enum MessageType {
     TEXT = 'text',
@@ -39,12 +41,21 @@ export class Message {
     @Column()
     sender_id: string;
 
-    @ManyToOne('Chat', 'messages')
+    @ManyToOne('Chat', 'messages', { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'chat_id' })
     chat: Chat;
 
     @Column()
     chat_id: string;
+
+    @OneToMany(() => MessageReaction, (reaction) => reaction.message, {
+        cascade: true,
+        onDelete: 'CASCADE',
+    })
+    reactions: MessageReaction[];
+
+    @Column({ type: 'text', nullable: true })
+    image_url: string | null;
 
     @ManyToOne(() => Message, { nullable: true })
     @JoinColumn({ name: 'reply_to_message_id' })

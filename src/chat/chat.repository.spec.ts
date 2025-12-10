@@ -196,6 +196,7 @@ describe('ChatRepository', () => {
             const mock_query_builder = {
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
                 addOrderBy: jest.fn().mockReturnThis(),
                 take: jest.fn().mockReturnThis(),
@@ -234,6 +235,7 @@ describe('ChatRepository', () => {
             const mock_query_builder = {
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
                 addOrderBy: jest.fn().mockReturnThis(),
                 take: jest.fn().mockReturnThis(),

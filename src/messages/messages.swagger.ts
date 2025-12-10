@@ -111,6 +111,24 @@ Get a paginated list of messages from a specific chat, ordered by creation time.
                                     is_read: false,
                                     created_at: '2025-10-16T10:45:00.000Z',
                                     updated_at: '2025-10-16T10:45:00.000Z',
+                                    sender: {
+                                        id: 'user_456def-789abc-012ghi',
+                                        username: 'mariooo',
+                                        name: 'Mario Raafat',
+                                        avatar_url: 'https://wqjblkqbw.jpg',
+                                    },
+                                    reactions: [
+                                        {
+                                            emoji: '❤️',
+                                            count: 2,
+                                            reacted_by_me: true,
+                                        },
+                                        {
+                                            emoji: '😂',
+                                            count: 1,
+                                            reacted_by_me: false,
+                                        },
+                                    ],
                                 },
                                 {
                                     id: 'msg_456abc-789def-012ghi',
@@ -120,6 +138,13 @@ Get a paginated list of messages from a specific chat, ordered by creation time.
                                     is_read: true,
                                     created_at: '2025-10-16T10:46:00.000Z',
                                     updated_at: '2025-10-16T10:46:00.000Z',
+                                    sender: {
+                                        id: 'user_789abc-012def-345ghi',
+                                        username: 'john_doe',
+                                        name: 'John Doe',
+                                        avatar_url: 'https://example.com/john.jpg',
+                                    },
+                                    reactions: [],
                                 },
                             ],
                         },
@@ -624,10 +649,134 @@ Retrieve paginated messages from a chat using cursor-based pagination.
 
 ---
 
+### 9. **add_reaction**
+Add an emoji reaction to a message. If user already has a reaction on this message, it will be replaced.
+
+**Emit:**
+\`\`\`json
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "message_id": "msg_456abc-789def-012ghi",
+  "emoji": "😀"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+  "event": "reaction_added",
+  "data": {
+    "id": "reaction_123abc",
+    "message_id": "msg_456abc-789def-012ghi",
+    "user_id": "user_123abc",
+    "emoji": "😀",
+    "created_at": "2025-11-29T10:45:00.000Z"
+  }
+}
+\`\`\`
+
+**Recipient Receives:**
+\`\`\`json
+Event: "reaction_added"
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "message_id": "msg_456abc-789def-012ghi",
+  "user_id": "user_123abc",
+  "emoji": "😀",
+  "created_at": "2025-11-29T10:45:00.000Z"
+}
+\`\`\`
+
+**Important:**
+- Each user can only have ONE emoji per message
+- If user adds a new emoji to the same message, the old one is replaced
+- Changes are broadcasted to all chat participants in real-time
+
+---
+
+### 10. **remove_reaction**
+Remove an emoji reaction from a message.
+
+**Emit:**
+\`\`\`json
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "message_id": "msg_456abc-789def-012ghi",
+  "emoji": "😀"
+}
+\`\`\`
+
+**Response:**
+\`\`\`json
+{
+  "event": "reaction_removed",
+  "data": {
+    "message": "Reaction removed successfully"
+  }
+}
+\`\`\`
+
+**Recipient Receives:**
+\`\`\`json
+Event: "reaction_removed"
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "message_id": "msg_456abc-789def-012ghi",
+  "user_id": "user_123abc",
+  "emoji": "😀"
+}
+\`\`\`
+
+---
+
 ## 📬 Server Events (Server → Client)
 
 ### **unread_chats_summary**
 Sent automatically on connection if user has unread messages.
+
+**Data Structure:**
+\`\`\`json
+{
+  "chats": [
+    {
+      "chat_id": "chat_123abc-def456-789ghi",
+      "unread_count": 5,
+      "last_message": {
+        "id": "msg_789def-012abc-345ghi",
+        "content": "Hey, are you there?",
+        "created_at": "2025-11-29T10:45:00.000Z"
+      }
+    }
+  ],
+  "message": "You have unread messages in these chats"
+}
+\`\`\`
+
+### **first_message**
+Sent when a user first joins a chat to provide initial message context.
+
+**Data Structure:**
+\`\`\`json
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "message": {
+    "id": "msg_789def-012abc-345ghi",
+    "content": "Hello! Welcome to the chat",
+    "message_type": "text",
+    "sender_id": "user_456def-789abc-012ghi",
+    "is_read": false,
+    "is_edited": false,
+    "created_at": "2025-11-29T10:45:00.000Z",
+    "updated_at": "2025-11-29T10:45:00.000Z",
+    "sender": {
+      "id": "user_456def-789abc-012ghi",
+      "username": "john_doe",
+      "name": "John Doe",
+      "avatar_url": "https://example.com/john.jpg"
+    }
+  }
+}
+\`\`\`
 
 ### **new_message**
 Sent when someone sends a message in a chat you're part of.
@@ -655,6 +804,33 @@ Confirmation that your message was sent successfully.
 
 ### **messages_retrieved**
 Response containing paginated messages from a chat.
+
+### **reaction_added**
+Sent when a user adds a reaction to a message in your chat.
+
+**Data Structure:**
+\`\`\`json
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "message_id": "msg_456abc-789def-012ghi",
+  "user_id": "user_123abc",
+  "emoji": "😀",
+  "created_at": "2025-11-29T10:45:00.000Z"
+}
+\`\`\`
+
+### **reaction_removed**
+Sent when a user removes a reaction from a message in your chat.
+
+**Data Structure:**
+\`\`\`json
+{
+  "chat_id": "chat_123abc-def456-789ghi",
+  "message_id": "msg_456abc-789def-012ghi",
+  "user_id": "user_123abc",
+  "emoji": "😀"
+}
+\`\`\`
 
 ### **error**
 Sent when an error occurs during any operation.
@@ -687,9 +863,12 @@ Sent when an error occurs during any operation.
                             'typing_start',
                             'typing_stop',
                             'get_messages',
+                            'add_reaction',
+                            'remove_reaction',
                         ],
                         server_to_client: [
                             'unread_chats_summary',
+                            'first_message',
                             'new_message',
                             'message_updated',
                             'message_deleted',
@@ -699,9 +878,156 @@ Sent when an error occurs during any operation.
                             'left_chat',
                             'message_sent',
                             'messages_retrieved',
+                            'reaction_added',
+                            'reaction_removed',
                             'error',
                         ],
                     },
+                },
+            },
+        },
+    },
+};
+
+export const upload_message_image_swagger = {
+    operation: {
+        summary: 'Upload message image',
+        description: `
+**Upload an image to be attached to a message**
+
+Upload an image file that can be attached to a message. The image will be stored in Azure Blob Storage and you'll receive a URL that can be passed to the send message endpoint.
+
+**Features:**
+- Supports JPEG, PNG, WebP, and GIF formats
+- Maximum file size: 5MB
+- Images are automatically saved with unique filenames
+- Returns a direct URL to the uploaded image
+
+**File Requirements:**
+- Format: JPEG, PNG, WebP, GIF
+- Max Size: 5MB
+- The file must be provided as form-data with field name 'file'
+
+**Usage Flow:**
+1. Upload image using this endpoint
+2. Receive image_url from response
+3. Pass image_url in the send message DTO when sending message
+4. Message will be sent with the image attached
+        `,
+    },
+
+    body: {
+        description: 'Message image file',
+        schema: {
+            type: 'object',
+            properties: {
+                file: {
+                    type: 'string',
+                    format: 'binary',
+                    description: 'Message image file (JPEG, PNG, etc.)',
+                },
+            },
+            required: ['file'],
+        },
+    },
+
+    responses: {
+        success: {
+            description: 'Image uploaded successfully',
+            schema: {
+                example: {
+                    data: {
+                        image_url:
+                            'https://yapperdev.blob.core.windows.net/message-images/user-123-1234567890-image.jpg',
+                    },
+                    count: 0,
+                    message: 'Image uploaded successfully',
+                },
+            },
+        },
+    },
+};
+
+export const get_message_reactions_swagger = {
+    operation: {
+        summary: 'Get all reactions for a message',
+        description: `
+**Retrieve all emoji reactions for a message**
+
+Get a list of all emoji reactions on a specific message, grouped by emoji with reaction counts and user information.
+
+**Features:**
+- Reactions grouped by emoji
+- Shows count of users who reacted with each emoji
+- Lists users who reacted with each emoji
+- Indicates if current user reacted with each emoji
+- Includes user profile information (username, name, avatar)
+
+**Response Structure:**
+- \`emoji\`: The emoji character
+- \`count\`: Number of users who reacted with this emoji
+- \`users\`: Array of users who reacted with this emoji (includes id, username, name, avatar_url)
+
+**Use case:** Display detailed reaction information and user lists when viewing message reactions.
+        `,
+    },
+
+    params: {
+        chat_id: chat_id_param,
+        message_id: message_id_param,
+    },
+
+    responses: {
+        success: {
+            description: 'Reactions retrieved successfully',
+            schema: {
+                example: {
+                    data: [
+                        {
+                            emoji: '😀',
+                            count: 3,
+                            users: [
+                                {
+                                    id: 'user_123abc-def456-789ghi',
+                                    username: 'john_doe',
+                                    name: 'John Doe',
+                                    avatar_url: 'https://example.com/john.jpg',
+                                },
+                                {
+                                    id: 'user_456def-789abc-012ghi',
+                                    username: 'jane_smith',
+                                    name: 'Jane Smith',
+                                    avatar_url: 'https://example.com/jane.jpg',
+                                },
+                                {
+                                    id: 'user_789ghi-012def-345abc',
+                                    username: 'bob_johnson',
+                                    name: 'Bob Johnson',
+                                    avatar_url: 'https://example.com/bob.jpg',
+                                },
+                            ],
+                        },
+                        {
+                            emoji: '❤️',
+                            count: 2,
+                            users: [
+                                {
+                                    id: 'user_456def-789abc-012ghi',
+                                    username: 'jane_smith',
+                                    name: 'Jane Smith',
+                                    avatar_url: 'https://example.com/jane.jpg',
+                                },
+                                {
+                                    id: 'user_789ghi-012def-345abc',
+                                    username: 'bob_johnson',
+                                    name: 'Bob Johnson',
+                                    avatar_url: 'https://example.com/bob.jpg',
+                                },
+                            ],
+                        },
+                    ],
+                    count: 2,
+                    message: SUCCESS_MESSAGES.MESSAGE_REACTIONS_RETRIEVED,
                 },
             },
         },

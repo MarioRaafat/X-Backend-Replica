@@ -6,6 +6,7 @@ import { Message, MessageType } from './entities/message.entity';
 import { Chat } from '../chat/entities/chat.entity';
 import { InternalServerErrorException } from '@nestjs/common';
 import { ERROR_MESSAGES } from '../constants/swagger-messages';
+import { EncryptionService } from '../shared/services/encryption/encryption.service';
 
 describe('MessageRepository', () => {
     let repository: MessageRepository;
@@ -58,6 +59,13 @@ describe('MessageRepository', () => {
                 MessageRepository,
                 { provide: DataSource, useValue: data_source },
                 { provide: PaginationService, useValue: pagination_service },
+                {
+                    provide: EncryptionService,
+                    useValue: {
+                        encrypt: jest.fn((content) => `encrypted_${content}`),
+                        decrypt: jest.fn((content) => content.replace('encrypted_', '')),
+                    },
+                },
             ],
         }).compile();
 
@@ -90,10 +98,11 @@ describe('MessageRepository', () => {
             expect(repository.create).toHaveBeenCalledWith({
                 sender_id: mock_sender_id,
                 chat_id: mock_chat_id,
-                content: dto.content,
+                content: `encrypted_${dto.content}`,
                 message_type: dto.message_type,
                 reply_to_message_id: null,
                 is_read: false,
+                image_url: null,
             });
             expect(repository.save).toHaveBeenCalled();
             expect(chat_repository.update).toHaveBeenCalledWith(
@@ -115,10 +124,11 @@ describe('MessageRepository', () => {
             expect(repository.create).toHaveBeenCalledWith({
                 sender_id: mock_sender_id,
                 chat_id: mock_chat_id,
-                content: dto.content,
+                content: `encrypted_${dto.content}`,
                 message_type: dto.message_type,
-                reply_to_message_id: dto.reply_to_message_id || null,
+                reply_to_message_id: 'original-message-id',
                 is_read: false,
+                image_url: null,
             });
         });
 
@@ -160,6 +170,7 @@ describe('MessageRepository', () => {
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 take: jest.fn().mockReturnThis(),
                 andWhere: jest.fn().mockReturnThis(),
                 getMany: jest.fn().mockResolvedValue(messages),
@@ -185,6 +196,7 @@ describe('MessageRepository', () => {
                 leftJoinAndSelect: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
                 take: jest.fn().mockReturnThis(),
                 andWhere: jest.fn().mockReturnThis(),
                 getMany: jest.fn().mockResolvedValue([mock_message]),
@@ -194,9 +206,10 @@ describe('MessageRepository', () => {
             jest.spyOn(repository, 'findOne').mockResolvedValueOnce(before_message as any);
             pagination_service.applyCursorPagination.mockReturnValue(mock_query_builder as any);
 
-            await repository.findMessagesByChatId(mock_chat_id, query);
+            const result = await repository.findMessagesByChatId(mock_chat_id, query);
 
             expect(pagination_service.applyCursorPagination).toHaveBeenCalled();
+            expect(result).toEqual([mock_message]);
         });
 
         it('should throw InternalServerErrorException on query error', async () => {
@@ -252,7 +265,7 @@ describe('MessageRepository', () => {
             expect(repository.update).toHaveBeenCalledWith(
                 { id: mock_message_id },
                 {
-                    content: new_content,
+                    content: `encrypted_${new_content}`,
                     is_edited: true,
                 }
             );

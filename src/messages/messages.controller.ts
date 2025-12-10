@@ -1,7 +1,20 @@
-import { Body, Controller, Delete, Get, Param, Post, Put, Query, UseGuards } from '@nestjs/common';
+import {
+    Body,
+    Controller,
+    Delete,
+    Get,
+    Param,
+    Post,
+    Put,
+    Query,
+    UploadedFile,
+    UseGuards,
+    UseInterceptors,
+} from '@nestjs/common';
 import {
     ApiBearerAuth,
     ApiBody,
+    ApiConsumes,
     ApiCreatedResponse,
     ApiOkResponse,
     ApiOperation,
@@ -14,20 +27,29 @@ import {
     ApiConflictErrorResponse,
     ApiForbiddenErrorResponse,
     ApiNotFoundErrorResponse,
+    ApiUnauthorizedErrorResponse,
 } from 'src/decorators/swagger-error-responses.decorator';
 import { GetUserId } from '../decorators/get-userId.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants/swagger-messages';
-import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
+import {
+    GetMessagesQueryDto,
+    SendMessageDto,
+    UpdateMessageDto,
+    UploadMessageImageDto,
+} from './dto';
 import {
     delete_message_swagger,
+    get_message_reactions_swagger,
     get_messages_swagger,
     send_message_swagger,
     update_message_swagger,
+    upload_message_image_swagger,
     websocket_docs_swagger,
 } from './messages.swagger';
 import { MessagesService } from './messages.service';
 import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
+import { FileInterceptor } from '@nestjs/platform-express';
 
 @ApiTags('Messages')
 @ApiBearerAuth('JWT-auth')
@@ -69,6 +91,22 @@ export class MessagesController {
                 ],
             },
         };
+    }
+
+    @ApiOperation(upload_message_image_swagger.operation)
+    @ApiConsumes('multipart/form-data')
+    @ApiBody(upload_message_image_swagger.body)
+    @ApiCreatedResponse(upload_message_image_swagger.responses.success)
+    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_FILE_FORMAT)
+    @ResponseMessage(SUCCESS_MESSAGES.IMAGE_UPLOADED)
+    @Post('images/upload')
+    @UseInterceptors(FileInterceptor('file'))
+    async uploadMessageImage(
+        @UploadedFile() file: Express.Multer.File,
+        @GetUserId() user_id: string
+    ) {
+        return this.messages_service.uploadMessageImage(user_id, file);
     }
 
     @ApiOperation(send_message_swagger.operation)
@@ -154,5 +192,21 @@ export class MessagesController {
         @GetUserId() user_id: string
     ) {
         return this.messages_service.deleteMessage(user_id, chat_id, message_id);
+    }
+
+    @ApiOperation(get_message_reactions_swagger.operation)
+    @ApiParam(get_message_reactions_swagger.params.chat_id)
+    @ApiParam(get_message_reactions_swagger.params.message_id)
+    @ApiOkResponse(get_message_reactions_swagger.responses.success)
+    @ApiNotFoundErrorResponse(ERROR_MESSAGES.MESSAGE_NOT_FOUND)
+    @ApiForbiddenErrorResponse(ERROR_MESSAGES.UNAUTHORIZED_ACCESS_TO_CHAT)
+    @ResponseMessage(SUCCESS_MESSAGES.MESSAGE_REACTIONS_RETRIEVED)
+    @Get('chats/:chat_id/messages/:message_id/reactions')
+    async getMessageReactions(
+        @Param('chat_id') chat_id: string,
+        @Param('message_id') message_id: string,
+        @GetUserId() user_id: string
+    ) {
+        return this.messages_service.getMessageReactions(user_id, chat_id, message_id);
     }
 }

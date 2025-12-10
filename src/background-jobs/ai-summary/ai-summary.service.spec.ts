@@ -2,11 +2,12 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AiSummaryJobService } from './ai-summary.service';
 import { getQueueToken } from '@nestjs/bull';
 import { QUEUE_NAMES } from '../constants/queue.constants';
+import { GenerateTweetSummaryDto } from './ai-summary.dto';
 
 describe('AiSummaryJobService', () => {
     let service: AiSummaryJobService;
 
-    const mockQueue = {
+    const mock_queue = {
         add: jest.fn(),
         getWaiting: jest.fn(),
         getActive: jest.fn(),
@@ -20,7 +21,7 @@ describe('AiSummaryJobService', () => {
                 AiSummaryJobService,
                 {
                     provide: getQueueToken(QUEUE_NAMES.AI_SUMMARY),
-                    useValue: mockQueue,
+                    useValue: mock_queue,
                 },
             ],
         }).compile();
@@ -34,16 +35,16 @@ describe('AiSummaryJobService', () => {
 
     describe('queueGenerateSummary', () => {
         it('should queue a generate summary job with correct parameters', async () => {
-            const dto = {
-                tweetId: 'tweet-123',
+            const dto: GenerateTweetSummaryDto = {
+                tweet_id: 'tweet-123',
                 content: 'This is a test tweet content that is long enough to generate a summary',
             };
 
-            mockQueue.add.mockResolvedValueOnce({ id: '1', data: dto });
+            mock_queue.add.mockResolvedValueOnce({ id: '1', data: dto });
 
             const result = await service.queueGenerateSummary(dto);
 
-            expect(mockQueue.add).toHaveBeenCalled();
+            expect(mock_queue.add).toHaveBeenCalled();
             expect(result).toBeDefined();
             expect(result.success).toBe(true);
             expect(result.job_id).toBe('1');
@@ -51,11 +52,11 @@ describe('AiSummaryJobService', () => {
 
         it('should handle queue errors gracefully', async () => {
             const dto = {
-                tweetId: 'tweet-456',
+                tweet_id: 'tweet-456',
                 content: 'Another test tweet content for summary generation',
             };
 
-            mockQueue.add.mockRejectedValueOnce(new Error('Queue is full'));
+            mock_queue.add.mockRejectedValueOnce(new Error('Queue is full'));
 
             const result = await service.queueGenerateSummary(dto);
 

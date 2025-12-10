@@ -24,6 +24,9 @@ export const ERROR_MESSAGES = {
     INVALID_OAUTH_SESSION_TOKEN: 'Invalid OAuth session token',
     USER_NOT_FOUND_OAUTH_COMPLETION_REQUIRED: 'User not found, OAuth completion required',
     GOOGLE_TOKEN_INVALID: 'Invalid Google access token',
+    GOOGLE_CODE_INVALID:
+        'Google authorization code is invalid or expired. Please try signing in again',
+    GOOGLE_OAUTH_FAILED: 'Failed to authenticate with Google. Please try again',
     GITHUB_TOKEN_INVALID: 'Invalid GitHub access token',
     GITHUB_CODE_INVALID:
         'GitHub authorization code is invalid or expired. Please try signing in again',
@@ -83,6 +86,7 @@ export const ERROR_MESSAGES = {
     INVALID_MESSAGE_TYPE: 'Invalid message type',
     REPLY_TO_MESSAGE_NOT_FOUND: 'Message to reply to not found',
     LAST_READ_MESSAGE_NOT_IN_CHAT: 'Last read message does not belong to this chat',
+    REACTION_NOT_FOUND: 'Reaction not found',
 
     //timeline
     INVALID_PAGINATION_PARAMETERS: 'limit must be between 1 and 100',
@@ -156,6 +160,9 @@ export const SUCCESS_MESSAGES = {
     MESSAGE_RETRIEVED: 'Message retrieved successfully',
     CHAT_RETRIEVED: 'Chat retrieved successfully',
     MESSAGE_READ_STATUS_UPDATED: 'Message read status updated successfully',
+    REACTION_ADDED: 'Reaction added successfully',
+    REACTION_REMOVED: 'Reaction removed successfully',
+    MESSAGE_REACTIONS_RETRIEVED: 'Message reactions retrieved successfully',
 
     //Timeline
     TIMELINE_RETRIEVED: 'Timeline retrieved successfully',
