@@ -47,7 +47,7 @@ export class SearchService {
 
         let query_builder = this.user_repository.createQueryBuilder('user');
 
-        query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
+        query_builder = this.attachUserSearchQuery(query_builder, prefix_query);
 
         query_builder.setParameters({
             current_user_id,
@@ -124,7 +124,7 @@ export class SearchService {
 
         let query_builder = this.user_repository.createQueryBuilder('user');
 
-        query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
+        query_builder = this.attachUserSearchQuery(query_builder, prefix_query);
 
         if (username) {
             query_builder.andWhere(`EXISTS (
@@ -468,7 +468,7 @@ export class SearchService {
 
         let query_builder = this.user_repository.createQueryBuilder('user');
 
-        query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
+        query_builder = this.attachUserSearchQuery(query_builder, prefix_query);
 
         query_builder.setParameters({
             current_user_id,
