@@ -11,13 +11,15 @@ import { Chat } from './entities/chat.entity';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { PaginationService } from '../shared/services/pagination/pagination.service';
 import { UserRepository } from '../user/user.repository';
+import { EncryptionService } from 'src/shared/services/encryption/encryption.service';
 
 @Injectable()
 export class ChatRepository extends Repository<Chat> {
     constructor(
         private data_source: DataSource,
         private pagination_service: PaginationService,
-        private user_repository: UserRepository
+        private user_repository: UserRepository,
+        private encryption_service: EncryptionService
     ) {
         super(Chat, data_source.createEntityManager());
     }
@@ -104,7 +106,7 @@ export class ChatRepository extends Repository<Chat> {
                 last_message: chat.last_message
                     ? {
                           id: chat.last_message.id,
-                          content: chat.last_message.content,
+                          content: this.encryption_service.decrypt(chat.last_message.content),
                           message_type: chat.last_message.message_type,
                           sender_id: chat.last_message.sender_id,
                           created_at: chat.last_message.created_at,
@@ -112,6 +114,8 @@ export class ChatRepository extends Repository<Chat> {
                       }
                     : null,
                 unread_count,
+                user1_id: chat.user1_id,
+                user2_id: chat.user2_id,
                 created_at: chat.created_at,
                 updated_at: chat.updated_at,
             };
@@ -198,7 +202,7 @@ export class ChatRepository extends Repository<Chat> {
                     last_message: chat.last_message
                         ? {
                               id: chat.last_message.id,
-                              content: chat.last_message.content,
+                              content: this.encryption_service.decrypt(chat.last_message.content),
                               message_type: chat.last_message.message_type,
                               sender_id: chat.last_message.sender_id,
                               created_at: chat.last_message.created_at,
