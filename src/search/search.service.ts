@@ -831,10 +831,11 @@ export class SearchService {
         const tweet_params_count = tweets.length * 2;
         const liked_param = `$${tweet_params_count + 1}`;
         const reposted_param = `$${tweet_params_count + 2}`;
-        const following_param = `$${tweet_params_count + 3}`;
-        const follower_param = `$${tweet_params_count + 4}`;
-        const blocked_param = `$${tweet_params_count + 5}`;
-        const muted_param = `$${tweet_params_count + 6}`;
+        const bookmarked_param = `$${tweet_params_count + 3}`;
+        const following_param = `$${tweet_params_count + 4}`;
+        const follower_param = `$${tweet_params_count + 5}`;
+        const blocked_param = `$${tweet_params_count + 6}`;
+        const muted_param = `$${tweet_params_count + 7}`;
 
         const query = `
         SELECT 
@@ -850,6 +851,11 @@ export class SearchService {
                 WHERE tweet_id = t.tweet_id 
                 AND user_id = ${reposted_param}::uuid
             ))::int as is_reposted,
+            (EXISTS(
+                SELECT 1 FROM tweet_bookmarks 
+                WHERE tweet_id = t.tweet_id 
+                AND user_id = ${bookmarked_param}::uuid
+            ))::int as is_bookmarked,
             (EXISTS(
                 SELECT 1 FROM user_follows 
                 WHERE followed_id = t.user_id 
@@ -882,6 +888,7 @@ export class SearchService {
             current_user_id,
             current_user_id,
             current_user_id,
+            current_user_id,
         ];
 
         interface IInteractionResult {
@@ -889,6 +896,7 @@ export class SearchService {
             user_id: string;
             is_liked: number;
             is_reposted: number;
+            is_bookmarked: number;
             is_following: number;
             is_follower: number;
         }
@@ -901,6 +909,7 @@ export class SearchService {
                 {
                     is_liked: Boolean(i.is_liked),
                     is_reposted: Boolean(i.is_reposted),
+                    is_bookmarked: Boolean(i.is_bookmarked),
                     is_following: Boolean(i.is_following),
                     is_follower: Boolean(i.is_follower),
                 },
@@ -916,6 +925,7 @@ export class SearchService {
                 ...tweet,
                 is_liked: interaction?.is_liked ?? false,
                 is_reposted: interaction?.is_reposted ?? false,
+                is_bookmarked: interaction?.is_bookmarked ?? false,
                 user: {
                     ...tweet.user,
                     is_following: interaction?.is_following ?? false,
