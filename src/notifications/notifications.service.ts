@@ -261,33 +261,25 @@ export class NotificationsService implements OnModuleInit {
                 }
 
                 // First, try to find aggregation by TWEET (multiple people liking the same tweet)
+                // This matches notifications that have the same tweet AND only one tweet (either single notification or already aggregated by tweet)
                 const matching_by_tweet_index = user_document.notifications.findIndex((n: any) => {
                     if (n.type !== NotificationType.LIKE) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
 
-                    // Check if this notification is for the same tweet AND only has one tweet (not aggregated by person)
                     const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
-                    const liked_by_array = Array.isArray(n.liked_by) ? n.liked_by : [n.liked_by];
-                    return (
-                        tweet_id_array.includes(new_tweet_id) &&
-                        tweet_id_array.length === 1 &&
-                        liked_by_array.length === 1
-                    );
+                    // Match if: same tweet, only one tweet in array (not aggregated by person)
+                    return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
                 });
 
                 // Second, try to find aggregation by PERSON (same person liking multiple tweets)
+                // This matches notifications that have the same person AND only one person (either single notification or already aggregated by person)
                 const matching_by_person_index = user_document.notifications.findIndex((n: any) => {
                     if (n.type !== NotificationType.LIKE) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
 
-                    // Check if this notification contains a like from the same person AND only has one person (not aggregated by tweet)
                     const liked_by_array = Array.isArray(n.liked_by) ? n.liked_by : [n.liked_by];
-                    const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
-                    return (
-                        liked_by_array.includes(new_liked_by) &&
-                        liked_by_array.length === 1 &&
-                        tweet_id_array.length === 1
-                    );
+                    // Match if: same person, only one person in array (not aggregated by tweet)
+                    return liked_by_array.includes(new_liked_by) && liked_by_array.length === 1;
                 });
 
                 let aggregation_type: 'tweet' | 'person' | null = null;
@@ -410,36 +402,33 @@ export class NotificationsService implements OnModuleInit {
                 }
 
                 // First, try to find aggregation by TWEET (multiple people reposting the same tweet)
+                // This matches notifications that have the same tweet AND only one tweet (either single notification or already aggregated by tweet)
                 const matching_by_tweet_index = user_document.notifications.findIndex((n: any) => {
                     if (n.type !== NotificationType.REPOST) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
 
-                    // Check if this notification is for the same tweet AND only has one tweet (not aggregated by person)
                     const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
                     const reposted_by_array = Array.isArray(n.reposted_by)
                         ? n.reposted_by
                         : [n.reposted_by];
-                    return (
-                        tweet_id_array.includes(new_tweet_id) &&
-                        tweet_id_array.length === 1 &&
-                        reposted_by_array.length === 1
-                    );
+                    // Match if: same tweet, only one tweet in array (not aggregated by person)
+                    return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
                 });
 
                 // Second, try to find aggregation by PERSON (same person reposting multiple tweets)
+                // This matches notifications that have the same person AND only one person (either single notification or already aggregated by person)
                 const matching_by_person_index = user_document.notifications.findIndex((n: any) => {
                     if (n.type !== NotificationType.REPOST) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
 
-                    // Check if this notification contains a repost from the same person AND only has one person (not aggregated by tweet)
                     const reposted_by_array = Array.isArray(n.reposted_by)
                         ? n.reposted_by
                         : [n.reposted_by];
                     const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
+                    // Match if: same person, only one person in array (not aggregated by tweet)
                     return (
                         reposted_by_array.includes(new_reposted_by) &&
-                        reposted_by_array.length === 1 &&
-                        tweet_id_array.length === 1
+                        reposted_by_array.length === 1
                     );
                 });
 
