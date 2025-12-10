@@ -574,6 +574,50 @@ export class SearchService {
         }
     }
 
+    async getMentionSuggestions(
+        current_user_id: string,
+        query_dto: BasicQueryDto
+    ): Promise<SuggestedUserDto[]> {
+        const { query } = query_dto;
+
+        const decoded_query = decodeURIComponent(query);
+        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+
+        if (!sanitized_query.trim()) {
+            return [];
+        }
+
+        const prefix_query = sanitized_query
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((term) => `${term}:*`)
+            .join(' & ');
+
+        let query_builder = this.user_repository.createQueryBuilder('user');
+
+        query_builder = this.attachUserSearchQuery(query_builder, sanitized_query);
+
+        query_builder.setParameters({
+            current_user_id,
+            prefix_query,
+        });
+
+        const users_result = await query_builder
+            .orderBy('total_score', 'DESC')
+            .addOrderBy('user.id', 'ASC')
+            .limit(10)
+            .getRawMany();
+
+        const users_list = users_result.map((user) =>
+            plainToInstance(SuggestedUserDto, user, {
+                enableImplicitConversion: true,
+                excludeExtraneousValues: true,
+            })
+        );
+
+        return users_list;
+    }
+
     private mapTweet(hit: any, parent_source?: any, conversation_source?: any): TweetResponseDTO {
         const s = hit._source;
 
