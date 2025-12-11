@@ -33,7 +33,15 @@ export class TrendService {
     private readonly CATEGORY_THRESHOLD = 30;
 
     async getTrending(category?: string, limit: number = 30) {
-        const key = category ? `trending:${category}` : 'trending:global';
+        const normalized_category = category?.trim()
+            ? category.trim()[0].toUpperCase() + category.trim().slice(1).toLowerCase()
+            : null;
+
+        if (category && !normalized_category) {
+            // Invalid category
+            return { data: [] };
+        }
+        const key = category ? `trending:${normalized_category}` : 'trending:global';
 
         const trending = await this.redis_service.zrevrange(key, 0, limit - 1, 'WITHSCORES');
 
