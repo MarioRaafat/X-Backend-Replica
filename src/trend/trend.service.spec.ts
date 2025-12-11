@@ -230,7 +230,7 @@ describe('TrendService', () => {
                 expect.any(Number),
                 expect.any(String)
             );
-            expect(redis_service.expire).toHaveBeenCalledWith('candidates:active', 2 * 60 * 60);
+            expect(redis_service.expire).toHaveBeenCalledWith('candidates:active', 1 * 60 * 60);
         });
     });
 

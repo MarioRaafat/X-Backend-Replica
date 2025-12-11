@@ -1,13 +1,14 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { IHashtagScore } from './hashtag-score.interface';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Hashtag } from 'src/tweets/entities/hashtags.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
 import { VelocityExponentialDetector } from './velocity-exponential-detector';
 import { HashtagResponseDto } from './dto/hashtag-response.dto';
 import { HashtagJobDto } from 'src/background-jobs/hashtag/hashtag-job.dto';
+import { TREND_CRON_SCHEDULE } from 'src/background-jobs';
 
 @Injectable()
 export class TrendService {
@@ -47,15 +48,19 @@ export class TrendService {
             hashtag_names.push(trending[i]);
         }
 
+        const normalized_hashtags = hashtag_names.map((hashtag) => {
+            return hashtag.toLowerCase();
+        });
+
         const hashtags = await this.hashtag_repository.find({
-            where: { name: In(hashtag_names) },
+            where: { name: In(normalized_hashtags) },
             select: ['name', 'usage_count'],
         });
+
         const hashtag_categories = await this.getHashtagCategories(hashtag_names);
-        console.log(hashtag_categories);
 
         const trends: HashtagResponseDto[] = result.map((item, index) => {
-            const hashtag_data = hashtags.find((h) => h.name === item.hashtag);
+            const hashtag_data = hashtags.find((h) => h.name === item.hashtag.toLowerCase());
 
             return {
                 text: '#' + item.hashtag,
@@ -78,14 +83,12 @@ export class TrendService {
 
         for (const hashtag of hashtag_names) {
             for (const category of this.CATEGORIES) {
-                console.log(hashtag, category);
                 pipeline.zscore(`candidates:${category}`, hashtag);
             }
         }
         const results = await pipeline.exec();
 
         const hashtag_categories: Record<string, string> = {};
-        console.log(results);
 
         if (!results) {
             // Return default categories if pipeline fails
@@ -128,7 +131,7 @@ export class TrendService {
 
         //Expire after 2 hours
         // We may delegate it to trend worker
-        await this.redis_service.expire('candidates:active', 2 * 60 * 60);
+        await this.redis_service.expire('candidates:active', 1 * 60 * 60);
     }
     async insertCandidateCategories(hashtags: HashtagJobDto) {
         const pipeline = this.redis_service.pipeline();
@@ -142,7 +145,7 @@ export class TrendService {
                 if (percent >= this.CATEGORY_THRESHOLD) {
                     // Store hashtag with its category percentage as score
                     pipeline.zadd(`candidates:${category_name}`, percent, hashtag);
-                    pipeline.expire(`candidates:${category_name}`, 2 * 60 * 60);
+                    pipeline.expire(`candidates:${category_name}`, 1 * 60 * 60);
                 }
             }
         }
@@ -169,7 +172,10 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    @Cron('0 * * * *')
+    @Cron(CronExpression.EVERY_HOUR, {
+        name: 'trend_calculation_job',
+        timeZone: 'UTC',
+    })
     async calculateTrend() {
         try {
             console.log('Calculate Trend.....');
@@ -182,7 +188,6 @@ export class TrendService {
                 one_hour_ago,
                 '+inf'
             );
-
             // 2. Calculate base scores once for all hashtags
             const hashtag_scores: Map<string, IHashtagScore> = new Map();
 
@@ -199,8 +204,6 @@ export class TrendService {
             const global_top_30 = global_scored.slice(0, this.TOP_N);
             await this.updateTrendingList('trending:global', global_top_30);
             await this.calculateCategoryTrendsFromScores(hashtag_scores, one_hour_ago);
-
-            console.log(global_top_30);
         } catch (err) {
             console.log(err);
             throw err;
@@ -278,7 +281,6 @@ export class TrendService {
             const volume_score = this.calculateTweetVolume(bucket_data);
             // const acceleration_score = this.calculateAccelerationScore(bucket_data);
             const acceleration_score = this.velocity_calculator.calculateFinalMomentum(bucket_data);
-            console.log(acceleration_score);
 
             const last_seen = await this.redis_service.zscore('candidates:active', hashtag);
             const last_seen_time = last_seen ? parseInt(last_seen) : null;
