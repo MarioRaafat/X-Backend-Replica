@@ -8,6 +8,7 @@ import { In, Repository } from 'typeorm';
 import { VelocityExponentialDetector } from './velocity-exponential-detector';
 import { HashtagResponseDto } from './dto/hashtag-response.dto';
 import { HashtagJobDto } from 'src/background-jobs/hashtag/hashtag-job.dto';
+import { TREND_CRON_SCHEDULE } from 'src/background-jobs';
 
 @Injectable()
 export class TrendService {
@@ -50,6 +51,7 @@ export class TrendService {
         const normalized_hashtags = hashtag_names.map((hashtag) => {
             return hashtag.toLowerCase();
         });
+
         const hashtags = await this.hashtag_repository.find({
             where: { name: In(normalized_hashtags) },
             select: ['name', 'usage_count'],
@@ -170,7 +172,7 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    @Cron('* * * * *')
+    @Cron(TREND_CRON_SCHEDULE)
     async calculateTrend() {
         try {
             console.log('Calculate Trend.....');
