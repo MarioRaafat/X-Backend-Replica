@@ -708,7 +708,7 @@ export class NotificationsService implements OnModuleInit {
 
         const columns = this.user_repository.metadata.columns
             .map((col) => col.propertyName)
-            .filter((name) => name !== 'password') as (keyof User)[];
+            .filter((name) => name !== 'password' && name !== 'fcm_token') as (keyof User)[];
 
         // Fetch all data in parallel
         const [users, tweets] = await Promise.all([
@@ -1130,7 +1130,7 @@ export class NotificationsService implements OnModuleInit {
 
         const columns = this.user_repository.metadata.columns
             .map((col) => col.propertyName)
-            .filter((name) => name !== 'password') as (keyof User)[];
+            .filter((name) => name !== 'password' && name !== 'fcm_token') as (keyof User)[];
 
         // Fetch all required data in parallel
         const [users, tweets] = await Promise.all([
