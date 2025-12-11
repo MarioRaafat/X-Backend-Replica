@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
-import { FCMService } from './fcm.service';
-import { FcmController } from './fcm.controller';
+import { FCMService } from './expo.service';
+import { FcmController } from './expo.controller';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
 

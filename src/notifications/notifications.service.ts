@@ -20,7 +20,7 @@ import { MessageNotificationEntity } from './entities/message-notification.entit
 import { NotificationDto } from './dto/notifications-response.dto';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { ClearJobService } from 'src/background-jobs/notifications/clear/clear.service';
-import { FCMService } from 'src/fcm/fcm.service';
+import { FCMService } from 'src/expo/expo.service';
 import { MessagesGateway } from 'src/messages/messages.gateway';
 
 @Injectable()

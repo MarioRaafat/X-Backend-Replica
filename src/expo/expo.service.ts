@@ -13,7 +13,6 @@ export class FCMService {
     constructor(@InjectRepository(User) private readonly user_repository: Repository<User>) {
         // Initialize Expo SDK client
         this.expo = new Expo({
-            accessToken: process.env.EXPO_ACCESS_TOKEN,
             useFcmV1: true,
         });
     }
