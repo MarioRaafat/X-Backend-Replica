@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { IHashtagScore } from './hashtag-score.interface';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Hashtag } from 'src/tweets/entities/hashtags.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -172,7 +172,10 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    @Cron(TREND_CRON_SCHEDULE)
+    @Cron(CronExpression.EVERY_HOUR, {
+        name: 'trend_calculation_job',
+        timeZone: 'UTC',
+    })
     async calculateTrend() {
         try {
             console.log('Calculate Trend.....');
