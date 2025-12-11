@@ -1337,8 +1337,7 @@ export class TweetsService {
             content.match(/@([a-zA-Z0-9_]+)/g)?.map((mention) => mention.slice(1)) || [];
 
         // Extract hashtags and remove duplicates
-        const hashtags =
-            content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
+        const hashtags = content.match(/#([\p{L}\p{N}_]+)/gu)?.map((h) => h.slice(1)) || [];
         const unique_hashtags = [...new Set(hashtags)];
         await this.updateHashtags(unique_hashtags, user_id, query_runner);
 
@@ -1347,7 +1346,6 @@ export class TweetsService {
         console.log('Extracted topics:', topics);
 
         //Insert Hashtag with Topics in redis
-
         await this.hashtag_job_service.queueHashtag({
             hashtags: topics.hashtags,
             timestamp: Date.now(),
@@ -1360,7 +1358,6 @@ export class TweetsService {
 
         const mapped_users = new Map<string, string>();
 
-        // Map each mention → user_id
         for (const mention of mentions) {
             const found = mentioned_users.find((u) => u.username === mention);
             if (found) mapped_users.set(mention, found.id);
