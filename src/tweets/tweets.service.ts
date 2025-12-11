@@ -1383,10 +1383,10 @@ export class TweetsService {
 
                 return { tweet: empty, hashtags: result };
             }
-
+            console.log('HASHTAGS: ', hashtags);
             // remove hashtags and extra spaces
             content = content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
+                .replace(/#[^\s]+/g, '') // remove anything starting with
                 .replace(/\s+/g, ' ')
                 .trim();
 
