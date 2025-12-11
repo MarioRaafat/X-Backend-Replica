@@ -347,17 +347,17 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
-                tweet,
-                user_id,
-                query_runner
-            );
-
             const tweet_to_update = await query_runner.manager.findOne(Tweet, {
                 where: { tweet_id },
             });
 
             if (!tweet_to_update) throw new NotFoundException('Tweet not found');
+
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
+                tweet,
+                user_id,
+                query_runner
+            );
 
             query_runner.manager.merge(Tweet, tweet_to_update, {
                 ...tweet,
