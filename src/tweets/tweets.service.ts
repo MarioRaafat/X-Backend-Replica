@@ -316,6 +316,8 @@ export class TweetsService {
                 tweet_id: saved_tweet.tweet_id,
             });
 
+            console.log(mentioned_user_ids);
+
             // Send mention notifications after tweet is saved
             await this.mentionNotification(mentioned_user_ids, user_id, saved_tweet, 'add');
 
@@ -860,7 +862,16 @@ export class TweetsService {
                     action: 'add',
                 });
 
-            await this.mentionNotification(mentioned_user_ids, user_id, saved_reply_tweet, 'add');
+            const mentioned_user_ids_without_original_author = mentioned_user_ids.filter(
+                (mentioned_user_id) => mentioned_user_id !== original_tweet.user_id
+            );
+
+            await this.mentionNotification(
+                mentioned_user_ids_without_original_author,
+                user_id,
+                saved_reply_tweet,
+                'add'
+            );
 
             const returned_reply = plainToInstance(
                 TweetReplyResponseDTO,
@@ -1488,6 +1499,8 @@ export class TweetsService {
     ): Promise<void> {
         if (mentioned_user_ids.length === 0) return;
 
+        const unique_mentioned_user_ids = Array.from(new Set(mentioned_user_ids));
+
         try {
             // Queue mention notification with usernames (background job will fetch user IDs)
             await this.mention_job_service.queueMentionNotification({
@@ -1495,7 +1508,7 @@ export class TweetsService {
                 tweet_id: tweet.tweet_id,
                 parent_tweet,
                 mentioned_by: user_id,
-                mentioned_user_ids,
+                mentioned_user_ids: unique_mentioned_user_ids,
                 tweet_type: tweet.type,
                 action,
             });
