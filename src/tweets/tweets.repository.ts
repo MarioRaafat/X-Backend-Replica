@@ -14,10 +14,12 @@ import { getReplyWithParentChainQuery } from './queries/reply-parent-chain.query
 import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
 import { SelectQueryBuilder } from 'typeorm/browser';
 import { UserPostsView } from './entities/user-posts-view.entity';
-import { getFollowingTweetsQuery } from './queries/get-following-tweets.query';
-import { getForyouTweetsQuery } from './queries/get-foryou-tweets.query';
 import { TweetCategory } from './entities/tweet-category.entity';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
+import {
+    getPostsByUserIdAlyaaQuery,
+    getPostsByUserIdAlyaaQueryWithoutView,
+} from './queries/get-posts-profile-view.query';
 
 @Injectable()
 export class TweetsRepository extends Repository<Tweet> {
@@ -81,7 +83,6 @@ export class TweetsRepository extends Repository<Tweet> {
                 .where(
                     new Brackets((qb) =>
                         qb
-
                             .where(
                                 'tweet.profile_user_id IN (SELECT followed_id FROM user_follows WHERE follower_id = :user_id)',
                                 { user_id }
@@ -140,6 +141,8 @@ export class TweetsRepository extends Repository<Tweet> {
                     'ranked.images AS images',
                     'ranked.videos AS videos',
                     'ranked.num_likes AS num_likes',
+                    'ranked.num_bookmarks AS num_bookmarks',
+                    'ranked.mentions AS mentions',
                     'ranked.num_reposts AS num_reposts',
                     'ranked.num_views AS num_views',
                     'ranked.num_quotes AS num_quotes',
@@ -199,120 +202,8 @@ export class TweetsRepository extends Repository<Tweet> {
                     excludeExtraneousValues: true,
                 })
             );
-            // Debugging
 
-            // tweets.forEach((t, i) => {
-            //     console.log(i, ': ', {
-            //         tweet_id: tweets[i].tweet_id,
-            //         conversation_id: tweets[i].debug_conversation_id,
-            //         parent_id: tweets[i].debug_parent_id,
-            //         group_id: tweets[i].group_id,
-            //         repost_id: tweets[i].repost_id,
-            //         rn: tweets[i].debug_rn,
-            //     });
-            // });
             const next_cursor = this.paginate_service.generateNextCursor(tweets, 'post_date', 'id');
-
-            return {
-                data: tweet_dtos,
-                pagination: {
-                    next_cursor,
-                    has_more: tweet_dtos.length === limit,
-                },
-            };
-        } catch (error) {
-            console.error(error);
-            throw error;
-        }
-    }
-    //TODO: This will be changed in next pushes, just template response for front
-    async getForyouTweets(
-        user_id: string,
-        cursor?: string,
-        limit: number = 20
-    ): Promise<{
-        data: TweetResponseDTO[];
-        pagination: { next_cursor: string | null; has_more: boolean };
-    }> {
-        try {
-            let query = this.user_posts_view_repository
-                .createQueryBuilder('tweet')
-                .select([
-                    'tweet.tweet_id AS tweet_id',
-                    'tweet.profile_user_id AS profile_user_id',
-                    'tweet.tweet_author_id AS tweet_author_id',
-                    'tweet.repost_id AS repost_id',
-                    'tweet.post_type AS post_type',
-                    'tweet.type AS type',
-                    'tweet.content AS content',
-                    'tweet.images AS images',
-                    'tweet.videos AS videos',
-                    'tweet.post_date AS post_date',
-                    'tweet.num_likes AS num_likes',
-                    'tweet.num_reposts AS num_reposts',
-                    'tweet.num_views AS num_views',
-                    'tweet.num_quotes AS num_quotes',
-                    'tweet.num_replies AS num_replies',
-                    'tweet.created_at AS created_at',
-                    'tweet.updated_at AS updated_at',
-
-                    `json_build_object(
-                    'id', tweet.tweet_author_id,
-                    'username', tweet.username,
-                    'name', tweet.name,
-                    'avatar_url', tweet.avatar_url,
-                    'cover_url', tweet.cover_url,
-                    'verified', tweet.verified,
-                    'bio', tweet.bio,
-                    'followers', tweet.followers,
-                    'following', tweet.following
-                ) AS user`,
-                ])
-                .where(`tweet.type='tweet'`)
-
-                // EXCLUDE MUTED USERS
-                .andWhere(
-                    'tweet.profile_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
-                    { user_id }
-                )
-
-                // FAST RANDOM ORDERING
-                .orderBy('RANDOM()')
-
-                .limit(limit);
-
-            // Reuse same attach methods
-            // query = this.attachQuotedTweetQuery(query);
-            query = this.attachUserInteractionBooleanFlags(
-                query,
-                user_id,
-                'tweet.tweet_author_id',
-                'tweet.tweet_id'
-            );
-            query = this.attachRepostInfo(query);
-            // query = this.attachRepliedTweetQuery(query);
-
-            query = this.paginate_service.applyCursorPagination(
-                query,
-                cursor,
-                'tweet',
-                'post_date',
-                'tweet_id'
-            );
-
-            const tweets = await query.getRawMany();
-
-            const tweet_dtos = tweets.map((t) =>
-                plainToInstance(TweetResponseDTO, t, {
-                    excludeExtraneousValues: true,
-                })
-            );
-
-            const next_cursor = this.paginate_service.generateNextCursor(
-                tweets,
-                'post_date',
-                'tweet_id'
-            );
 
             return {
                 data: tweet_dtos,
@@ -334,7 +225,6 @@ export class TweetsRepository extends Repository<Tweet> {
                 tweet_id: row.tweet_tweet_id,
                 type: row.tweet_type as TweetType,
                 content: row.tweet_content,
-                // conversation_id: row.conversation_root_id,
                 images: row.tweet_images || [],
                 videos: row.tweet_videos || [],
                 user: {
@@ -621,41 +511,11 @@ export class TweetsRepository extends Repository<Tweet> {
         };
     }> {
         try {
-            let query = this.user_posts_view_repository
-                .createQueryBuilder('tweet')
-                .select([
-                    'tweet.tweet_id AS tweet_id',
-                    'tweet.profile_user_id AS profile_user_id',
-                    'tweet.tweet_author_id AS tweet_author_id',
-                    'tweet.repost_id AS repost_id',
-                    'tweet.post_type AS post_type',
-                    'tweet.type AS type',
-                    'tweet.content AS content',
-                    'tweet.type AS type',
-                    'tweet.post_date AS post_date',
-                    'tweet.images AS images',
-                    'tweet.videos AS videos',
-                    'tweet.num_likes AS num_likes',
-                    'tweet.num_reposts AS num_reposts',
-                    'tweet.num_views AS num_views',
-                    'tweet.num_quotes AS num_quotes',
-                    'tweet.num_replies AS num_replies',
-                    'tweet.created_at AS created_at',
-                    'tweet.post_date AS post_date',
-                    'tweet.updated_at AS updated_at',
-                    `json_build_object(
-                        'id', tweet.tweet_author_id,
-                        'username', tweet.username,
-                        'name', tweet.name,
-                        'avatar_url', tweet.avatar_url,
-                        'cover_url', tweet.cover_url,
-                        'verified', tweet.verified,
-                        'bio', tweet.bio,
-                        'followers', tweet.followers,
-                        'following', tweet.following
-                    ) AS user`,
-                ])
-                .where('tweet.profile_user_id = :user_id', { user_id })
+            let query = this.user_posts_view_repository.createQueryBuilder('tweet');
+
+            query = getPostsByUserIdAlyaaQuery(query, user_id);
+
+            query = query
                 .andWhere('tweet.type != :type', { type: 'reply' })
                 .orderBy('tweet.post_date', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
@@ -719,40 +579,11 @@ export class TweetsRepository extends Repository<Tweet> {
         };
     }> {
         try {
-            let query = this.user_posts_view_repository
-                .createQueryBuilder('tweet')
-                .select([
-                    'tweet.tweet_id AS tweet_id',
-                    'tweet.profile_user_id AS profile_user_id',
-                    'tweet.tweet_author_id AS tweet_author_id',
-                    'tweet.repost_id AS repost_id',
-                    'tweet.post_type AS post_type',
-                    'tweet.type AS type',
-                    'tweet.content AS content',
-                    'tweet.type AS type',
-                    'tweet.post_date AS post_date',
-                    'tweet.images AS images',
-                    'tweet.videos AS videos',
-                    'tweet.num_likes AS num_likes',
-                    'tweet.num_reposts AS num_reposts',
-                    'tweet.num_views AS num_views',
-                    'tweet.num_quotes AS num_quotes',
-                    'tweet.num_replies AS num_replies',
-                    'tweet.created_at AS created_at',
-                    'tweet.updated_at AS updated_at',
-                    `json_build_object(
-                        'id', tweet.tweet_author_id,
-                        'username', tweet.username,
-                        'name', tweet.name,
-                        'avatar_url', tweet.avatar_url,
-                        'cover_url', tweet.cover_url,
-                        'verified', tweet.verified,
-                        'bio', tweet.bio,
-                        'followers', tweet.followers,
-                        'following', tweet.following
-                    ) AS user`,
-                ])
-                .where('tweet.profile_user_id = :user_id', { user_id })
+            let query = this.user_posts_view_repository.createQueryBuilder('tweet');
+
+            query = getPostsByUserIdAlyaaQuery(query, user_id);
+
+            query = query
                 .andWhere('tweet.type = :type', { type: 'reply' })
                 .orderBy('tweet.post_date', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
@@ -816,40 +647,11 @@ export class TweetsRepository extends Repository<Tweet> {
         };
     }> {
         try {
-            let query = this.user_posts_view_repository
-                .createQueryBuilder('tweet')
-                .select([
-                    'tweet.tweet_id AS tweet_id',
-                    'tweet.profile_user_id AS profile_user_id',
-                    'tweet.tweet_author_id AS tweet_author_id',
-                    'tweet.repost_id AS repost_id',
-                    'tweet.post_type AS post_type',
-                    'tweet.type AS type',
-                    'tweet.content AS content',
-                    'tweet.type AS type',
-                    'tweet.post_date AS post_date',
-                    'tweet.images AS images',
-                    'tweet.videos AS videos',
-                    'tweet.num_likes AS num_likes',
-                    'tweet.num_reposts AS num_reposts',
-                    'tweet.num_views AS num_views',
-                    'tweet.num_quotes AS num_quotes',
-                    'tweet.num_replies AS num_replies',
-                    'tweet.created_at AS created_at',
-                    'tweet.updated_at AS updated_at',
-                    `json_build_object(
-                        'id', tweet.tweet_author_id,
-                        'username', tweet.username,
-                        'name', tweet.name,
-                        'avatar_url', tweet.avatar_url,
-                        'cover_url', tweet.cover_url,
-                        'verified', tweet.verified,
-                        'bio', tweet.bio,
-                        'followers', tweet.followers,
-                        'following', tweet.following
-                    ) AS user`,
-                ])
-                .where('tweet.profile_user_id = :user_id', { user_id })
+            let query = this.user_posts_view_repository.createQueryBuilder('tweet');
+
+            query = getPostsByUserIdAlyaaQuery(query, user_id);
+
+            query = query
                 .andWhere(
                     '(array_length(tweet.images, 1) > 0 OR array_length(tweet.videos, 1) > 0)'
                 )
@@ -922,39 +724,11 @@ export class TweetsRepository extends Repository<Tweet> {
                     'like',
                     'like.tweet_id = tweet.tweet_id AND like.user_id = :user_id',
                     { user_id }
-                )
-                .select([
-                    'tweet.tweet_id AS tweet_id',
-                    'tweet.profile_user_id AS profile_user_id',
-                    'tweet.tweet_author_id AS tweet_author_id',
-                    'tweet.repost_id AS repost_id',
-                    'tweet.post_type AS post_type',
-                    'tweet.type AS type',
-                    'tweet.content AS content',
-                    'tweet.type AS type',
-                    'tweet.post_date AS post_date',
-                    'tweet.images AS images',
-                    'tweet.videos AS videos',
-                    'tweet.num_likes AS num_likes',
-                    'tweet.num_reposts AS num_reposts',
-                    'tweet.num_views AS num_views',
-                    'tweet.num_quotes AS num_quotes',
-                    'tweet.num_replies AS num_replies',
-                    'tweet.created_at AS created_at',
-                    'tweet.updated_at AS updated_at',
-                    'like.created_at AS liked_at',
-                    `json_build_object(
-                        'id', tweet.tweet_author_id,
-                        'username', tweet.username,
-                        'name', tweet.name,
-                        'avatar_url', tweet.avatar_url,
-                        'cover_url', tweet.cover_url,
-                        'verified', tweet.verified,
-                        'bio', tweet.bio,
-                        'followers', tweet.followers,
-                        'following', tweet.following
-                    ) AS user`,
-                ])
+                );
+
+            query = getPostsByUserIdAlyaaQueryWithoutView(query, user_id);
+
+            query = query
                 .where('tweet.type != :type', { type: 'repost' })
                 .orderBy('like.created_at', 'DESC')
                 .addOrderBy('tweet.tweet_id', 'DESC')
@@ -1006,46 +780,8 @@ export class TweetsRepository extends Repository<Tweet> {
             throw error;
         }
     }
-    attachQuotedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
-        // query
-        //     .leftJoin(
-        //         'tweet_quotes',
-        //         'quote_rel',
-        //         `quote_rel.quote_tweet_id = tweet.tweet_id AND tweet.type = 'quote'`
-        //     )
-        //     .leftJoin(
-        //         'user_posts_view',
-        //         'quoted_tweet',
-        //         'quoted_tweet.tweet_id = quote_rel.original_tweet_id'
-        //     )
-        //     .addSelect(
-        //         `CASE
-        //             WHEN tweet.type = 'quote' AND quoted_tweet.tweet_id IS NOT NULL THEN
-        //             json_build_object(
-        //                 'tweet_id', quoted_tweet.tweet_id,
-        //                 'content', quoted_tweet.content,
-        //                 'created_at', quoted_tweet.post_date,
-        //                 'type', quoted_tweet.type,
-        //                 'images', quoted_tweet.images,
-        //                 'videos', quoted_tweet.videos,
 
-        //                 'user', json_build_object(
-        //                     'id', quoted_tweet.tweet_author_id,
-        //                     'username', quoted_tweet.username,
-        //                     'name', quoted_tweet.name,
-        //                     'avatar_url', quoted_tweet.avatar_url,
-        //                     'verified', quoted_tweet.verified,
-        //                     'bio', quoted_tweet.bio,
-        //                     'cover_url', quoted_tweet.cover_url,
-        //                     'followers', quoted_tweet.followers,
-        //                     'following', quoted_tweet.following
-        //                 )
-        //             )
-        //             ELSE NULL
-        //             END`,
-        //         'parent_tweet'
-        //     );
-        // return query;
+    attachQuotedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
         query.addSelect(
             `
         (
@@ -1061,6 +797,8 @@ export class TweetsRepository extends Repository<Tweet> {
                 'num_views', quoted_tweet.num_views,
                 'num_replies', quoted_tweet.num_replies,
                 'num_quotes', quoted_tweet.num_quotes,
+                'num_bookmarks', quoted_tweet.num_bookmarks,
+                'mentions', quoted_tweet.mentions,
                 'user', json_build_object(
                     'id', quoted_tweet.tweet_author_id,
                     'username', quoted_tweet.username,
@@ -1211,6 +949,7 @@ export class TweetsRepository extends Repository<Tweet> {
 
         return query;
     }
+
     attachParentTweetQuery(
         query: SelectQueryBuilder<any>,
         user_id?: string
@@ -1399,6 +1138,8 @@ export class TweetsRepository extends Repository<Tweet> {
                 'num_views',     c.num_views,
                 'num_replies',   c.num_replies,
                 'num_quotes',    c.num_quotes,
+                'num_bookmarks', c.num_bookmarks,
+                'mentions',      c.mentions,
                     ${get_interactions('c')}
                       -- Add nested quoted_tweet if conversation root is a quote
             'parent_tweet', CASE 
@@ -1415,6 +1156,8 @@ export class TweetsRepository extends Repository<Tweet> {
                         'num_views',     qc.num_views,
                         'num_replies',   qc.num_replies,
                         'num_quotes',    qc.num_quotes,
+                        'num_bookmarks', qc.num_bookmarks,
+                        'mentions',      qc.mentions,
                         ${get_interactions('qc')}
                         'user', json_build_object(
                             'id',         qc.tweet_author_id,
@@ -1461,6 +1204,7 @@ export class TweetsRepository extends Repository<Tweet> {
 
         return query;
     }
+
     attachUserInteractionBooleanFlags(
         query: SelectQueryBuilder<any>,
         current_user_id?: string,
@@ -1575,86 +1319,7 @@ export class TweetsRepository extends Repository<Tweet> {
         }
     }
 
-    async getRecentTweetsByCategoryIds(
-        category_ids: string[],
-        user_id: string,
-        options: {
-            limit?: number;
-            since_hours_ago?: number;
-        } = {}
-    ): Promise<TweetResponseDTO[]> {
-        const limit = options.limit ?? 300;
-        const since_hours_ago = options.since_hours_ago ?? 48;
-
-        const query = this.tweet_repository
-            .createQueryBuilder('tweet')
-            .leftJoinAndSelect('tweet.user', 'user')
-            .innerJoin('tweet_category', 'tc', 'tc.tweet_id = tweet.tweet_id')
-            .where('tc.category_id = ANY(:category_ids)', { category_ids })
-            .andWhere('tweet.created_at > NOW() - INTERVAL :hours hours', {
-                hours: since_hours_ago,
-            })
-            .andWhere('tweet.user_id != :user_id', { user_id })
-            //         .andWhere(
-            //             `tweet.user_id NOT IN (
-            //   SELECT followed_id FROM user_follows WHERE follower_id = :user_id
-            // )`
-            //         )
-            .orderBy('tweet.created_at', 'DESC')
-            .addOrderBy('tweet.tweet_id', 'DESC')
-            .take(limit + 50); // extra buffer
-
-        // Attach all interaction flags
-        const final_query = this.attachUserTweetInteractionFlags(query, user_id, 'tweet');
-
-        const tweets = await final_query.getMany();
-
-        return tweets.map((tweet) =>
-            plainToInstance(TweetResponseDTO, tweet, {
-                excludeExtraneousValues: true,
-            })
-        );
-    }
-
-    async getTweetsCategories(
-        tweet_ids: string[]
-    ): Promise<Record<string, { category_id: number; percentage: number }[]>> {
-        try {
-            const query = this.tweet_category_repository
-                .createQueryBuilder('tc')
-                .select('tc.tweet_id', 'tweet_id')
-                .addSelect('tc.category_id', 'category_id')
-                .addSelect('tc.percentage', 'percentage')
-                .where('tc.tweet_id IN (:...tweet_ids)', { tweet_ids })
-                .orderBy('tc.tweet_id', 'DESC')
-                .addOrderBy('tc.percentage', 'DESC');
-
-            const categories = await query.getMany();
-            return (
-                categories.reduce((acc, entity) => {
-                    const tweet_id = entity.tweet_id;
-
-                    if (!acc[tweet_id]) {
-                        acc[tweet_id] = [];
-                    }
-
-                    acc[tweet_id].push({
-                        category_id: entity.category_id,
-                        percentage: entity.percentage,
-                    });
-
-                    return acc;
-                }),
-                {} as Record<string, { category_id: number; percentage: number }[]>
-            );
-        } catch (error) {
-            console.log(error);
-            throw error;
-        }
-    }
-
     //TODO: Attach user likes
-
     attachUserFollowFlags(tweets: any[]) {
         return tweets.map((t) => {
             if (t.user) {

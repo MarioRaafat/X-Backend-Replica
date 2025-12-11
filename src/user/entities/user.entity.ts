@@ -19,7 +19,7 @@ export class User {
     @Column({ type: 'varchar', unique: true })
     email: string;
 
-    @Column({ type: 'varchar', nullable: true })
+    @Column({ type: 'varchar', nullable: true, select: false })
     @Exclude()
     password: string;
 

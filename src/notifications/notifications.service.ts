@@ -720,6 +720,8 @@ export class NotificationsService implements OnModuleInit {
                 : [],
         ]);
 
+        console.log({ users, tweets });
+
         const user_map = new Map<string, User>(
             users.map((user) => [user.id, user] as [string, User])
         );
