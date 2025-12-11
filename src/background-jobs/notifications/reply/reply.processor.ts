@@ -32,7 +32,7 @@ export class ReplyProcessor {
                 replied_by,
                 reply_tweet_id,
                 reply_tweet,
-                original_tweet_id,
+                original_tweet,
                 conversation_id,
                 action,
             } = job.data;
@@ -84,7 +84,7 @@ export class ReplyProcessor {
                     {
                         type: NotificationType.REPLY,
                         reply_tweet_id: reply_tweet.tweet_id,
-                        original_tweet_id,
+                        original_tweet,
                         replied_by,
                         conversation_id,
                         created_at: new Date(),

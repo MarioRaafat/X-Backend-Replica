@@ -799,7 +799,6 @@ export class TweetsService {
             const [original_tweet, original_reply] = await Promise.all([
                 query_runner.manager.findOne(Tweet, {
                     where: { tweet_id: original_tweet_id },
-                    select: ['tweet_id', 'user_id'],
                 }),
                 query_runner.manager.findOne(TweetReply, {
                     where: { reply_tweet_id: original_tweet_id },
@@ -840,7 +839,7 @@ export class TweetsService {
             if (user_id !== original_tweet.user_id)
                 this.reply_job_service.queueReplyNotification({
                     reply_tweet: saved_reply_tweet,
-                    original_tweet_id: original_tweet_id,
+                    original_tweet: original_tweet,
                     replied_by: user_id,
                     reply_to: original_tweet.user_id,
                     conversation_id: original_reply?.conversation_id || original_tweet_id,
