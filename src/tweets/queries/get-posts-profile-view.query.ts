@@ -61,6 +61,7 @@ export function getPostsByUserIdAlyaaQueryWithoutView(
         'tweet.num_views AS num_views',
         'tweet.num_quotes AS num_quotes',
         'tweet.num_replies AS num_replies',
+        'tweet.num_bookmarks AS num_bookmarks',
         'tweet.created_at AS created_at',
         'tweet.updated_at AS updated_at',
         'tweet.mentions AS mentions',

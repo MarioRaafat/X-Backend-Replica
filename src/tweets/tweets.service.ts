@@ -393,8 +393,12 @@ export class TweetsService {
 
     // hard delete tweet
     async deleteTweet(tweet_id: string, user_id: string): Promise<void> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
         try {
-            const tweet = await this.tweet_repository.findOne({
+            const tweet = await query_runner.manager.findOne(Tweet, {
                 where: { tweet_id },
                 select: ['tweet_id', 'user_id', 'type'],
             });
@@ -405,16 +409,25 @@ export class TweetsService {
                 throw new BadRequestException('User is not allowed to delete this tweet');
             }
 
-            await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id);
+            // If it's a reply, decrement reply count for all parent tweets
 
-            await this.tweet_repository.delete({ tweet_id });
+            await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id, query_runner);
+
+            await query_runner.manager.delete(Tweet, { tweet_id });
+
+            await query_runner.commitTransaction();
 
             await this.es_delete_tweet_service.queueDeleteTweet({
                 tweet_id,
             });
         } catch (error) {
             console.error(error);
+            if (query_runner.isTransactionActive) {
+                await query_runner.rollbackTransaction();
+            }
             throw error;
+        } finally {
+            await query_runner.release();
         }
     }
 
@@ -842,12 +855,26 @@ export class TweetsService {
             });
             await query_runner.manager.save(TweetReply, tweet_reply);
 
-            // Increment reply count on original tweet
-            await query_runner.manager.increment(
-                Tweet,
-                { tweet_id: original_tweet_id },
-                'num_replies',
-                1
+            // Increment reply count on original tweet and all its parents up to conversation root
+            await query_runner.query(
+                `
+                WITH RECURSIVE parent_chain AS (
+                    -- Start with the tweet being replied to
+                    SELECT $1::uuid as tweet_id
+                    
+                    UNION
+                    
+                    -- Recursively find all parent tweets
+                    SELECT tr.original_tweet_id
+                    FROM tweet_replies tr
+                    INNER JOIN parent_chain pc ON tr.reply_tweet_id = pc.tweet_id
+                    WHERE tr.original_tweet_id IS NOT NULL
+                )
+                UPDATE tweets
+                SET num_replies = num_replies + 1
+                WHERE tweet_id IN (SELECT tweet_id FROM parent_chain)
+                `,
+                [original_tweet_id]
             );
 
             await query_runner.commitTransaction();
@@ -1148,57 +1175,89 @@ export class TweetsService {
     private async queueRepostAndQuoteDeleteJobs(
         tweet: Tweet,
         type: TweetType,
-        user_id: string
+        user_id: string,
+        query_runner: QueryRunner
     ): Promise<void> {
         try {
             if (type === TweetType.REPLY) {
-                const tweet_reply = await this.tweet_reply_repository.findOne({
+                const reply_info = await query_runner.manager.findOne(TweetReply, {
                     where: { reply_tweet_id: tweet.tweet_id },
+                    select: ['original_tweet_id'],
                 });
 
-                if (tweet_reply?.original_tweet_id) {
-                    const original_tweet = await this.tweet_repository.findOne({
-                        where: { tweet_id: tweet_reply.original_tweet_id },
+                if (reply_info?.original_tweet_id) {
+                    // Decrement reply count on all parent tweets up to conversation root
+                    await query_runner.query(
+                        `
+                        WITH RECURSIVE parent_chain AS (
+                            -- Start with the parent of the tweet being deleted
+                            SELECT $1::uuid as tweet_id
+                            
+                            UNION
+                            
+                            -- Recursively find all ancestor tweets
+                            SELECT tr.original_tweet_id
+                            FROM tweet_replies tr
+                            INNER JOIN parent_chain pc ON tr.reply_tweet_id = pc.tweet_id
+                            WHERE tr.original_tweet_id IS NOT NULL
+                        )
+                        UPDATE tweets
+                        SET num_replies = GREATEST(num_replies - 1, 0)
+                        WHERE tweet_id IN (SELECT tweet_id FROM parent_chain)
+                        `,
+                        [reply_info.original_tweet_id]
+                    );
+
+                    const original_tweet = await query_runner.manager.findOne(Tweet, {
+                        where: { tweet_id: reply_info.original_tweet_id },
                         select: ['user_id'],
                     });
                     const parent_owner_id = original_tweet?.user_id || null;
 
-                    if (!parent_owner_id) return;
-
-                    this.reply_job_service.queueReplyNotification({
-                        reply_tweet_id: tweet.tweet_id,
-                        reply_to: parent_owner_id || user_id,
-                        replied_by: user_id,
-                        action: 'remove',
-                    });
+                    if (parent_owner_id) {
+                        this.reply_job_service.queueReplyNotification({
+                            reply_tweet_id: tweet.tweet_id,
+                            reply_to: parent_owner_id,
+                            replied_by: user_id,
+                            action: 'remove',
+                        });
+                    }
                 }
             } else if (type === TweetType.QUOTE) {
-                const tweet_quote = await this.tweet_quote_repository.findOne({
+                const tweet_quote = await query_runner.manager.findOne(TweetQuote, {
                     where: { quote_tweet_id: tweet.tweet_id },
                 });
 
                 if (tweet_quote?.original_tweet_id) {
-                    const original_tweet = await this.tweet_repository.findOne({
+                    // Decrement quote count on direct parent only
+                    await query_runner.manager.decrement(
+                        Tweet,
+                        { tweet_id: tweet_quote.original_tweet_id },
+                        'num_quotes',
+                        1
+                    );
+
+                    const original_tweet = await query_runner.manager.findOne(Tweet, {
                         where: { tweet_id: tweet_quote.original_tweet_id },
                         select: ['user_id'],
                     });
                     const parent_owner_id = original_tweet?.user_id || null;
 
-                    if (!parent_owner_id) return;
-
-                    this.quote_job_service.queueQuoteNotification({
-                        quote_tweet_id: tweet.tweet_id,
-                        quote_to: parent_owner_id,
-                        quoted_by: user_id,
-                        action: 'remove',
-                    });
+                    if (parent_owner_id) {
+                        this.quote_job_service.queueQuoteNotification({
+                            quote_tweet_id: tweet.tweet_id,
+                            quote_to: parent_owner_id,
+                            quoted_by: user_id,
+                            action: 'remove',
+                        });
+                    }
                 }
             }
 
             // Handle mention notifications removal for any tweet type
             await this.queueMentionDeleteJobs(tweet, user_id);
         } catch (error) {
-            console.error('Error fetching parent tweet owner:', error);
+            console.error('Error in queueRepostAndQuoteDeleteJobs:', error);
         }
     }
 

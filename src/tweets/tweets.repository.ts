@@ -397,6 +397,7 @@ export class TweetsRepository extends Repository<Tweet> {
                     'images', nested_tweet.images,
                     'videos', nested_tweet.videos,
                     'parent_tweet_id', nested_reply.original_tweet_id,
+                    'mentions', nested_tweet.mentions,
                     'user', json_build_object(
                         'id', nested_user.id,
                         'name', nested_user.name,
@@ -997,6 +998,8 @@ export class TweetsRepository extends Repository<Tweet> {
                     'num_views',     p.num_views,
                     'num_replies',   p.num_replies,
                     'num_quotes',    p.num_quotes,
+                    'num_bookmarks', p.num_bookmarks,
+                    'mentions',      p.mentions,
                     ${get_interactions('p')}
                       -- Add nested quoted_tweet if conversation root is a quote
             'parent_tweet', CASE 
@@ -1013,6 +1016,8 @@ export class TweetsRepository extends Repository<Tweet> {
                         'num_views',     pc.num_views,
                         'num_replies',   pc.num_replies,
                         'num_quotes',    pc.num_quotes,
+                        'num_bookmarks', pc.num_bookmarks,
+                        'mentions',      pc.mentions,
                         ${get_interactions('pc')}
                         'user', json_build_object(
                             'id',         pc.tweet_author_id,
@@ -1063,6 +1068,8 @@ export class TweetsRepository extends Repository<Tweet> {
                     'num_views',     q.num_views,
                     'num_replies',   q.num_replies,
                     'num_quotes',    q.num_quotes,
+                    'num_bookmarks', q.num_bookmarks,
+                    'mentions',      q.mentions,
                     'user', json_build_object(
                         'id',         q.tweet_author_id,
                         'username',   q.username,
