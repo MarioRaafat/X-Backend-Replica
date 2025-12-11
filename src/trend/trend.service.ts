@@ -129,7 +129,7 @@ export class TrendService {
 
         //Expire after 2 hours
         // We may delegate it to trend worker
-        await this.redis_service.expire('candidates:active', 2 * 60 * 60);
+        await this.redis_service.expire('candidates:active', 1 * 60 * 60);
     }
     async insertCandidateCategories(hashtags: HashtagJobDto) {
         const pipeline = this.redis_service.pipeline();
@@ -143,7 +143,7 @@ export class TrendService {
                 if (percent >= this.CATEGORY_THRESHOLD) {
                     // Store hashtag with its category percentage as score
                     pipeline.zadd(`candidates:${category_name}`, percent, hashtag);
-                    pipeline.expire(`candidates:${category_name}`, 2 * 60 * 60);
+                    pipeline.expire(`candidates:${category_name}`, 1 * 60 * 60);
                 }
             }
         }
@@ -183,7 +183,6 @@ export class TrendService {
                 one_hour_ago,
                 '+inf'
             );
-
             // 2. Calculate base scores once for all hashtags
             const hashtag_scores: Map<string, IHashtagScore> = new Map();
 
