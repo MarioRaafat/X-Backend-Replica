@@ -21,7 +21,7 @@ import { MessageType } from './entities/message.entity';
 import { ChatRepository } from 'src/chat/chat.repository';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { EncryptionService } from 'src/shared/services/encryption/encryption.service';
-import { FCMService } from 'src/fcm/fcm.service';
+import { FCMService } from 'src/expo/expo.service';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 import { MessagesGateway } from './messages.gateway';
 import { MessageJobService } from 'src/background-jobs/notifications/message/message.service';

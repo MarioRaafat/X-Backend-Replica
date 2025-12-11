@@ -8,7 +8,7 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ERROR_MESSAGES } from '../constants/swagger-messages';
 import { MessageType } from './entities/message.entity';
-import { FCMService } from '../fcm/fcm.service';
+import { FCMService } from '../expo/expo.service';
 import { MessagesGateway } from './messages.gateway';
 import { MessageJobService } from '../background-jobs/notifications/message/message.service';
 import { EncryptionService } from '../shared/services/encryption/encryption.service';

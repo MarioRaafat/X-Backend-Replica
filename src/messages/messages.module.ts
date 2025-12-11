@@ -11,7 +11,7 @@ import { MessageReaction } from './entities/message-reaction.entity';
 import { Chat } from 'src/chat/entities/chat.entity';
 import { MessagesGateway } from './messages.gateway';
 import { ChatModule } from 'src/chat/chat.module';
-import { FcmModule } from 'src/fcm/fcm.module';
+import { FcmModule } from 'src/expo/expo.module';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { AzureStorageModule } from 'src/azure-storage/azure-storage.module';
 
