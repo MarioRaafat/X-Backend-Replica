@@ -154,7 +154,6 @@ export class SearchService {
             const search_body: any = this.buildBaseSearchBody('relevance', limit, cursor);
 
             const { hashtags, remaining_text } = this.extractHashtagsAndText(sanitized_query);
-            console.log(hashtags);
 
             this.addHashtagFilters(search_body, hashtags);
 
@@ -519,8 +518,9 @@ export class SearchService {
     }
 
     private addMediaFilter(search_body: any): void {
-        search_body.query.bool.filter = search_body.query.bool.filter || [];
-        search_body.query.bool.filter.push({
+        search_body.query.function_score.query.bool.filter =
+            search_body.query.function_score.query.bool.filter || [];
+        search_body.query.function_score.query.bool.filter.push({
             script: {
                 script: {
                     source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
@@ -530,8 +530,9 @@ export class SearchService {
     }
 
     private addTweetsUsernameFilter(search_body: any, username: string): void {
-        search_body.query.bool.filter = search_body.query.bool.filter || [];
-        search_body.query.bool.filter.push({
+        search_body.query.function_score.query.bool.filter =
+            search_body.query.function_score.query.bool.filter || [];
+        search_body.query.function_score.query.bool.filter.push({
             term: {
                 username,
             },
