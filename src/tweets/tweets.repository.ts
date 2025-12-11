@@ -56,6 +56,8 @@ export class TweetsRepository extends Repository<Tweet> {
 
         const tweets = await query.getMany();
 
+        console.log(tweets);
+
         return plainToInstance(TweetResponseDTO, tweets, {
             excludeExtraneousValues: true,
         });
@@ -1004,6 +1006,7 @@ export class TweetsRepository extends Repository<Tweet> {
             throw error;
         }
     }
+
     attachQuotedTweetQuery(query: SelectQueryBuilder<any>): SelectQueryBuilder<any> {
         // query
         //     .leftJoin(
@@ -1209,6 +1212,7 @@ export class TweetsRepository extends Repository<Tweet> {
 
         return query;
     }
+
     attachParentTweetQuery(
         query: SelectQueryBuilder<any>,
         user_id?: string
@@ -1459,6 +1463,7 @@ export class TweetsRepository extends Repository<Tweet> {
 
         return query;
     }
+
     attachUserInteractionBooleanFlags(
         query: SelectQueryBuilder<any>,
         current_user_id?: string,
