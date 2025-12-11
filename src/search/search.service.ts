@@ -145,6 +145,7 @@ export class SearchService {
         const { query, cursor, limit = 20, has_media, username } = query_dto;
 
         const sanitized_query = this.validateAndSanitizeQuery(query);
+        console.log(sanitized_query);
 
         if (!sanitized_query) {
             return this.createEmptyResponse();
@@ -255,7 +256,7 @@ export class SearchService {
 
     private validateAndSanitizeQuery(query: string): string | null {
         const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\w\s#]/gi, '');
+        const sanitized_query = decoded_query.replace(/[^\p{L}\p{N}\s#]/gu, '');
 
         if (!sanitized_query || sanitized_query.trim().length === 0) {
             return null;
@@ -315,6 +316,7 @@ export class SearchService {
         search_body: any,
         current_user_id: string
     ): Promise<TweetListResponseDto> {
+        console.log(search_body);
         const result = await this.elasticsearch_service.search({
             index: ELASTICSEARCH_INDICES.TWEETS,
             body: search_body,
@@ -448,7 +450,7 @@ export class SearchService {
             {
                 multi_match: {
                     query: sanitized_query.trim(),
-                    fields: ['content^3', 'username^2', 'name'],
+                    fields: ['content^3', 'content.arabic^3', 'username^2', 'name', 'name.arabic'],
                     type: 'best_fields',
                     fuzziness: 'AUTO',
                     prefix_length: 1,
@@ -459,6 +461,14 @@ export class SearchService {
             {
                 match_phrase: {
                     content: {
+                        query: sanitized_query.trim(),
+                        boost: 5,
+                    },
+                },
+            },
+            {
+                match_phrase: {
+                    'content.arabic': {
                         query: sanitized_query.trim(),
                         boost: 5,
                     },
