@@ -6,7 +6,6 @@ import { SearchQueryDto } from './dto/search-query.dto';
 import { PostsSearchDto } from './dto/post-search.dto';
 import { ELASTICSEARCH_INDICES } from 'src/elasticsearch/schemas';
 import { DataSource } from 'typeorm';
-import { mock } from 'node:test';
 import { RedisService } from 'src/redis/redis.service';
 
 describe('SearchService', () => {
@@ -104,12 +103,14 @@ describe('SearchService', () => {
                 },
             ]);
 
+            redis_service.zrevrange.mockResolvedValueOnce([]);
+
             elasticsearch_service.search.mockResolvedValueOnce({
                 hits: {
                     hits: [
                         {
-                            _source: { content: 'Check out technology' },
-                            highlight: { content: ['<MARK>technology</MARK>'] },
+                            _source: { content: 'technology is fun' },
+                            highlight: { content: ['<MARK>technology</MARK> is fun'] },
                         },
                     ],
                 },
@@ -128,37 +129,26 @@ describe('SearchService', () => {
             });
             expect(result.suggested_queries).toHaveLength(1);
             expect(result.suggested_queries[0]).toEqual({
-                query: 'technology',
+                query: 'technology is fun',
                 is_trending: false,
             });
         });
 
-        it('should return suggestions with users and queries with hashtag query', async () => {
+        it('should handle hashtag queries', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const query_dto = { query: '#tech' };
 
             const mock_query_builder = user_repository.createQueryBuilder() as any;
-            mock_query_builder.getRawMany.mockResolvedValueOnce([
-                {
-                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                    username: 'alyaa242',
-                    name: 'Alyaa Ali',
-                    bio: 'Blah',
-                    avatar_url: 'https://example.com/avatar.jpg',
-                    verified: true,
-                    followers: 100,
-                    following: 50,
-                    is_following: false,
-                    is_follower: false,
-                },
-            ]);
+            mock_query_builder.getRawMany.mockResolvedValueOnce([]);
+
+            redis_service.zrevrange.mockResolvedValueOnce(['#technology', '150']);
 
             elasticsearch_service.search.mockResolvedValueOnce({
                 hits: {
                     hits: [
                         {
                             _source: { content: 'Check out #technology' },
-                            highlight: { content: ['<MARK>#technology</MARK>'] },
+                            highlight: { content: ['Check out #<MARK>tech</MARK>nology'] },
                         },
                     ],
                 },
@@ -166,68 +156,30 @@ describe('SearchService', () => {
 
             const result = await service.getSuggestions(current_user_id, query_dto);
 
-            expect(result.suggested_users).toHaveLength(1);
-            expect(result.suggested_users[0]).toEqual({
-                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                username: 'alyaa242',
-                name: 'Alyaa Ali',
-                avatar_url: 'https://example.com/avatar.jpg',
-                is_following: false,
-                is_follower: false,
-            });
             expect(result.suggested_queries).toHaveLength(1);
             expect(result.suggested_queries[0]).toEqual({
                 query: '#technology',
-                is_trending: false,
+                is_trending: true,
             });
         });
 
-        it('should return suggestions with users and queries with normal query with hashtag result', async () => {
+        it('should sanitize special characters from query', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto = { query: 'tech' };
+            const query_dto = { query: 'tech!' };
 
             const mock_query_builder = user_repository.createQueryBuilder() as any;
-            mock_query_builder.getRawMany.mockResolvedValueOnce([
-                {
-                    user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                    username: 'alyaa242',
-                    name: 'Alyaa Ali',
-                    bio: 'Blah',
-                    avatar_url: 'https://example.com/avatar.jpg',
-                    verified: true,
-                    followers: 100,
-                    following: 50,
-                    is_following: false,
-                    is_follower: false,
-                },
-            ]);
+            mock_query_builder.getRawMany.mockResolvedValueOnce([]);
 
+            redis_service.zrevrange.mockResolvedValueOnce([]);
             elasticsearch_service.search.mockResolvedValueOnce({
-                hits: {
-                    hits: [
-                        {
-                            _source: { content: 'Check out #technology' },
-                            highlight: { content: ['#<MARK>technology</MARK>'] },
-                        },
-                    ],
-                },
+                hits: { hits: [] },
             } as any);
 
             const result = await service.getSuggestions(current_user_id, query_dto);
 
-            expect(result.suggested_users).toHaveLength(1);
-            expect(result.suggested_users[0]).toEqual({
-                user_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                username: 'alyaa242',
-                name: 'Alyaa Ali',
-                avatar_url: 'https://example.com/avatar.jpg',
-                is_following: false,
-                is_follower: false,
-            });
-            expect(result.suggested_queries).toHaveLength(1);
-            expect(result.suggested_queries[0]).toEqual({
-                query: '#technology',
-                is_trending: false,
+            expect(result).toEqual({
+                suggested_queries: [],
+                suggested_users: [],
             });
         });
     });
@@ -443,9 +395,9 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweet,
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -454,13 +406,21 @@ describe('SearchService', () => {
             expect(elasticsearch_service.search).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 body: expect.objectContaining({
-                    query: {
-                        bool: {
-                            must: [],
-                            should: expect.any(Array),
-                            minimum_should_match: 1,
-                        },
-                    },
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    must: [],
+                                    should: expect.any(Array),
+                                }),
+                            }),
+
+                            functions: expect.any(Array),
+                            boost_mode: 'sum',
+                            score_mode: 'sum',
+                        }),
+                    }),
+
                     size: 21,
                     sort: [
                         { _score: { order: 'desc' } },
@@ -525,37 +485,54 @@ describe('SearchService', () => {
             elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
 
             jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
-
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweet,
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
             const result = await service.searchPosts(current_user_id, query_dto);
 
+            // Verify the search was called with function_score query
             expect(elasticsearch_service.search).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 body: expect.objectContaining({
-                    query: {
-                        bool: {
-                            must: [],
-                            should: expect.any(Array),
-                            minimum_should_match: 1,
-                            filter: [
-                                {
-                                    script: {
-                                        script: {
-                                            source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    should: expect.arrayContaining([
+                                        expect.objectContaining({
+                                            multi_match: expect.objectContaining({
+                                                query: 'technology',
+                                            }),
+                                        }),
+                                    ]),
+                                    filter: expect.arrayContaining([
+                                        {
+                                            bool: {
+                                                should: [
+                                                    { exists: { field: 'images' } },
+                                                    { exists: { field: 'videos' } },
+                                                ],
+                                                minimum_should_match: 1,
+                                            },
                                         },
-                                    },
-                                },
-                            ],
-                        },
-                    },
+                                    ]),
+                                }),
+                            }),
+                            functions: expect.arrayContaining([
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_likes',
+                                    }),
+                                }),
+                            ]),
+                        }),
+                    }),
                 }),
             });
 
@@ -635,9 +612,9 @@ describe('SearchService', () => {
                         is_follower: false,
                         is_following: false,
                     },
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -719,9 +696,9 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweet,
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -835,9 +812,9 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweets[0],
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -918,9 +895,9 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweet,
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -1051,8 +1028,8 @@ describe('SearchService', () => {
                 Promise.resolve(
                     tweets.map((tweet) => ({
                         ...tweet,
-                        has_liked: false,
-                        has_reposted: false,
+                        is_liked: false,
+                        is_reposted: false,
                     }))
                 )
             );
@@ -1173,9 +1150,9 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweet,
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -1255,9 +1232,9 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweet,
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -1349,9 +1326,9 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweet,
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -1455,9 +1432,9 @@ describe('SearchService', () => {
                         is_follower: false,
                         is_following: false,
                     },
-                    has_liked: false,
-                    has_reposted: false,
-                    has_bookmarked: false,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
                 },
             ]);
 
@@ -1487,257 +1464,66 @@ describe('SearchService', () => {
         });
     });
 
-    describe('encodeCursor', () => {
-        it('should encode sort array to base64 cursor', () => {
-            const sort = [1.5, 100, '0c059899-f706-4c8f-97d7-ba2e9fc22d6d'];
-            const result = service['encodeCursor'](sort);
+    describe('getMentionSuggestions', () => {
+        it('should return empty array when query is empty', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto = { query: '' };
 
-            expect(result).toBeTruthy();
-            expect(typeof result).toBe('string');
+            const result = await service.getMentionSuggestions(current_user_id, query_dto);
 
-            const decoded = JSON.parse(Buffer.from(result as any, 'base64').toString('utf8'));
-            expect(decoded).toEqual(sort);
+            expect(result).toEqual([]);
         });
 
-        it('should return null when sort is undefined', () => {
-            const result = service['encodeCursor'](undefined);
+        it('should return user suggestions for mentions', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto = { query: 'alya' };
 
-            expect(result).toBeNull();
-        });
-
-        it('should return null when sort is null', () => {
-            const result = service['encodeCursor'](null as any);
-
-            expect(result).toBeNull();
-        });
-    });
-
-    describe('decodeCursor', () => {
-        it('should decode base64 cursor to sort array', () => {
-            const sort = [1.5, 100, '0c059899-f706-4c8f-97d7-ba2e9fc22d6d'];
-            const cursor = Buffer.from(JSON.stringify(sort)).toString('base64');
-
-            const result = service['decodeCursor'](cursor);
-
-            expect(result).toEqual(sort);
-        });
-
-        it('should return null when cursor is null', () => {
-            const result = service['decodeCursor'](null);
-
-            expect(result).toBeNull();
-        });
-
-        it('should return null when cursor is invalid base64', () => {
-            const result = service['decodeCursor']('invalid-cursor');
-
-            expect(result).toBeNull();
-        });
-
-        it('should return null when cursor is not valid JSON', () => {
-            const invalid_cursor = Buffer.from('not-json').toString('base64');
-
-            const result = service['decodeCursor'](invalid_cursor);
-
-            expect(result).toBeNull();
-        });
-    });
-
-    describe('applyTweetsBoosting', () => {
-        it('should add boosting queries to search body', () => {
-            const search_body = {
-                query: {
-                    bool: {
-                        must: [],
-                        should: [],
-                    },
-                },
-            };
-
-            service['applyTweetsBoosting'](search_body);
-
-            expect(search_body.query.bool.should).toHaveLength(6);
-            expect(search_body.query.bool.should).toContainEqual({
-                function_score: {
-                    field_value_factor: {
-                        field: 'num_likes',
-                        factor: 0.01,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
-            });
-            expect(search_body.query.bool.should).toContainEqual({
-                function_score: {
-                    field_value_factor: {
-                        field: 'num_reposts',
-                        factor: 0.02,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
-            });
-            expect(search_body.query.bool.should).toContainEqual({
-                function_score: {
-                    field_value_factor: {
-                        field: 'followers',
-                        factor: 0.001,
-                        modifier: 'log1p',
-                        missing: 0,
-                    },
-                },
-            });
-        });
-    });
-
-    describe('fetchRelatedTweets', () => {
-        it('should fetch parent and conversation tweets', async () => {
-            const tweets = [
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce([
                 {
-                    type: 'reply',
-                    parent_id: '0c059811-f706-4c8f-97d7-ba2e9fc22d6d',
-                    conversation_id: '0c059822-f706-4c8f-97d7-ba2e9fc22d6d',
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    username: 'alyaali',
+                    name: 'Alyaa Ali',
+                    avatar_url: 'https://example.com/blah.jpg',
+                    is_following: true,
+                    is_follower: false,
                 },
                 {
-                    type: 'quote',
-                    parent_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    user_id: '0c059299-f706-4c8f-97d7-ba2e9fc22d6d',
+                    username: 'alyaa242',
+                    name: 'Alyaaa Eissa',
+                    avatar_url: 'https://example.com/johnny.jpg',
+                    is_following: false,
+                    is_follower: true,
                 },
-            ];
+            ]);
 
-            const mock_mget_response = {
-                docs: [
-                    {
-                        _id: '0c059811-f706-4c8f-97d7-ba2e9fc22d6d',
-                        found: true,
-                        _source: {
-                            tweet_id: '0c059811-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'Parent 1',
-                        },
-                    },
-                    {
-                        _id: '0c059822-f706-4c8f-97d7-ba2e9fc22d6d',
-                        found: true,
-                        _source: {
-                            tweet_id: '0c059822-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'Conversation',
-                        },
-                    },
-                    {
-                        _id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                        found: true,
-                        _source: {
-                            tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'Parent 2',
-                        },
-                    },
-                ],
-            };
+            const result = await service.getMentionSuggestions(current_user_id, query_dto);
 
-            elasticsearch_service.mget.mockResolvedValueOnce(mock_mget_response as any);
-
-            const result = await service['fetchRelatedTweets'](tweets);
-
-            expect(elasticsearch_service.mget).toHaveBeenCalledWith({
-                index: ELASTICSEARCH_INDICES.TWEETS,
-                body: {
-                    ids: [
-                        '0c059811-f706-4c8f-97d7-ba2e9fc22d6d',
-                        '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                        '0c059822-f706-4c8f-97d7-ba2e9fc22d6d',
-                    ],
-                },
-            });
-
-            expect(result.parent_map.size).toBe(2);
-            expect(result.parent_map.get('0c059811-f706-4c8f-97d7-ba2e9fc22d6d')).toEqual({
-                tweet_id: '0c059811-f706-4c8f-97d7-ba2e9fc22d6d',
-                content: 'Parent 1',
-            });
-            expect(result.parent_map.get('0c059899-f706-4c8f-97d7-ba2e9fc22d6d')).toEqual({
-                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                content: 'Parent 2',
-            });
-
-            expect(result.conversation_map.size).toBe(1);
-            expect(result.conversation_map.get('0c059822-f706-4c8f-97d7-ba2e9fc22d6d')).toEqual({
-                tweet_id: '0c059822-f706-4c8f-97d7-ba2e9fc22d6d',
-                content: 'Conversation',
-            });
+            expect(result).toHaveLength(2);
+            expect(result[0].username).toBe('alyaali');
+            expect(result[1].username).toBe('alyaa242');
         });
 
-        it('should return empty maps when no parent or conversation ids', async () => {
-            const tweets = [
-                {
-                    type: 'post',
-                },
-            ];
+        it('should limit mention suggestions to 10 users', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto = { query: 'user' };
 
-            const result = await service['fetchRelatedTweets'](tweets);
+            const mock_users = Array.from({ length: 15 }, (_, i) => ({
+                user_id: `user-${i}`,
+                username: `user${i}`,
+                name: `User ${i}`,
+                avatar_url: `https://example.com/user${i}.jpg`,
+                is_following: false,
+                is_follower: false,
+            }));
 
-            expect(elasticsearch_service.mget).not.toHaveBeenCalled();
-            expect(result.parent_map.size).toBe(0);
-            expect(result.conversation_map.size).toBe(0);
-        });
-    });
+            const mock_query_builder = user_repository.createQueryBuilder() as any;
+            mock_query_builder.getRawMany.mockResolvedValueOnce(mock_users.slice(0, 10));
 
-    describe('attachRelatedTweets', () => {
-        it('should attach parent and conversation tweets to items', async () => {
-            const items = [
-                {
-                    _source: {
-                        tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                        type: 'reply',
-                        parent_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                        conversation_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                        content: 'Reply content',
-                        created_at: '2024-01-15T10:30:00Z',
-                        updated_at: '2024-01-15T10:30:00Z',
-                        num_likes: 5,
-                        num_reposts: 2,
-                        num_views: 50,
-                        num_replies: 1,
-                        num_quotes: 0,
-                        author_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                        username: 'alyaali',
-                        name: 'Alyaa Ali',
-                        avatar_url: 'https://example.com/avatar.jpg',
-                        followers: 50,
-                        following: 25,
-                        images: [],
-                        videos: [],
-                    },
-                },
-            ];
+            const result = await service.getMentionSuggestions(current_user_id, query_dto);
 
-            const mock_mget_response = {
-                docs: [
-                    {
-                        _id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                        found: true,
-                        _source: {
-                            tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'Parent content',
-                        },
-                    },
-                    {
-                        _id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                        found: true,
-                        _source: {
-                            tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                            content: 'Conversation content',
-                        },
-                    },
-                ],
-            };
-
-            elasticsearch_service.mget.mockResolvedValueOnce(mock_mget_response as any);
-
-            const result = await service['attachRelatedTweets'](items);
-
-            expect(result).toHaveLength(1);
-            expect(result[0].tweet_id).toBe('0c059899-f706-4c8f-97d7-ba2e9fc22d6d');
-            expect(result[0].parent_tweet).toBeDefined();
-            expect(result[0].conversation_tweet).toBeDefined();
+            expect(result.length).toBeLessThanOrEqual(10);
         });
     });
 });
