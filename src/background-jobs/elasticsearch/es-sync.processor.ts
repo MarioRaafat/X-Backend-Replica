@@ -337,7 +337,7 @@ export class EsSyncProcessor {
     private extractHashtags(content: string): string[] {
         if (!content) return [];
 
-        const regex = /#[\w]+/g;
+        const regex = /#[\p{L}\p{N}_]+/gu;
         const matches = content.match(regex);
 
         if (!matches) return [];

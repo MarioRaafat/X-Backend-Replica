@@ -145,7 +145,6 @@ export class SearchService {
         const { query, cursor, limit = 20, has_media, username } = query_dto;
 
         const sanitized_query = this.validateAndSanitizeQuery(query);
-        console.log(sanitized_query);
 
         if (!sanitized_query) {
             return this.createEmptyResponse();
@@ -155,6 +154,7 @@ export class SearchService {
             const search_body: any = this.buildBaseSearchBody('relevance', limit, cursor);
 
             const { hashtags, remaining_text } = this.extractHashtagsAndText(sanitized_query);
+            console.log(hashtags);
 
             this.addHashtagFilters(search_body, hashtags);
 
@@ -316,7 +316,6 @@ export class SearchService {
         search_body: any,
         current_user_id: string
     ): Promise<TweetListResponseDto> {
-        console.log(search_body);
         const result = await this.elasticsearch_service.search({
             index: ELASTICSEARCH_INDICES.TWEETS,
             body: search_body,
@@ -497,7 +496,7 @@ export class SearchService {
         hashtags: string[];
         remaining_text: string;
     } {
-        const hashtag_pattern = /#\w+/g;
+        const hashtag_pattern = /#[\p{L}\p{N}_]+/gu;
         const hashtags = sanitized_query.match(hashtag_pattern) || [];
         const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
 
