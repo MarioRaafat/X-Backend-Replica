@@ -706,11 +706,16 @@ export class NotificationsService implements OnModuleInit {
             }
         });
 
+        const columns = this.user_repository.metadata.columns
+            .map((col) => col.propertyName)
+            .filter((name) => name !== 'password') as (keyof User)[];
+
         // Fetch all data in parallel
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
                 ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
+                      select: columns,
                   })
                 : [],
             tweet_ids.size > 0
@@ -1123,11 +1128,16 @@ export class NotificationsService implements OnModuleInit {
             }
         });
 
+        const columns = this.user_repository.metadata.columns
+            .map((col) => col.propertyName)
+            .filter((name) => name !== 'password') as (keyof User)[];
+
         // Fetch all required data in parallel
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
                 ? this.user_repository.find({
                       where: { id: In(Array.from(user_ids)) },
+                      select: columns,
                   })
                 : [],
             tweet_ids.size > 0
