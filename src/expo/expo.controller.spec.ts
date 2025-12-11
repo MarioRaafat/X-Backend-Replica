@@ -1,6 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { FcmController } from './fcm.controller';
-import { FCMService } from './fcm.service';
+import { FcmController } from './expo.controller';
+import { FCMService } from './expo.service';
 
 describe('FcmController', () => {
     let controller: FcmController;

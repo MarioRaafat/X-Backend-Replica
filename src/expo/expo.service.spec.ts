@@ -1,42 +1,42 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
-import { FCMService } from './fcm.service';
+import { FCMService } from './expo.service';
 import { User } from 'src/user/entities';
 import { NotificationType } from 'src/notifications/enums/notification-types';
-import * as admin from 'firebase-admin';
+import { Expo } from 'expo-server-sdk';
 
-// Mock firebase-admin
-jest.mock('firebase-admin', () => ({
-    initializeApp: jest.fn(),
-    credential: {
-        cert: jest.fn(),
-    },
-    messaging: jest.fn(),
-}));
+// Mock expo-server-sdk
+jest.mock('expo-server-sdk');
 
 describe('FCMService', () => {
     let service: FCMService;
     let mock_user_repository: any;
-    let mock_messaging: any;
+    let mock_expo_instance: any;
 
     const mock_user = {
         id: 'user-123',
-        fcm_token: 'mock-fcm-token-123',
+        fcm_token: 'ExponentPushToken[mock-token-123]',
         username: 'testuser',
     };
 
     beforeEach(async () => {
-        // Reset environment variables
-        process.env.FIREBASE_PRIVATE_KEY = 'mock-private-key\\nwith-newlines';
-        process.env.FIREBASE_PROJECT_ID = 'mock-project-id';
-        process.env.FIREBASE_CLIENT_EMAIL = 'mock@client.email';
-
-        mock_messaging = {
-            send: jest.fn().mockResolvedValue('mock-response-id'),
+        // Mock Expo instance methods
+        mock_expo_instance = {
+            sendPushNotificationsAsync: jest.fn().mockResolvedValue([
+                {
+                    status: 'ok',
+                    id: 'mock-receipt-id',
+                },
+            ]),
+            chunkPushNotifications: jest.fn((messages) => [messages]),
+            chunkPushNotificationReceiptIds: jest.fn((ids) => [ids]),
+            getPushNotificationReceiptsAsync: jest.fn().mockResolvedValue({}),
         };
 
-        (admin.messaging as jest.Mock).mockReturnValue(mock_messaging);
+        // Mock Expo constructor and static method
+        (Expo as jest.MockedClass<typeof Expo>).mockImplementation(() => mock_expo_instance);
+        (Expo.isExpoPushToken as unknown as jest.Mock) = jest.fn().mockReturnValue(true);
 
         mock_user_repository = {
             findOne: jest.fn().mockResolvedValue(mock_user),
@@ -65,65 +65,95 @@ describe('FCMService', () => {
     });
 
     describe('Constructor', () => {
-        it('should initialize Firebase Admin SDK with correct credentials', () => {
-            expect(admin.credential.cert).toHaveBeenCalledWith({
-                projectId: 'mock-project-id',
-                clientEmail: 'mock@client.email',
-                privateKey: 'mock-private-key\nwith-newlines',
+        it('should initialize Expo SDK client', () => {
+            expect(Expo).toHaveBeenCalledWith({
+                useFcmV1: true,
             });
-            expect(admin.initializeApp).toHaveBeenCalled();
         });
     });
 
     describe('sendToDevice', () => {
         it('should send message to device successfully', async () => {
-            const device_token = 'mock-device-token';
+            const device_token = 'ExponentPushToken[valid-token]';
             const data = { key: 'value', type: 'LIKE' };
             const notification = { title: 'Test Title', body: 'Test Body' };
 
             const result = await service.sendToDevice(device_token, data, notification);
 
-            expect(mock_messaging.send).toHaveBeenCalledWith({
-                token: device_token,
-                data: data,
-                notification: notification,
-            });
-            expect(result).toBe('mock-response-id');
+            expect(Expo.isExpoPushToken).toHaveBeenCalledWith(device_token);
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith([
+                {
+                    to: device_token,
+                    sound: 'default',
+                    title: notification.title,
+                    body: notification.body,
+                    data: data,
+                },
+            ]);
+            expect(result).toEqual({ status: 'ok', id: 'mock-receipt-id' });
         });
 
         it('should send message without notification object', async () => {
-            const device_token = 'mock-device-token';
+            const device_token = 'ExponentPushToken[valid-token]';
             const data = { key: 'value' };
 
             const result = await service.sendToDevice(device_token, data);
 
-            expect(mock_messaging.send).toHaveBeenCalledWith({
-                token: device_token,
-                data: data,
-                notification: undefined,
-            });
-            expect(result).toBe('mock-response-id');
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith([
+                {
+                    to: device_token,
+                    sound: 'default',
+                    title: undefined,
+                    body: undefined,
+                    data: data,
+                },
+            ]);
+            expect(result).toEqual({ status: 'ok', id: 'mock-receipt-id' });
         });
 
-        it('should log error and throw when sending fails', async () => {
-            const error = new Error('FCM send failed');
-            mock_messaging.send.mockRejectedValue(error);
+        it('should throw error for invalid push token', async () => {
+            const invalid_token = 'invalid-token';
+            (Expo.isExpoPushToken as unknown as jest.Mock).mockReturnValueOnce(false);
 
             const logger_spy = jest.spyOn(service['logger'], 'error');
 
-            await expect(service.sendToDevice('device-token', { key: 'value' })).rejects.toThrow(
-                'FCM send failed'
+            await expect(service.sendToDevice(invalid_token, { key: 'value' })).rejects.toThrow(
+                'Invalid Expo push token'
             );
 
-            expect(logger_spy).toHaveBeenCalledWith('FCM Error: FCM send failed');
+            expect(logger_spy).toHaveBeenCalledWith(
+                `Push token ${invalid_token} is not a valid Expo push token`
+            );
+        });
+
+        it('should throw error when ticket status is error', async () => {
+            mock_expo_instance.sendPushNotificationsAsync.mockResolvedValueOnce([
+                {
+                    status: 'error',
+                    message: 'Device not registered',
+                    details: { error: 'DeviceNotRegistered' },
+                },
+            ]);
+
+            const logger_spy = jest.spyOn(service['logger'], 'error');
+
+            await expect(
+                service.sendToDevice('ExponentPushToken[valid]', { key: 'value' })
+            ).rejects.toThrow('Device not registered');
+
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Error sending push notification: Device not registered'
+            );
         });
 
         it('should log successful send', async () => {
             const logger_spy = jest.spyOn(service['logger'], 'log');
 
-            await service.sendToDevice('device-token', { key: 'value' });
+            await service.sendToDevice('ExponentPushToken[valid]', { key: 'value' });
 
-            expect(logger_spy).toHaveBeenCalledWith('FCM Sent: mock-response-id');
+            expect(logger_spy).toHaveBeenCalledWith(
+                expect.stringContaining('Expo push notification sent:')
+            );
         });
     });
 
@@ -200,17 +230,18 @@ describe('FCMService', () => {
                 select: ['fcm_token'],
             });
 
-            expect(mock_messaging.send).toHaveBeenCalledWith({
-                token: 'mock-fcm-token-123',
-                data: {
-                    type: NotificationType.LIKE,
-                    ...payload,
-                },
-                notification: {
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith([
+                {
+                    to: 'ExponentPushToken[mock-token-123]',
+                    sound: 'default',
                     title: 'New LIKE',
                     body: 'John Doe liked your tweet',
+                    data: {
+                        type: NotificationType.LIKE,
+                        ...payload,
+                    },
                 },
-            });
+            ]);
 
             expect(result).toBe(true);
         });
@@ -227,13 +258,13 @@ describe('FCMService', () => {
                 payload
             );
 
-            expect(mock_messaging.send).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    notification: {
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
                         title: 'New REPLY',
                         body: 'Jane Smith replied to your tweet',
-                    },
-                })
+                    }),
+                ])
             );
 
             expect(result).toBe(true);
@@ -250,12 +281,12 @@ describe('FCMService', () => {
                 payload
             );
 
-            expect(mock_messaging.send).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    notification: expect.objectContaining({
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
                         body: 'Bob Johnson reposted your tweet',
                     }),
-                })
+                ])
             );
         });
 
@@ -266,12 +297,12 @@ describe('FCMService', () => {
 
             await service.sendNotificationToUserDevice('user-123', NotificationType.QUOTE, payload);
 
-            expect(mock_messaging.send).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    notification: expect.objectContaining({
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
                         body: 'Alice Brown quoted your tweet',
                     }),
-                })
+                ])
             );
         });
 
@@ -286,12 +317,12 @@ describe('FCMService', () => {
                 payload
             );
 
-            expect(mock_messaging.send).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    notification: expect.objectContaining({
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
                         body: 'Charlie Wilson mentioned you in a tweet',
                     }),
-                })
+                ])
             );
         });
 
@@ -307,12 +338,12 @@ describe('FCMService', () => {
                 payload
             );
 
-            expect(mock_messaging.send).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    notification: expect.objectContaining({
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
                         body: 'David Lee sent you a message',
                     }),
-                })
+                ])
             );
         });
 
@@ -327,12 +358,12 @@ describe('FCMService', () => {
                 payload
             );
 
-            expect(mock_messaging.send).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    notification: expect.objectContaining({
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
                         body: 'Emma Davis started following you',
                     }),
-                })
+                ])
             );
         });
 
@@ -344,12 +375,12 @@ describe('FCMService', () => {
 
             await service.sendNotificationToUserDevice('user-123', NotificationType.LIKE, payload);
 
-            expect(mock_messaging.send).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    notification: expect.objectContaining({
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
                         body: 'Someone liked your tweet',
                     }),
-                })
+                ])
             );
         });
 
@@ -365,7 +396,7 @@ describe('FCMService', () => {
             );
 
             expect(logger_spy).toHaveBeenCalledWith('No FCM token found for user user-123');
-            expect(mock_messaging.send).not.toHaveBeenCalled();
+            expect(mock_expo_instance.sendPushNotificationsAsync).not.toHaveBeenCalled();
             expect(result).toBe(false);
         });
 
@@ -395,7 +426,9 @@ describe('FCMService', () => {
         });
 
         it('should return false and log error if sending fails', async () => {
-            mock_messaging.send.mockRejectedValue(new Error('Send failed'));
+            mock_expo_instance.sendPushNotificationsAsync.mockRejectedValue(
+                new Error('Send failed')
+            );
 
             const logger_spy = jest.spyOn(service['logger'], 'error');
 
@@ -423,13 +456,15 @@ describe('FCMService', () => {
 
             await service.sendNotificationToUserDevice('user-123', NotificationType.LIKE, payload);
 
-            expect(mock_messaging.send).toHaveBeenCalledWith(
-                expect.objectContaining({
-                    data: {
-                        type: NotificationType.LIKE,
-                        ...payload,
-                    },
-                })
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        data: {
+                            type: NotificationType.LIKE,
+                            ...payload,
+                        },
+                    }),
+                ])
             );
         });
     });
