@@ -296,7 +296,7 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const mentioned_user_ids = await this.extractDataFromTweets(
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
                 tweet,
                 user_id,
                 query_runner
@@ -306,7 +306,7 @@ export class TweetsService {
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 type: TweetType.TWEET,
-                mentions: mentioned_user_ids,
+                mentions: mentioned_usernames,
                 ...tweet,
             });
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
@@ -345,7 +345,7 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const mentioned_user_ids = await this.extractDataFromTweets(
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
                 tweet,
                 user_id,
                 query_runner
@@ -359,7 +359,7 @@ export class TweetsService {
 
             query_runner.manager.merge(Tweet, tweet_to_update, {
                 ...tweet,
-                mentions: mentioned_user_ids,
+                mentions: mentioned_usernames,
             });
 
             if (tweet_to_update.user_id !== user_id)
@@ -638,7 +638,7 @@ export class TweetsService {
         try {
             const parentTweet = await this.getTweetWithUserById(tweet_id, user_id, false);
 
-            const mentioned_user_ids = await this.extractDataFromTweets(
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
                 quote,
                 user_id,
                 query_runner
@@ -647,7 +647,7 @@ export class TweetsService {
             const new_quote_tweet = query_runner.manager.create(Tweet, {
                 ...quote,
                 user_id,
-                mentions: mentioned_user_ids,
+                mentions: mentioned_usernames,
                 type: TweetType.QUOTE,
             });
             const saved_quote_tweet = await query_runner.manager.save(Tweet, new_quote_tweet);
@@ -678,8 +678,6 @@ export class TweetsService {
                     excludeExtraneousValues: true,
                 }),
             });
-
-            console.log('parentTweet', parentTweet);
 
             if (parentTweet.user?.id && user_id !== parentTweet.user.id)
                 this.quote_job_service.queueQuoteNotification({
@@ -818,7 +816,7 @@ export class TweetsService {
 
             if (!original_tweet) throw new NotFoundException('Original tweet not found');
 
-            const mentioned_user_ids = await this.extractDataFromTweets(
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
                 reply_dto,
                 user_id,
                 query_runner
@@ -828,7 +826,7 @@ export class TweetsService {
             const new_reply_tweet = query_runner.manager.create(Tweet, {
                 ...reply_dto,
                 user_id,
-                mentions: mentioned_user_ids,
+                mentions: mentioned_usernames,
                 type: TweetType.REPLY,
             });
             const saved_reply_tweet = await query_runner.manager.save(Tweet, new_reply_tweet);
@@ -1328,9 +1326,10 @@ export class TweetsService {
         tweet: CreateTweetDTO | UpdateTweetDTO,
         user_id: string,
         query_runner: QueryRunner
-    ): Promise<string[]> {
+    ): Promise<{ mentioned_user_ids: string[]; mentioned_usernames: string[] }> {
+        if (!tweet?.content) return { mentioned_user_ids: [], mentioned_usernames: [] };
         const { content } = tweet;
-        if (!content) return [];
+
         console.log('content:', content);
 
         // Extract mentions and return them for later processing
@@ -1356,18 +1355,32 @@ export class TweetsService {
 
         const mentioned_users = await this.user_repository.find({
             where: { username: In(mentions) },
-            select: ['id'],
+            select: ['username', 'id'],
         });
+
+        const mapped_users = new Map<string, string>();
+
+        // Map each mention → user_id
+        for (const mention of mentions) {
+            const found = mentioned_users.find((u) => u.username === mention);
+            if (found) mapped_users.set(mention, found.id);
+        }
 
         const mentioned_user_ids: string[] = [];
+        const mentioned_usernames: string[] = [];
 
-        mentioned_users.forEach((user, index) => {
-            if (user.id) {
-                tweet.content = content.replace(`@${mentions[index]}`, '$');
-                mentioned_user_ids.push(user.id);
-            } else mentioned_users.splice(index, 1);
+        mentions.forEach((mention, index) => {
+            const id = mapped_users.get(mention);
+
+            if (id) {
+                tweet.content = tweet.content?.replace(`@${mention}`, `\u200B$(${index})\u200C`);
+
+                mentioned_usernames.push(mention);
+                mentioned_user_ids.push(id);
+            }
         });
-        return mentioned_user_ids;
+
+        return { mentioned_user_ids, mentioned_usernames };
     }
 
     async extractTopics(
