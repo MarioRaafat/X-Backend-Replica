@@ -38,11 +38,7 @@ export class SearchService {
             return { suggested_queries: [], suggested_users: [] };
         }
 
-        const prefix_query = sanitized_query
-            .split(/\s+/)
-            .filter(Boolean)
-            .map((term) => `${term}:*`)
-            .join(' & ');
+        const prefix_query = this.buildUserPrefixQuery(sanitized_query);
 
         let query_builder = this.user_repository.createQueryBuilder('user');
 
@@ -56,11 +52,7 @@ export class SearchService {
         const trending_hashtags: Map<string, number> = await this.getTrendingHashtags();
 
         const [users_result, queries_result] = await Promise.all([
-            query_builder
-                .orderBy('total_score', 'DESC')
-                .addOrderBy('user.id', 'ASC')
-                .limit(10)
-                .getRawMany(),
+            this.executeUsersSearch(query_builder, 10),
 
             this.elasticsearch_service.search(
                 this.buildEsSuggestionsQuery(sanitized_query, trending_hashtags)
@@ -99,24 +91,12 @@ export class SearchService {
             return this.createEmptyResponse();
         }
 
-        const prefix_query = sanitized_query
-            .split(/\s+/)
-            .filter(Boolean)
-            .map((term) => `${term}:*`)
-            .join(' & ');
+        const prefix_query = this.buildUserPrefixQuery(sanitized_query);
 
-        let cursor_score: number | null = null;
-        let cursor_id: string | null = null;
+        const cursor_data = cursor ? this.decodeUsersCursor(cursor) : null;
 
-        if (cursor) {
-            try {
-                const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf-8'));
-                cursor_score = decoded.score;
-                cursor_id = decoded.user_id;
-            } catch (error) {
-                throw new Error('Invalid cursor');
-            }
-        }
+        const cursor_score = cursor_data?.score;
+        const cursor_id = cursor_data?.user_id;
 
         const fetch_limit = limit + 1;
 
@@ -125,39 +105,11 @@ export class SearchService {
         query_builder = this.attachUserSearchQuery(query_builder, prefix_query);
 
         if (username) {
-            query_builder.andWhere(`EXISTS (
-                SELECT 1 FROM "user" target_user
-                WHERE target_user.username = :username
-                AND (
-                    EXISTS (
-                        SELECT 1 FROM user_follows uf1
-                        WHERE uf1.follower_id = "user".id 
-                        AND uf1.followed_id = target_user.id
-                    )
-                    OR
-                    EXISTS (
-                        SELECT 1 FROM user_follows uf2
-                        WHERE uf2.followed_id = "user".id 
-                        AND uf2.follower_id = target_user.id
-                    )
-                )
-            )`);
+            query_builder = this.attachUsersUsernameFilter(query_builder);
         }
 
-        if (cursor && cursor_score !== null && cursor_id !== null) {
-            query_builder.andWhere(
-                new Brackets((qb) => {
-                    qb.where(`${this.getUserScoreExpression()} < :cursor_score`, {
-                        cursor_score,
-                    }).orWhere(
-                        new Brackets((qb2) => {
-                            qb2.where(`${this.getUserScoreExpression()} = :cursor_score`, {
-                                cursor_score,
-                            }).andWhere('"user".id > :cursor_id', { cursor_id });
-                        })
-                    );
-                })
-            );
+        if (cursor && cursor_score && cursor_id) {
+            this.applyUserCursorPagination(query_builder, cursor_score, cursor_id);
         }
 
         query_builder.setParameters({
@@ -166,24 +118,9 @@ export class SearchService {
             username,
         });
 
-        const results = await query_builder
-            .orderBy('total_score', 'DESC')
-            .addOrderBy('user.id', 'ASC')
-            .limit(fetch_limit)
-            .getRawMany();
+        const results = await this.executeUsersSearch(query_builder, fetch_limit);
 
-        const has_more = results.length > limit;
-        const users = has_more ? results.slice(0, limit) : results;
-
-        let next_cursor: string | null = null;
-        if (has_more && users.length > 0) {
-            const last_user = users[users.length - 1];
-            const cursor_data = {
-                score: last_user.total_score,
-                user_id: last_user.user_id,
-            };
-            next_cursor = Buffer.from(JSON.stringify(cursor_data)).toString('base64');
-        }
+        const { users, has_more, next_cursor } = this.processUserPaginationResults(results, limit);
 
         const users_list = users.map((user) =>
             plainToInstance(UserListItemDto, user, {
@@ -293,11 +230,7 @@ export class SearchService {
             return [];
         }
 
-        const prefix_query = sanitized_query
-            .split(/\s+/)
-            .filter(Boolean)
-            .map((term) => `${term}:*`)
-            .join(' & ');
+        const prefix_query = this.buildUserPrefixQuery(sanitized_query);
 
         let query_builder = this.user_repository.createQueryBuilder('user');
 
@@ -308,11 +241,7 @@ export class SearchService {
             prefix_query,
         });
 
-        const users_result = await query_builder
-            .orderBy('total_score', 'DESC')
-            .addOrderBy('user.id', 'ASC')
-            .limit(10)
-            .getRawMany();
+        const users_result = await this.executeUsersSearch(query_builder, 10);
 
         const users_list = users_result.map((user) =>
             plainToInstance(SuggestedUserDto, user, {
@@ -376,7 +305,7 @@ export class SearchService {
         };
 
         if (cursor) {
-            search_body.search_after = this.decodeCursor(cursor);
+            search_body.search_after = this.decodeTweetsCursor(cursor);
         }
 
         return search_body;
@@ -402,7 +331,7 @@ export class SearchService {
 
         if (has_more) {
             const last_hit = hits[limit - 1];
-            next_cursor = this.encodeCursor(last_hit.sort) ?? null;
+            next_cursor = this.encodeTweetsCursor(last_hit.sort) ?? null;
         }
 
         const mapped_tweets = await this.attachRelatedTweets(items);
@@ -500,12 +429,12 @@ export class SearchService {
         return tweet;
     }
 
-    private encodeCursor(sort: any[] | undefined): string | null {
+    private encodeTweetsCursor(sort: any[] | undefined): string | null {
         if (!sort) return null;
         return Buffer.from(JSON.stringify(sort)).toString('base64');
     }
 
-    private decodeCursor(cursor: string | null): any[] | null {
+    private decodeTweetsCursor(cursor: string | null): any[] | null {
         if (!cursor) return null;
         try {
             return JSON.parse(Buffer.from(cursor, 'base64').toString('utf8'));
@@ -828,6 +757,14 @@ export class SearchService {
         });
     }
 
+    private buildUserPrefixQuery(sanitized_query: string): string {
+        return sanitized_query
+            .split(/\s+/)
+            .filter(Boolean)
+            .map((term) => `${term}:*`)
+            .join(' & ');
+    }
+
     private attachUserSearchQuery(
         query_builder: SelectQueryBuilder<User>,
         prefix_query: string
@@ -887,12 +824,104 @@ export class SearchService {
 
     private getUserScoreExpression(): string {
         return `
-            (COALESCE(uf_following.boost, 0))
-            +
-            (ts_rank("user".search_vector, to_tsquery('simple', :prefix_query)) * 1000)
-            +
-            (LOG(GREATEST("user".followers, 1) + 1) * 100)
+        (COALESCE(uf_following.boost, 0))
+        +
+        (ts_rank("user".search_vector, to_tsquery('simple', :prefix_query)) * 1000)
+        +
+        (LOG(GREATEST("user".followers, 1) + 1) * 100)
         `;
+    }
+
+    private decodeUsersCursor(cursor: string): { score: number; user_id: string } {
+        try {
+            const decoded = JSON.parse(Buffer.from(cursor, 'base64').toString('utf-8'));
+            return {
+                score: decoded.score,
+                user_id: decoded.user_id,
+            };
+        } catch (error) {
+            throw new Error('Invalid cursor');
+        }
+    }
+
+    private encodeUsersCursor(score: number, user_id: string): string {
+        const cursor_data = { score, user_id };
+        return Buffer.from(JSON.stringify(cursor_data)).toString('base64');
+    }
+
+    private async executeUsersSearch(
+        query_builder: SelectQueryBuilder<User>,
+        fetch_limit: number
+    ): Promise<any[]> {
+        return await query_builder
+            .orderBy('total_score', 'DESC')
+            .addOrderBy('user.id', 'ASC')
+            .limit(fetch_limit)
+            .getRawMany();
+    }
+
+    private processUserPaginationResults(
+        results: any[],
+        limit: number
+    ): {
+        users: any[];
+        has_more: boolean;
+        next_cursor: string | null;
+    } {
+        const has_more = results.length > limit;
+        const users = has_more ? results.slice(0, limit) : results;
+
+        let next_cursor: string | null = null;
+        if (has_more && users.length > 0) {
+            const last_user = users[users.length - 1];
+            next_cursor = this.encodeUsersCursor(last_user.total_score, last_user.user_id);
+        }
+
+        return { users, has_more, next_cursor };
+    }
+
+    private applyUserCursorPagination(
+        query_builder: SelectQueryBuilder<User>,
+        cursor_score: number,
+        cursor_id: string
+    ): void {
+        query_builder.andWhere(
+            new Brackets((qb) => {
+                qb.where(`${this.getUserScoreExpression()} < :cursor_score`, {
+                    cursor_score,
+                }).orWhere(
+                    new Brackets((qb2) => {
+                        qb2.where(`${this.getUserScoreExpression()} = :cursor_score`, {
+                            cursor_score,
+                        }).andWhere('"user".id > :cursor_id', { cursor_id });
+                    })
+                );
+            })
+        );
+    }
+
+    private attachUsersUsernameFilter(
+        query_builder: SelectQueryBuilder<User>
+    ): SelectQueryBuilder<User> {
+        query_builder.andWhere(`EXISTS (
+                    SELECT 1 FROM "user" target_user
+                    WHERE target_user.username = :username
+                    AND (
+                        EXISTS (
+                            SELECT 1 FROM user_follows uf1
+                            WHERE uf1.follower_id = "user".id 
+                            AND uf1.followed_id = target_user.id
+                        )
+                        OR
+                        EXISTS (
+                            SELECT 1 FROM user_follows uf2
+                            WHERE uf2.followed_id = "user".id 
+                            AND uf2.follower_id = target_user.id
+                        )
+                    )
+                )`);
+
+        return query_builder;
     }
 
     private buildEsSuggestionsQuery(
