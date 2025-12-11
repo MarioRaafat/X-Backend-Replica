@@ -457,10 +457,18 @@ export class SearchService {
                 },
             },
             {
+                match_phrase: {
+                    content: {
+                        query: sanitized_query.trim(),
+                        boost: 5,
+                    },
+                },
+            },
+            {
                 match: {
                     'content.autocomplete': {
                         query: sanitized_query.trim(),
-                        boost: 8,
+                        boost: 2,
                     },
                 },
             },
@@ -468,7 +476,7 @@ export class SearchService {
                 match: {
                     'name.autocomplete': {
                         query: sanitized_query.trim(),
-                        boost: 6,
+                        boost: 1,
                     },
                 },
             }
@@ -523,12 +531,12 @@ export class SearchService {
 
     private applyTweetsBoosting(search_body: any, trending_hashtags?: Map<string, number>): void {
         const boosting_factors = [
-            { field: 'num_likes', factor: 0.01 },
-            { field: 'num_reposts', factor: 0.02 },
-            { field: 'num_quotes', factor: 0.02 },
-            { field: 'num_replies', factor: 0.02 },
-            { field: 'num_views', factor: 0.001 },
-            { field: 'followers', factor: 0.001 },
+            { field: 'num_likes', factor: 2 },
+            { field: 'num_reposts', factor: 2.5 },
+            { field: 'num_quotes', factor: 2.2 },
+            { field: 'num_replies', factor: 1.5 },
+            { field: 'num_views', factor: 0.1 },
+            { field: 'followers', factor: 1 },
         ];
 
         const functions: any[] = [
@@ -552,7 +560,7 @@ export class SearchService {
                             hashtags: { value: hashtag },
                         },
                     },
-                    weight: 5 + (score / max_score) * 5,
+                    weight: 10 + (score / max_score) * 10,
                 })
             );
 
@@ -566,7 +574,7 @@ export class SearchService {
                 query: original_query,
                 functions,
                 score_mode: 'sum',
-                boost_mode: 'multiply',
+                boost_mode: 'sum',
             },
         };
     }
