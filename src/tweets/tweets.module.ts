@@ -13,9 +13,8 @@ import { UserPostsView } from './entities/user-posts-view.entity';
 import { TweetCategory } from './entities/tweet-category.entity';
 import { TweetSummary } from './entities/tweet-summary.entity';
 import { BackgroundJobsModule } from 'src/background-jobs';
-import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
-import { TrendService } from 'src/trend/trend.service';
 import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
+import { User } from 'src/user/entities';
 
 @Module({
     imports: [
@@ -31,6 +30,7 @@ import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
             UserPostsView,
             TweetCategory,
             TweetSummary,
+            User,
         ]),
         BackgroundJobsModule,
     ],

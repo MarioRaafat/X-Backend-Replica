@@ -84,16 +84,13 @@ export class TweetsService {
         private readonly tweet_reply_repository: Repository<TweetReply>,
         @InjectRepository(TweetBookmark)
         private readonly tweet_bookmark_repository: Repository<TweetBookmark>,
-        @InjectRepository(UserFollows)
-        private readonly user_follows_repository: Repository<UserFollows>,
-        @InjectRepository(UserPostsView)
-        private readonly user_posts_view_repository: Repository<UserPostsView>,
+        @InjectRepository(User)
+        private readonly user_repository: Repository<User>,
         @InjectRepository(TweetSummary)
         private readonly tweet_summary_repository: Repository<TweetSummary>,
         private data_source: DataSource,
         private readonly paginate_service: PaginationService,
         private readonly tweets_repository: TweetsRepository,
-        private readonly azure_storage_service: AzureStorageService,
         private readonly reply_job_service: ReplyJobService,
         private readonly like_job_service: LikeJobService,
         private readonly hashtag_job_service: HashtagJobService,
@@ -299,11 +296,17 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const mentions = await this.extractDataFromTweets(tweet, user_id, query_runner);
+            const mentioned_user_ids = await this.extractDataFromTweets(
+                tweet,
+                user_id,
+                query_runner
+            );
+
             // watch the error which could exist if user id not found here
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 type: TweetType.TWEET,
+                mentions: mentioned_user_ids,
                 ...tweet,
             });
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
@@ -314,9 +317,7 @@ export class TweetsService {
             });
 
             // Send mention notifications after tweet is saved
-            if (mentions.length > 0) {
-                await this.mentionNotification(mentions, user_id, saved_tweet);
-            }
+            await this.mentionNotification(mentioned_user_ids, user_id, saved_tweet, 'add');
 
             return plainToInstance(TweetResponseDTO, saved_tweet, {
                 excludeExtraneousValues: true,
@@ -344,7 +345,11 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const mentions = await this.extractDataFromTweets(tweet, user_id, query_runner);
+            const mentioned_user_ids = await this.extractDataFromTweets(
+                tweet,
+                user_id,
+                query_runner
+            );
 
             const tweet_to_update = await query_runner.manager.findOne(Tweet, {
                 where: { tweet_id },
@@ -352,7 +357,10 @@ export class TweetsService {
 
             if (!tweet_to_update) throw new NotFoundException('Tweet not found');
 
-            query_runner.manager.merge(Tweet, tweet_to_update, { ...tweet });
+            query_runner.manager.merge(Tweet, tweet_to_update, {
+                ...tweet,
+                mentions: mentioned_user_ids,
+            });
 
             if (tweet_to_update.user_id !== user_id)
                 throw new BadRequestException('User is not allowed to update this tweet');
@@ -365,9 +373,7 @@ export class TweetsService {
             });
 
             // Send mention notifications for updated tweet
-            if (mentions.length > 0) {
-                await this.mentionNotification(mentions, user_id, updated_tweet);
-            }
+            await this.mentionNotification(mentioned_user_ids, user_id, updated_tweet, 'add');
 
             // return TweetMapper.toDTO(tweet_with_type_info);
             return plainToInstance(TweetResponseDTO, updated_tweet, {
@@ -632,11 +638,16 @@ export class TweetsService {
         try {
             const parentTweet = await this.getTweetWithUserById(tweet_id, user_id, false);
 
-            const mentions = await this.extractDataFromTweets(quote, user_id, query_runner);
+            const mentioned_user_ids = await this.extractDataFromTweets(
+                quote,
+                user_id,
+                query_runner
+            );
 
             const new_quote_tweet = query_runner.manager.create(Tweet, {
                 ...quote,
                 user_id,
+                mentions: mentioned_user_ids,
                 type: TweetType.QUOTE,
             });
             const saved_quote_tweet = await query_runner.manager.save(Tweet, new_quote_tweet);
@@ -680,18 +691,17 @@ export class TweetsService {
                 });
 
             // Send mention notifications for quote tweet
-            if (mentions.length > 0) {
-                await this.mentionNotification(
-                    mentions,
-                    user_id,
-                    saved_quote_tweet,
-                    plainToInstance(TweetResponseDTO, parentTweet, {
-                        excludeExtraneousValues: true,
-                    })
-                );
-            }
+            await this.mentionNotification(
+                mentioned_user_ids,
+                user_id,
+                saved_quote_tweet,
+                'add',
+                plainToInstance(TweetResponseDTO, parentTweet, {
+                    excludeExtraneousValues: true,
+                })
+            );
 
-            // I guess this should vbe returned, it was not returned before
+            // I guess this should be returned, it was not returned before
             return response;
         } catch (error) {
             await query_runner.rollbackTransaction();
@@ -808,12 +818,17 @@ export class TweetsService {
 
             if (!original_tweet) throw new NotFoundException('Original tweet not found');
 
-            const mentions = await this.extractDataFromTweets(reply_dto, user_id, query_runner);
+            const mentioned_user_ids = await this.extractDataFromTweets(
+                reply_dto,
+                user_id,
+                query_runner
+            );
 
             // Create the reply tweet
             const new_reply_tweet = query_runner.manager.create(Tweet, {
                 ...reply_dto,
                 user_id,
+                mentions: mentioned_user_ids,
                 type: TweetType.REPLY,
             });
             const saved_reply_tweet = await query_runner.manager.save(Tweet, new_reply_tweet);
@@ -847,10 +862,7 @@ export class TweetsService {
                     action: 'add',
                 });
 
-            // Send mention notifications for reply
-            if (mentions.length > 0) {
-                await this.mentionNotification(mentions, user_id, saved_reply_tweet);
-            }
+            await this.mentionNotification(mentioned_user_ids, user_id, saved_reply_tweet, 'add');
 
             const returned_reply = plainToInstance(
                 TweetReplyResponseDTO,
@@ -1195,17 +1207,7 @@ export class TweetsService {
             const mentions = full_tweet.content.match(/@([a-zA-Z0-9_]+)/g) || [];
             if (mentions.length === 0) return;
 
-            // Remove @ symbol and make unique
-            const clean_usernames = [...new Set(mentions.map((u) => u.replace('@', '')))];
-
-            // Queue mention removal notification (background job will fetch user IDs)
-            await this.mention_job_service.queueMentionNotification({
-                tweet_id: tweet.tweet_id,
-                mentioned_by: user_id,
-                mentioned_usernames: clean_usernames,
-                tweet_type: 'tweet',
-                action: 'remove',
-            });
+            await this.mentionNotification(mentions, user_id, tweet, 'remove');
         } catch (error) {
             console.error('Error queueing mention removal notifications:', error);
         }
@@ -1332,9 +1334,9 @@ export class TweetsService {
         console.log('content:', content);
 
         // Extract mentions and return them for later processing
-        const mentions = content.match(/@([a-zA-Z0-9_]+)/g) || [];
+        const mentions =
+            content.match(/@([a-zA-Z0-9_]+)/g)?.map((mention) => mention.slice(1)) || [];
 
-        // Extract hashtags and remove duplicates
         // Extract hashtags and remove duplicates
         const hashtags =
             content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
@@ -1352,11 +1354,20 @@ export class TweetsService {
             timestamp: Date.now(),
         });
 
-        // You can store topics in the tweet entity or use them for recommendations
-        // For example, you could add a 'topics' field to your Tweet entity
-        // tweet.topics = topics;
+        const mentioned_users = await this.user_repository.find({
+            where: { username: In(mentions) },
+            select: ['id'],
+        });
 
-        return mentions;
+        const mentioned_user_ids: string[] = [];
+
+        mentioned_users.forEach((user, index) => {
+            if (user.id) {
+                tweet.content = content.replace(`@${mentions[index]}`, '$');
+                mentioned_user_ids.push(user.id);
+            } else mentioned_users.splice(index, 1);
+        });
+        return mentioned_user_ids;
     }
 
     async extractTopics(
@@ -1459,26 +1470,24 @@ export class TweetsService {
     }
 
     private async mentionNotification(
-        usernames: string[],
+        mentioned_user_ids: string[],
         user_id: string,
         tweet: Tweet,
+        action: 'add' | 'remove',
         parent_tweet?: TweetResponseDTO
     ): Promise<void> {
-        if (usernames.length === 0) return;
+        if (mentioned_user_ids.length === 0) return;
 
         try {
-            // Remove @ symbol from usernames and make them unique
-            const clean_usernames = [...new Set(usernames.map((u) => u.replace('@', '')))];
-
             // Queue mention notification with usernames (background job will fetch user IDs)
             await this.mention_job_service.queueMentionNotification({
                 tweet,
                 tweet_id: tweet.tweet_id,
                 parent_tweet,
                 mentioned_by: user_id,
-                mentioned_usernames: clean_usernames,
+                mentioned_user_ids,
                 tweet_type: tweet.type,
-                action: 'add',
+                action,
             });
         } catch (error) {
             console.error('Error queueing mention notifications:', error);

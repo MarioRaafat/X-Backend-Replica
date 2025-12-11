@@ -177,6 +177,13 @@ export class TweetResponseDTO {
 
     @Expose()
     @ApiProperty({
+        description: 'mentions array containing usernames mentioned in the tweet',
+        type: [String],
+    })
+    mentions: string[];
+
+    @Expose()
+    @ApiProperty({
         description: 'Tweet creation timestamp',
         example: '2025-10-18T12:00:00Z',
     })

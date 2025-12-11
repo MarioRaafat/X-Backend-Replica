@@ -359,6 +359,7 @@ export class TweetsRepository extends Repository<Tweet> {
                 is_bookmarked: row.is_bookmarked === true,
                 created_at: row.tweet_created_at,
                 updated_at: row.tweet_updated_at,
+                mentions: row.tweet_mentions || [],
             };
 
             // For replies endpoint, we only include parent_tweet_id but skip parent_tweet object
@@ -400,6 +401,7 @@ export class TweetsRepository extends Repository<Tweet> {
                         is_bookmarked: row.nested_reply.nested_is_bookmarked === true,
                         created_at: row.nested_reply.created_at,
                         updated_at: row.nested_reply.updated_at,
+                        mentions: row.nested_reply.mentions || [],
                     },
                 ];
             }

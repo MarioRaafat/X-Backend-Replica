@@ -591,6 +591,7 @@ export class SearchService {
 
             images: s.images ?? [],
             videos: s.videos ?? [],
+            mentions: s.mentions || [],
         };
 
         if (parent_source) {
