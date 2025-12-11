@@ -496,7 +496,6 @@ describe('SearchService', () => {
 
             const result = await service.searchPosts(current_user_id, query_dto);
 
-            // Verify the search was called with function_score query
             expect(elasticsearch_service.search).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 body: expect.objectContaining({
@@ -513,12 +512,10 @@ describe('SearchService', () => {
                                     ]),
                                     filter: expect.arrayContaining([
                                         {
-                                            bool: {
-                                                should: [
-                                                    { exists: { field: 'images' } },
-                                                    { exists: { field: 'videos' } },
-                                                ],
-                                                minimum_should_match: 1,
+                                            script: {
+                                                script: {
+                                                    source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
+                                                },
                                             },
                                         },
                                     ]),
@@ -587,7 +584,6 @@ describe('SearchService', () => {
             elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
 
             jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
-
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
@@ -623,20 +619,35 @@ describe('SearchService', () => {
             expect(elasticsearch_service.search).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 body: expect.objectContaining({
-                    query: {
-                        bool: {
-                            must: [],
-                            should: expect.any(Array),
-                            minimum_should_match: 1,
-                            filter: [
-                                {
-                                    term: {
-                                        username: 'alyaa242',
-                                    },
-                                },
-                            ],
-                        },
-                    },
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    should: expect.arrayContaining([
+                                        expect.objectContaining({
+                                            multi_match: expect.objectContaining({
+                                                query: 'technology',
+                                            }),
+                                        }),
+                                    ]),
+                                    filter: expect.arrayContaining([
+                                        {
+                                            term: {
+                                                username: 'alyaa242',
+                                            },
+                                        },
+                                    ]),
+                                }),
+                            }),
+                            functions: expect.arrayContaining([
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_likes',
+                                    }),
+                                }),
+                            ]),
+                        }),
+                    }),
                 }),
             });
 
@@ -692,7 +703,6 @@ describe('SearchService', () => {
             elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
 
             jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
-
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     ...mock_tweet,
@@ -707,27 +717,235 @@ describe('SearchService', () => {
             expect(elasticsearch_service.search).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 body: expect.objectContaining({
-                    query: {
-                        bool: {
-                            must: [
-                                {
-                                    term: {
-                                        hashtags: {
-                                            value: '#technology',
-                                            boost: 10,
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    must: expect.arrayContaining([
+                                        {
+                                            term: {
+                                                hashtags: {
+                                                    value: '#technology',
+                                                    boost: 10,
+                                                },
+                                            },
                                         },
-                                    },
-                                },
-                            ],
-                            should: expect.any(Array),
-                            minimum_should_match: 1,
-                        },
-                    },
+                                    ]),
+                                    should: expect.any(Array),
+                                }),
+                            }),
+                            functions: expect.arrayContaining([
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_likes',
+                                    }),
+                                }),
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_reposts',
+                                    }),
+                                }),
+                            ]),
+                            boost_mode: 'sum',
+                            score_mode: 'sum',
+                        }),
+                    }),
                 }),
             });
 
             expect(result.data).toHaveLength(1);
             expect(result.data[0].content).toContain('#technology');
+        });
+
+        it('should search posts with both hashtag and text query', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: '#technology AI innovation',
+                limit: 20,
+            };
+
+            const mock_tweet = {
+                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                type: 'post',
+                content: 'Post about AI innovation with #technology',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                num_likes: 15,
+                num_reposts: 8,
+                num_views: 200,
+                num_replies: 5,
+                num_quotes: 3,
+                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                followers: 100,
+                following: 50,
+                hashtags: ['#technology'],
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [
+                                3.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
+            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
+                {
+                    ...mock_tweet,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
+                },
+            ]);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    must: expect.arrayContaining([
+                                        {
+                                            term: {
+                                                hashtags: {
+                                                    value: '#technology',
+                                                    boost: 10,
+                                                },
+                                            },
+                                        },
+                                    ]),
+                                    should: expect.arrayContaining([
+                                        expect.objectContaining({
+                                            multi_match: expect.objectContaining({
+                                                query: expect.stringContaining('AI'),
+                                                fields: expect.arrayContaining([
+                                                    'content^3',
+                                                    'username^2',
+                                                    'name',
+                                                ]),
+                                            }),
+                                        }),
+                                    ]),
+                                }),
+                            }),
+                        }),
+                    }),
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+        });
+
+        it('should search posts with multiple filters (media + username)', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
+                limit: 20,
+                has_media: true,
+                username: 'alyaa242',
+            };
+
+            const mock_tweet = {
+                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                type: 'post',
+                content: 'Tech post with media',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                num_likes: 10,
+                num_reposts: 5,
+                num_views: 100,
+                num_replies: 3,
+                num_quotes: 2,
+                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                followers: 100,
+                following: 50,
+                images: ['https://example.com/image1.jpg'],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [
+                                2.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
+            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
+                {
+                    ...mock_tweet,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
+                },
+            ]);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    filter: expect.arrayContaining([
+                                        {
+                                            script: {
+                                                script: {
+                                                    source: "(doc['images'].size() > 0 || doc['videos'].size() > 0)",
+                                                },
+                                            },
+                                        },
+                                        {
+                                            term: {
+                                                username: 'alyaa242',
+                                            },
+                                        },
+                                    ]),
+                                }),
+                            }),
+                        }),
+                    }),
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].images).toBeDefined();
+            expect(result.data[0].images.length).toBeGreaterThan(0);
         });
 
         it('should search posts with pagination and return next_cursor', async () => {
@@ -1274,19 +1492,20 @@ describe('SearchService', () => {
             });
         });
 
-        it('should search latest posts with hashtag query', async () => {
+        it('should search posts with username filter', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: SearchQueryDto = {
-                query: '#javascript',
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
                 limit: 20,
+                username: 'alyaa242',
             };
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
                 type: 'post',
-                content: 'Learning #javascript today',
-                created_at: '2024-01-16T10:30:00Z',
-                updated_at: '2024-01-16T10:30:00Z',
+                content: 'This is a post with images',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
                 num_likes: 10,
                 num_reposts: 5,
                 num_views: 100,
@@ -1298,8 +1517,7 @@ describe('SearchService', () => {
                 avatar_url: 'https://example.com/avatar.jpg',
                 followers: 100,
                 following: 50,
-                hashtags: ['#javascript'],
-                images: [],
+                images: ['https://example.com/image1.jpg'],
                 videos: [],
             };
 
@@ -1309,8 +1527,8 @@ describe('SearchService', () => {
                         {
                             _source: mock_tweet,
                             sort: [
-                                '2024-01-16T10:30:00Z',
                                 2.5,
+                                '2024-01-15T10:30:00Z',
                                 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
                             ],
                         },
@@ -1322,105 +1540,19 @@ describe('SearchService', () => {
             elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
 
             jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
-
-            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
-                {
-                    ...mock_tweet,
-                    is_liked: false,
-                    is_reposted: false,
-                    is_bookmarked: false,
-                },
-            ]);
-
-            const result = await service.searchLatestPosts(current_user_id, query_dto);
-
-            expect(elasticsearch_service.search).toHaveBeenCalledWith({
-                index: ELASTICSEARCH_INDICES.TWEETS,
-                body: expect.objectContaining({
-                    query: {
-                        bool: {
-                            must: [
-                                {
-                                    term: {
-                                        hashtags: {
-                                            value: '#javascript',
-                                            boost: 10,
-                                        },
-                                    },
-                                },
-                            ],
-                            should: expect.any(Array),
-                        },
-                    },
-                }),
-            });
-
-            expect(result.data).toHaveLength(1);
-            expect(result.data[0].content).toContain('#javascript');
-        });
-
-        it('should search latest posts with username filter', async () => {
-            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: SearchQueryDto = {
-                query: 'coding',
-                limit: 20,
-                username: 'alyaa242',
-            };
-
-            const mock_tweet = {
-                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
-                content: 'Coding all day',
-                created_at: '2024-01-16T10:30:00Z',
-                updated_at: '2024-01-16T10:30:00Z',
-                num_likes: 10,
-                num_reposts: 5,
-                num_views: 100,
-                num_replies: 3,
-                num_quotes: 2,
-                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                username: 'alyaa242',
-                name: 'Alyaa Ali',
-                avatar_url: 'https://example.com/avatar.jpg',
-                followers: 100,
-                following: 50,
-                images: [],
-                videos: [],
-            };
-
-            const mock_elasticsearch_response = {
-                hits: {
-                    hits: [
-                        {
-                            _source: mock_tweet,
-                            sort: [
-                                '2024-01-16T10:30:00Z',
-                                2.5,
-                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                            ],
-                        },
-                    ],
-                },
-            };
-
-            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
-            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
-
-            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
-
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
                     type: 'post',
-                    content: 'Coding all day',
-                    created_at: '2024-01-16T10:30:00Z',
-                    updated_at: '2024-01-16T10:30:00Z',
+                    content: 'This is a post with images',
+                    created_at: '2024-01-15T10:30:00Z',
+                    updated_at: '2024-01-15T10:30:00Z',
                     num_likes: 10,
                     num_reposts: 5,
                     num_views: 100,
                     num_replies: 3,
                     num_quotes: 2,
-                    images: [],
+                    images: ['https://example.com/image1.jpg'],
                     videos: [],
                     user: {
                         id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
@@ -1443,24 +1575,142 @@ describe('SearchService', () => {
             expect(elasticsearch_service.search).toHaveBeenCalledWith({
                 index: ELASTICSEARCH_INDICES.TWEETS,
                 body: expect.objectContaining({
-                    query: {
-                        bool: {
-                            must: [],
-                            should: expect.any(Array),
-                            filter: [
-                                {
-                                    term: {
-                                        username: 'alyaa242',
-                                    },
-                                },
-                            ],
-                        },
-                    },
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    should: expect.arrayContaining([
+                                        expect.objectContaining({
+                                            multi_match: expect.objectContaining({
+                                                query: 'technology',
+                                            }),
+                                        }),
+                                    ]),
+                                    filter: expect.arrayContaining([
+                                        {
+                                            term: {
+                                                username: 'alyaa242',
+                                            },
+                                        },
+                                    ]),
+                                }),
+                            }),
+                            functions: expect.arrayContaining([
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_likes',
+                                    }),
+                                }),
+                            ]),
+                        }),
+                    }),
                 }),
             });
 
             expect(result.data).toHaveLength(1);
             expect(result.data[0].user.username).toBe('alyaa242');
+        });
+
+        it('should search posts with hashtag query', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: '#technology',
+                limit: 20,
+            };
+
+            const mock_tweet = {
+                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                type: 'post',
+                content: 'Post with #technology',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                num_likes: 10,
+                num_reposts: 5,
+                num_views: 100,
+                num_replies: 3,
+                num_quotes: 2,
+                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                followers: 100,
+                following: 50,
+                hashtags: ['#technology'],
+                images: ['https://example.com/image1.jpg'],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [
+                                2.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
+            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
+                {
+                    ...mock_tweet,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
+                },
+            ]);
+
+            const result = await service.searchLatestPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    must: expect.arrayContaining([
+                                        {
+                                            term: {
+                                                hashtags: {
+                                                    value: '#technology',
+                                                    boost: 10,
+                                                },
+                                            },
+                                        },
+                                    ]),
+                                    should: expect.any(Array),
+                                }),
+                            }),
+                            functions: expect.arrayContaining([
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_likes',
+                                    }),
+                                }),
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_reposts',
+                                    }),
+                                }),
+                            ]),
+                            boost_mode: 'sum',
+                            score_mode: 'sum',
+                        }),
+                    }),
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].content).toContain('#technology');
         });
     });
 
