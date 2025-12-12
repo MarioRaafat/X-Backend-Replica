@@ -666,6 +666,7 @@ export class TweetsService {
 
             await query_runner.manager.save(TweetQuote, tweet_quote);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1);
+            await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
 
             await this.es_index_tweet_service.queueIndexTweet({
@@ -794,122 +795,6 @@ export class TweetsService {
             await query_runner.release();
         }
     }
-
-    // async replyToTweet(
-    //     original_tweet_id: string,
-    //     user_id: string,
-    //     reply_dto: CreateTweetDTO
-    // ): Promise<TweetResponseDTO> {
-    //     const query_runner = this.data_source.createQueryRunner();
-    //     await query_runner.connect();
-    //     await query_runner.startTransaction();
-
-    //     try {
-    //         const [original_tweet, original_reply] = await Promise.all([
-    //             query_runner.manager.findOne(Tweet, {
-    //                 where: { tweet_id: original_tweet_id },
-    //             }),
-    //             query_runner.manager.findOne(TweetReply, {
-    //                 where: { reply_tweet_id: original_tweet_id },
-    //             }),
-    //         ]);
-
-    //         if (!original_tweet) throw new NotFoundException('Original tweet not found');
-
-    //         const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
-    //             reply_dto,
-    //             user_id,
-    //             query_runner
-    //         );
-
-    //         // Create the reply tweet
-    //         const new_reply_tweet = query_runner.manager.create(Tweet, {
-    //             ...reply_dto,
-    //             user_id,
-    //             mentions: mentioned_usernames,
-    //             type: TweetType.REPLY,
-    //         });
-    //         const saved_reply_tweet = await query_runner.manager.save(Tweet, new_reply_tweet);
-
-    //         // Create the reply relationship
-    //         const tweet_reply = query_runner.manager.create(TweetReply, {
-    //             reply_tweet_id: saved_reply_tweet.tweet_id,
-    //             original_tweet_id,
-    //             user_id,
-    //             conversation_id: original_reply?.conversation_id || original_tweet_id,
-    //         });
-    //         await query_runner.manager.save(TweetReply, tweet_reply);
-
-    //         // Increment reply count on original tweet and all its parents up to conversation root
-    //         await query_runner.query(
-    //             `
-    //             WITH RECURSIVE parent_chain AS (
-    //                 -- Start with the tweet being replied to
-    //                 SELECT $1::uuid as tweet_id
-
-    //                 UNION
-
-    //                 -- Recursively find all parent tweets
-    //                 SELECT tr.original_tweet_id
-    //                 FROM tweet_replies tr
-    //                 INNER JOIN parent_chain pc ON tr.reply_tweet_id = pc.tweet_id
-    //                 WHERE tr.original_tweet_id IS NOT NULL
-    //             )
-    //             UPDATE tweets
-    //             SET num_replies = num_replies + 1
-    //             WHERE tweet_id IN (SELECT tweet_id FROM parent_chain)
-    //             `,
-    //             [original_tweet_id]
-    //         );
-
-    //         await query_runner.commitTransaction();
-
-    //         if (user_id !== original_tweet.user_id)
-    //             this.reply_job_service.queueReplyNotification({
-    //                 reply_tweet: saved_reply_tweet,
-    //                 original_tweet: original_tweet,
-    //                 replied_by: user_id,
-    //                 reply_to: original_tweet.user_id,
-    //                 conversation_id: original_reply?.conversation_id || original_tweet_id,
-    //                 action: 'add',
-    //             });
-
-    //         const mentioned_user_ids_without_original_author = mentioned_user_ids.filter(
-    //             (mentioned_user_id) => mentioned_user_id !== original_tweet.user_id
-    //         );
-
-    //         await this.mentionNotification(
-    //             mentioned_user_ids_without_original_author,
-    //             user_id,
-    //             saved_reply_tweet,
-    //             'add'
-    //         );
-
-    //         const returned_reply = plainToInstance(
-    //             TweetReplyResponseDTO,
-    //             {
-    //                 ...tweet_reply,
-    //                 ...saved_reply_tweet,
-    //             },
-    //             { excludeExtraneousValues: false }
-    //         );
-
-    //         returned_reply.parent_tweet_id = original_tweet_id;
-
-    //         await this.es_index_tweet_service.queueIndexTweet({
-    //             tweet_id: saved_reply_tweet.tweet_id,
-    //             parent_id: original_tweet_id,
-    //             conversation_id: original_reply?.conversation_id || original_tweet_id,
-    //         });
-
-    //         return returned_reply;
-    //     } catch (error) {
-    //         await query_runner.rollbackTransaction();
-    //         throw error;
-    //     } finally {
-    //         await query_runner.release();
-    //     }
-    // }
 
     async replyToTweet(
         original_tweet_id: string,
@@ -1397,6 +1282,13 @@ export class TweetsService {
                         1
                     );
 
+                    await query_runner.manager.decrement(
+                        Tweet,
+                        { tweet_id: tweet_quote.original_tweet_id },
+                        'num_reposts',
+                        1
+                    );
+
                     const original_tweet = await query_runner.manager.findOne(Tweet, {
                         where: { tweet_id: tweet_quote.original_tweet_id },
                         select: ['user_id'],
@@ -1754,44 +1646,6 @@ export class TweetsService {
         });
         await query_runner.manager.increment(Hashtag, { name: In(names) }, 'usage_count', 1);
     }
-
-    // async getTweetReplies(
-    //     tweet_id: string,
-    //     current_user_id: string,
-    //     query_dto: GetTweetRepliesQueryDto
-    // ): Promise<{
-    //     data: TweetResponseDTO[];
-    //     count: number;
-    //     next_cursor: string | null;
-    //     has_more: boolean;
-    // }> {
-    //     // First, check if the tweet exists
-    //     const tweet = await this.tweet_repository.findOne({
-    //         where: { tweet_id },
-    //     });
-
-    //     if (!tweet) {
-    //         throw new NotFoundException('Tweet not found');
-    //     }
-
-    //     const pagination: TimelinePaginationDto = {
-    //         limit: query_dto.limit ?? 20,
-    //         cursor: query_dto.cursor,
-    //     };
-
-    //     const { tweets, next_cursor } = await this.tweets_repository.getReplies(
-    //         tweet_id,
-    //         current_user_id,
-    //         pagination
-    //     );
-
-    //     return {
-    //         data: tweets,
-    //         count: tweets.length,
-    //         next_cursor,
-    //         has_more: next_cursor !== null,
-    //     };
-    // }
 
     async getUserBookmarks(
         user_id: string,

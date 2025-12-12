@@ -432,24 +432,6 @@ export class TweetsController {
         return await this.tweets_service.getTweetReplies(id, user_id, query);
     }
 
-    @ApiOperation(update_quote_tweet_swagger.operation)
-    @ApiOperation(update_quote_tweet_swagger.operation)
-    @ApiParam(update_quote_tweet_swagger.param)
-    @ApiBody({ type: UpdateTweetWithQuoteDTO })
-    @ApiOkResponse(update_quote_tweet_swagger.responses.success)
-    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiForbiddenErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
-    @ApiNotFoundErrorResponse(ERROR_MESSAGES.USER_NOT_FOUND)
-    @ApiInternalServerError(ERROR_MESSAGES.FAILED_TO_UPDATE_IN_DB)
-    @ResponseMessage(SUCCESS_MESSAGES.QUOTE_TWEET_UPDATED)
-    @UseGuards(JwtAuthGuard)
-    @Patch(':id/quote')
-    async updateQuoteTweet(
-        @Param('id', ParseUUIDPipe) id: string,
-        @Body() update_quote_dto: UpdateTweetWithQuoteDTO,
-        @GetUserId() user_id: string
-    ) {}
-
     @HttpCode(HttpStatus.CREATED)
     @ApiOperation(upload_image_swagger.operation)
     @ApiConsumes('multipart/form-data')
