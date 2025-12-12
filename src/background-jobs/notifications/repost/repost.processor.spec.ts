@@ -173,7 +173,7 @@ describe('RepostProcessor', () => {
             };
 
             tweet_repository.findOne.mockResolvedValue(mock_tweet_entity as Tweet);
-            notifications_service.removeRepostNotification.mockResolvedValue(true);
+            notifications_service.removeRepostNotification.mockResolvedValue('notification-id-123');
 
             const job = mock_job({
                 repost_to: 'repost-to-id',
@@ -196,16 +196,18 @@ describe('RepostProcessor', () => {
             expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
                 NotificationType.REPOST,
                 'actual-owner-id',
-                expect.objectContaining({
-                    reposted_by: 'reposter-id',
-                })
+                {
+                    id: 'notification-id-123',
+                    ...job.data,
+                    action: 'remove',
+                }
             );
         });
 
         it('should use repost_to when tweet entity not found', async () => {
             const logger_spy = jest.spyOn(processor['logger'], 'warn');
             tweet_repository.findOne.mockResolvedValue(null);
-            notifications_service.removeRepostNotification.mockResolvedValue(true);
+            notifications_service.removeRepostNotification.mockResolvedValue('notification-id-123');
 
             const job = mock_job({
                 repost_to: 'repost-to-id',

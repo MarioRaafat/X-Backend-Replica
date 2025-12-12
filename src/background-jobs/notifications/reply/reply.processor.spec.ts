@@ -247,7 +247,9 @@ describe('ReplyProcessor', () => {
 
     describe('handleSendReplyNotification - remove action', () => {
         it('should remove reply notification successfully', async () => {
-            notifications_service.removeReplyNotification = jest.fn().mockResolvedValue(true);
+            notifications_service.removeReplyNotification = jest
+                .fn()
+                .mockResolvedValue('notification-id-123');
             notifications_service.sendNotificationOnly = jest.fn();
 
             const remove_job_data: ReplyBackGroundNotificationJobDTO = {
@@ -276,14 +278,16 @@ describe('ReplyProcessor', () => {
             expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
                 NotificationType.REPLY,
                 'user-123',
-                expect.objectContaining({
-                    replied_by: 'user-456',
-                })
+                {
+                    id: 'notification-id-123',
+                    ...remove_job_data,
+                    action: 'remove',
+                }
             );
         });
 
         it('should not send notification if removal failed', async () => {
-            notifications_service.removeReplyNotification = jest.fn().mockResolvedValue(false);
+            notifications_service.removeReplyNotification = jest.fn().mockResolvedValue(null);
             notifications_service.sendNotificationOnly = jest.fn();
 
             const remove_job_data: ReplyBackGroundNotificationJobDTO = {

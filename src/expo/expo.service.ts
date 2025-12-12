@@ -37,6 +37,7 @@ export class FCMService {
                 sound: 'default',
                 title: notification?.title,
                 body: notification?.body,
+                subtitle: notification?.body,
                 data: data,
             };
 
@@ -126,22 +127,25 @@ export class FCMService {
     private getNotificationContent(
         type: NotificationType,
         payload: any
-    ): { title: string; body: string } {
+    ): { title: string; body: string; data?: any } {
         switch (type) {
             case NotificationType.FOLLOW:
                 return {
                     title: 'yapper',
                     body: `@${payload.follower_username} followed you!`,
+                    data: { username: payload.follower_id },
                 };
             case NotificationType.MENTION:
                 return {
                     title: `Mentioned by ${payload.mentioned_by?.name}:`,
                     body: payload.tweet?.content,
+                    data: { tweet_id: payload.tweet?.id },
                 };
             case NotificationType.REPLY:
                 return {
                     title: `${payload.replier?.name} replied:`,
                     body: payload.reply_tweet?.content,
+                    data: { tweet_id: payload.reply_tweet?.id },
                 };
             case NotificationType.QUOTE:
                 return {
@@ -149,16 +153,19 @@ export class FCMService {
                     body: `@${payload.quoted_by?.username} quoted your post and said: ${
                         payload.quote?.content || ''
                     }`,
+                    data: { tweet_id: payload.quote_tweet?.id },
                 };
             case NotificationType.LIKE:
                 return {
                     title: `Liked by ${payload.likers[0].name}`,
                     body: payload.tweets[0].content,
+                    data: { tweet_id: payload.tweets[0].id },
                 };
             case NotificationType.REPOST:
                 return {
                     title: `Reposted by ${payload.reposters[0].name}:`,
                     body: payload.tweets[0].content,
+                    data: { tweet_id: payload.tweets[0].id },
                 };
             case NotificationType.MESSAGE:
                 return {
