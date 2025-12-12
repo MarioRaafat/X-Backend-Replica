@@ -1023,7 +1023,7 @@ export class SearchService {
         const search_body = {
             index: 'tweets',
             size: 20,
-            _source: ['content'],
+            _source: ['content', 'hashtags'],
             query: {
                 bool: {
                     should: [
@@ -1042,11 +1042,11 @@ export class SearchService {
                             ? []
                             : [
                                   {
-                                      match_phrase_prefix: {
-                                          content: {
+                                      match: {
+                                          'content.autocomplete': {
                                               query: sanitized_query,
-                                              slop: 0,
-                                              boost: 2,
+                                              boost: 3,
+                                              operator: 'and',
                                           },
                                       },
                                   },
@@ -1082,64 +1082,48 @@ export class SearchService {
         const suggestions = new Map<string, boolean>();
         const query_lower = query.toLowerCase().trim();
         const is_hashtag_query = query_lower.startsWith('#');
+        const search_prefix = is_hashtag_query ? query_lower : `#${query_lower}`;
 
         hits.forEach((hit) => {
+            if (hit._source?.hashtags && Array.isArray(hit._source.hashtags)) {
+                for (const hashtag of hit._source.hashtags) {
+                    if (hashtag.toLowerCase().startsWith(search_prefix)) {
+                        const is_trending = trending_hashtags.has(hashtag.toLowerCase());
+                        suggestions.set(hashtag, is_trending);
+                        return;
+                    }
+                }
+            }
+
             let text = hit.highlight?.content?.[0] || hit._source?.content;
             if (!text) return;
 
-            const text_with_marks = text;
             text = text.replace(/<\/?MARK>/g, '');
 
             const lower_text = text.toLowerCase();
-
-            const mark_index = text_with_marks.indexOf('<MARK>');
-            let query_index: number;
-            let is_hashtag = is_hashtag_query;
-
-            if (mark_index !== -1) {
-                const before_mark = text_with_marks.substring(0, mark_index);
-                const has_hash_before_mark = before_mark.endsWith('#');
-
-                if (has_hash_before_mark && !is_hashtag_query) {
-                    is_hashtag = true;
-                    const actual_position = before_mark.replace(/<\/?MARK>/g, '').length;
-                    query_index = actual_position - 1;
-                } else {
-                    query_index = lower_text.indexOf(query_lower);
-                }
-            } else {
-                query_index = lower_text.indexOf(query_lower);
-            }
+            const query_index = lower_text.indexOf(query_lower);
 
             if (query_index === -1) return;
 
             const from_query = text.substring(query_index);
 
-            let completion: string;
-            let is_trending = false;
+            const sentence_end_match = from_query.match(/[.!?\n]/);
+            const end_index = sentence_end_match
+                ? sentence_end_match.index
+                : Math.min(from_query.length, 100);
+            const completion = from_query
+                .substring(0, end_index)
+                .trim()
+                .replace(/[,;:]+$/, '')
+                .trim();
 
-            if (is_hashtag) {
-                const hashtag_match = from_query.match(/^#\w+/);
-                if (!hashtag_match) return;
-                completion = hashtag_match[0];
+            if (completion.length < query.length + 3) return;
+            if (completion.length > 100) return;
+            if (!completion.toLowerCase().startsWith(query_lower)) return;
+            const middle_content = completion.substring(0, completion.length - 1);
+            if (/[.!?]/.test(middle_content)) return;
 
-                is_trending = trending_hashtags.has(completion.toLowerCase());
-            } else {
-                const sentence_end_match = from_query.match(/[.!?\n]/);
-                const end_index = sentence_end_match
-                    ? sentence_end_match.index
-                    : Math.min(from_query.length, 100);
-                completion = from_query.substring(0, end_index).trim();
-
-                completion = completion.replace(/[,;:]+$/, '').trim();
-
-                if (completion.length < query.length + 3) return;
-                if (completion.length > 100) return;
-                if (!completion.toLowerCase().startsWith(query_lower)) return;
-                const middle_content = completion.substring(0, completion.length - 1);
-                if (/[.!?]/.test(middle_content)) return;
-            }
-            suggestions.set(completion, is_trending);
+            suggestions.set(completion, false);
         });
 
         return Array.from(suggestions.entries())
