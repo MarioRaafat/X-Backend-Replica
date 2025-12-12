@@ -664,11 +664,37 @@ export class SearchService {
             return tweets;
         }
 
-        const tweet_values = tweets
+        const all_tweet_user_pairs: Array<{ tweet_id: string; user_id: string; path: string }> = [];
+
+        tweets.forEach((tweet) => {
+            all_tweet_user_pairs.push({
+                tweet_id: tweet.tweet_id,
+                user_id: tweet.user?.id,
+                path: 'main',
+            });
+
+            if (tweet.parent_tweet) {
+                all_tweet_user_pairs.push({
+                    tweet_id: tweet.parent_tweet.tweet_id,
+                    user_id: tweet.parent_tweet.user?.id,
+                    path: 'parent',
+                });
+            }
+
+            if (tweet.conversation_tweet) {
+                all_tweet_user_pairs.push({
+                    tweet_id: tweet.conversation_tweet.tweet_id,
+                    user_id: tweet.conversation_tweet.user?.id,
+                    path: 'conversation',
+                });
+            }
+        });
+
+        const tweet_values = all_tweet_user_pairs
             .map((_, idx) => `($${idx * 2 + 1}::uuid, $${idx * 2 + 2}::uuid)`)
             .join(', ');
 
-        const tweet_params_count = tweets.length * 2;
+        const tweet_params_count = all_tweet_user_pairs.length * 2;
         const liked_param = `$${tweet_params_count + 1}`;
         const reposted_param = `$${tweet_params_count + 2}`;
         const bookmarked_param = `$${tweet_params_count + 3}`;
@@ -719,7 +745,7 @@ export class SearchService {
         )
         `;
 
-        const tweet_params = tweets.flatMap((t) => [t.tweet_id, t.user?.id]);
+        const tweet_params = all_tweet_user_pairs.flatMap((pair) => [pair.tweet_id, pair.user_id]);
         const params = [
             ...tweet_params,
             current_user_id,
@@ -759,19 +785,63 @@ export class SearchService {
         const filtered_tweets = tweets.filter((tweet) => interactions_map.has(tweet.tweet_id));
 
         return filtered_tweets.map((tweet) => {
-            const interaction = interactions_map.get(tweet.tweet_id);
+            const main_interaction = interactions_map.get(tweet.tweet_id);
 
-            return {
+            const result: any = {
                 ...tweet,
-                is_liked: interaction?.is_liked ?? false,
-                is_reposted: interaction?.is_reposted ?? false,
-                is_bookmarked: interaction?.is_bookmarked ?? false,
+                is_liked: main_interaction?.is_liked ?? false,
+                is_reposted: main_interaction?.is_reposted ?? false,
+                is_bookmarked: main_interaction?.is_bookmarked ?? false,
                 user: {
                     ...tweet.user,
-                    is_following: interaction?.is_following ?? false,
-                    is_follower: interaction?.is_follower ?? false,
+                    is_following: main_interaction?.is_following ?? false,
+                    is_follower: main_interaction?.is_follower ?? false,
                 },
             };
+
+            if (tweet.parent_tweet) {
+                const parent_interaction = interactions_map.get(tweet.parent_tweet.tweet_id);
+
+                if (parent_interaction) {
+                    result.parent_tweet = {
+                        ...tweet.parent_tweet,
+                        is_liked: parent_interaction.is_liked,
+                        is_reposted: parent_interaction.is_reposted,
+                        is_bookmarked: parent_interaction.is_bookmarked,
+                        user: {
+                            ...tweet.parent_tweet.user,
+                            is_following: parent_interaction.is_following,
+                            is_follower: parent_interaction.is_follower,
+                        },
+                    };
+                } else {
+                    delete result.parent_tweet;
+                }
+            }
+
+            if (tweet.conversation_tweet) {
+                const conversation_interaction = interactions_map.get(
+                    tweet.conversation_tweet.tweet_id
+                );
+
+                if (conversation_interaction) {
+                    result.conversation_tweet = {
+                        ...tweet.conversation_tweet,
+                        is_liked: conversation_interaction.is_liked,
+                        is_reposted: conversation_interaction.is_reposted,
+                        is_bookmarked: conversation_interaction.is_bookmarked,
+                        user: {
+                            ...tweet.conversation_tweet.user,
+                            is_following: conversation_interaction.is_following,
+                            is_follower: conversation_interaction.is_follower,
+                        },
+                    };
+                } else {
+                    delete result.conversation_tweet;
+                }
+            }
+
+            return result;
         });
     }
 
