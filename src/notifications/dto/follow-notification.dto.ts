@@ -4,6 +4,13 @@ import { User } from 'src/user/entities';
 
 export class FollowNotificationDto {
     @ApiProperty({
+        description: 'Notification ID',
+        example: 50,
+        type: Number,
+    })
+    id: number;
+
+    @ApiProperty({
         description: 'Notification type',
         example: NotificationType.FOLLOW,
         enum: NotificationType,

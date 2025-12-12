@@ -5,6 +5,13 @@ import { Tweet } from 'src/tweets/entities';
 
 export class ReplyNotificationDto {
     @ApiProperty({
+        description: 'Notification ID',
+        example: 50,
+        type: Number,
+    })
+    id: number;
+
+    @ApiProperty({
         description: 'Notification type',
         example: NotificationType.REPLY,
         enum: NotificationType,

@@ -85,6 +85,7 @@ export class NotificationsService implements OnModuleInit {
             if (is_online) {
                 this.notificationsGateway.sendToUser(notification_data.type, user_id, {
                     ...payload,
+                    id: 50,
                     action: 'add',
                 });
             } else {
@@ -842,7 +843,8 @@ export class NotificationsService implements OnModuleInit {
         const missing_user_ids = new Set<string>();
 
         const response_notifications: NotificationDto[] = user_notifications.notifications
-            .map((notification: any) => {
+            .map((notification: any, index: number) => {
+                const notification_id = 50 - index;
                 switch (notification.type) {
                     case NotificationType.FOLLOW: {
                         const follow_notification = notification as FollowNotificationEntity;
@@ -868,6 +870,7 @@ export class NotificationsService implements OnModuleInit {
                             return null;
                         }
                         return {
+                            id: notification_id,
                             type: notification.type,
                             created_at: notification.created_at,
                             followers,
@@ -926,6 +929,7 @@ export class NotificationsService implements OnModuleInit {
                         }
 
                         return {
+                            id: notification_id,
                             type: notification.type,
                             created_at: notification.created_at,
                             likers,
@@ -955,6 +959,7 @@ export class NotificationsService implements OnModuleInit {
                             parent_tweet: this.cleanTweet(parent_tweet),
                         };
                         return {
+                            id: notification_id,
                             type: notification.type,
                             created_at: notification.created_at,
                             quoter: this.enrichUserWithStatus(quoter),
@@ -983,6 +988,7 @@ export class NotificationsService implements OnModuleInit {
                             return null;
                         }
                         return {
+                            id: notification_id,
                             type: notification.type,
                             created_at: notification.created_at,
                             replier: this.enrichUserWithStatus(replier),
@@ -1046,6 +1052,7 @@ export class NotificationsService implements OnModuleInit {
                         }
 
                         return {
+                            id: notification_id,
                             type: notification.type,
                             created_at: notification.created_at,
                             reposters,
@@ -1087,6 +1094,7 @@ export class NotificationsService implements OnModuleInit {
                         }
 
                         return {
+                            id: notification_id,
                             type: notification.type,
                             created_at: notification.created_at,
                             mentioner: this.enrichUserWithStatus(mentioner),
@@ -1104,6 +1112,7 @@ export class NotificationsService implements OnModuleInit {
                         }
 
                         return {
+                            id: notification_id,
                             type: notification.type,
                             created_at: notification.created_at,
                             sender: this.cleanUser(sender),
@@ -2061,6 +2070,7 @@ export class NotificationsService implements OnModuleInit {
                 }
 
                 return {
+                    id: 50,
                     type: notification.type,
                     created_at: notification.created_at,
                     followers,
@@ -2113,6 +2123,7 @@ export class NotificationsService implements OnModuleInit {
                 }
 
                 return {
+                    id: 50,
                     type: notification.type,
                     created_at: notification.created_at,
                     likers,
@@ -2166,6 +2177,7 @@ export class NotificationsService implements OnModuleInit {
                 }
 
                 return {
+                    id: 50,
                     type: notification.type,
                     created_at: notification.created_at,
                     reposters,

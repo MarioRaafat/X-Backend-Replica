@@ -87,6 +87,7 @@ describe('FCMService', () => {
                     sound: 'default',
                     title: notification.title,
                     body: notification.body,
+                    subtitle: notification.body,
                     data: data,
                 },
             ]);
@@ -237,6 +238,7 @@ describe('FCMService', () => {
                     sound: 'default',
                     title: 'Liked by John Doe',
                     body: 'Tweet content',
+                    subtitle: 'Tweet content',
                     data: {
                         type: NotificationType.LIKE,
                         ...payload,
