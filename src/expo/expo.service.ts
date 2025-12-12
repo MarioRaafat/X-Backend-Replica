@@ -108,12 +108,7 @@ export class FCMService {
                 body: notification_content.body,
             };
 
-            const data = {
-                type: notification_type,
-                ...payload,
-            };
-
-            await this.sendToDevice(user.fcm_token, data, notification);
+            await this.sendToDevice(user.fcm_token, notification_content.data, notification);
             this.logger.log(`Notification sent via FCM to user ${user_id}`);
             return true;
         } catch (error) {
@@ -127,13 +122,13 @@ export class FCMService {
     private getNotificationContent(
         type: NotificationType,
         payload: any
-    ): { title: string; body: string; data?: any } {
+    ): { title: string; body: string; data: any } {
         switch (type) {
             case NotificationType.FOLLOW:
                 return {
                     title: 'yapper',
                     body: `@${payload.follower_username || 'Someone'} followed you!`,
-                    data: { username: payload.follower_id },
+                    data: { user_id: payload.follower_id },
                 };
             case NotificationType.MENTION:
                 return {
@@ -183,12 +178,14 @@ export class FCMService {
             case NotificationType.MESSAGE:
                 return {
                     title: payload.sender?.name || 'New Message',
-                    body: payload.message?.content || 'You have a new message',
+                    body: payload.content || 'You have a new message',
+                    data: { chat_id: payload.chat_id },
                 };
             default:
                 return {
                     title: 'yapper',
                     body: 'You have a new notification',
+                    data: {},
                 };
         }
     }
