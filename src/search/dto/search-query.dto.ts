@@ -1,17 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { BasicQueryDto } from './basic-query.dto';
 import { Type } from 'class-transformer';
-
-export enum PeopleFilter {
-    ANYONE = 'anyone',
-    FOLLOWING = 'following',
-}
-
-export enum LocationFilter {
-    ANYWHERE = 'anywhere',
-    NEAR_YOU = 'near_you',
-}
 
 export class SearchQueryDto extends BasicQueryDto {
     @ApiPropertyOptional({
