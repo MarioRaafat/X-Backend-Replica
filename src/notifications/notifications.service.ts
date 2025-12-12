@@ -1334,20 +1334,20 @@ export class NotificationsService implements OnModuleInit {
         const deduplicated_notifications = this.deduplicateNotifications(response_notifications);
 
         // Clean notifications with missing tweets
-        // if (missing_tweet_ids.size > 0) {
-        //     await this.clear_jobs_service.queueClearNotification({
-        //         user_id,
-        //         tweet_ids: Array.from(missing_tweet_ids),
-        //     });
-        // }
+        if (missing_tweet_ids.size > 0) {
+            await this.clear_jobs_service.queueClearNotification({
+                user_id,
+                tweet_ids: Array.from(missing_tweet_ids),
+            });
+        }
 
-        // // Clean up notifications with missing users
-        // if (missing_user_ids.size > 0) {
-        //     await this.clear_jobs_service.queueClearNotificationByUsers(
-        //         user_id,
-        //         Array.from(missing_user_ids)
-        //     );
-        // }
+        // Clean up notifications with missing users
+        if (missing_user_ids.size > 0) {
+            await this.clear_jobs_service.queueClearNotificationByUsers(
+                user_id,
+                Array.from(missing_user_ids)
+            );
+        }
 
         // Apply pagination
         const total = deduplicated_notifications.length;
