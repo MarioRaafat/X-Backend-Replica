@@ -149,6 +149,7 @@ export class MessagesService {
                     sender: {
                         name: sender.name,
                         username: sender.username,
+                        chat_id,
                     },
                 }
             );

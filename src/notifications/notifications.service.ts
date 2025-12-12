@@ -297,8 +297,7 @@ export class NotificationsService implements OnModuleInit {
                     old_notification: aggregation_result.old_notification,
                 });
             } else {
-                console.log('Send in FCM');
-
+                console.log('Send Expo Push Notification');
                 await this.fcmService.sendNotificationToUserDevice(
                     user_id,
                     notification_data.type,
