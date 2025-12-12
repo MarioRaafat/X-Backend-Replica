@@ -128,7 +128,6 @@ export class FCMService {
         type: NotificationType,
         payload: any
     ): { title: string; body: string; data?: any } {
-        console.log(payload);
         switch (type) {
             case NotificationType.FOLLOW:
                 return {
