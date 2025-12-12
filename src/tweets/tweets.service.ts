@@ -1317,7 +1317,9 @@ export class TweetsService {
     private async extractDataFromTweets(
         tweet: CreateTweetDTO | UpdateTweetDTO,
         user_id: string,
-        query_runner: QueryRunner
+        query_runner: QueryRunner,
+        skip_extract_topics: boolean = false,
+        predefined_hashtag_topics?: Record<string, Record<string, number>>
     ): Promise<string[]> {
         const { content } = tweet;
         if (!content) return [];
@@ -1338,20 +1340,25 @@ export class TweetsService {
 
         await this.updateHashtags([...new Set(normalized_hashtags)], user_id, query_runner);
 
-        // Extract topics using Groq AI
-        const topics = await this.extractTopics(content, unique_hashtags);
-        console.log('Extracted topics:', topics);
+        // Extract topics using Groq AI or use predefined topics
+        if (!skip_extract_topics) {
+            const topics = await this.extractTopics(content, unique_hashtags);
+            console.log('Extracted topics:', topics);
 
-        //Insert Hashtag with Topics in redis
+            //Insert Hashtag with Topics in redis
+            await this.hashtag_job_service.queueHashtag({
+                hashtags: topics.hashtags,
+                timestamp: Date.now(),
+            });
+        } else if (predefined_hashtag_topics) {
+            // For fake trends: use predefined topics
+            console.log('Using predefined hashtag topics for fake trend');
 
-        await this.hashtag_job_service.queueHashtag({
-            hashtags: topics.hashtags,
-            timestamp: Date.now(),
-        });
-
-        // You can store topics in the tweet entity or use them for recommendations
-        // For example, you could add a 'topics' field to your Tweet entity
-        // tweet.topics = topics;
+            await this.hashtag_job_service.queueHashtag({
+                hashtags: predefined_hashtag_topics,
+                timestamp: Date.now(),
+            });
+        }
 
         return mentions;
     }
@@ -1604,5 +1611,123 @@ export class TweetsService {
                 has_more: bookmarks.length === limit,
             },
         };
+    }
+    /////////////////////////////////////////////////////////// Fake Trend Tweets Methods /////////////////////////////////////////////////
+
+    /**
+     * Builds default hashtag topics structure for fake trend tweets
+     * Maps hashtags to a specified category with 100% weight
+     */
+    buildDefaultHashtagTopics(
+        hashtags: string[],
+        topic: 'Sports' | 'Entertainment' | 'News'
+    ): Record<string, Record<string, number>> {
+        const topics_distribution: Record<
+            'Sports' | 'Entertainment' | 'News',
+            Record<string, number>
+        > = {
+            Sports: { Sports: 100, Entertainment: 0, News: 0 },
+            Entertainment: { Sports: 0, Entertainment: 100, News: 0 },
+            News: { Sports: 0, Entertainment: 0, News: 100 },
+        };
+
+        const result: Record<string, Record<string, number>> = {};
+        hashtags.forEach((hashtag) => {
+            // Remove # symbol if present
+            const clean_hashtag = hashtag.startsWith('#') ? hashtag.slice(1) : hashtag;
+            result[clean_hashtag] = topics_distribution[topic];
+        });
+
+        return result;
+    }
+
+    /**
+     * Creates a fake trend tweet with predefined hashtag topics
+     * Skips Groq AI extraction for performance
+     */
+    async createFakeTrendTweet(
+        content: string,
+        user_id: string,
+        hashtag_topics: Record<string, Record<string, number>>
+    ): Promise<TweetResponseDTO> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
+        try {
+            const mentions = await this.extractDataFromTweets(
+                { content },
+                user_id,
+                query_runner,
+                true, // skip_extract_topics flag
+                hashtag_topics
+            );
+
+            const new_tweet = query_runner.manager.create(Tweet, {
+                user_id,
+                type: TweetType.TWEET,
+                content,
+            });
+
+            const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
+            await query_runner.commitTransaction();
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_tweet.tweet_id,
+            });
+
+            if (mentions.length > 0) {
+                await this.mentionNotification(mentions, user_id, saved_tweet);
+            }
+
+            return plainToInstance(TweetResponseDTO, saved_tweet, {
+                excludeExtraneousValues: true,
+            });
+        } catch (error) {
+            console.error('Error in createFakeTrendTweet:', error);
+            if (query_runner.isTransactionActive) {
+                await query_runner.rollbackTransaction();
+            }
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+    async deleteTweetsByUserId(user_id: string): Promise<void> {
+        try {
+            console.log(user_id);
+            const tweets = await this.tweet_repository.find({
+                where: { user_id },
+                select: ['tweet_id', 'user_id', 'type'],
+            });
+
+            if (tweets.length === 0) {
+                console.log(`No tweets found for user ${user_id}`);
+                return;
+            }
+
+            for (const tweet of tweets) {
+                try {
+                    // Queue repost and quote delete jobs, handle mentions
+                    await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id);
+
+                    // Hard delete the tweet
+                    await this.tweet_repository.delete({ tweet_id: tweet.tweet_id });
+
+                    // Queue elasticsearch deletion
+                    await this.es_delete_tweet_service.queueDeleteTweet({
+                        tweet_id: tweet.tweet_id,
+                    });
+                } catch (error) {
+                    console.error(`Error deleting tweet ${tweet.tweet_id}:`, error);
+                    // Continue deleting other tweets even if one fails
+                }
+            }
+
+            console.log(`Successfully deleted ${tweets.length} tweets for user ${user_id}`);
+        } catch (error) {
+            console.error('Error deleting tweets by user:', error);
+            throw error;
+        }
     }
 }
