@@ -159,6 +159,7 @@ export class SearchService {
 
             if (remaining_text.length > 0) {
                 this.buildTweetsSearchQuery(search_body, remaining_text);
+                search_body.query.bool.minimum_should_match = 1;
             }
 
             const trending_hashtags: Map<string, number> = await this.getTrendingHashtags();
@@ -201,6 +202,7 @@ export class SearchService {
 
             if (remaining_text.length > 0) {
                 this.buildTweetsSearchQuery(search_body, remaining_text);
+                search_body.query.bool.minimum_should_match = 1;
             }
 
             const trending_hashtags: Map<string, number> = await this.getTrendingHashtags();
@@ -255,7 +257,7 @@ export class SearchService {
 
     private validateAndSanitizeQuery(query: string): string | null {
         const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\p{L}\p{N}\s#]/gu, '');
+        const sanitized_query = decoded_query.replace(/[^\p{L}\p{N}\s#\s_]/gu, '');
 
         if (!sanitized_query || sanitized_query.trim().length === 0) {
             return null;
