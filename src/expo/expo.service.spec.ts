@@ -379,7 +379,7 @@ describe('FCMService', () => {
             );
         });
 
-        it('should return false when payload is invalid', async () => {
+        it('should send notification with fallback content when payload is missing fields', async () => {
             const payload = {
                 // Missing required fields
                 tweet_id: 'tweet-123',
@@ -391,7 +391,15 @@ describe('FCMService', () => {
                 payload
             );
 
-            expect(result).toBe(false);
+            expect(result).toBe(true);
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        title: 'Liked by Someone',
+                        body: 'your post',
+                    }),
+                ])
+            );
         });
 
         it('should return false and warn if user has no FCM token', async () => {
