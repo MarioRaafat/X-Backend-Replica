@@ -83,6 +83,7 @@ export const EXPLORE_CONFIG = {
 
 export const EXPLORE_CRON_SCHEDULE = '30 * * * *'; // Every hour at minute 30
 export const TREND_CRON_SCHEDULE = '0 * * * *'; // Every hour at minute 0
+export const FAKE_TREND_CRON_SCHEDULE = '*/20 * * * *'; // Every 20 minutes
 
 export const EXPLORE_JOB_PRIORITIES = {
     HIGH: 1,

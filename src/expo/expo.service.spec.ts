@@ -35,7 +35,7 @@ describe('FCMService', () => {
         };
 
         // Mock Expo constructor and static method
-        (Expo as jest.MockedClass<typeof Expo>).mockImplementation(() => mock_expo_instance);
+        Expo.mockImplementation(() => mock_expo_instance);
         (Expo.isExpoPushToken as unknown as jest.Mock) = jest.fn().mockReturnValue(true);
 
         mock_user_repository = {

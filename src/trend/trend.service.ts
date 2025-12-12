@@ -181,7 +181,7 @@ export class TrendService {
     }
 
     @Cron(CronExpression.EVERY_HOUR, {
-        name: 'trend_calculation_job',
+        name: 'trend-calculation-job',
         timeZone: 'UTC',
     })
     async calculateTrend() {

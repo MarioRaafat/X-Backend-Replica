@@ -411,19 +411,9 @@ Send a new message in a chat. Supports text, reply, image, and voice messages.
     "content": "Hello, how are you?",
     "reply_to_message_id": "msg_789def-012abc-345ghi", 
     "message_type": "text",
-    image_url: null,
-  }
-}
-\`\`\`
-
-**Emit (Voice Message):**
-\`\`\`json
-{
-  "chat_id": "chat_123abc-def456-789ghi",
-  "message": {
-    "message_type": "voice",
-    "voice_note_url": "https://yapperdev.blob.core.windows.net/message-voices/...",
-    "voice_note_duration": "4:33"
+    "is_first_message": false,
+    "reply_to_message_id": null,
+    "image_url": null
   }
 }
 \`\`\`
