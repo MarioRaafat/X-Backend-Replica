@@ -217,7 +217,7 @@ describe('FCMService', () => {
         it('should send LIKE notification successfully', async () => {
             const payload = {
                 likers: [{ name: 'John Doe' }],
-                tweets: [{ content: 'Tweet content' }],
+                tweets: [{ content: 'Tweet content', id: 'tweet-123' }],
                 tweet_id: 'tweet-123',
             };
 
@@ -240,8 +240,7 @@ describe('FCMService', () => {
                     body: 'Tweet content',
                     subtitle: 'Tweet content',
                     data: {
-                        type: NotificationType.LIKE,
-                        ...payload,
+                        tweet_id: 'tweet-123',
                     },
                 },
             ]);
@@ -252,7 +251,7 @@ describe('FCMService', () => {
         it('should send REPLY notification successfully', async () => {
             const payload = {
                 replier: { name: 'Jane Smith' },
-                reply_tweet: { content: 'Reply content' },
+                reply_tweet: { content: 'Reply content', id: 'tweet-456' },
                 tweet_id: 'tweet-456',
             };
 
@@ -277,7 +276,7 @@ describe('FCMService', () => {
         it('should send REPOST notification successfully', async () => {
             const payload = {
                 reposter: { name: 'Bob Johnson' },
-                tweet: { content: 'Tweet content' },
+                tweet: { content: 'Tweet content', id: 'tweet-789' },
             };
 
             await service.sendNotificationToUserDevice(
@@ -299,7 +298,7 @@ describe('FCMService', () => {
         it('should send QUOTE notification successfully', async () => {
             const payload = {
                 quoted_by: { username: 'alice' },
-                quote: { content: 'Quote content' },
+                quote: { content: 'Quote content', id: 'tweet-101' },
             };
 
             await service.sendNotificationToUserDevice('user-123', NotificationType.QUOTE, payload);
@@ -317,7 +316,7 @@ describe('FCMService', () => {
         it('should send MENTION notification successfully', async () => {
             const payload = {
                 mentioned_by: { name: 'Charlie Wilson' },
-                tweet: { content: 'Tweet content' },
+                tweet: { content: 'Tweet content', id: 'tweet-202' },
             };
 
             await service.sendNotificationToUserDevice(
@@ -339,7 +338,8 @@ describe('FCMService', () => {
         it('should send MESSAGE notification successfully', async () => {
             const payload = {
                 sender: { name: 'David Lee' },
-                message: { content: 'Hello!' },
+                content: 'Hello!',
+                chat_id: 'chat-123',
             };
 
             await service.sendNotificationToUserDevice(
@@ -361,6 +361,7 @@ describe('FCMService', () => {
         it('should send FOLLOW notification with follower_name', async () => {
             const payload = {
                 follower_username: 'emma',
+                follower_id: 'user-303',
             };
 
             await service.sendNotificationToUserDevice(
@@ -438,7 +439,7 @@ describe('FCMService', () => {
 
             await service.sendNotificationToUserDevice('user-123', NotificationType.LIKE, {
                 likers: [{ name: 'Test' }],
-                tweets: [{ content: 'Content' }],
+                tweets: [{ content: 'Content', id: 'tweet-1' }],
             });
 
             expect(logger_spy).toHaveBeenCalledWith('Notification sent via FCM to user user-123');
@@ -456,7 +457,7 @@ describe('FCMService', () => {
                 NotificationType.LIKE,
                 {
                     likers: [{ name: 'Test' }],
-                    tweets: [{ content: 'Content' }],
+                    tweets: [{ content: 'Content', id: 'tweet-1' }],
                 }
             );
 
@@ -475,7 +476,7 @@ describe('FCMService', () => {
                         username: 'complexuser',
                     },
                 ],
-                tweets: [{ content: 'Tweet content' }],
+                tweets: [{ content: 'Tweet content', id: 'tweet-123' }],
                 tweet_id: 'tweet-123',
             };
 
@@ -485,8 +486,7 @@ describe('FCMService', () => {
                 expect.arrayContaining([
                     expect.objectContaining({
                         data: {
-                            type: NotificationType.LIKE,
-                            ...payload,
+                            tweet_id: 'tweet-123',
                         },
                     }),
                 ])
