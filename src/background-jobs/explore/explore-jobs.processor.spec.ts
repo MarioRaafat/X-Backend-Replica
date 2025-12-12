@@ -8,6 +8,7 @@ describe('ExploreJobsProcessor', () => {
     let explore_jobs_service: ExploreJobsService;
 
     const mock_explore_jobs_service = {
+        recalculateExistingTopTweets: jest.fn(),
         countTweetsForRecalculation: jest.fn(),
         fetchTweetsForRecalculation: jest.fn(),
         calculateScore: jest.fn(),
@@ -60,6 +61,10 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
+            mock_explore_jobs_service.recalculateExistingTopTweets.mockResolvedValue({
+                categories_processed: 0,
+                tweets_recalculated: 0,
+            });
             mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(1);
             mock_explore_jobs_service.fetchTweetsForRecalculation.mockResolvedValueOnce(
                 mock_tweets
@@ -84,6 +89,10 @@ describe('ExploreJobsProcessor', () => {
                 progress: jest.fn().mockResolvedValue(undefined),
             } as unknown as Job;
 
+            mock_explore_jobs_service.recalculateExistingTopTweets.mockResolvedValue({
+                categories_processed: 0,
+                tweets_recalculated: 0,
+            });
             mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(0);
 
             const result = await processor.handleRecalculateExploreScores(mock_job);
@@ -135,6 +144,10 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
+            mock_explore_jobs_service.recalculateExistingTopTweets.mockResolvedValue({
+                categories_processed: 0,
+                tweets_recalculated: 0,
+            });
             mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(3);
             mock_explore_jobs_service.fetchTweetsForRecalculation
                 .mockResolvedValueOnce(batch1)
@@ -174,6 +187,10 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
+            mock_explore_jobs_service.recalculateExistingTopTweets.mockResolvedValue({
+                categories_processed: 0,
+                tweets_recalculated: 0,
+            });
             mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(1);
             mock_explore_jobs_service.fetchTweetsForRecalculation
                 .mockResolvedValueOnce(mock_tweets)
@@ -209,6 +226,10 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
+            mock_explore_jobs_service.recalculateExistingTopTweets.mockResolvedValue({
+                categories_processed: 0,
+                tweets_recalculated: 0,
+            });
             mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(1);
             mock_explore_jobs_service.fetchTweetsForRecalculation
                 .mockResolvedValueOnce(mock_tweets)
@@ -229,7 +250,7 @@ describe('ExploreJobsProcessor', () => {
                 progress: jest.fn().mockResolvedValue(undefined),
             } as unknown as Job;
 
-            mock_explore_jobs_service.countTweetsForRecalculation.mockRejectedValue(
+            mock_explore_jobs_service.recalculateExistingTopTweets.mockRejectedValue(
                 new Error('Database connection failed')
             );
 
@@ -245,6 +266,10 @@ describe('ExploreJobsProcessor', () => {
                 progress: jest.fn().mockResolvedValue(undefined),
             } as unknown as Job;
 
+            mock_explore_jobs_service.recalculateExistingTopTweets.mockResolvedValue({
+                categories_processed: 0,
+                tweets_recalculated: 0,
+            });
             mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(0);
 
             const result = await processor.handleRecalculateExploreScores(mock_job);
@@ -289,6 +314,10 @@ describe('ExploreJobsProcessor', () => {
                 },
             ];
 
+            mock_explore_jobs_service.recalculateExistingTopTweets.mockResolvedValue({
+                categories_processed: 0,
+                tweets_recalculated: 0,
+            });
             mock_explore_jobs_service.countTweetsForRecalculation.mockResolvedValue(2);
             mock_explore_jobs_service.fetchTweetsForRecalculation
                 .mockResolvedValueOnce(batch1)

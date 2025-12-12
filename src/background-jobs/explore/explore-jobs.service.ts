@@ -121,15 +121,8 @@ export class ExploreJobsService {
         return weighted_engagement / denominator;
     }
 
-    private getRecalculationQueryBuilder(
-        since_hours: number,
-        max_age_hours: number,
-        force_all: boolean
-    ) {
-        const max_age_date = new Date();
-        max_age_date.setHours(max_age_date.getHours() - max_age_hours);
-
-        const query = this.tweet_repository
+    private getBaseTweetQueryBuilder() {
+        return this.tweet_repository
             .createQueryBuilder('tweet')
             .leftJoinAndMapMany(
                 'tweet.categories',
@@ -148,10 +141,20 @@ export class ExploreJobsService {
                 'tc.category_id',
                 'tc.percentage',
             ])
-            .where('tweet.deleted_at IS NULL')
-            .andWhere('tweet.created_at > :max_age_date', {
-                max_age_date,
-            });
+            .where('tweet.deleted_at IS NULL');
+    }
+
+    private getRecalculationQueryBuilder(
+        since_hours: number,
+        max_age_hours: number,
+        force_all: boolean
+    ) {
+        const max_age_date = new Date();
+        max_age_date.setHours(max_age_date.getHours() - max_age_hours);
+
+        const query = this.getBaseTweetQueryBuilder().andWhere('tweet.created_at > :max_age_date', {
+            max_age_date,
+        });
 
         if (!force_all) {
             const since_date = new Date();
@@ -200,6 +203,172 @@ export class ExploreJobsService {
         return tweets as any as ITweetScoreData[];
     }
 
+    // STEP 1: RECALCULATE EXISTING REDIS TOP-N TWEETS
+
+    async getAllActiveCategoryIds(): Promise<string[]> {
+        try {
+            const pattern = 'explore:category:*';
+            const keys = await this.redis_service.keys(pattern);
+
+            const category_ids = keys
+                .map((key) => {
+                    const match = key.match(/explore:category:(.+)/);
+                    return match ? match[1] : null;
+                })
+                .filter((id) => id !== null);
+
+            this.logger.log(`Found ${category_ids.length} active categories in Redis`);
+            return category_ids;
+        } catch (error) {
+            this.logger.error('Error fetching active category IDs:', error);
+            return [];
+        }
+    }
+
+    async fetchTweetsByIds(tweet_ids: string[]): Promise<ITweetScoreData[]> {
+        if (tweet_ids.length === 0) return [];
+
+        try {
+            const tweets = await this.getBaseTweetQueryBuilder()
+                .andWhere('tweet.tweet_id IN (:...tweet_ids)', { tweet_ids })
+                .getMany();
+
+            return tweets as any as ITweetScoreData[];
+        } catch (error) {
+            this.logger.error('Error fetching tweets by IDs:', error);
+            return [];
+        }
+    }
+
+    //Recalculate scores for existing top-N tweets in Redis
+
+    async recalculateExistingTopTweets(): Promise<{
+        categories_processed: number;
+        tweets_recalculated: number;
+    }> {
+        const start_time = Date.now();
+
+        // Get all active category IDs
+        const category_ids = await this.getAllActiveCategoryIds();
+
+        if (category_ids.length === 0) {
+            this.logger.log('No active categories found in Redis');
+            return { categories_processed: 0, tweets_recalculated: 0 };
+        }
+
+        // Fetch all category tweets in one Redis pipeline
+        const fetch_pipeline = this.redis_service.pipeline();
+        for (const category_id of category_ids) {
+            const redis_key = `explore:category:${category_id}`;
+            fetch_pipeline.zrevrange(
+                redis_key,
+                0,
+                EXPLORE_CONFIG.MAX_CATEGORY_SIZE - 1,
+                'WITHSCORES'
+            );
+        }
+
+        const pipeline_results = await fetch_pipeline.exec();
+
+        // Validate pipeline results
+        if (!pipeline_results) {
+            this.logger.error('Redis pipeline returned null results');
+            return { categories_processed: 0, tweets_recalculated: 0 };
+        }
+
+        // Parse results and collect all unique tweet IDs
+        const category_tweets_map = new Map<string, Array<{ tweet_id: string; score: number }>>();
+        const all_tweet_ids = new Set<string>();
+
+        for (let i = 0; i < category_ids.length; i++) {
+            const category_id = category_ids[i];
+            const [error, results] = pipeline_results[i];
+
+            if (error || !results || !Array.isArray(results) || results.length === 0) {
+                category_tweets_map.set(category_id, []);
+                continue;
+            }
+
+            const top_tweets: Array<{ tweet_id: string; score: number }> = [];
+            for (let j = 0; j < results.length; j += 2) {
+                const tweet_id = results[j] as string;
+                const score = parseFloat(results[j + 1] as string);
+                top_tweets.push({ tweet_id, score });
+                all_tweet_ids.add(tweet_id);
+            }
+
+            category_tweets_map.set(category_id, top_tweets);
+        }
+
+        this.logger.log(
+            `Fetched ${all_tweet_ids.size} unique tweets across ${category_ids.length} categories`
+        );
+
+        if (all_tweet_ids.size === 0) {
+            this.logger.log('No tweets found in any category');
+            return { categories_processed: category_ids.length, tweets_recalculated: 0 };
+        }
+
+        // Fetch all tweet data in one DB query
+        const tweet_data = await this.fetchTweetsByIds(Array.from(all_tweet_ids));
+        const tweet_data_map = new Map(tweet_data.map((t) => [t.tweet_id, t]));
+
+        // Recalculate scores and prepare Redis updates
+        const update_pipeline = this.redis_service.pipeline();
+        let total_tweets_recalculated = 0;
+
+        for (const category_id of category_ids) {
+            const top_tweets = category_tweets_map.get(category_id) || [];
+            const redis_key = `explore:category:${category_id}`;
+
+            for (const top_tweet of top_tweets) {
+                const tweet = tweet_data_map.get(top_tweet.tweet_id);
+
+                if (!tweet) {
+                    // Tweet not found (deleted or doesn't exist), remove from Redis
+                    update_pipeline.zrem(redis_key, top_tweet.tweet_id);
+                    continue;
+                }
+
+                // Recalculate score with updated engagement and time decay
+                const new_score = this.calculateScore(tweet);
+
+                // Find the percentage for this category
+                const category = tweet.categories?.find((c) => c.category_id === category_id);
+                const percentage = category?.percentage || 100;
+                const weighted_score = new_score * (percentage / 100);
+
+                // Update Redis with new score if above threshold
+                if (weighted_score >= EXPLORE_CONFIG.MIN_SCORE_THRESHOLD) {
+                    update_pipeline.zadd(redis_key, weighted_score, tweet.tweet_id);
+                    total_tweets_recalculated++;
+                } else {
+                    // Score too low, remove from category
+                    update_pipeline.zrem(redis_key, tweet.tweet_id);
+                }
+            }
+        }
+
+        // Execute all Redis updates atomically
+        await update_pipeline.exec();
+
+        // Trim all categories to top 50
+        await this.trimCategoryZSets(category_ids);
+
+        const duration = Date.now() - start_time;
+        this.logger.log(
+            `Recalculated existing top tweets: ${category_ids.length} categories, ` +
+                `${total_tweets_recalculated} tweets in ${duration}ms`
+        );
+
+        return {
+            categories_processed: category_ids.length,
+            tweets_recalculated: total_tweets_recalculated,
+        };
+    }
+
+    // PROCESS RECENT ENGAGEMENT TWEETS
+
     async updateRedisCategoryScores(
         tweets: {
             tweet_id: string;
@@ -243,7 +412,6 @@ export class ExploreJobsService {
             const redis_key = `explore:category:${category_id}`;
 
             // Keep top MAX_CATEGORY_SIZE tweets
-
             pipeline.zremrangebyrank(redis_key, 0, -(EXPLORE_CONFIG.MAX_CATEGORY_SIZE + 1));
 
             // Category automatic expiration
