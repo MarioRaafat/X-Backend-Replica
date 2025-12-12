@@ -17,10 +17,6 @@ export class Hashtag {
     @Column({ type: 'int', default: 0 })
     usage_count: number;
 
-    @ManyToOne(() => User, (user) => user.hashtags, {})
-    @JoinColumn({ name: 'created_by', referencedColumnName: 'id' })
-    created_by: User;
-
     @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 

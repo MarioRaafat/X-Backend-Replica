@@ -1496,7 +1496,7 @@ export class TweetsService {
     ): Promise<void> {
         if (names.length === 0) return;
 
-        const hashtags = names.map((name) => ({ name, created_by: { id: user_id } }) as Hashtag);
+        const hashtags = names.map((name) => ({ name }) as Hashtag);
         await query_runner.manager.upsert(Hashtag, hashtags, {
             conflictPaths: ['name'],
             upsertType: 'on-conflict-do-update',
