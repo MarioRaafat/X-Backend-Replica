@@ -131,4 +131,12 @@ export class RedisService {
     pipeline() {
         return this.redis_client.pipeline();
     }
+
+    async keys(pattern: string): Promise<string[]> {
+        return this.redis_client.keys(pattern);
+    }
+
+    async zrem(key: string, ...members: string[]): Promise<number> {
+        return this.redis_client.zrem(key, ...members);
+    }
 }
