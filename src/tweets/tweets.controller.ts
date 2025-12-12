@@ -107,20 +107,6 @@ export class TweetsController {
         }
     }
 
-    @ApiOperation(get_all_tweets_swagger.operation)
-    @ApiOkResponse({
-        description: 'Tweets retrieved successfully with pagination metadata',
-        type: PaginatedTweetsResponseDTO,
-    })
-    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage(SUCCESS_MESSAGES.TWEETS_RETRIEVED)
-    @Get()
-    async getAllTweets(@Query() query: GetTweetsQueryDto, @GetUserId() user_id?: string) {
-        // return await this.tweets_service.getAllTweets(query, user_id);
-        return;
-    }
-
     @HttpCode(HttpStatus.OK)
     @ApiOperation(get_tweet_summary_swagger.operation)
     @ApiParam(get_tweet_summary_swagger.param)
@@ -503,80 +489,4 @@ export class TweetsController {
 
         return this.tweets_service.uploadVideo(file);
     }
-
-    @HttpCode(HttpStatus.OK)
-    @ApiOperation(track_tweet_view_swagger.operation)
-    @ApiParam(track_tweet_view_swagger.param)
-    @ApiOkResponse(track_tweet_view_swagger.responses.success)
-    @ApiUnauthorizedErrorResponse(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
-    @ApiNotFoundErrorResponse(ERROR_MESSAGES.TWEET_NOT_FOUND)
-    @ApiInternalServerError(ERROR_MESSAGES.INTERNAL_SERVER_ERROR)
-    @ResponseMessage(SUCCESS_MESSAGES.TWEET_VIEW_TRACKED)
-    @UseGuards(OptionalJwtAuthGuard)
-    @Post(':id/view')
-    async trackTweetView(@Param('id', ParseUUIDPipe) id: string, @GetUserId() user_id: string) {
-        return await this.tweets_service.incrementTweetViews(id);
-    }
-
-    /* Test Profile Functionalities */
-
-    // @HttpCode(HttpStatus.OK)
-    // @ApiOperation({ summary: 'Test: Get replies by user ID' })
-    // @ApiQuery({ name: 'cursor', required: false, type: String })
-    // @ApiQuery({ name: 'limit', required: false, type: Number })
-    // @ResponseMessage('User replies retrieved successfully')
-    // @Get('test/user/:user_id/replies')
-    // async testGetRepliesByUserId(
-    //     @Param('user_id', ParseUUIDPipe) user_id: string,
-    //     @Query('cursor') cursor?: string,
-    //     @Query('limit') limit?: number,
-    //     @GetUserId() current_user_id?: string
-    // ) {
-    //     return await this.tweets_service.getRepliesByUserId(
-    //         user_id,
-    //         current_user_id,
-    //         cursor,
-    //         limit ? Number(limit) : 10
-    //     );
-    // }
-
-    // @HttpCode(HttpStatus.OK)
-    // @ApiOperation({ summary: 'Test: Get media posts by user ID' })
-    // @ApiQuery({ name: 'cursor', required: false, type: String })
-    // @ApiQuery({ name: 'limit', required: false, type: Number })
-    // @ResponseMessage('User media posts retrieved successfully')
-    // @Get('test/user/:user_id/media')
-    // async testGetMediaByUserId(
-    //     @Param('user_id', ParseUUIDPipe) user_id: string,
-    //     @Query('cursor') cursor?: string,
-    //     @Query('limit') limit?: number,
-    //     @GetUserId() current_user_id?: string
-    // ) {
-    //     return await this.tweets_service.getMediaByUserId(
-    //         user_id,
-    //         current_user_id,
-    //         cursor,
-    //         limit ? Number(limit) : 10
-    //     );
-    // }
-
-    // @HttpCode(HttpStatus.OK)
-    // @ApiOperation({ summary: 'Test: Get liked posts by user ID' })
-    // @ApiQuery({ name: 'cursor', required: false, type: String })
-    // @ApiQuery({ name: 'limit', required: false, type: Number })
-    // @ResponseMessage('User liked posts retrieved successfully')
-    // @Get('test/user/:user_id/likes')
-    // async testGetLikedPostsByUserId(
-    //     @Param('user_id', ParseUUIDPipe) user_id: string,
-    //     @Query('cursor') cursor?: string,
-    //     @Query('limit') limit?: number,
-    //     @GetUserId() current_user_id?: string
-    // ) {
-    //     return await this.tweets_service.getLikedPostsByUserId(
-    //         user_id,
-    //         current_user_id,
-    //         cursor,
-    //         limit ? Number(limit) : 10
-    //     );
-    // }
 }

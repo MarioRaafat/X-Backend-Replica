@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
     BadRequestException,
     ForbiddenException,
@@ -9,10 +8,10 @@ import { InjectRepository } from '@nestjs/typeorm';
 import {
     DataSource,
     In,
+    ObjectLiteral,
     QueryRunner,
     Repository,
     SelectQueryBuilder,
-    ObjectLiteral,
 } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import {
@@ -190,13 +189,13 @@ export class TweetsService {
      */
     private convertToCompressedMp4(video_buffer: Buffer): Promise<Buffer> {
         return new Promise((resolve, reject) => {
-            const inputStream = new Readable();
-            inputStream.push(video_buffer);
-            inputStream.push(null);
+            const input_stream = new Readable();
+            input_stream.push(video_buffer);
+            input_stream.push(null);
 
-            const outputChunks: Buffer[] = [];
+            const output_chunks: Buffer[] = [];
 
-            ffmpeg(inputStream)
+            ffmpeg(input_stream)
                 .outputOptions([
                     '-vcodec libx264',
                     '-crf 28',
@@ -211,11 +210,11 @@ export class TweetsService {
                 })
                 .on('end', () => {
                     console.log('FFmpeg conversion completed');
-                    resolve(Buffer.concat(outputChunks));
+                    resolve(Buffer.concat(output_chunks));
                 })
                 .pipe()
                 .on('data', (chunk: Buffer) => {
-                    outputChunks.push(chunk);
+                    output_chunks.push(chunk);
                 })
                 .on('error', (error) => {
                     console.error('Stream error:', error);
@@ -410,7 +409,6 @@ export class TweetsService {
             }
 
             // If it's a reply, decrement reply count for all parent tweets
-
             await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id, query_runner);
 
             await query_runner.manager.delete(Tweet, { tweet_id });
@@ -432,55 +430,51 @@ export class TweetsService {
     }
 
     async getTweetSummary(tweet_id: string): Promise<TweetSummaryResponseDTO> {
-        try {
-            const tweet = await this.tweet_repository.findOne({
-                where: { tweet_id },
-                select: ['content', 'tweet_id'],
-            });
-            if (!tweet) throw new NotFoundException('Tweet not found');
+        const tweet = await this.tweet_repository.findOne({
+            where: { tweet_id },
+            select: ['content', 'tweet_id'],
+        });
+        if (!tweet) throw new NotFoundException('Tweet not found');
 
-            const cleanedContent = tweet.content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
+        const cleaned_content = tweet.content
+            .replace(/#[a-zA-Z0-9_]+/g, '')
+            .replace(/\s+/g, ' ')
+            .trim();
 
-            if (cleanedContent.length < 120) {
-                throw new BadRequestException('Tweet content too short for summary generation.');
-            }
-
-            let tweet_summary = await this.tweet_summary_repository.findOne({
-                where: { tweet_id },
-            });
-
-            if (!tweet_summary) {
-                // Queue the summary generation job
-                await this.ai_summary_job_service.queueGenerateSummary({
-                    tweet_id,
-                    content: tweet.content,
-                });
-
-                // Wait for the job to complete (with polling)
-                for (let i = 0; i < 15; i++) {
-                    await new Promise((resolve) => setTimeout(resolve, 250));
-                    tweet_summary = await this.tweet_summary_repository.findOne({
-                        where: { tweet_id },
-                    });
-                    if (tweet_summary) {
-                        return {
-                            tweet_id,
-                            summary: tweet_summary.summary,
-                        };
-                    }
-                }
-                throw new NotFoundException('Failed to generate summary after retry.');
-            }
-            return {
-                tweet_id,
-                summary: tweet_summary.summary,
-            };
-        } catch (error) {
-            throw error;
+        if (cleaned_content.length < 120) {
+            throw new BadRequestException('Tweet content too short for summary generation.');
         }
+
+        let tweet_summary = await this.tweet_summary_repository.findOne({
+            where: { tweet_id },
+        });
+
+        if (!tweet_summary) {
+            // Queue the summary generation job
+            await this.ai_summary_job_service.queueGenerateSummary({
+                tweet_id,
+                content: tweet.content,
+            });
+
+            // Wait for the job to complete (with polling)
+            for (let i = 0; i < 15; i++) {
+                await new Promise((resolve) => setTimeout(resolve, 250));
+                tweet_summary = await this.tweet_summary_repository.findOne({
+                    where: { tweet_id },
+                });
+                if (tweet_summary) {
+                    return {
+                        tweet_id,
+                        summary: tweet_summary.summary,
+                    };
+                }
+            }
+            throw new NotFoundException('Failed to generate summary after retry.');
+        }
+        return {
+            tweet_id,
+            summary: tweet_summary.summary,
+        };
     }
 
     async getTweetById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
@@ -522,17 +516,14 @@ export class TweetsService {
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_likes', 1);
             await query_runner.commitTransaction();
 
-            if (tweet.user_id !== user_id)
+            if (tweet.user_id !== user_id) {
                 this.like_job_service.queueLikeNotification({
                     tweet,
                     like_to: tweet.user_id,
                     liked_by: user_id,
                     action: 'add',
                 });
-
-            await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id,
-            });
+            }
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id,
@@ -651,7 +642,7 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const parentTweet = await this.getTweetWithUserById(tweet_id, user_id, false);
+            const parent_tweet = await this.getTweetWithUserById(tweet_id, user_id, false);
 
             const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
                 quote,
@@ -684,17 +675,17 @@ export class TweetsService {
 
             const response = plainToInstance(TweetQuoteResponseDTO, {
                 ...saved_quote_tweet,
-                quoted_tweet: plainToInstance(TweetResponseDTO, parentTweet, {
+                quoted_tweet: plainToInstance(TweetResponseDTO, parent_tweet, {
                     excludeExtraneousValues: true,
                 }),
             });
 
-            if (parentTweet.user?.id && user_id !== parentTweet.user.id)
+            if (parent_tweet.user?.id && user_id !== parent_tweet.user.id)
                 this.quote_job_service.queueQuoteNotification({
-                    quote_to: parentTweet.user.id,
+                    quote_to: parent_tweet.user.id,
                     quoted_by: user_id,
                     quote_tweet: saved_quote_tweet,
-                    parent_tweet: parentTweet,
+                    parent_tweet: parent_tweet,
                     action: 'add',
                 });
 
@@ -704,7 +695,7 @@ export class TweetsService {
                 user_id,
                 saved_quote_tweet,
                 'add',
-                plainToInstance(TweetResponseDTO, parentTweet, {
+                plainToInstance(TweetResponseDTO, parent_tweet, {
                     excludeExtraneousValues: true,
                 })
             );
@@ -1278,9 +1269,7 @@ export class TweetsService {
     private async getTweetWithUserById(
         tweet_id: string,
         current_user_id?: string,
-        flag: boolean = true,
-        include_replies: boolean = true,
-        replies_limit: number = 3
+        flag: boolean = true
     ): Promise<TweetResponseDTO> {
         try {
             let query = this.tweet_repository
@@ -1315,16 +1304,6 @@ export class TweetsService {
                 if (reply_info.parent_tweet_id) {
                     tweet_dto.parent_tweet_id = reply_info.parent_tweet_id;
                 }
-            }
-
-            // Fetch limited replies if requested and tweet has replies
-            if (include_replies && tweet.num_replies > 0) {
-                const replies_result = await this.tweets_repository.getReplies(
-                    tweet_id,
-                    current_user_id,
-                    { limit: replies_limit }
-                );
-                tweet_dto.replies = replies_result.tweets;
             }
 
             return tweet_dto;
@@ -1482,8 +1461,8 @@ export class TweetsService {
                 temperature: 0,
             });
 
-            const rawText = response.choices?.[0]?.message?.content?.trim() ?? '';
-            if (!rawText) {
+            const raw_text = response.choices?.[0]?.message?.content?.trim() ?? '';
+            if (!raw_text) {
                 console.warn('Groq returned empty response');
                 const empty: Record<string, number> = {};
                 TOPICS.forEach((t) => (empty[t] = 0));
@@ -1495,11 +1474,11 @@ export class TweetsService {
                 return { tweet: empty, hashtags: result };
             }
 
-            let jsonText = rawText;
-            const m = rawText.match(/\{[\s\S]*\}/);
-            if (m) jsonText = m[0];
+            let json_text = raw_text;
+            const m = raw_text.match(/\{[\s\S]*\}/);
+            if (m) json_text = m[0];
 
-            let parsed = JSON.parse(jsonText);
+            const parsed = JSON.parse(json_text);
 
             const text_total = Object.values<number>(parsed.text).reduce(
                 (a, b) => a + Number(b),
@@ -1639,7 +1618,7 @@ export class TweetsService {
             has_more: boolean;
         };
     }> {
-        let query = this.tweet_bookmark_repository
+        const query = this.tweet_bookmark_repository
             .createQueryBuilder('bookmark')
             .leftJoinAndSelect('bookmark.tweet', 'tweet')
             .leftJoinAndSelect('tweet.user', 'user')
@@ -1674,9 +1653,7 @@ export class TweetsService {
                 return await this.getTweetWithUserById(
                     bookmark.tweet.tweet_id,
                     user_id,
-                    true, // flag to include parent tweets
-                    false, // don't include replies
-                    0 // replies_limit
+                    true // flag to include parent tweets
                 );
             })
         );

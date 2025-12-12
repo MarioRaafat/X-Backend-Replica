@@ -24,6 +24,8 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_views,
             t.num_quotes,
             t.num_replies,
+            t.num_bookmarks,
+            t.mentions,
             t.created_at,
             t.updated_at,
             u.username,
@@ -61,6 +63,8 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_views,
             t.num_quotes,
             t.num_replies,
+            t.num_bookmarks,
+            t.mentions,
             t.created_at,
             t.updated_at,
             u.username,
@@ -131,6 +135,12 @@ export class UserPostsView {
 
     @ViewColumn()
     num_replies: number;
+
+    @ViewColumn()
+    num_bookmarks: number;
+
+    @ViewColumn()
+    mentions: string[];
 
     @ViewColumn()
     created_at: Date;
