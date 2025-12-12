@@ -5,7 +5,7 @@ export class ReplyBackGroundNotificationJobDTO {
     reply_tweet?: Tweet;
     reply_tweet_id?: string;
 
-    original_tweet_id?: string;
+    original_tweet?: Tweet;
 
     replied_by: string;
     reply_to: string;

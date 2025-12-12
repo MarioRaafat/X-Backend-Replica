@@ -436,3 +436,42 @@ export const search_latest_posts = {
         },
     },
 };
+
+export const get_mention_suggestions_swagger = {
+    operation: {
+        summary: 'Get mention suggestions',
+        description: `
+    Get relevant suggestions of people for a given query
+    `,
+    },
+
+    responses: {
+        success: {
+            description: 'Search suggestions retrieved successfully',
+            schema: {
+                example: {
+                    data: [
+                        {
+                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            name: 'Alyaa Ali',
+                            username: 'Alyaali242',
+                            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                            is_following: true,
+                            is_follower: false,
+                        },
+                        {
+                            user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                            name: 'Alia Mohamed',
+                            username: 'alyaa#222',
+                            avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                            is_following: false,
+                            is_follower: false,
+                        },
+                    ],
+                    count: 2,
+                    message: SUCCESS_MESSAGES.SUGGESTIONS_RETRIEVED,
+                },
+            },
+        },
+    },
+};

@@ -138,7 +138,7 @@ export class InterestsCandidateSource {
         );
 
         let interset_tweets = await query.getRawMany();
-        console.log(interset_tweets);
+        // console.log(interset_tweets);
 
         if (interset_tweets.length === 0) {
             console.log('no interest tweets, fetching random tweets');

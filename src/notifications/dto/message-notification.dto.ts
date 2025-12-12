@@ -1,8 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { NotificationType } from '../enums/notification-types';
-import { TweetResponseDTO, UserResponseDTO } from 'src/tweets/dto';
+import { UserResponseDTO } from 'src/tweets/dto';
 
-export class MentionNotificationDto {
+export class MessageNotificationDto {
     @ApiProperty({
         description: 'Notification ID',
         example: '507f1f77bcf86cd799439011',
@@ -11,11 +11,11 @@ export class MentionNotificationDto {
     id: string;
 
     @ApiProperty({
-        example: NotificationType.MENTION,
-        enum: [NotificationType.MENTION],
+        example: NotificationType.MESSAGE,
+        enum: [NotificationType.MESSAGE],
         description: 'Type of notification',
     })
-    type: NotificationType.MENTION;
+    type: NotificationType.MESSAGE;
 
     @ApiProperty({
         example: '2025-11-29T08:45:00.000Z',
@@ -24,21 +24,20 @@ export class MentionNotificationDto {
     created_at: Date;
 
     @ApiProperty({
-        description: 'User who mentioned',
+        description: 'User who sent the message',
         type: UserResponseDTO,
     })
-    mentioner: UserResponseDTO;
+    sender: UserResponseDTO;
 
     @ApiProperty({
-        description: 'Tweet containing the mention',
-        type: TweetResponseDTO,
+        example: '123e4567-e89b-12d3-a456-426614174000',
+        description: 'ID of the message',
     })
-    tweet: TweetResponseDTO;
+    message_id: string;
 
     @ApiProperty({
-        example: 'tweet',
-        enum: ['tweet', 'quote', 'reply'],
-        description: 'Type of the tweet (tweet, quote, or reply)',
+        example: '123e4567-e89b-12d3-a456-426614174001',
+        description: 'ID of the chat',
     })
-    tweet_type: 'tweet' | 'quote' | 'reply';
+    chat_id: string;
 }

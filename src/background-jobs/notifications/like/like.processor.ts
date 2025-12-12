@@ -28,23 +28,23 @@ export class LikeProcessor {
 
             if (action === 'remove') {
                 // Remove the notification from MongoDB
-                let was_deleted = false;
+                let notification_id: string | null = null;
                 if (tweet_id) {
-                    was_deleted = await this.notifications_service.removeLikeNotification(
+                    notification_id = await this.notifications_service.removeLikeNotification(
                         like_to,
                         tweet_id,
                         liked_by
                     );
                 }
 
-                if (was_deleted) {
+                if (notification_id) {
                     this.notifications_service.sendNotificationOnly(
                         NotificationType.LIKE,
                         like_to,
                         {
-                            type: NotificationType.LIKE,
+                            id: notification_id,
                             ...job.data,
-                            liked_by,
+                            action: 'remove',
                         }
                     );
                 }

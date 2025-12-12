@@ -8,7 +8,7 @@ import { NotificationsGateway } from './notifications.gateway';
 import { User } from '../user/entities/user.entity';
 import { Tweet } from '../tweets/entities/tweet.entity';
 import { ClearJobService } from '../background-jobs/notifications/clear/clear.service';
-import { FCMService } from '../fcm/fcm.service';
+import { FCMService } from '../expo/expo.service';
 import { MessagesGateway } from '../messages/messages.gateway';
 
 describe('NotificationsService', () => {
