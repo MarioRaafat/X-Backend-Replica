@@ -17,6 +17,7 @@ import { ReplyNotificationDto } from './dto/reply-notification.dto';
 import { RepostNotificationDto } from './dto/repost-notification.dto';
 import { QuoteNotificationDto } from './dto/quote-notification.dto';
 import { MentionNotificationDto } from './dto/mention-notification.dto';
+import { MessageNotificationDto } from './dto/message-notification.dto';
 import {
     get_mentions_and_replies_swagger,
     get_user_notifications_swagger,
@@ -35,7 +36,8 @@ import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
     ReplyNotificationDto,
     RepostNotificationDto,
     QuoteNotificationDto,
-    MentionNotificationDto
+    MentionNotificationDto,
+    MessageNotificationDto
 )
 @Controller('notifications')
 export class NotificationsController {

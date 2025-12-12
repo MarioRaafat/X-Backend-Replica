@@ -519,6 +519,7 @@ export class UserRepository extends Repository<User> {
                 'user.id AS user_exists',
                 'user.avatar_url AS avatar_url',
                 'user.name AS name',
+                'user.username AS username',
             ])
             .addSelect(
                 `EXISTS(

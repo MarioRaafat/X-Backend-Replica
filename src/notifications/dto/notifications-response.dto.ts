@@ -5,6 +5,7 @@ import { ReplyNotificationDto } from './reply-notification.dto';
 import { RepostNotificationDto } from './repost-notification.dto';
 import { QuoteNotificationDto } from './quote-notification.dto';
 import { MentionNotificationDto } from './mention-notification.dto';
+import { MessageNotificationDto } from './message-notification.dto';
 
 export type NotificationDto =
     | FollowNotificationDto
@@ -12,7 +13,8 @@ export type NotificationDto =
     | ReplyNotificationDto
     | RepostNotificationDto
     | QuoteNotificationDto
-    | MentionNotificationDto;
+    | MentionNotificationDto
+    | MessageNotificationDto;
 
 export class NotificationsResponseDto {
     @ApiProperty({
@@ -26,10 +28,12 @@ export class NotificationsResponseDto {
                 { $ref: '#/components/schemas/RepostNotificationDto' },
                 { $ref: '#/components/schemas/QuoteNotificationDto' },
                 { $ref: '#/components/schemas/MentionNotificationDto' },
+                { $ref: '#/components/schemas/MessageNotificationDto' },
             ],
         },
         example: [
             {
+                id: '507f1f77bcf86cd799439011',
                 type: 'like',
                 created_at: '2025-11-29T10:30:00.000Z',
                 likers: [
@@ -60,6 +64,7 @@ export class NotificationsResponseDto {
                 },
             },
             {
+                id: '507f1f77bcf86cd799439012',
                 type: 'follow',
                 created_at: '2025-11-29T09:15:00.000Z',
                 followers: [
@@ -73,6 +78,7 @@ export class NotificationsResponseDto {
                 ],
             },
             {
+                id: '507f1f77bcf86cd799439013',
                 type: 'reply',
                 created_at: '2025-11-29T08:45:00.000Z',
                 replier: {
@@ -119,6 +125,7 @@ export class NotificationsResponseDto {
                 conversation_id: '623e4567-e89b-12d3-a456-426614174007',
             },
             {
+                id: '507f1f77bcf86cd799439014',
                 type: 'repost',
                 created_at: '2025-11-29T08:00:00.000Z',
                 reposters: [
@@ -149,6 +156,7 @@ export class NotificationsResponseDto {
                 },
             },
             {
+                id: '507f1f77bcf86cd799439015',
                 type: 'quote',
                 created_at: '2025-11-29T07:30:00.000Z',
                 quoter: {
