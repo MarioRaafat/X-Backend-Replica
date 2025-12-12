@@ -128,7 +128,6 @@ export class FCMService {
         type: NotificationType,
         payload: any
     ): { title: string; body: string; data?: any } {
-        console.log(payload);
         switch (type) {
             case NotificationType.FOLLOW:
                 return {
@@ -171,10 +170,8 @@ export class FCMService {
             }
             case NotificationType.REPOST: {
                 // Handle both array format (reposters/tweets) and singular format (reposter/tweet)
-                const reposter_name =
-                    payload.reposter?.name || payload.reposters?.[0]?.name || 'Someone';
-                const reposted_tweet_content =
-                    payload.tweet?.content || payload.tweets?.[0]?.content || 'your post';
+                const reposter_name = payload.reposter?.name || 'Someone';
+                const reposted_tweet_content = payload.tweet?.content || 'your post';
                 const reposted_tweet_id =
                     payload.tweet?.tweet_id || payload.tweet?.id || payload.tweets?.[0]?.id;
                 return {
