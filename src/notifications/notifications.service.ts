@@ -219,6 +219,25 @@ export class NotificationsService implements OnModuleInit {
                         }
                     }
                 }
+            } else if (
+                notification_data.type === NotificationType.LIKE ||
+                notification_data.type === NotificationType.REPOST
+            ) {
+                if (notification_data.type === NotificationType.LIKE) {
+                    if (payload.tweet) {
+                        enriched_payload.tweet = this.cleanTweet(payload.tweet);
+                    }
+                    if (payload.liker) {
+                        enriched_payload.liker = this.cleanUser(payload.liker);
+                    }
+                } else if (notification_data.type === NotificationType.REPOST) {
+                    if (payload.tweet) {
+                        enriched_payload.tweet = this.cleanTweet(payload.tweet);
+                    }
+                    if (payload.reposter) {
+                        enriched_payload.reposter = this.cleanUser(payload.reposter);
+                    }
+                }
             }
 
             const is_online = this.messagesGateway.isOnline(user_id);
@@ -941,6 +960,7 @@ export class NotificationsService implements OnModuleInit {
                     if (reply_notification.replied_by) {
                         user_ids.add(reply_notification.replied_by);
                         user_ids_needing_relationships.add(reply_notification.replied_by);
+                        user_ids_needing_relationships.add(reply_notification.replied_by);
                     }
                     if (reply_notification.reply_tweet_id) {
                         tweet_ids.add(reply_notification.reply_tweet_id);
@@ -1334,20 +1354,20 @@ export class NotificationsService implements OnModuleInit {
         const deduplicated_notifications = this.deduplicateNotifications(response_notifications);
 
         // Clean notifications with missing tweets
-        // if (missing_tweet_ids.size > 0) {
-        //     await this.clear_jobs_service.queueClearNotification({
-        //         user_id,
-        //         tweet_ids: Array.from(missing_tweet_ids),
-        //     });
-        // }
+        if (missing_tweet_ids.size > 0) {
+            await this.clear_jobs_service.queueClearNotification({
+                user_id,
+                tweet_ids: Array.from(missing_tweet_ids),
+            });
+        }
 
-        // // Clean up notifications with missing users
-        // if (missing_user_ids.size > 0) {
-        //     await this.clear_jobs_service.queueClearNotificationByUsers(
-        //         user_id,
-        //         Array.from(missing_user_ids)
-        //     );
-        // }
+        // Clean up notifications with missing users
+        if (missing_user_ids.size > 0) {
+            await this.clear_jobs_service.queueClearNotificationByUsers(
+                user_id,
+                Array.from(missing_user_ids)
+            );
+        }
 
         // Apply pagination
         const total = deduplicated_notifications.length;
@@ -2337,6 +2357,10 @@ export class NotificationsService implements OnModuleInit {
         }
 
         // Fetch all data in parallel
+        const should_fetch_tweet_user =
+            notification.type !== NotificationType.LIKE &&
+            notification.type !== NotificationType.REPOST;
+
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
                 ? this.user_repository.find({
@@ -2347,7 +2371,7 @@ export class NotificationsService implements OnModuleInit {
             tweet_ids.size > 0
                 ? this.tweet_repository.find({
                       where: { tweet_id: In(Array.from(tweet_ids)) },
-                      relations: ['user'],
+                      relations: should_fetch_tweet_user ? ['user'] : [],
                   })
                 : [],
         ]);
@@ -2376,9 +2400,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!user) {
                             missing_user_ids.add(id);
                         }
-                        return user;
+                        return user ? this.cleanUser(user) : undefined;
                     })
-                    .filter((user): user is User => user !== undefined);
+                    .filter((user) => user !== undefined);
 
                 // Clean up missing user IDs if any
                 if (missing_user_ids.size > 0) {
@@ -2407,9 +2431,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!tweet) {
                             missing_tweet_ids.add(id);
                         }
-                        return tweet;
+                        return tweet ? this.cleanTweet(tweet) : undefined;
                     })
-                    .filter((tweet): tweet is Tweet => tweet !== undefined);
+                    .filter((tweet) => tweet !== undefined);
 
                 const liked_by_ids = Array.isArray(like_notification.liked_by)
                     ? like_notification.liked_by
@@ -2421,9 +2445,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!user) {
                             missing_user_ids.add(id);
                         }
-                        return user;
+                        return user ? this.cleanUser(user) : undefined;
                     })
-                    .filter((user): user is User => user !== undefined);
+                    .filter((user) => user !== undefined);
 
                 // Clean up missing tweet IDs if any
                 if (missing_tweet_ids.size > 0) {
@@ -2461,9 +2485,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!tweet) {
                             missing_tweet_ids.add(id);
                         }
-                        return tweet;
+                        return tweet ? this.cleanTweet(tweet) : undefined;
                     })
-                    .filter((tweet): tweet is Tweet => tweet !== undefined);
+                    .filter((tweet) => tweet !== undefined);
 
                 const reposted_by_ids = Array.isArray(repost_notification.reposted_by)
                     ? repost_notification.reposted_by
@@ -2475,9 +2499,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!user) {
                             missing_user_ids.add(id);
                         }
-                        return user;
+                        return user ? this.cleanUser(user) : undefined;
                     })
-                    .filter((user): user is User => user !== undefined);
+                    .filter((user) => user !== undefined);
 
                 // Clean up missing tweet IDs if any
                 if (missing_tweet_ids.size > 0) {
