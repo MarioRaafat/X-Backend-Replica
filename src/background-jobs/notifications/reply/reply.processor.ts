@@ -79,12 +79,17 @@ export class ReplyProcessor {
                     return;
                 }
 
+                if (!original_tweet) {
+                    this.logger.warn(`Original tweet not found.`);
+                    return;
+                }
+
                 const notification_entity: ReplyNotificationEntity = Object.assign(
                     new ReplyNotificationEntity(),
                     {
                         type: NotificationType.REPLY,
                         reply_tweet_id: reply_tweet.tweet_id,
-                        original_tweet,
+                        original_tweet_id: original_tweet.tweet_id,
                         replied_by,
                         conversation_id,
                         created_at: new Date(),
