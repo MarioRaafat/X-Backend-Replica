@@ -238,11 +238,27 @@ export class NotificationsService implements OnModuleInit {
                         enriched_payload.reposter = this.cleanUser(payload.reposter);
                     }
                 }
+            } else if (notification_data.type === NotificationType.FOLLOW) {
+                console.log('payload.follower_avatar_url', payload);
+                // Wrap follower data in a follower object
+                enriched_payload.follower = {
+                    id: payload.follower_id,
+                    username: payload.follower_username,
+                    name: payload.follower_name,
+                    avatar_url: payload.follower_avatar_url,
+                };
+                // Remove flat follower fields from enriched_payload
+                delete enriched_payload.follower_id;
+                delete enriched_payload.follower_username;
+                delete enriched_payload.follower_name;
+                delete enriched_payload.follower_avatar_url;
+                delete enriched_payload.followed_id;
             }
 
             const is_online = this.messagesGateway.isOnline(user_id);
 
             if (is_online) {
+                enriched_payload.created_at = new Date();
                 this.notificationsGateway.sendToUser(notification_data.type, user_id, {
                     ...enriched_payload,
                     id: notification_data._id.toString(),
@@ -274,17 +290,20 @@ export class NotificationsService implements OnModuleInit {
             const is_online = this.messagesGateway.isOnline(user_id);
 
             if (is_online) {
+                aggregated_notification_with_data.created_at = new Date();
                 this.notificationsGateway.sendToUser(notification_data.type, user_id, {
                     ...aggregated_notification_with_data,
                     action: 'aggregate',
                     old_notification: aggregation_result.old_notification,
                 });
             } else {
+                console.log('Send in FCM');
+
                 await this.fcmService.sendNotificationToUserDevice(
                     user_id,
                     notification_data.type,
                     {
-                        ...aggregated_notification_with_data,
+                        ...payload,
                         action: 'aggregate',
                     }
                 );
