@@ -2,7 +2,6 @@ import { Module } from '@nestjs/common';
 import { ElasticsearchModule as NestElasticsearchModule } from '@nestjs/elasticsearch';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ElasticsearchSetupService } from './elasticsearch-setup.service';
-import { UserSeederService } from './seeders/user-seeder.service';
 import { TweetSeederService } from './seeders/tweets-seeder.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { User } from 'src/user/entities/user.entity';
@@ -28,12 +27,7 @@ import { Tweet } from 'src/tweets/entities/tweet.entity';
         TypeOrmModule.forFeature([User]),
         TypeOrmModule.forFeature([Tweet]),
     ],
-    providers: [ElasticsearchSetupService, UserSeederService, TweetSeederService],
-    exports: [
-        NestElasticsearchModule,
-        ElasticsearchSetupService,
-        UserSeederService,
-        TweetSeederService,
-    ],
+    providers: [ElasticsearchSetupService, TweetSeederService],
+    exports: [NestElasticsearchModule, ElasticsearchSetupService, TweetSeederService],
 })
 export class ElasticsearchModule {}

@@ -31,12 +31,17 @@ describe('ReplyProcessor', () => {
         content: 'This is a reply',
     } as any;
 
+    const mock_original_tweet = {
+        tweet_id: 'original-tweet-123',
+        content: 'This is the original tweet',
+    } as any;
+
     const mock_job_data: ReplyBackGroundNotificationJobDTO = {
         reply_to: 'user-123',
         replied_by: 'user-456',
         reply_tweet: mock_tweet,
         reply_tweet_id: 'reply-tweet-123',
-        original_tweet_id: 'original-tweet-123',
+        original_tweet: mock_original_tweet,
         conversation_id: 'conversation-123',
         action: 'add',
     };

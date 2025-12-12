@@ -1,6 +1,5 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from '../../app.module';
-import { UserSeederService } from '../seeders/user-seeder.service';
 import { ElasticsearchSetupService } from '../elasticsearch-setup.service';
 import { TweetSeederService } from '../seeders/tweets-seeder.service';
 
@@ -13,14 +12,10 @@ async function bootstrap() {
 
     try {
         const es_setup = app.get(ElasticsearchSetupService);
-        const user_seeder = app.get(UserSeederService);
         const tweets_seeder = app.get(TweetSeederService);
 
         console.log('📋 Setting up indices...');
         await es_setup.setupIndices();
-
-        console.log('👥 Seeding users...');
-        await user_seeder.seedUsers();
 
         console.log('📝 Seeding tweets...');
         await tweets_seeder.seedTweets();

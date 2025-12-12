@@ -12,12 +12,14 @@ import { BackgroundJobsModule } from 'src/background-jobs';
 import { FcmModule } from 'src/expo/expo.module';
 import { MessagesModule } from 'src/messages/messages.module';
 import { Message } from 'src/messages/entities/message.entity';
+import { TweetsModule } from 'src/tweets/tweets.module';
 
 @Module({
     imports: [
         MongodbModule,
         MongooseModule.forFeature([{ name: Notification.name, schema: NotificationSchema }]),
         TypeOrmModule.forFeature([User, Tweet]),
+        forwardRef(() => TweetsModule),
         forwardRef(() => BackgroundJobsModule),
         forwardRef(() => FcmModule),
         forwardRef(() => MessagesModule),

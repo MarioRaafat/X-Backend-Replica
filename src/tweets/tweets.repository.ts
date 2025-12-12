@@ -58,6 +58,8 @@ export class TweetsRepository extends Repository<Tweet> {
 
         const tweets = await query.getMany();
 
+        console.log(tweets);
+
         return plainToInstance(TweetResponseDTO, tweets, {
             excludeExtraneousValues: true,
         });

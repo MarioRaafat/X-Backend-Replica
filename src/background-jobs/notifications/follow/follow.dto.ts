@@ -4,6 +4,7 @@ export class FollowBackGroundNotificationJobDTO {
 
     action: 'add' | 'remove';
 
+    follower_username?: string;
     follower_name?: string;
     follower_avatar_url?: string;
 }

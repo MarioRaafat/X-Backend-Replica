@@ -100,9 +100,11 @@ export class FCMService {
                 return false;
             }
 
+            const notification_content = this.getNotificationContent(notification_type, payload);
+
             const notification = {
-                title: `New ${notification_type.toUpperCase()}`,
-                body: this.getNotificationBody(notification_type, payload),
+                title: notification_content.title,
+                body: notification_content.body,
             };
 
             const data = {
@@ -121,44 +123,54 @@ export class FCMService {
         }
     }
 
-    private extractUsername(payload: any, type: NotificationType): string {
-        const user_field_map = {
-            [NotificationType.LIKE]: 'liker',
-            [NotificationType.REPLY]: 'replier',
-            [NotificationType.REPOST]: 'reposter',
-            [NotificationType.QUOTE]: 'quoted_by',
-            [NotificationType.MENTION]: 'mentioned_by',
-            [NotificationType.MESSAGE]: 'sender',
-            [NotificationType.FOLLOW]: null,
-        };
-
-        const user_field = user_field_map[type];
-
-        if (type === NotificationType.FOLLOW) {
-            return payload.follower_name || 'Someone';
+    private getNotificationContent(
+        type: NotificationType,
+        payload: any
+    ): { title: string; body: string } {
+        switch (type) {
+            case NotificationType.FOLLOW:
+                return {
+                    title: 'yapper',
+                    body: `@${payload.follower_username} followed you!`,
+                };
+            case NotificationType.MENTION:
+                return {
+                    title: `Mentioned by ${payload.mentioned_by?.name}:`,
+                    body: payload.tweet?.content,
+                };
+            case NotificationType.REPLY:
+                return {
+                    title: `${payload.replier?.name} replied:`,
+                    body: payload.reply_tweet?.content,
+                };
+            case NotificationType.QUOTE:
+                return {
+                    title: 'yapper',
+                    body: `@${payload.quoted_by?.username} quoted your post and said: ${
+                        payload.quote?.content || ''
+                    }`,
+                };
+            case NotificationType.LIKE:
+                return {
+                    title: `Liked by ${payload.likers[0].name}`,
+                    body: payload.tweets[0].content,
+                };
+            case NotificationType.REPOST:
+                return {
+                    title: `Reposted by ${payload.reposters[0].name}:`,
+                    body: payload.tweets[0].content,
+                };
+            case NotificationType.MESSAGE:
+                return {
+                    title: payload.sender?.name,
+                    body: payload.message?.content,
+                };
+            default:
+                return {
+                    title: 'yapper',
+                    body: 'You have a new notification',
+                };
         }
-
-        if (user_field && payload[user_field]?.name) {
-            return payload[user_field].name;
-        }
-
-        return 'Someone';
-    }
-
-    private getNotificationBody(type: NotificationType, payload: any): string {
-        const username = this.extractUsername(payload, type);
-
-        const notification_body = {
-            [NotificationType.LIKE]: `${username} liked your tweet`,
-            [NotificationType.REPLY]: `${username} replied to your tweet`,
-            [NotificationType.REPOST]: `${username} reposted your tweet`,
-            [NotificationType.QUOTE]: `${username} quoted your tweet`,
-            [NotificationType.FOLLOW]: `${username} started following you`,
-            [NotificationType.MENTION]: `${username} mentioned you in a tweet`,
-            [NotificationType.MESSAGE]: `${username} sent you a message`,
-        };
-
-        return notification_body[type] || 'You have a new notification';
     }
 
     /**

@@ -4,6 +4,7 @@ import { ApiOkResponse, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { ApiBadRequestErrorResponse } from 'src/decorators/swagger-error-responses.decorator';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import {
+    get_mention_suggestions_swagger,
     get_suggestions_swagger,
     search_latest_posts,
     search_users_swagger,
@@ -61,5 +62,18 @@ export class SearchController {
         @Query() query_dto: SearchQueryDto
     ) {
         return await this.search_service.searchLatestPosts(current_user_id, query_dto);
+    }
+
+    @UseGuards(JwtAuthGuard)
+    @ApiOperation(get_mention_suggestions_swagger.operation)
+    @ApiOkResponse(get_mention_suggestions_swagger.responses.success)
+    @ApiBadRequestErrorResponse(ERROR_MESSAGES.INVALID_SEARCH_QUERY)
+    @ResponseMessage(SUCCESS_MESSAGES.SUGGESTIONS_RETRIEVED)
+    @Get('mention-suggestions')
+    async getMentionSuggestions(
+        @GetUserId() current_user_id: string,
+        @Query() query_dto: BasicQueryDto
+    ) {
+        return await this.search_service.getMentionSuggestions(current_user_id, query_dto);
     }
 }

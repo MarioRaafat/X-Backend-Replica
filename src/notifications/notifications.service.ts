@@ -8,6 +8,12 @@ import { NotificationsGateway } from './notifications.gateway';
 import { InjectRepository } from '@nestjs/typeorm';
 import { User } from 'src/user/entities';
 import { Tweet } from 'src/tweets/entities';
+import { TweetLike } from 'src/tweets/entities/tweet-like.entity';
+import { TweetRepost } from 'src/tweets/entities/tweet-repost.entity';
+import { TweetBookmark } from 'src/tweets/entities/tweet-bookmark.entity';
+import { UserFollows } from 'src/user/entities/user-follows.entity';
+import { UserBlocks } from 'src/user/entities/user-blocks.entity';
+import { UserMutes } from 'src/user/entities/user-mutes.entity';
 import { Message } from 'src/messages/entities/message.entity';
 import { In, Repository } from 'typeorm';
 import { ReplyNotificationEntity } from './entities/reply-notification.entity';
@@ -564,6 +570,117 @@ export class NotificationsService implements OnModuleInit {
         this.notificationsGateway.sendToUser(notification_type, user_id, payload);
     }
 
+    private async getTweetsWithInteractions(
+        tweet_ids: string[],
+        user_id: string
+    ): Promise<Tweet[]> {
+        if (tweet_ids.length === 0) return [];
+
+        return this.tweet_repository
+            .createQueryBuilder('tweet')
+            .leftJoinAndMapOne(
+                'tweet.current_user_like',
+                TweetLike,
+                'like',
+                'like.tweet_id = tweet.tweet_id AND like.user_id = :user_id',
+                { user_id }
+            )
+            .leftJoinAndMapOne(
+                'tweet.current_user_repost',
+                TweetRepost,
+                'repost',
+                'repost.tweet_id = tweet.tweet_id AND repost.user_id = :user_id',
+                { user_id }
+            )
+            .leftJoinAndMapOne(
+                'tweet.current_user_bookmark',
+                TweetBookmark,
+                'bookmark',
+                'bookmark.tweet_id = tweet.tweet_id AND bookmark.user_id = :user_id',
+                { user_id }
+            )
+            .where('tweet.tweet_id IN (:...tweet_ids)', { tweet_ids })
+            .getMany();
+    }
+
+    private async getUsersWithRelationships(
+        user_ids: string[],
+        current_user_id: string
+    ): Promise<User[]> {
+        if (user_ids.length === 0) return [];
+
+        const columns = this.user_repository.metadata.columns
+            .map((col) => `user.${col.propertyName}`)
+            .filter((name) => !name.includes('password') && !name.includes('fcm_token'));
+
+        return this.user_repository
+            .createQueryBuilder('user')
+            .select(columns)
+            .leftJoinAndMapOne(
+                'user.relation_following',
+                UserFollows,
+                'following',
+                'following.follower_id = :current_user_id AND following.followed_id = user.id',
+                { current_user_id }
+            )
+            .leftJoinAndMapOne(
+                'user.relation_follower',
+                UserFollows,
+                'follower',
+                'follower.followed_id = :current_user_id AND follower.follower_id = user.id',
+                { current_user_id }
+            )
+            .leftJoinAndMapOne(
+                'user.relation_blocked',
+                UserBlocks,
+                'blocked',
+                'blocked.blocker_id = :current_user_id AND blocked.blocked_id = user.id',
+                { current_user_id }
+            )
+            .leftJoinAndMapOne(
+                'user.relation_muted',
+                UserMutes,
+                'muted',
+                'muted.muter_id = :current_user_id AND muted.muted_id = user.id',
+                { current_user_id }
+            )
+            .where('user.id IN (:...user_ids)', { user_ids })
+            .getMany();
+    }
+
+    private enrichUserWithStatus(user: User): any {
+        const { relation_following, relation_follower, relation_blocked, relation_muted, ...rest } =
+            user as any;
+        return {
+            ...rest,
+            is_following: !!relation_following,
+            is_follower: !!relation_follower,
+            is_blocked: !!relation_blocked,
+            is_muted: !!relation_muted,
+        };
+    }
+
+    private cleanUser(user: User): any {
+        const { relation_following, relation_follower, relation_blocked, relation_muted, ...rest } =
+            user as any;
+        return rest;
+    }
+
+    private enrichTweetWithStatus(tweet: Tweet): any {
+        const { current_user_like, current_user_repost, current_user_bookmark, ...rest } = tweet;
+        return {
+            ...rest,
+            is_liked: !!current_user_like,
+            is_reposted: !!current_user_repost,
+            is_bookmarked: !!current_user_bookmark,
+        };
+    }
+
+    private cleanTweet(tweet: Tweet): any {
+        const { current_user_like, current_user_repost, current_user_bookmark, ...rest } = tweet;
+        return rest;
+    }
+
     async getUserNotifications(
         user_id: string,
         page: number = 1
@@ -708,15 +825,9 @@ export class NotificationsService implements OnModuleInit {
 
         // Fetch all data in parallel
         const [users, tweets] = await Promise.all([
-            user_ids.size > 0
-                ? this.user_repository.find({
-                      where: { id: In(Array.from(user_ids)) },
-                  })
-                : [],
+            user_ids.size > 0 ? this.getUsersWithRelationships(Array.from(user_ids), user_id) : [],
             tweet_ids.size > 0
-                ? this.tweet_repository.find({
-                      where: { tweet_id: In(Array.from(tweet_ids)) },
-                  })
+                ? this.getTweetsWithInteractions(Array.from(tweet_ids), user_id)
                 : [],
         ]);
 
@@ -751,7 +862,7 @@ export class NotificationsService implements OnModuleInit {
                                 if (!user) {
                                     missing_user_ids.add(id);
                                 }
-                                return user;
+                                return user ? this.cleanUser(user) : undefined;
                             })
                             .filter((user): user is User => user !== undefined);
 
@@ -783,7 +894,8 @@ export class NotificationsService implements OnModuleInit {
                         // Map all tweet IDs to tweet objects
                         const tweets = tweet_ids_array
                             .map((id) => tweet_map.get(id))
-                            .filter((tweet): tweet is Tweet => tweet !== undefined);
+                            .filter((tweet): tweet is Tweet => tweet !== undefined)
+                            .map((tweet) => this.cleanTweet(tweet));
 
                         if (tweets.length === 0) {
                             tweet_ids_array.forEach((id) => missing_tweet_ids.add(id));
@@ -807,7 +919,7 @@ export class NotificationsService implements OnModuleInit {
                                 if (!user) {
                                     missing_user_ids.add(id);
                                 }
-                                return user;
+                                return user ? this.cleanUser(user) : undefined;
                             })
                             .filter((user): user is User => user !== undefined);
 
@@ -841,13 +953,13 @@ export class NotificationsService implements OnModuleInit {
                         }
                         // Nest parent_tweet inside quote_tweet
                         const quote_tweet_with_parent = {
-                            ...quote_tweet,
-                            parent_tweet,
+                            ...this.enrichTweetWithStatus(quote_tweet),
+                            parent_tweet: this.cleanTweet(parent_tweet),
                         };
                         return {
                             type: notification.type,
                             created_at: notification.created_at,
-                            quoter,
+                            quoter: this.enrichUserWithStatus(quoter),
                             quote_tweet: quote_tweet_with_parent,
                         } as NotificationDto;
                     }
@@ -875,9 +987,11 @@ export class NotificationsService implements OnModuleInit {
                         return {
                             type: notification.type,
                             created_at: notification.created_at,
-                            replier,
-                            reply_tweet,
-                            original_tweet,
+                            replier: this.enrichUserWithStatus(replier),
+                            reply_tweet: reply_tweet
+                                ? this.enrichTweetWithStatus(reply_tweet)
+                                : null,
+                            original_tweet: this.cleanTweet(original_tweet),
                             conversation_id: reply_notification.conversation_id,
                         } as NotificationDto;
                     }
@@ -900,7 +1014,8 @@ export class NotificationsService implements OnModuleInit {
                         // Map all tweet IDs to tweet objects
                         const tweets = tweet_ids_array
                             .map((id) => tweet_map.get(id))
-                            .filter((tweet): tweet is Tweet => tweet !== undefined);
+                            .filter((tweet): tweet is Tweet => tweet !== undefined)
+                            .map((tweet) => this.cleanTweet(tweet));
 
                         if (tweets.length === 0) {
                             tweet_ids_array.forEach((id) => missing_tweet_ids.add(id));
@@ -924,7 +1039,7 @@ export class NotificationsService implements OnModuleInit {
                                 if (!user) {
                                     missing_user_ids.add(id);
                                 }
-                                return user;
+                                return user ? this.cleanUser(user) : undefined;
                             })
                             .filter((user): user is User => user !== undefined);
 
@@ -966,7 +1081,7 @@ export class NotificationsService implements OnModuleInit {
                             if (parent_tweet) {
                                 mention_tweet = {
                                     ...tweet,
-                                    parent_tweet,
+                                    parent_tweet: this.cleanTweet(parent_tweet),
                                 } as any;
                             } else {
                                 missing_tweet_ids.add(mention_notification.parent_tweet_id);
@@ -976,8 +1091,8 @@ export class NotificationsService implements OnModuleInit {
                         return {
                             type: notification.type,
                             created_at: notification.created_at,
-                            mentioner,
-                            tweet: mention_tweet,
+                            mentioner: this.enrichUserWithStatus(mentioner),
+                            tweet: this.enrichTweetWithStatus(mention_tweet),
                             tweet_type: mention_notification.tweet_type,
                         };
                     }
@@ -993,7 +1108,7 @@ export class NotificationsService implements OnModuleInit {
                         return {
                             type: notification.type,
                             created_at: notification.created_at,
-                            sender,
+                            sender: this.cleanUser(sender),
                             message_id: message_notification.message_id,
                             chat_id: message_notification.chat_id,
                         } as NotificationDto;
@@ -1127,15 +1242,9 @@ export class NotificationsService implements OnModuleInit {
 
         // Fetch all required data in parallel
         const [users, tweets] = await Promise.all([
-            user_ids.size > 0
-                ? this.user_repository.find({
-                      where: { id: In(Array.from(user_ids)) },
-                  })
-                : [],
+            user_ids.size > 0 ? this.getUsersWithRelationships(Array.from(user_ids), user_id) : [],
             tweet_ids.size > 0
-                ? this.tweet_repository.find({
-                      where: { tweet_id: In(Array.from(tweet_ids)) },
-                  })
+                ? this.getTweetsWithInteractions(Array.from(tweet_ids), user_id)
                 : [],
         ]);
 
@@ -1173,7 +1282,7 @@ export class NotificationsService implements OnModuleInit {
                         if (parent_tweet) {
                             mention_tweet = {
                                 ...tweet,
-                                parent_tweet,
+                                parent_tweet: this.cleanTweet(parent_tweet),
                             } as any;
                         } else {
                             missing_tweet_ids.add(mention_notification.parent_tweet_id);
@@ -1183,8 +1292,8 @@ export class NotificationsService implements OnModuleInit {
                     return {
                         type: notification.type,
                         created_at: notification.created_at,
-                        mentioner,
-                        tweet: mention_tweet,
+                        mentioner: this.enrichUserWithStatus(mentioner),
+                        tweet: this.enrichTweetWithStatus(mention_tweet),
                         tweet_type: mention_notification.tweet_type,
                     };
                 } else if (notification.type === NotificationType.REPLY) {
@@ -1208,9 +1317,9 @@ export class NotificationsService implements OnModuleInit {
                     return {
                         type: notification.type,
                         created_at: notification.created_at,
-                        replier,
-                        reply_tweet,
-                        original_tweet,
+                        replier: this.enrichUserWithStatus(replier),
+                        reply_tweet: reply_tweet ? this.enrichTweetWithStatus(reply_tweet) : null,
+                        original_tweet: this.cleanTweet(original_tweet),
                         conversation_id: reply_notification.conversation_id,
                     } as NotificationDto;
                 }

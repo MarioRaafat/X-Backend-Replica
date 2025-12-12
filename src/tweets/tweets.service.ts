@@ -66,9 +66,9 @@ import { TweetSummary } from './entities/tweet-summary.entity';
 import { TweetSummaryResponseDTO } from './dto/tweet-summary-response.dto';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-import { TrendService } from 'src/trend/trend.service';
 import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 
+import { extractHashtags } from 'twitter-text';
 @Injectable()
 export class TweetsService {
     constructor(
@@ -679,12 +679,7 @@ export class TweetsService {
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: saved_quote_tweet.tweet_id,
-                parent_id: saved_quote_tweet.tweet_id,
-            });
-
-            await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id: saved_quote_tweet.tweet_id,
-                parent_id: saved_quote_tweet.tweet_id,
+                parent_id: tweet_id,
             });
 
             const response = plainToInstance(TweetQuoteResponseDTO, {
@@ -822,7 +817,6 @@ export class TweetsService {
             const [original_tweet, original_reply] = await Promise.all([
                 query_runner.manager.findOne(Tweet, {
                     where: { tweet_id: original_tweet_id },
-                    select: ['tweet_id', 'user_id'],
                 }),
                 query_runner.manager.findOne(TweetReply, {
                     where: { reply_tweet_id: original_tweet_id },
@@ -882,7 +876,7 @@ export class TweetsService {
             if (user_id !== original_tweet.user_id)
                 this.reply_job_service.queueReplyNotification({
                     reply_tweet: saved_reply_tweet,
-                    original_tweet_id: original_tweet_id,
+                    original_tweet: original_tweet,
                     replied_by: user_id,
                     reply_to: original_tweet.user_id,
                     conversation_id: original_reply?.conversation_id || original_tweet_id,
@@ -1409,7 +1403,11 @@ export class TweetsService {
         // Extract hashtags and remove duplicates
         const hashtags = content.match(/#([\p{L}\p{N}_]+)/gu)?.map((h) => h.slice(1)) || [];
         const unique_hashtags = [...new Set(hashtags)];
-        await this.updateHashtags(unique_hashtags, user_id, query_runner);
+        const normalized_hashtags = hashtags.map((hashtag) => {
+            return hashtag.toLowerCase();
+        });
+
+        await this.updateHashtags([...new Set(normalized_hashtags)], user_id, query_runner);
 
         // Extract topics using Groq AI
         const topics = await this.extractTopics(content, unique_hashtags);
@@ -1469,10 +1467,10 @@ export class TweetsService {
 
                 return { tweet: empty, hashtags: result };
             }
-
+            console.log('HASHTAGS: ', hashtags);
             // remove hashtags and extra spaces
             content = content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
+                .replace(/#[^\s]+/g, '') // remove anything starting with
                 .replace(/\s+/g, ' ')
                 .trim();
 
