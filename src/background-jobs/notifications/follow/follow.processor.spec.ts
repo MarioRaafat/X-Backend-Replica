@@ -28,7 +28,9 @@ describe('FollowProcessor', () => {
                 {
                     provide: NotificationsService,
                     useValue: {
-                        removeFollowNotification: jest.fn().mockResolvedValue(true),
+                        removeFollowNotification: jest
+                            .fn()
+                            .mockResolvedValue('notification-id-123'),
                         sendNotificationOnly: jest.fn(),
                         saveNotificationAndSend: jest.fn(),
                     },
@@ -125,10 +127,10 @@ describe('FollowProcessor', () => {
             expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
                 NotificationType.FOLLOW,
                 unfollow_data.followed_id,
-                expect.objectContaining({
-                    type: NotificationType.FOLLOW,
+                {
+                    id: 'notification-id-123',
                     action: 'remove',
-                })
+                }
             );
         });
 

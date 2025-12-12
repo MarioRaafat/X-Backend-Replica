@@ -306,7 +306,9 @@ describe('MentionProcessor', () => {
             ];
 
             user_repository.find.mockResolvedValue(mock_users as User[]);
-            notifications_service.removeMentionNotification.mockResolvedValue(true);
+            notifications_service.removeMentionNotification.mockResolvedValue(
+                'notification-id-123'
+            );
 
             const job = mock_job({
                 mentioned_usernames: ['user1', 'user2'],
@@ -324,13 +326,22 @@ describe('MentionProcessor', () => {
                 'user-author'
             );
             expect(notifications_service.sendNotificationOnly).toHaveBeenCalledTimes(2);
+            expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
+                NotificationType.MENTION,
+                'user-1',
+                {
+                    id: 'notification-id-123',
+                    ...job.data,
+                    action: 'remove',
+                }
+            );
         });
 
         it('should skip sending notification if removal failed', async () => {
             const mock_users = [{ id: 'user-1', username: 'user1' }];
 
             user_repository.find.mockResolvedValue(mock_users as User[]);
-            notifications_service.removeMentionNotification.mockResolvedValue(false);
+            notifications_service.removeMentionNotification.mockResolvedValue(null);
 
             const job = mock_job({
                 mentioned_usernames: ['user1'],
@@ -352,7 +363,9 @@ describe('MentionProcessor', () => {
             ];
 
             user_repository.find.mockResolvedValue(mock_users as User[]);
-            notifications_service.removeMentionNotification.mockResolvedValue(true);
+            notifications_service.removeMentionNotification.mockResolvedValue(
+                'notification-id-123'
+            );
 
             const job = mock_job({
                 mentioned_usernames: ['author', 'user1'],

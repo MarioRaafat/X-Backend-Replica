@@ -6,10 +6,10 @@ import { Tweet } from 'src/tweets/entities';
 export class RepostNotificationDto {
     @ApiProperty({
         description: 'Notification ID',
-        example: 50,
-        type: Number,
+        example: '507f1f77bcf86cd799439011',
+        type: String,
     })
-    id: number;
+    id: string;
 
     @ApiProperty({
         description: 'Notification type',
