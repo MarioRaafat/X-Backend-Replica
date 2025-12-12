@@ -39,20 +39,20 @@ export class ReplyProcessor {
 
             let payload: any;
             if (action === 'remove') {
-                let was_deleted = false;
+                let notification_id: string | null = null;
                 if (reply_to && reply_tweet_id) {
-                    was_deleted = await this.notifications_service.removeReplyNotification(
+                    notification_id = await this.notifications_service.removeReplyNotification(
                         reply_to,
                         reply_tweet_id,
                         replied_by
                     );
                 }
 
-                if (was_deleted) {
+                if (notification_id) {
                     payload = {
-                        type: NotificationType.REPLY,
+                        id: notification_id,
                         ...job.data,
-                        replied_by,
+                        action: 'remove',
                     };
 
                     this.notifications_service.sendNotificationOnly(

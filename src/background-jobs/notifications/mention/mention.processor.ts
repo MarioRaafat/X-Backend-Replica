@@ -48,21 +48,21 @@ export class MentionProcessor {
                 for (const user_id of mentioned_user_ids) {
                     if (user_id === mentioned_by) continue;
 
-                    const was_deleted = await this.notifications_service.removeMentionNotification(
-                        user_id,
-                        tweet_id,
-                        mentioned_by
-                    );
+                    const notification_id =
+                        await this.notifications_service.removeMentionNotification(
+                            user_id,
+                            tweet_id,
+                            mentioned_by
+                        );
 
-                    if (was_deleted) {
+                    if (notification_id) {
                         this.notifications_service.sendNotificationOnly(
                             NotificationType.MENTION,
                             user_id,
                             {
-                                type: NotificationType.MENTION,
-                                tweet_id,
-                                mentioned_by,
-                                action,
+                                id: notification_id,
+                                ...job.data,
+                                action: 'remove',
                             }
                         );
                     }

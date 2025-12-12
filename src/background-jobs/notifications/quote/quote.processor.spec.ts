@@ -232,7 +232,7 @@ describe('QuoteProcessor', () => {
 
     describe('handleSendQuoteNotification - remove action', () => {
         it('should remove quote notification successfully', async () => {
-            notifications_service.removeQuoteNotification.mockResolvedValue(true);
+            notifications_service.removeQuoteNotification.mockResolvedValue('notification-id-123');
 
             const job = mock_job({
                 quote_to: 'quote-to-id',
@@ -251,14 +251,16 @@ describe('QuoteProcessor', () => {
             expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
                 NotificationType.QUOTE,
                 'quote-to-id',
-                expect.objectContaining({
-                    quoted_by: 'quoter-id',
-                })
+                {
+                    id: 'notification-id-123',
+                    ...job.data,
+                    action: 'remove',
+                }
             );
         });
 
         it('should not send notification if removal failed', async () => {
-            notifications_service.removeQuoteNotification.mockResolvedValue(false);
+            notifications_service.removeQuoteNotification.mockResolvedValue(null);
 
             const job = mock_job({
                 quote_to: 'quote-to-id',

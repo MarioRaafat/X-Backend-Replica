@@ -35,7 +35,7 @@ describe('FCMService', () => {
         };
 
         // Mock Expo constructor and static method
-        (Expo as jest.MockedClass<typeof Expo>).mockImplementation(() => mock_expo_instance);
+        Expo.mockImplementation(() => mock_expo_instance);
         (Expo.isExpoPushToken as unknown as jest.Mock) = jest.fn().mockReturnValue(true);
 
         mock_user_repository = {
@@ -87,6 +87,7 @@ describe('FCMService', () => {
                     sound: 'default',
                     title: notification.title,
                     body: notification.body,
+                    subtitle: notification.body,
                     data: data,
                 },
             ]);
@@ -237,6 +238,7 @@ describe('FCMService', () => {
                     sound: 'default',
                     title: 'Liked by John Doe',
                     body: 'Tweet content',
+                    subtitle: 'Tweet content',
                     data: {
                         type: NotificationType.LIKE,
                         ...payload,

@@ -5,6 +5,13 @@ import { Tweet } from 'src/tweets/entities';
 
 export class RepostNotificationDto {
     @ApiProperty({
+        description: 'Notification ID',
+        example: '507f1f77bcf86cd799439011',
+        type: String,
+    })
+    id: string;
+
+    @ApiProperty({
         description: 'Notification type',
         example: NotificationType.REPOST,
         enum: NotificationType,
