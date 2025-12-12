@@ -1270,6 +1270,10 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({
+                id: current_user_id,
+            } as any);
+
             const validate_spy = jest
                 .spyOn(user_repository, 'validateRelationshipRequest')
                 .mockResolvedValueOnce({
@@ -1359,6 +1363,10 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({
+                id: current_user_id,
+            } as any);
+
             const validate_spy = jest
                 .spyOn(user_repository, 'validateRelationshipRequest')
                 .mockResolvedValueOnce({
@@ -1398,6 +1406,10 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({
+                id: current_user_id,
+            } as any);
+
             const validate_spy = jest
                 .spyOn(user_repository, 'validateRelationshipRequest')
                 .mockResolvedValueOnce({
@@ -1436,6 +1448,10 @@ describe('UserService', () => {
         it('should throw BadRequestException when current user has blocked target', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({
+                id: current_user_id,
+            } as any);
 
             const validate_spy = jest
                 .spyOn(user_repository, 'validateRelationshipRequest')

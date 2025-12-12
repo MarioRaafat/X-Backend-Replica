@@ -1640,6 +1640,7 @@ describe('UserRepository', () => {
                 'user.id AS user_exists',
                 'user.avatar_url AS avatar_url',
                 'user.name AS name',
+                'user.username AS username',
             ]);
             expect(mock_query_builder.addSelect).toHaveBeenCalledWith(
                 expect.stringContaining('user_follows'),
