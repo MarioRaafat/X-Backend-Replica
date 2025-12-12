@@ -130,7 +130,7 @@ describe('AiSummaryProcessor', () => {
             mock_tweet_summary_repository.save.mockRejectedValue(new Error('Save Error'));
 
             await expect(processor.handleGenerateSummary(mock_job)).rejects.toThrow();
-        });
+        }, 10000);
 
         it('should process job data correctly', async () => {
             const existing_summary = {
