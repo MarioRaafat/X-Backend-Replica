@@ -35,7 +35,7 @@ describe('FCMService', () => {
         };
 
         // Mock Expo constructor and static method
-        Expo.mockImplementation(() => mock_expo_instance);
+        (Expo as unknown as jest.Mock).mockImplementation(() => mock_expo_instance);
         (Expo.isExpoPushToken as unknown as jest.Mock) = jest.fn().mockReturnValue(true);
 
         mock_user_repository = {
@@ -276,8 +276,8 @@ describe('FCMService', () => {
 
         it('should send REPOST notification successfully', async () => {
             const payload = {
-                reposters: [{ name: 'Bob Johnson' }],
-                tweets: [{ content: 'Tweet content' }],
+                reposter: { name: 'Bob Johnson' },
+                tweet: { content: 'Tweet content' },
             };
 
             await service.sendNotificationToUserDevice(
