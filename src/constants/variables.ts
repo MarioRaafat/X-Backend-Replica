@@ -29,6 +29,8 @@ export const ALLOWED_VOICE_MIME_TYPES = [
     'audio/wav',
     'audio/ogg',
     'audio/mp4',
+    'audio/m4a',
+    'audio/x-m4a',
     'audio/webm',
 ] as const;
 export const MAX_VOICE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
