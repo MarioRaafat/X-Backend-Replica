@@ -960,6 +960,7 @@ export class NotificationsService implements OnModuleInit {
                     if (reply_notification.replied_by) {
                         user_ids.add(reply_notification.replied_by);
                         user_ids_needing_relationships.add(reply_notification.replied_by);
+                        user_ids_needing_relationships.add(reply_notification.replied_by);
                     }
                     if (reply_notification.reply_tweet_id) {
                         tweet_ids.add(reply_notification.reply_tweet_id);
