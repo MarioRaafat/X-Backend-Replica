@@ -176,9 +176,9 @@ export class FCMService {
                 const reposted_tweet_id =
                     payload.tweet?.tweet_id || payload.tweet?.id || payload.tweets?.[0]?.id;
                 return {
-                    title: `Reposted by ${payload.reposters[0].name}:`,
-                    body: payload.tweets[0].content,
-                    data: { tweet_id: payload.tweets[0].id },
+                    title: `Reposted by ${reposter_name}:`,
+                    body: reposted_tweet_content,
+                    data: { tweet_id: reposted_tweet_id },
                 };
             }
             case NotificationType.MESSAGE:
