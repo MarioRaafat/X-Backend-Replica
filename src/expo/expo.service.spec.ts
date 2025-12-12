@@ -215,7 +215,8 @@ describe('FCMService', () => {
     describe('sendNotificationToUserDevice', () => {
         it('should send LIKE notification successfully', async () => {
             const payload = {
-                liker: { name: 'John Doe' },
+                likers: [{ name: 'John Doe' }],
+                tweets: [{ content: 'Tweet content' }],
                 tweet_id: 'tweet-123',
             };
 
@@ -234,8 +235,8 @@ describe('FCMService', () => {
                 {
                     to: 'ExponentPushToken[mock-token-123]',
                     sound: 'default',
-                    title: 'New LIKE',
-                    body: 'John Doe liked your tweet',
+                    title: 'Liked by John Doe',
+                    body: 'Tweet content',
                     data: {
                         type: NotificationType.LIKE,
                         ...payload,
@@ -249,6 +250,7 @@ describe('FCMService', () => {
         it('should send REPLY notification successfully', async () => {
             const payload = {
                 replier: { name: 'Jane Smith' },
+                reply_tweet: { content: 'Reply content' },
                 tweet_id: 'tweet-456',
             };
 
@@ -261,8 +263,8 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        title: 'New REPLY',
-                        body: 'Jane Smith replied to your tweet',
+                        title: 'Jane Smith replied:',
+                        body: 'Reply content',
                     }),
                 ])
             );
@@ -272,7 +274,8 @@ describe('FCMService', () => {
 
         it('should send REPOST notification successfully', async () => {
             const payload = {
-                reposter: { name: 'Bob Johnson' },
+                reposters: [{ name: 'Bob Johnson' }],
+                tweets: [{ content: 'Tweet content' }],
             };
 
             await service.sendNotificationToUserDevice(
@@ -284,7 +287,8 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        body: 'Bob Johnson reposted your tweet',
+                        title: 'Reposted by Bob Johnson:',
+                        body: 'Tweet content',
                     }),
                 ])
             );
@@ -292,7 +296,8 @@ describe('FCMService', () => {
 
         it('should send QUOTE notification successfully', async () => {
             const payload = {
-                quoted_by: { name: 'Alice Brown' },
+                quoted_by: { username: 'alice' },
+                quote: { content: 'Quote content' },
             };
 
             await service.sendNotificationToUserDevice('user-123', NotificationType.QUOTE, payload);
@@ -300,7 +305,8 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        body: 'Alice Brown quoted your tweet',
+                        title: 'yapper',
+                        body: '@alice quoted your post and said: Quote content',
                     }),
                 ])
             );
@@ -309,6 +315,7 @@ describe('FCMService', () => {
         it('should send MENTION notification successfully', async () => {
             const payload = {
                 mentioned_by: { name: 'Charlie Wilson' },
+                tweet: { content: 'Tweet content' },
             };
 
             await service.sendNotificationToUserDevice(
@@ -320,7 +327,8 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        body: 'Charlie Wilson mentioned you in a tweet',
+                        title: 'Mentioned by Charlie Wilson:',
+                        body: 'Tweet content',
                     }),
                 ])
             );
@@ -329,7 +337,7 @@ describe('FCMService', () => {
         it('should send MESSAGE notification successfully', async () => {
             const payload = {
                 sender: { name: 'David Lee' },
-                message: 'Hello!',
+                message: { content: 'Hello!' },
             };
 
             await service.sendNotificationToUserDevice(
@@ -341,7 +349,8 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        body: 'David Lee sent you a message',
+                        title: 'David Lee',
+                        body: 'Hello!',
                     }),
                 ])
             );
@@ -349,7 +358,7 @@ describe('FCMService', () => {
 
         it('should send FOLLOW notification with follower_name', async () => {
             const payload = {
-                follower_name: 'Emma Davis',
+                follower_username: 'emma',
             };
 
             await service.sendNotificationToUserDevice(
@@ -361,27 +370,26 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        body: 'Emma Davis started following you',
+                        title: 'yapper',
+                        body: '@emma followed you!',
                     }),
                 ])
             );
         });
 
-        it('should use "Someone" as fallback username when user field not found', async () => {
+        it('should return false when payload is invalid', async () => {
             const payload = {
-                // No user field
+                // Missing required fields
                 tweet_id: 'tweet-123',
             };
 
-            await service.sendNotificationToUserDevice('user-123', NotificationType.LIKE, payload);
-
-            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
-                expect.arrayContaining([
-                    expect.objectContaining({
-                        body: 'Someone liked your tweet',
-                    }),
-                ])
+            const result = await service.sendNotificationToUserDevice(
+                'user-123',
+                NotificationType.LIKE,
+                payload
             );
+
+            expect(result).toBe(false);
         });
 
         it('should return false and warn if user has no FCM token', async () => {
@@ -419,7 +427,8 @@ describe('FCMService', () => {
             const logger_spy = jest.spyOn(service['logger'], 'log');
 
             await service.sendNotificationToUserDevice('user-123', NotificationType.LIKE, {
-                liker: { name: 'Test' },
+                likers: [{ name: 'Test' }],
+                tweets: [{ content: 'Content' }],
             });
 
             expect(logger_spy).toHaveBeenCalledWith('Notification sent via FCM to user user-123');
@@ -435,7 +444,10 @@ describe('FCMService', () => {
             const result = await service.sendNotificationToUserDevice(
                 'user-123',
                 NotificationType.LIKE,
-                { liker: { name: 'Test' } }
+                {
+                    likers: [{ name: 'Test' }],
+                    tweets: [{ content: 'Content' }],
+                }
             );
 
             expect(logger_spy).toHaveBeenCalledWith(
@@ -446,11 +458,14 @@ describe('FCMService', () => {
 
         it('should handle payload with nested user object structure', async () => {
             const payload = {
-                liker: {
-                    name: 'Complex User',
-                    id: 'user-789',
-                    username: 'complexuser',
-                },
+                likers: [
+                    {
+                        name: 'Complex User',
+                        id: 'user-789',
+                        username: 'complexuser',
+                    },
+                ],
+                tweets: [{ content: 'Tweet content' }],
                 tweet_id: 'tweet-123',
             };
 
@@ -466,120 +481,6 @@ describe('FCMService', () => {
                     }),
                 ])
             );
-        });
-    });
-
-    describe('extractUsername', () => {
-        it('should extract username from liker for LIKE notification', () => {
-            const payload = { liker: { name: 'John' } };
-            const username = service['extractUsername'](payload, NotificationType.LIKE);
-            expect(username).toBe('John');
-        });
-
-        it('should extract username from replier for REPLY notification', () => {
-            const payload = { replier: { name: 'Jane' } };
-            const username = service['extractUsername'](payload, NotificationType.REPLY);
-            expect(username).toBe('Jane');
-        });
-
-        it('should extract username from reposter for REPOST notification', () => {
-            const payload = { reposter: { name: 'Bob' } };
-            const username = service['extractUsername'](payload, NotificationType.REPOST);
-            expect(username).toBe('Bob');
-        });
-
-        it('should extract username from quoted_by for QUOTE notification', () => {
-            const payload = { quoted_by: { name: 'Alice' } };
-            const username = service['extractUsername'](payload, NotificationType.QUOTE);
-            expect(username).toBe('Alice');
-        });
-
-        it('should extract username from mentioned_by for MENTION notification', () => {
-            const payload = { mentioned_by: { name: 'Charlie' } };
-            const username = service['extractUsername'](payload, NotificationType.MENTION);
-            expect(username).toBe('Charlie');
-        });
-
-        it('should extract username from sender for MESSAGE notification', () => {
-            const payload = { sender: { name: 'David' } };
-            const username = service['extractUsername'](payload, NotificationType.MESSAGE);
-            expect(username).toBe('David');
-        });
-
-        it('should extract follower_name for FOLLOW notification', () => {
-            const payload = { follower_name: 'Emma' };
-            const username = service['extractUsername'](payload, NotificationType.FOLLOW);
-            expect(username).toBe('Emma');
-        });
-
-        it('should return "Someone" for FOLLOW when follower_name missing', () => {
-            const payload = {};
-            const username = service['extractUsername'](payload, NotificationType.FOLLOW);
-            expect(username).toBe('Someone');
-        });
-
-        it('should return "Someone" when user field is missing', () => {
-            const payload = {};
-            const username = service['extractUsername'](payload, NotificationType.LIKE);
-            expect(username).toBe('Someone');
-        });
-
-        it('should return "Someone" when user object has no name', () => {
-            const payload = { liker: { id: 'user-123' } };
-            const username = service['extractUsername'](payload, NotificationType.LIKE);
-            expect(username).toBe('Someone');
-        });
-    });
-
-    describe('getNotificationBody', () => {
-        it('should generate correct body for all notification types', () => {
-            const test_cases = [
-                {
-                    type: NotificationType.LIKE,
-                    payload: { liker: { name: 'John' } },
-                    expected: 'John liked your tweet',
-                },
-                {
-                    type: NotificationType.REPLY,
-                    payload: { replier: { name: 'Jane' } },
-                    expected: 'Jane replied to your tweet',
-                },
-                {
-                    type: NotificationType.REPOST,
-                    payload: { reposter: { name: 'Bob' } },
-                    expected: 'Bob reposted your tweet',
-                },
-                {
-                    type: NotificationType.QUOTE,
-                    payload: { quoted_by: { name: 'Alice' } },
-                    expected: 'Alice quoted your tweet',
-                },
-                {
-                    type: NotificationType.FOLLOW,
-                    payload: { follower_name: 'Charlie' },
-                    expected: 'Charlie started following you',
-                },
-                {
-                    type: NotificationType.MENTION,
-                    payload: { mentioned_by: { name: 'David' } },
-                    expected: 'David mentioned you in a tweet',
-                },
-                {
-                    type: NotificationType.MESSAGE,
-                    payload: { sender: { name: 'Emma' } },
-                    expected: 'Emma sent you a message',
-                },
-            ];
-
-            test_cases.forEach(({ type, payload, expected }) => {
-                const body = service['getNotificationBody'](type, payload);
-                expect(body).toBe(expected);
-            });
-        });
-
-        it('should return generic message for unknown notification type', () => {
-            const body = service['getNotificationBody']('UNKNOWN' as any, {});
-            expect(body).toBe('You have a new notification');
         });
     });
 });

@@ -663,8 +663,6 @@ export class TweetsService {
                 }),
             });
 
-            console.log('parentTweet', parentTweet);
-
             if (parentTweet.user?.id && user_id !== parentTweet.user.id)
                 this.quote_job_service.queueQuoteNotification({
                     quote_to: parentTweet.user.id,

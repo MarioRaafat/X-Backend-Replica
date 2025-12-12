@@ -322,18 +322,23 @@ export class UserService {
         if (current_user_id === target_user_id) {
             throw new BadRequestException(ERROR_MESSAGES.CANNOT_FOLLOW_YOURSELF);
         }
-        const [validation_result, follow_permissions] = await Promise.all([
+        const [validation_result, follow_permissions, current_user] = await Promise.all([
             this.user_repository.validateRelationshipRequest(
                 current_user_id,
                 target_user_id,
                 RelationshipType.FOLLOW
             ),
             this.user_repository.verifyFollowPermissions(current_user_id, target_user_id),
+            this.user_repository.findOne({ where: { id: current_user_id } }),
         ]);
 
         console.log('validation_result: ', validation_result);
 
         if (!validation_result || !validation_result.user_exists) {
+            throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+        }
+
+        if (!current_user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
         }
 
@@ -355,8 +360,9 @@ export class UserService {
             follower_id: current_user_id,
             followed_id: target_user_id,
             action: 'add',
-            follower_avatar_url: validation_result.avatar_url,
-            follower_name: validation_result.name,
+            follower_avatar_url: current_user.avatar_url || undefined,
+            follower_name: current_user.name,
+            follower_username: current_user.username,
         });
 
         await this.es_follow_job_service.queueEsFollow({
