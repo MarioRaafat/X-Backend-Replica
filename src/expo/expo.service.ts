@@ -108,12 +108,7 @@ export class FCMService {
                 body: notification_content.body,
             };
 
-            const data = {
-                type: notification_type,
-                ...payload,
-            };
-
-            await this.sendToDevice(user.fcm_token, data, notification);
+            await this.sendToDevice(user.fcm_token, notification_content.data, notification);
             this.logger.log(`Notification sent via FCM to user ${user_id}`);
             return true;
         } catch (error) {
@@ -127,55 +122,70 @@ export class FCMService {
     private getNotificationContent(
         type: NotificationType,
         payload: any
-    ): { title: string; body: string; data?: any } {
+    ): { title: string; body: string; data: any } {
         switch (type) {
             case NotificationType.FOLLOW:
                 return {
                     title: 'yapper',
-                    body: `@${payload.follower_username} followed you!`,
-                    data: { username: payload.follower_id },
+                    body: `@${payload.follower_username || 'Someone'} followed you!`,
+                    data: { user_id: payload.follower_id },
                 };
             case NotificationType.MENTION:
                 return {
-                    title: `Mentioned by ${payload.mentioned_by?.name}:`,
-                    body: payload.tweet?.content,
-                    data: { tweet_id: payload.tweet?.id },
+                    title: `Mentioned by ${payload.mentioned_by?.name || 'Someone'}:`,
+                    body: payload.tweet?.content || 'You were mentioned in a post',
+                    data: { tweet_id: payload.tweet?.id || payload.tweet?.tweet_id },
                 };
             case NotificationType.REPLY:
                 return {
-                    title: `${payload.replier?.name} replied:`,
-                    body: payload.reply_tweet?.content,
-                    data: { tweet_id: payload.reply_tweet?.id },
+                    title: `${payload.replier?.name || 'Someone'} replied:`,
+                    body: payload.reply_tweet?.content || 'replied to your post',
+                    data: { tweet_id: payload.reply_tweet?.id || payload.reply_tweet?.tweet_id },
                 };
             case NotificationType.QUOTE:
                 return {
                     title: 'yapper',
-                    body: `@${payload.quoted_by?.username} quoted your post and said: ${
-                        payload.quote?.content || ''
+                    body: `@${payload.quoted_by?.username || 'Someone'} quoted your post${
+                        payload.quote?.content ? ` and said: ${payload.quote.content}` : ''
                     }`,
-                    data: { tweet_id: payload.quote_tweet?.id },
+                    data: { tweet_id: payload.quote?.id || payload.quote?.tweet_id },
                 };
-            case NotificationType.LIKE:
+            case NotificationType.LIKE: {
+                // Handle both array format (likers/tweets) and singular format (liker/tweet)
+                const liker_name = payload.liker?.name || payload.likers?.[0]?.name || 'Someone';
+                const liked_tweet_content =
+                    payload.tweet?.content || payload.tweets?.[0]?.content || 'your post';
+                const liked_tweet_id =
+                    payload.tweet?.tweet_id || payload.tweet?.id || payload.tweets?.[0]?.id;
                 return {
-                    title: `Liked by ${payload.likers[0].name}`,
-                    body: payload.tweets[0].content,
-                    data: { tweet_id: payload.tweets[0].id },
+                    title: `Liked by ${liker_name}`,
+                    body: liked_tweet_content,
+                    data: { tweet_id: liked_tweet_id },
                 };
-            case NotificationType.REPOST:
+            }
+            case NotificationType.REPOST: {
+                // Handle both array format (reposters/tweets) and singular format (reposter/tweet)
+                const reposter_name = payload.reposter?.name || 'Someone';
+                const reposted_tweet_content = payload.tweet?.content || 'your post';
+                const reposted_tweet_id =
+                    payload.tweet?.tweet_id || payload.tweet?.id || payload.tweets?.[0]?.id;
                 return {
-                    title: `Reposted by ${payload.reposters[0].name}:`,
-                    body: payload.tweets[0].content,
-                    data: { tweet_id: payload.tweets[0].id },
+                    title: `Reposted by ${reposter_name}:`,
+                    body: reposted_tweet_content,
+                    data: { tweet_id: reposted_tweet_id },
                 };
+            }
             case NotificationType.MESSAGE:
                 return {
-                    title: payload.sender?.name,
-                    body: payload.message?.content,
+                    title: payload.sender?.name || 'New Message',
+                    body: payload.content || 'You have a new message',
+                    data: { chat_id: payload.chat_id },
                 };
             default:
                 return {
                     title: 'yapper',
                     body: 'You have a new notification',
+                    data: {},
                 };
         }
     }

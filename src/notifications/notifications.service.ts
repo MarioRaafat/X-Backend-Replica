@@ -28,6 +28,9 @@ import { BackgroundJobsModule } from 'src/background-jobs';
 import { ClearJobService } from 'src/background-jobs/notifications/clear/clear.service';
 import { FCMService } from 'src/expo/expo.service';
 import { MessagesGateway } from 'src/messages/messages.gateway';
+import { plainToInstance } from 'class-transformer';
+import { TweetResponseDTO } from 'src/tweets/dto/tweet-response.dto';
+import { UserResponseDTO } from 'src/tweets/dto/user-response.dto';
 
 @Injectable()
 export class NotificationsService implements OnModuleInit {
@@ -81,11 +84,183 @@ export class NotificationsService implements OnModuleInit {
                 { upsert: true }
             );
 
+            const enriched_payload = { ...payload };
+
+            if (
+                notification_data.type === NotificationType.REPLY ||
+                notification_data.type === NotificationType.MENTION ||
+                notification_data.type === NotificationType.QUOTE
+            ) {
+                const tweet_ids = new Set<string>();
+                const tweet_ids_needing_interactions = new Set<string>();
+                let actor_id: string | undefined;
+
+                if (notification_data.type === NotificationType.REPLY) {
+                    const n = notification_data as ReplyNotificationEntity;
+                    if (n.reply_tweet_id) {
+                        tweet_ids.add(n.reply_tweet_id);
+                        tweet_ids_needing_interactions.add(n.reply_tweet_id);
+                    }
+                    if (n.original_tweet_id) tweet_ids.add(n.original_tweet_id);
+                    actor_id = n.replied_by;
+                } else if (notification_data.type === NotificationType.MENTION) {
+                    const n = notification_data as MentionNotificationEntity;
+                    if (n.tweet_id) {
+                        tweet_ids.add(n.tweet_id);
+                        tweet_ids_needing_interactions.add(n.tweet_id);
+                    }
+                    if (n.parent_tweet_id) tweet_ids.add(n.parent_tweet_id);
+                    actor_id = n.mentioned_by;
+                } else if (notification_data.type === NotificationType.QUOTE) {
+                    const n = notification_data as QuoteNotificationEntity;
+                    if (n.quote_tweet_id) {
+                        tweet_ids.add(n.quote_tweet_id);
+                        tweet_ids_needing_interactions.add(n.quote_tweet_id);
+                    }
+                    if (n.parent_tweet_id) tweet_ids.add(n.parent_tweet_id);
+                    actor_id = n.quoted_by;
+                }
+
+                const tweet_ids_array = Array.from(tweet_ids);
+                const ids_needing_interactions = tweet_ids_array.filter((id) =>
+                    tweet_ids_needing_interactions.has(id)
+                );
+                const ids_not_needing_interactions = tweet_ids_array.filter(
+                    (id) => !tweet_ids_needing_interactions.has(id)
+                );
+
+                const promises: Promise<any>[] = [];
+                if (ids_needing_interactions.length > 0) {
+                    promises.push(
+                        this.getTweetsWithInteractions(ids_needing_interactions, user_id, true)
+                    );
+                } else {
+                    promises.push(Promise.resolve([]));
+                }
+
+                if (ids_not_needing_interactions.length > 0) {
+                    promises.push(
+                        this.getTweetsWithInteractions(ids_not_needing_interactions, user_id, false)
+                    );
+                } else {
+                    promises.push(Promise.resolve([]));
+                }
+
+                if (actor_id) {
+                    promises.push(this.getUsersWithRelationships([actor_id], user_id, true));
+                } else {
+                    promises.push(Promise.resolve([]));
+                }
+
+                const [tweets_with_interactions, tweets_without_interactions, users] =
+                    await Promise.all(promises);
+                const tweets = [
+                    ...(tweets_with_interactions as Tweet[]),
+                    ...(tweets_without_interactions as Tweet[]),
+                ];
+                const tweet_map = new Map(tweets.map((t) => [t.tweet_id, t]));
+                const actor = (users as User[]).length > 0 ? (users as User[])[0] : undefined;
+
+                if (actor) {
+                    const enriched_user = this.enrichUserWithStatus(actor);
+                    if (notification_data.type === NotificationType.REPLY) {
+                        enriched_payload.replier = enriched_user;
+                    } else if (notification_data.type === NotificationType.MENTION) {
+                        enriched_payload.mentioner = enriched_user;
+                    } else if (notification_data.type === NotificationType.QUOTE) {
+                        enriched_payload.quoter = enriched_user;
+                    }
+                }
+
+                if (tweet_ids.size > 0) {
+                    if (notification_data.type === NotificationType.REPLY) {
+                        const n = notification_data as ReplyNotificationEntity;
+                        if (n.reply_tweet_id && tweet_map.has(n.reply_tweet_id)) {
+                            enriched_payload.reply_tweet = this.enrichTweetWithStatus(
+                                tweet_map.get(n.reply_tweet_id)!
+                            );
+                        }
+                        if (n.original_tweet_id && tweet_map.has(n.original_tweet_id)) {
+                            enriched_payload.original_tweet = this.cleanTweet(
+                                tweet_map.get(n.original_tweet_id)!
+                            );
+                        }
+                    } else if (notification_data.type === NotificationType.MENTION) {
+                        const n = notification_data as MentionNotificationEntity;
+                        if (n.tweet_id && tweet_map.has(n.tweet_id)) {
+                            let t = tweet_map.get(n.tweet_id)!;
+                            if (
+                                n.tweet_type === 'quote' &&
+                                n.parent_tweet_id &&
+                                tweet_map.has(n.parent_tweet_id)
+                            ) {
+                                t = {
+                                    ...t,
+                                    parent_tweet: this.cleanTweet(
+                                        tweet_map.get(n.parent_tweet_id)!
+                                    ),
+                                } as any;
+                            }
+                            enriched_payload.tweet = this.enrichTweetWithStatus(t);
+                        }
+                    } else if (notification_data.type === NotificationType.QUOTE) {
+                        const n = notification_data as QuoteNotificationEntity;
+                        if (n.quote_tweet_id && tweet_map.has(n.quote_tweet_id)) {
+                            let t = tweet_map.get(n.quote_tweet_id)!;
+                            if (n.parent_tweet_id && tweet_map.has(n.parent_tweet_id)) {
+                                t = {
+                                    ...t,
+                                    parent_tweet: this.cleanTweet(
+                                        tweet_map.get(n.parent_tweet_id)!
+                                    ),
+                                } as any;
+                            }
+                            enriched_payload.quote_tweet = this.enrichTweetWithStatus(t);
+                        }
+                    }
+                }
+            } else if (
+                notification_data.type === NotificationType.LIKE ||
+                notification_data.type === NotificationType.REPOST
+            ) {
+                if (notification_data.type === NotificationType.LIKE) {
+                    if (payload.tweet) {
+                        enriched_payload.tweet = this.cleanTweet(payload.tweet);
+                    }
+                    if (payload.liker) {
+                        enriched_payload.liker = this.cleanUser(payload.liker);
+                    }
+                } else if (notification_data.type === NotificationType.REPOST) {
+                    if (payload.tweet) {
+                        enriched_payload.tweet = this.cleanTweet(payload.tweet);
+                    }
+                    if (payload.reposter) {
+                        enriched_payload.reposter = this.cleanUser(payload.reposter);
+                    }
+                }
+            } else if (notification_data.type === NotificationType.FOLLOW) {
+                console.log('payload.follower_avatar_url', payload);
+                // Wrap follower data in a follower object
+                enriched_payload.follower = {
+                    id: payload.follower_id,
+                    username: payload.follower_username,
+                    name: payload.follower_name,
+                    avatar_url: payload.follower_avatar_url,
+                };
+                // Remove flat follower fields from enriched_payload
+                delete enriched_payload.follower_id;
+                delete enriched_payload.follower_username;
+                delete enriched_payload.follower_name;
+                delete enriched_payload.follower_avatar_url;
+                delete enriched_payload.followed_id;
+            }
+
             const is_online = this.messagesGateway.isOnline(user_id);
 
             if (is_online) {
+                enriched_payload.created_at = new Date();
                 this.notificationsGateway.sendToUser(notification_data.type, user_id, {
-                    ...payload,
+                    ...enriched_payload,
                     id: notification_data._id.toString(),
                     action: 'add',
                 });
@@ -115,17 +290,19 @@ export class NotificationsService implements OnModuleInit {
             const is_online = this.messagesGateway.isOnline(user_id);
 
             if (is_online) {
+                aggregated_notification_with_data.created_at = new Date();
                 this.notificationsGateway.sendToUser(notification_data.type, user_id, {
                     ...aggregated_notification_with_data,
                     action: 'aggregate',
                     old_notification: aggregation_result.old_notification,
                 });
             } else {
+                console.log('Send Expo Push Notification');
                 await this.fcmService.sendNotificationToUserDevice(
                     user_id,
                     notification_data.type,
                     {
-                        ...aggregated_notification_with_data,
+                        ...payload,
                         action: 'aggregate',
                     }
                 );
@@ -580,40 +757,45 @@ export class NotificationsService implements OnModuleInit {
 
     private async getTweetsWithInteractions(
         tweet_ids: string[],
-        user_id: string
+        user_id: string,
+        flag: boolean = false
     ): Promise<Tweet[]> {
         if (tweet_ids.length === 0) return [];
 
-        return this.tweet_repository
-            .createQueryBuilder('tweet')
-            .leftJoinAndMapOne(
-                'tweet.current_user_like',
-                TweetLike,
-                'like',
-                'like.tweet_id = tweet.tweet_id AND like.user_id = :user_id',
-                { user_id }
-            )
-            .leftJoinAndMapOne(
-                'tweet.current_user_repost',
-                TweetRepost,
-                'repost',
-                'repost.tweet_id = tweet.tweet_id AND repost.user_id = :user_id',
-                { user_id }
-            )
-            .leftJoinAndMapOne(
-                'tweet.current_user_bookmark',
-                TweetBookmark,
-                'bookmark',
-                'bookmark.tweet_id = tweet.tweet_id AND bookmark.user_id = :user_id',
-                { user_id }
-            )
-            .where('tweet.tweet_id IN (:...tweet_ids)', { tweet_ids })
-            .getMany();
+        let query = this.tweet_repository.createQueryBuilder('tweet');
+
+        if (flag) {
+            query = query
+                .leftJoinAndMapOne(
+                    'tweet.current_user_like',
+                    TweetLike,
+                    'like',
+                    'like.tweet_id = tweet.tweet_id AND like.user_id = :user_id',
+                    { user_id }
+                )
+                .leftJoinAndMapOne(
+                    'tweet.current_user_repost',
+                    TweetRepost,
+                    'repost',
+                    'repost.tweet_id = tweet.tweet_id AND repost.user_id = :user_id',
+                    { user_id }
+                )
+                .leftJoinAndMapOne(
+                    'tweet.current_user_bookmark',
+                    TweetBookmark,
+                    'bookmark',
+                    'bookmark.tweet_id = tweet.tweet_id AND bookmark.user_id = :user_id',
+                    { user_id }
+                );
+        }
+        query = query.where('tweet.tweet_id IN (:...tweet_ids)', { tweet_ids });
+        return query.getMany();
     }
 
     private async getUsersWithRelationships(
         user_ids: string[],
-        current_user_id: string
+        current_user_id: string,
+        flag: boolean = false
     ): Promise<User[]> {
         if (user_ids.length === 0) return [];
 
@@ -621,72 +803,83 @@ export class NotificationsService implements OnModuleInit {
             .map((col) => `user.${col.propertyName}`)
             .filter((name) => !name.includes('password') && !name.includes('fcm_token'));
 
-        return this.user_repository
-            .createQueryBuilder('user')
-            .select(columns)
-            .leftJoinAndMapOne(
-                'user.relation_following',
-                UserFollows,
-                'following',
-                'following.follower_id = :current_user_id AND following.followed_id = user.id',
-                { current_user_id }
-            )
-            .leftJoinAndMapOne(
-                'user.relation_follower',
-                UserFollows,
-                'follower',
-                'follower.followed_id = :current_user_id AND follower.follower_id = user.id',
-                { current_user_id }
-            )
-            .leftJoinAndMapOne(
-                'user.relation_blocked',
-                UserBlocks,
-                'blocked',
-                'blocked.blocker_id = :current_user_id AND blocked.blocked_id = user.id',
-                { current_user_id }
-            )
-            .leftJoinAndMapOne(
-                'user.relation_muted',
-                UserMutes,
-                'muted',
-                'muted.muter_id = :current_user_id AND muted.muted_id = user.id',
-                { current_user_id }
-            )
-            .where('user.id IN (:...user_ids)', { user_ids })
-            .getMany();
+        let query = this.user_repository.createQueryBuilder('user').select(columns);
+
+        if (flag) {
+            query = query
+                .leftJoinAndMapOne(
+                    'user.relation_following',
+                    UserFollows,
+                    'following',
+                    'following.follower_id = :current_user_id AND following.followed_id = user.id',
+                    { current_user_id }
+                )
+                .leftJoinAndMapOne(
+                    'user.relation_follower',
+                    UserFollows,
+                    'follower',
+                    'follower.followed_id = :current_user_id AND follower.follower_id = user.id',
+                    { current_user_id }
+                )
+                .leftJoinAndMapOne(
+                    'user.relation_blocked',
+                    UserBlocks,
+                    'blocked',
+                    'blocked.blocker_id = :current_user_id AND blocked.blocked_id = user.id',
+                    { current_user_id }
+                )
+                .leftJoinAndMapOne(
+                    'user.relation_muted',
+                    UserMutes,
+                    'muted',
+                    'muted.muter_id = :current_user_id AND muted.muted_id = user.id',
+                    { current_user_id }
+                );
+        }
+        query = query.where('user.id IN (:...user_ids)', { user_ids });
+        return query.getMany();
     }
 
     private enrichUserWithStatus(user: User): any {
-        const { relation_following, relation_follower, relation_blocked, relation_muted, ...rest } =
-            user as any;
-        return {
-            ...rest,
-            is_following: !!relation_following,
-            is_follower: !!relation_follower,
-            is_blocked: !!relation_blocked,
-            is_muted: !!relation_muted,
-        };
+        const user_dto = plainToInstance(UserResponseDTO, user, {
+            excludeExtraneousValues: true,
+        }) as any;
+        user_dto.is_following = !!(user as any).relation_following;
+        user_dto.is_follower = !!(user as any).relation_follower;
+        user_dto.is_blocked = !!(user as any).relation_blocked;
+        user_dto.is_muted = !!(user as any).relation_muted;
+        return user_dto;
     }
 
     private cleanUser(user: User): any {
-        const { relation_following, relation_follower, relation_blocked, relation_muted, ...rest } =
-            user as any;
-        return rest;
+        const user_dto = plainToInstance(UserResponseDTO, user, {
+            excludeExtraneousValues: true,
+        }) as any;
+        delete user_dto.is_following;
+        delete user_dto.is_follower;
+        delete user_dto.is_blocked;
+        delete user_dto.is_muted;
+        return user_dto;
     }
 
     private enrichTweetWithStatus(tweet: Tweet): any {
-        const { current_user_like, current_user_repost, current_user_bookmark, ...rest } = tweet;
-        return {
-            ...rest,
-            is_liked: !!current_user_like,
-            is_reposted: !!current_user_repost,
-            is_bookmarked: !!current_user_bookmark,
-        };
+        const tweet_dto = plainToInstance(TweetResponseDTO, tweet, {
+            excludeExtraneousValues: true,
+        }) as any;
+        tweet_dto.is_liked = !!(tweet as any).current_user_like;
+        tweet_dto.is_reposted = !!(tweet as any).current_user_repost;
+        tweet_dto.is_bookmarked = !!(tweet as any).current_user_bookmark;
+        return tweet_dto;
     }
 
     private cleanTweet(tweet: Tweet): any {
-        const { current_user_like, current_user_repost, current_user_bookmark, ...rest } = tweet;
-        return rest;
+        const tweet_dto = plainToInstance(TweetResponseDTO, tweet, {
+            excludeExtraneousValues: true,
+        }) as any;
+        delete tweet_dto.is_liked;
+        delete tweet_dto.is_reposted;
+        delete tweet_dto.is_bookmarked;
+        return tweet_dto;
     }
 
     async getUserNotifications(
@@ -724,7 +917,9 @@ export class NotificationsService implements OnModuleInit {
         }
 
         const user_ids = new Set<string>();
+        const user_ids_needing_relationships = new Set<string>();
         const tweet_ids = new Set<string>();
+        const tweet_ids_needing_interactions = new Set<string>();
 
         // sort the returned notifications by created_at descending
         user_notifications.notifications.sort(
@@ -767,9 +962,11 @@ export class NotificationsService implements OnModuleInit {
                     const quote_notification = notification as QuoteNotificationEntity;
                     if (quote_notification.quoted_by) {
                         user_ids.add(quote_notification.quoted_by);
+                        user_ids_needing_relationships.add(quote_notification.quoted_by);
                     }
                     if (quote_notification.quote_tweet_id) {
                         tweet_ids.add(quote_notification.quote_tweet_id);
+                        tweet_ids_needing_interactions.add(quote_notification.quote_tweet_id);
                     }
                     if (quote_notification.parent_tweet_id) {
                         tweet_ids.add(quote_notification.parent_tweet_id);
@@ -780,9 +977,12 @@ export class NotificationsService implements OnModuleInit {
                     const reply_notification = notification as ReplyNotificationEntity;
                     if (reply_notification.replied_by) {
                         user_ids.add(reply_notification.replied_by);
+                        user_ids_needing_relationships.add(reply_notification.replied_by);
+                        user_ids_needing_relationships.add(reply_notification.replied_by);
                     }
                     if (reply_notification.reply_tweet_id) {
                         tweet_ids.add(reply_notification.reply_tweet_id);
+                        tweet_ids_needing_interactions.add(reply_notification.reply_tweet_id);
                     }
                     if (reply_notification.original_tweet_id) {
                         tweet_ids.add(reply_notification.original_tweet_id);
@@ -812,9 +1012,11 @@ export class NotificationsService implements OnModuleInit {
                     const mention_notification = notification as MentionNotificationEntity;
                     if (mention_notification.mentioned_by) {
                         user_ids.add(mention_notification.mentioned_by);
+                        user_ids_needing_relationships.add(mention_notification.mentioned_by);
                     }
                     if (mention_notification.tweet_id) {
                         tweet_ids.add(mention_notification.tweet_id);
+                        tweet_ids_needing_interactions.add(mention_notification.tweet_id);
                     }
                     if (mention_notification.parent_tweet_id) {
                         tweet_ids.add(mention_notification.parent_tweet_id);
@@ -831,15 +1033,45 @@ export class NotificationsService implements OnModuleInit {
             }
         });
 
+        const tweet_ids_array = Array.from(tweet_ids);
+        const ids_needing_interactions = tweet_ids_array.filter((id) =>
+            tweet_ids_needing_interactions.has(id)
+        );
+        const ids_not_needing_interactions = tweet_ids_array.filter(
+            (id) => !tweet_ids_needing_interactions.has(id)
+        );
+
+        const user_ids_array = Array.from(user_ids);
+        const user_ids_needing_rel_array = user_ids_array.filter((id) =>
+            user_ids_needing_relationships.has(id)
+        );
+        const user_ids_not_needing_rel_array = user_ids_array.filter(
+            (id) => !user_ids_needing_relationships.has(id)
+        );
+
         // Fetch all data in parallel
-        const [users, tweets] = await Promise.all([
-            user_ids.size > 0 ? this.getUsersWithRelationships(Array.from(user_ids), user_id) : [],
-            tweet_ids.size > 0
-                ? this.getTweetsWithInteractions(Array.from(tweet_ids), user_id)
+        const [
+            users_with_rel,
+            users_without_rel,
+            tweets_with_interactions,
+            tweets_without_interactions,
+        ] = await Promise.all([
+            user_ids_needing_rel_array.length > 0
+                ? this.getUsersWithRelationships(user_ids_needing_rel_array, user_id, true)
+                : [],
+            user_ids_not_needing_rel_array.length > 0
+                ? this.getUsersWithRelationships(user_ids_not_needing_rel_array, user_id, false)
+                : [],
+            ids_needing_interactions.length > 0
+                ? this.getTweetsWithInteractions(ids_needing_interactions, user_id, true)
+                : [],
+            ids_not_needing_interactions.length > 0
+                ? this.getTweetsWithInteractions(ids_not_needing_interactions, user_id, false)
                 : [],
         ]);
 
-        console.log({ users, tweets });
+        const users = [...users_with_rel, ...users_without_rel];
+        const tweets = [...tweets_with_interactions, ...tweets_without_interactions];
 
         const user_map = new Map<string, User>(
             users.map((user) => [user.id, user] as [string, User])
@@ -852,7 +1084,7 @@ export class NotificationsService implements OnModuleInit {
         const missing_user_ids = new Set<string>();
 
         const response_notifications: NotificationDto[] = user_notifications.notifications
-            .map((notification: any, index: number) => {
+            .map((notification: any) => {
                 if (!notification._id) return null;
                 const notification_id = notification._id.toString();
                 switch (notification.type) {
@@ -874,7 +1106,7 @@ export class NotificationsService implements OnModuleInit {
                                 }
                                 return user ? this.cleanUser(user) : undefined;
                             })
-                            .filter((user): user is User => user !== undefined);
+                            .filter((user) => user !== undefined);
 
                         if (followers.length === 0) {
                             return null;
@@ -905,7 +1137,7 @@ export class NotificationsService implements OnModuleInit {
                         // Map all tweet IDs to tweet objects
                         const tweets = tweet_ids_array
                             .map((id) => tweet_map.get(id))
-                            .filter((tweet): tweet is Tweet => tweet !== undefined)
+                            .filter((tweet) => tweet !== undefined)
                             .map((tweet) => this.cleanTweet(tweet));
 
                         if (tweets.length === 0) {
@@ -932,7 +1164,7 @@ export class NotificationsService implements OnModuleInit {
                                 }
                                 return user ? this.cleanUser(user) : undefined;
                             })
-                            .filter((user): user is User => user !== undefined);
+                            .filter((user) => user !== undefined);
 
                         if (likers.length === 0) {
                             return null;
@@ -974,7 +1206,7 @@ export class NotificationsService implements OnModuleInit {
                             created_at: notification.created_at,
                             quoter: this.enrichUserWithStatus(quoter),
                             quote_tweet: quote_tweet_with_parent,
-                        } as NotificationDto;
+                        } as unknown as NotificationDto;
                     }
                     case NotificationType.REPLY: {
                         const reply_notification = notification as ReplyNotificationEntity;
@@ -1007,7 +1239,7 @@ export class NotificationsService implements OnModuleInit {
                                 : null,
                             original_tweet: this.cleanTweet(original_tweet),
                             conversation_id: reply_notification.conversation_id,
-                        } as NotificationDto;
+                        } as unknown as NotificationDto;
                     }
                     case NotificationType.REPOST: {
                         const repost_notification = notification as RepostNotificationEntity;
@@ -1028,7 +1260,7 @@ export class NotificationsService implements OnModuleInit {
                         // Map all tweet IDs to tweet objects
                         const tweets = tweet_ids_array
                             .map((id) => tweet_map.get(id))
-                            .filter((tweet): tweet is Tweet => tweet !== undefined)
+                            .filter((tweet) => tweet !== undefined)
                             .map((tweet) => this.cleanTweet(tweet));
 
                         if (tweets.length === 0) {
@@ -1055,7 +1287,7 @@ export class NotificationsService implements OnModuleInit {
                                 }
                                 return user ? this.cleanUser(user) : undefined;
                             })
-                            .filter((user): user is User => user !== undefined);
+                            .filter((user) => user !== undefined);
 
                         if (reposters.length === 0) {
                             return null;
@@ -1128,13 +1360,13 @@ export class NotificationsService implements OnModuleInit {
                             sender: this.cleanUser(sender),
                             message_id: message_notification.message_id,
                             chat_id: message_notification.chat_id,
-                        } as NotificationDto;
+                        } as unknown as NotificationDto;
                     }
                     default:
                         return null;
                 }
             })
-            .filter((notification): notification is NotificationDto => notification !== null);
+            .filter((notification) => notification !== null);
 
         // Deduplicate notifications: merge those with same type, same people, and same tweet
         const deduplicated_notifications = this.deduplicateNotifications(response_notifications);
@@ -1229,16 +1461,20 @@ export class NotificationsService implements OnModuleInit {
 
         // Collect user IDs and tweet IDs from filtered notifications
         const user_ids = new Set<string>();
+        const user_ids_needing_relationships = new Set<string>();
         const tweet_ids = new Set<string>();
+        const tweet_ids_needing_interactions = new Set<string>();
 
         filtered_notifications.forEach((notification: any) => {
             if (notification.type === NotificationType.MENTION) {
                 const mention_notification = notification as MentionNotificationEntity;
                 if (mention_notification.mentioned_by) {
                     user_ids.add(mention_notification.mentioned_by);
+                    user_ids_needing_relationships.add(mention_notification.mentioned_by);
                 }
                 if (mention_notification.tweet_id) {
                     tweet_ids.add(mention_notification.tweet_id);
+                    tweet_ids_needing_interactions.add(mention_notification.tweet_id);
                 }
                 if (mention_notification.parent_tweet_id) {
                     tweet_ids.add(mention_notification.parent_tweet_id);
@@ -1247,9 +1483,11 @@ export class NotificationsService implements OnModuleInit {
                 const reply_notification = notification as ReplyNotificationEntity;
                 if (reply_notification.replied_by) {
                     user_ids.add(reply_notification.replied_by);
+                    user_ids_needing_relationships.add(reply_notification.replied_by);
                 }
                 if (reply_notification.reply_tweet_id) {
                     tweet_ids.add(reply_notification.reply_tweet_id);
+                    tweet_ids_needing_interactions.add(reply_notification.reply_tweet_id);
                 }
                 if (reply_notification.original_tweet_id) {
                     tweet_ids.add(reply_notification.original_tweet_id);
@@ -1257,13 +1495,45 @@ export class NotificationsService implements OnModuleInit {
             }
         });
 
+        const tweet_ids_array = Array.from(tweet_ids);
+        const ids_needing_interactions = tweet_ids_array.filter((id) =>
+            tweet_ids_needing_interactions.has(id)
+        );
+        const ids_not_needing_interactions = tweet_ids_array.filter(
+            (id) => !tweet_ids_needing_interactions.has(id)
+        );
+
+        const user_ids_array = Array.from(user_ids);
+        const user_ids_needing_rel_array = user_ids_array.filter((id) =>
+            user_ids_needing_relationships.has(id)
+        );
+        const user_ids_not_needing_rel_array = user_ids_array.filter(
+            (id) => !user_ids_needing_relationships.has(id)
+        );
+
         // Fetch all required data in parallel
-        const [users, tweets] = await Promise.all([
-            user_ids.size > 0 ? this.getUsersWithRelationships(Array.from(user_ids), user_id) : [],
-            tweet_ids.size > 0
-                ? this.getTweetsWithInteractions(Array.from(tweet_ids), user_id)
+        const [
+            users_with_rel,
+            users_without_rel,
+            tweets_with_interactions,
+            tweets_without_interactions,
+        ] = await Promise.all([
+            user_ids_needing_rel_array.length > 0
+                ? this.getUsersWithRelationships(user_ids_needing_rel_array, user_id, true)
+                : [],
+            user_ids_not_needing_rel_array.length > 0
+                ? this.getUsersWithRelationships(user_ids_not_needing_rel_array, user_id, false)
+                : [],
+            ids_needing_interactions.length > 0
+                ? this.getTweetsWithInteractions(ids_needing_interactions, user_id, true)
+                : [],
+            ids_not_needing_interactions.length > 0
+                ? this.getTweetsWithInteractions(ids_not_needing_interactions, user_id, false)
                 : [],
         ]);
+
+        const users = [...users_with_rel, ...users_without_rel];
+        const tweets = [...tweets_with_interactions, ...tweets_without_interactions];
 
         const user_map = new Map<string, User>(
             users.map((user) => [user.id, user] as [string, User])
@@ -1277,6 +1547,7 @@ export class NotificationsService implements OnModuleInit {
         // Process filtered notifications
         const response_notifications: NotificationDto[] = filtered_notifications
             .map((notification: any) => {
+                if (!notification._id) return null;
                 if (notification.type === NotificationType.MENTION) {
                     const mention_notification = notification as MentionNotificationEntity;
                     const mentioner = user_map.get(mention_notification.mentioned_by);
@@ -1340,11 +1611,11 @@ export class NotificationsService implements OnModuleInit {
                         reply_tweet: reply_tweet ? this.enrichTweetWithStatus(reply_tweet) : null,
                         original_tweet: this.cleanTweet(original_tweet),
                         conversation_id: reply_notification.conversation_id,
-                    } as NotificationDto;
+                    } as unknown as NotificationDto;
                 }
                 return null;
             })
-            .filter((notification): notification is NotificationDto => notification !== null);
+            .filter((notification) => notification !== null);
 
         // Clean up notifications with missing tweets
         if (missing_tweet_ids.size > 0) {
@@ -2104,6 +2375,10 @@ export class NotificationsService implements OnModuleInit {
         }
 
         // Fetch all data in parallel
+        const should_fetch_tweet_user =
+            notification.type !== NotificationType.LIKE &&
+            notification.type !== NotificationType.REPOST;
+
         const [users, tweets] = await Promise.all([
             user_ids.size > 0
                 ? this.user_repository.find({
@@ -2114,6 +2389,7 @@ export class NotificationsService implements OnModuleInit {
             tweet_ids.size > 0
                 ? this.tweet_repository.find({
                       where: { tweet_id: In(Array.from(tweet_ids)) },
+                      relations: should_fetch_tweet_user ? ['user'] : [],
                   })
                 : [],
         ]);
@@ -2142,9 +2418,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!user) {
                             missing_user_ids.add(id);
                         }
-                        return user;
+                        return user ? this.cleanUser(user) : undefined;
                     })
-                    .filter((user): user is User => user !== undefined);
+                    .filter((user) => user !== undefined);
 
                 // Clean up missing user IDs if any
                 if (missing_user_ids.size > 0) {
@@ -2173,9 +2449,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!tweet) {
                             missing_tweet_ids.add(id);
                         }
-                        return tweet;
+                        return tweet ? this.cleanTweet(tweet) : undefined;
                     })
-                    .filter((tweet): tweet is Tweet => tweet !== undefined);
+                    .filter((tweet) => tweet !== undefined);
 
                 const liked_by_ids = Array.isArray(like_notification.liked_by)
                     ? like_notification.liked_by
@@ -2187,9 +2463,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!user) {
                             missing_user_ids.add(id);
                         }
-                        return user;
+                        return user ? this.cleanUser(user) : undefined;
                     })
-                    .filter((user): user is User => user !== undefined);
+                    .filter((user) => user !== undefined);
 
                 // Clean up missing tweet IDs if any
                 if (missing_tweet_ids.size > 0) {
@@ -2227,9 +2503,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!tweet) {
                             missing_tweet_ids.add(id);
                         }
-                        return tweet;
+                        return tweet ? this.cleanTweet(tweet) : undefined;
                     })
-                    .filter((tweet): tweet is Tweet => tweet !== undefined);
+                    .filter((tweet) => tweet !== undefined);
 
                 const reposted_by_ids = Array.isArray(repost_notification.reposted_by)
                     ? repost_notification.reposted_by
@@ -2241,9 +2517,9 @@ export class NotificationsService implements OnModuleInit {
                         if (!user) {
                             missing_user_ids.add(id);
                         }
-                        return user;
+                        return user ? this.cleanUser(user) : undefined;
                     })
-                    .filter((user): user is User => user !== undefined);
+                    .filter((user) => user !== undefined);
 
                 // Clean up missing tweet IDs if any
                 if (missing_tweet_ids.size > 0) {
