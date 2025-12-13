@@ -37,7 +37,6 @@ export class FCMService {
                 sound: 'default',
                 title: notification?.title,
                 body: notification?.body,
-                subtitle: notification?.body,
                 data: data,
             };
 
@@ -91,10 +90,11 @@ export class FCMService {
         payload: any
     ): Promise<boolean> {
         try {
-            const user = await this.user_repository.findOne({
-                where: { id: user_id },
-                select: ['fcm_token'],
-            });
+            const user = await this.user_repository
+                .createQueryBuilder('user')
+                .where('user.id = :id', { id: user_id })
+                .select(['user.fcm_token'])
+                .getOne();
 
             if (!user?.fcm_token) {
                 this.logger.warn(`No FCM token found for user ${user_id}`);
@@ -126,16 +126,23 @@ export class FCMService {
         switch (type) {
             case NotificationType.FOLLOW:
                 return {
-                    title: 'yapper',
+                    title: 'Yapper',
                     body: `@${payload.follower_username || 'Someone'} followed you!`,
                     data: { user_id: payload.follower_id },
                 };
-            case NotificationType.MENTION:
+            case NotificationType.MENTION: {
+                let content = payload.tweet?.content;
+                const mentions = payload.tweet?.mentions;
+                if (content && mentions)
+                    mentions.forEach((mention, index) => {
+                        content = content.replace(`\u200B$(${index})\u200C`, `@${mention}`);
+                    });
                 return {
                     title: `Mentioned by ${payload.mentioned_by?.name || 'Someone'}:`,
-                    body: payload.tweet?.content || 'You were mentioned in a post',
+                    body: content || 'You were mentioned in a post',
                     data: { tweet_id: payload.tweet?.id || payload.tweet?.tweet_id },
                 };
+            }
             case NotificationType.REPLY:
                 return {
                     title: `${payload.replier?.name || 'Someone'} replied:`,
@@ -144,7 +151,7 @@ export class FCMService {
                 };
             case NotificationType.QUOTE:
                 return {
-                    title: 'yapper',
+                    title: 'Yapper',
                     body: `@${payload.quoted_by?.username || 'Someone'} quoted your post${
                         payload.quote?.content ? ` and said: ${payload.quote.content}` : ''
                     }`,
@@ -181,7 +188,7 @@ export class FCMService {
                 };
             default:
                 return {
-                    title: 'yapper',
+                    title: 'Yapper',
                     body: 'You have a new notification',
                     data: {},
                 };
