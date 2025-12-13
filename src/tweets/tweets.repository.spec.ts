@@ -165,8 +165,6 @@ describe('TweetsRepository', () => {
             (q) => q
         );
         jest.spyOn(repository as any, 'attachRepostInfo').mockImplementation((q) => q);
-        jest.spyOn(repository as any, 'attachRepliedTweetQuery').mockImplementation((q) => q);
-        jest.spyOn(repository as any, 'attachQuotedTweetQuery').mockImplementation((q) => q);
         jest.spyOn(repository as any, 'attachUserFollowFlags').mockImplementation(
             (tweets) => tweets
         );
@@ -830,21 +828,6 @@ describe('TweetsRepository', () => {
             await expect(repository.getFollowingTweets('user123')).rejects.toThrow(
                 'Database connection failed'
             );
-        });
-    });
-
-    describe('Helper Methods - attachQuotedTweetQuery', () => {
-        beforeEach(() => {
-            jest.spyOn(repository as any, 'attachQuotedTweetQuery').mockRestore();
-        });
-
-        it('should attach quoted tweet query', () => {
-            const query = MOCK_QUERY_BUILDER as any;
-
-            const result = (repository as any).attachQuotedTweetQuery(query);
-
-            expect(result).toBe(query);
-            expect(query.addSelect).toHaveBeenCalled();
         });
     });
 
