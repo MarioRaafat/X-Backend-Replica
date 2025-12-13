@@ -380,6 +380,8 @@ export class TweetsService {
             if (tweet_to_update.user_id !== user_id)
                 throw new BadRequestException('User is not allowed to update this tweet');
 
+            await query_runner.manager.delete(TweetSummary, { tweet_id });
+
             const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
             await query_runner.commitTransaction();
             // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');

@@ -21,7 +21,7 @@ export class ExploreService {
         private readonly who_to_follow_service: WhoToFollowService
     ) {}
 
-    private readonly DEFAULT_CATEGORIES = [21, 20, 3, 4, 5];
+    private readonly DEFAULT_CATEGORIES = [2, 3, 5, 4, 15];
 
     async getExploreData(current_user_id?: string) {
         // This method would fetch all explore data in one go
@@ -119,12 +119,23 @@ export class ExploreService {
         console.log('Time taken to fetch user interests:', time_after - time_before, 'ms');
 
         const categories = user_interests.map((interest) => interest.category);
-        if (categories.length === 0) {
-            // If no user interests, use default categories
-            const default_cats = await this.category_repository.find({
-                where: { id: In(this.DEFAULT_CATEGORIES) },
-            });
-            categories.push(...default_cats);
+
+        if (categories.length < 5) {
+            // Fill remaining slots with default categories
+            const existing_ids = categories.map((cat) => cat.id);
+            const needed = 5 - categories.length;
+            const qb = this.category_repository
+                .createQueryBuilder('c')
+                .where('c.id IN (:...ids)', { ids: this.DEFAULT_CATEGORIES })
+                .orderBy('c.id', 'ASC')
+                .limit(needed);
+
+            if (existing_ids.length > 0) {
+                qb.andWhere('c.id NOT IN (:...existing_ids)', { existing_ids });
+            }
+
+            const filler_cats = await qb.getMany();
+            categories.push(...filler_cats);
         }
         const keys = categories.map((cat) => `explore:category:${cat.id}`);
         const results = await this.redis_service.zrevrangeMultiple(keys, 0, 4);
