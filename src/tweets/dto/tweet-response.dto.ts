@@ -169,7 +169,7 @@ export class TweetResponseDTO {
     is_reposted?: boolean = false;
 
     @Expose()
-    @Transform(({ obj }) => !!obj.current_user_bookmark)
+    @Transform(({ obj }) => !!obj.current_user_bookmark || obj.is_bookmarked)
     @ApiProperty({
         description: 'Whether the current user has bookmarked this tweet',
         example: false,
