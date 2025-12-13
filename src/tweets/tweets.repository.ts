@@ -621,6 +621,11 @@ export class TweetsRepository extends Repository<Tweet> {
             WHERE tweet_reposts.tweet_id = ${alias}.tweet_id 
             AND tweet_reposts.user_id = :current_user_id
         ),
+        'is_bookmarked', EXISTS(
+            SELECT 1 FROM tweet_bookmarks 
+            WHERE tweet_bookmarks.tweet_id = ${alias}.tweet_id 
+            AND tweet_bookmarks.user_id = :current_user_id
+        ),
         'is_following', EXISTS(
             SELECT 1 FROM user_follows 
             WHERE user_follows.follower_id = :current_user_id 
@@ -733,6 +738,11 @@ export class TweetsRepository extends Repository<Tweet> {
             SELECT 1 FROM tweet_reposts 
             WHERE tweet_reposts.tweet_id = ${alias}.tweet_id 
             AND tweet_reposts.user_id = :current_user_id
+        ),
+        'is_bookmarked', EXISTS(
+            SELECT 1 FROM tweet_bookmarks 
+            WHERE tweet_bookmarks.tweet_id = ${alias}.tweet_id 
+            AND tweet_bookmarks.user_id = :current_user_id
         ),
         'is_following', EXISTS(
             SELECT 1 FROM user_follows 
@@ -882,6 +892,11 @@ export class TweetsRepository extends Repository<Tweet> {
             WHERE tweet_reposts.tweet_id = ${alias}.tweet_id 
             AND tweet_reposts.user_id = :current_user_id
         ),
+        'is_bookmarked', EXISTS(
+            SELECT 1 FROM tweet_bookmarks 
+            WHERE tweet_bookmarks.tweet_id = ${alias}.tweet_id 
+            AND tweet_bookmarks.user_id = :current_user_id
+        ),
         'is_following', EXISTS(
             SELECT 1 FROM user_follows 
             WHERE user_follows.follower_id = :current_user_id 
@@ -1000,6 +1015,14 @@ export class TweetsRepository extends Repository<Tweet> {
                     AND tweet_reposts.user_id = :current_user_id
                 )`,
                     'is_reposted'
+                )
+                .addSelect(
+                    `EXISTS(
+                    SELECT 1 FROM tweet_bookmarks 
+                    WHERE tweet_bookmarks.tweet_id = ${tweet_id_column} 
+                    AND tweet_bookmarks.user_id = :current_user_id
+                )`,
+                    'is_bookmarked'
                 )
                 .addSelect(
                     `EXISTS(
