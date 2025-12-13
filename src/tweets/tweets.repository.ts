@@ -169,6 +169,7 @@ export class TweetsRepository extends Repository<Tweet> {
                     'ranked.created_at AS created_at',
                     'ranked.updated_at AS updated_at',
                     'ranked.reposted_by_name AS reposted_by_name',
+                    'ranked.reposted_by_username AS reposted_by_usernname',
                     'ranked.parent_id AS parent_id',
                     'ranked.conversation_id AS conversation_id',
                     'ranked.group_id AS group_id',
@@ -268,6 +269,8 @@ export class TweetsRepository extends Repository<Tweet> {
             query = this.attachQuotedTweetQuery(query);
 
             query = this.attachRepostInfo(query, 'tweet');
+
+            query = this.attachRepliedTweetQuery(query, user_id);
 
             query = this.attachUserInteractionBooleanFlags(
                 query,
@@ -600,6 +603,7 @@ export class TweetsRepository extends Repository<Tweet> {
             'repost_id', ${table_alias}.repost_id,
             'id', ${table_alias}.profile_user_id,
             'name', ${table_alias}.reposted_by_name,
+            'username', ${table_alias}.reposted_by_username,
             'reposted_at', ${table_alias}.post_date
         ) ELSE NULL END AS reposted_by`);
         return query;

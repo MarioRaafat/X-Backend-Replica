@@ -38,6 +38,7 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             u.verified,
             u.bio,
             NULL::text AS reposted_by_name,
+            NULL::text AS reposted_by_username,
             COALESCE(tq.original_tweet_id, trep.original_tweet_id) AS parent_id,
             trep.conversation_id AS conversation_id
         FROM tweets t
@@ -77,6 +78,7 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             u.verified,
             u.bio,
             reposter.name AS reposted_by_name,
+            reposter.username AS reposted_by_username,
             COALESCE(tq.original_tweet_id, trep.original_tweet_id) AS parent_id,
             trep.conversation_id AS conversation_id
 
@@ -175,6 +177,9 @@ export class UserPostsView {
 
     @ViewColumn()
     reposted_by_name: string | null;
+
+    @ViewColumn()
+    reposted_by_username: string | null;
 
     @ViewColumn()
     parent_id: string | null;
