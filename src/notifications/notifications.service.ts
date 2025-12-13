@@ -86,6 +86,8 @@ export class NotificationsService implements OnModuleInit {
 
             const enriched_payload = { ...payload };
 
+            let is_blocked = false;
+
             if (
                 notification_data.type === NotificationType.REPLY ||
                 notification_data.type === NotificationType.MENTION ||
@@ -163,6 +165,9 @@ export class NotificationsService implements OnModuleInit {
 
                 if (actor) {
                     const enriched_user = this.enrichUserWithStatus(actor);
+                    if (enriched_user.is_blocked) {
+                        is_blocked = true;
+                    }
                     if (notification_data.type === NotificationType.REPLY) {
                         enriched_payload.replier = enriched_user;
                     } else if (notification_data.type === NotificationType.MENTION) {
@@ -257,14 +262,14 @@ export class NotificationsService implements OnModuleInit {
 
             const is_online = this.messagesGateway.isOnline(user_id);
 
-            if (is_online) {
+            if (is_online && !is_blocked) {
                 enriched_payload.created_at = new Date();
                 this.notificationsGateway.sendToUser(notification_data.type, user_id, {
                     ...enriched_payload,
                     id: notification_data._id.toString(),
                     action: 'add',
                 });
-            } else {
+            } else if (!is_blocked) {
                 await this.fcmService.sendNotificationToUserDevice(
                     user_id,
                     notification_data.type,
@@ -1393,8 +1398,19 @@ export class NotificationsService implements OnModuleInit {
         const skip = (page - 1) * page_size;
         const paginated_notifications = deduplicated_notifications.slice(skip, skip + page_size);
 
+        const filtered_paginated_notifications = paginated_notifications.filter((notification) => {
+            if (notification.type === NotificationType.REPLY) {
+                return !(notification as any).replier?.is_blocked;
+            } else if (notification.type === NotificationType.MENTION) {
+                return !(notification as any).mentioner?.is_blocked;
+            } else if (notification.type === NotificationType.QUOTE) {
+                return !(notification as any).quoter?.is_blocked;
+            }
+            return true;
+        });
+
         return {
-            notifications: paginated_notifications,
+            notifications: filtered_paginated_notifications,
             page,
             page_size,
             total,
@@ -1631,8 +1647,17 @@ export class NotificationsService implements OnModuleInit {
         const skip = (page - 1) * page_size;
         const paginated_notifications = response_notifications.slice(skip, skip + page_size);
 
+        const filtered_paginated_notifications = paginated_notifications.filter((notification) => {
+            if (notification.type === NotificationType.REPLY) {
+                return !(notification as any).replier?.is_blocked;
+            } else if (notification.type === NotificationType.MENTION) {
+                return !(notification as any).mentioner?.is_blocked;
+            }
+            return true;
+        });
+
         return {
-            notifications: paginated_notifications,
+            notifications: filtered_paginated_notifications,
             page,
             page_size,
             total,
