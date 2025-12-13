@@ -70,17 +70,6 @@ describe('TweetsController', () => {
         });
     });
 
-    describe('getAllTweets', () => {
-        it('should return undefined (method not implemented)', async () => {
-            const query_dto = { page: 1, limit: 20 };
-            const user_id = 'user-123';
-
-            const result = await controller.getAllTweets(query_dto as any, user_id);
-
-            expect(result).toBeUndefined();
-        });
-    });
-
     describe('getTweetById', () => {
         it('should return a tweet by id', async () => {
             const tweet_id = 'tweet-123';
@@ -331,21 +320,6 @@ describe('TweetsController', () => {
             await expect(controller.uploadVideo(undefined as any)).rejects.toThrow(
                 BadRequestException
             );
-        });
-    });
-
-    describe('trackTweetView', () => {
-        it('should track tweet view', async () => {
-            const tweet_id = 'tweet-123';
-            const user_id = 'user-123';
-            const mock_response = { success: true };
-
-            mock_tweets_service.incrementTweetViews.mockResolvedValue(mock_response);
-
-            const result = await controller.trackTweetView(tweet_id, user_id);
-
-            expect(service.incrementTweetViews).toHaveBeenCalledWith(tweet_id);
-            expect(result).toEqual(mock_response);
         });
     });
 

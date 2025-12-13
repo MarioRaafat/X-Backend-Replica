@@ -3,7 +3,7 @@ import { BackgroundJobsService } from '../background-jobs';
 import { QUEUE_NAMES } from '../constants/queue.constants';
 import { Injectable, Logger } from '@nestjs/common';
 import type { Queue } from 'bull';
-import { JOB_NAMES, JOB_PRIORITIES, JOB_DELAYS } from '../constants/queue.constants';
+import { JOB_DELAYS, JOB_NAMES, JOB_PRIORITIES } from '../constants/queue.constants';
 import { GenerateTweetSummaryDto } from './ai-summary.dto';
 
 @Injectable()
@@ -25,13 +25,13 @@ export class AiSummaryJobService extends BackgroundJobsService<GenerateTweetSumm
         return `tweet-summary:${dto.tweet_id}`;
     }
 
-    // Override queueJob to customize cleanup for fixed jobId
+    // Override queueJob to customize cleanup for fixed job_id
     async queueGenerateSummary(dto: GenerateTweetSummaryDto) {
         try {
-            const jobId = this.getJobId(dto);
+            const job_id = this.getJobId(dto);
 
             const job = await this.queue.add(this.job_name, dto, {
-                jobId,
+                jobId: job_id,
                 priority: JOB_PRIORITIES.MEDIUM,
                 delay: JOB_DELAYS.IMMEDIATE,
                 attempts: 3,

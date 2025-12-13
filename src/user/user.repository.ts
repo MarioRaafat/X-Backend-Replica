@@ -24,7 +24,7 @@ export class UserRepository extends Repository<User> {
     }
 
     async findByEmail(email: string): Promise<User | null> {
-        return await this.findOne({ where: { email } });
+        return await this.findOne({ where: { email: email } });
     }
 
     async findByGithubId(github_id: string): Promise<User | null> {

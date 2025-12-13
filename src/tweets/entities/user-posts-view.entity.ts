@@ -6,6 +6,7 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
 
 @ViewEntity({
     name: 'user_posts_view',
+    materialized: false,
     expression: `
         SELECT 
             t.tweet_id::text AS id,
@@ -13,7 +14,7 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.user_id AS tweet_author_id,
             t.tweet_id,
             NULL::uuid AS repost_id,
-            'tweet' AS post_type,
+            t.type::text AS post_type,
             t.created_at AS post_date,
             t.type::text AS type,
             t.content,
@@ -24,6 +25,8 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_views,
             t.num_quotes,
             t.num_replies,
+            t.num_bookmarks,
+            t.mentions,
             t.created_at,
             t.updated_at,
             u.username,
@@ -61,6 +64,8 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_views,
             t.num_quotes,
             t.num_replies,
+            t.num_bookmarks,
+            t.mentions,
             t.created_at,
             t.updated_at,
             u.username,
@@ -131,6 +136,12 @@ export class UserPostsView {
 
     @ViewColumn()
     num_replies: number;
+
+    @ViewColumn()
+    num_bookmarks: number;
+
+    @ViewColumn()
+    mentions: string[];
 
     @ViewColumn()
     created_at: Date;

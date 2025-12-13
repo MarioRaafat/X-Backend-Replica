@@ -1,4 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import { IsArray, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 import { LARGE_MAX_LENGTH, POST_CONTENT_LENGTH } from 'src/constants/variables';
 
@@ -8,6 +9,7 @@ export class CreateTweetDTO {
         example: 'This is my first tweet!',
         maxLength: POST_CONTENT_LENGTH,
     })
+    // @Transform(({ value }) => value.trim().replace(/@([a-zA-Z0-9_]+)/g, ''))
     @IsString()
     @MaxLength(POST_CONTENT_LENGTH)
     content: string;
