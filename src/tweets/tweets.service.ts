@@ -109,6 +109,20 @@ export class TweetsService {
         apiKey: process.env.GROQ_API_KEY ?? '',
     });
 
+    private async incrementTweetViewsAsync(tweet_ids: string[]): Promise<void> {
+        if (!tweet_ids.length) return;
+
+        try {
+            // Call PostgreSQL function to increment views in batch
+            await this.data_source.query('SELECT increment_tweet_views_batch($1::uuid[])', [
+                tweet_ids,
+            ]);
+        } catch (error) {
+            // Log error but don't fail the request
+            console.error('Failed to increment tweet views:', error);
+        }
+    }
+
     /**
      * Handles image upload processing
      * @param file - The uploaded image file (in memory, not saved to disk)
@@ -951,6 +965,10 @@ export class TweetsService {
 
         const tweets = await query.getMany();
 
+        // Increment views for reply tweets
+        const tweet_ids = tweets.map((t) => t.tweet_id).filter(Boolean);
+        this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
         const tweets_dto = plainToInstance(TweetResponseDTO, tweets, {
             excludeExtraneousValues: true,
         });
@@ -1195,6 +1213,10 @@ export class TweetsService {
 
         const quotes = await query.getMany();
 
+        // Increment views for quote tweets
+        const tweet_ids = quotes.map((q) => q.quote_tweet?.tweet_id).filter(Boolean);
+        this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
         // Map to DTOs
         const quote_dtos = quotes.map((quote) => {
             const quote_temp = plainToInstance(TweetQuoteResponseDTO, quote.quote_tweet, {
@@ -1346,6 +1368,9 @@ export class TweetsService {
             const tweet = await query.getOne();
             if (!tweet) throw new NotFoundException('Tweet not found');
 
+            // Increment view count asynchronously
+            this.incrementTweetViewsAsync([tweet_id]).catch(() => {});
+
             // Transform current tweet to DTO
             const tweet_dto = plainToInstance(TweetResponseDTO, tweet, {
                 excludeExtraneousValues: true,
@@ -1384,6 +1409,10 @@ export class TweetsService {
             if (!reply_chain || reply_chain.length === 0) {
                 throw new NotFoundException('Tweet not found');
             }
+
+            // Increment views for all tweets in the reply chain
+            const tweet_ids = reply_chain.map((t) => t.tweet_id).filter(Boolean);
+            this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
 
             // Build nested structure from deepest parent to starting tweet
             let parent_tweet_dto: TweetResponseDTO | null = null;

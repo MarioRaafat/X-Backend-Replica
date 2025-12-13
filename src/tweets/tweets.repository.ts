@@ -41,6 +41,20 @@ export class TweetsRepository extends Repository<Tweet> {
         super(Tweet, data_source.createEntityManager());
     }
 
+    private async incrementTweetViewsAsync(tweet_ids: string[]): Promise<void> {
+        if (!tweet_ids.length) return;
+
+        try {
+            // Call PostgreSQL function to increment views in batch
+            await this.data_source.query('SELECT increment_tweet_views_batch($1::uuid[])', [
+                tweet_ids,
+            ]);
+        } catch (error) {
+            // Log error but don't fail the request
+            console.error('Failed to increment tweet views:', error);
+        }
+    }
+
     async getTweetsByIds(
         tweet_ids: string[],
         current_user_id?: string
@@ -57,6 +71,9 @@ export class TweetsRepository extends Repository<Tweet> {
         query = this.attachUserTweetInteractionFlags(query, current_user_id, 'tweet');
 
         const tweets = await query.getMany();
+
+        // Increment views asynchronously (don't await)
+        this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
 
         console.log(tweets);
 
@@ -197,6 +214,10 @@ export class TweetsRepository extends Repository<Tweet> {
 
             let tweets = await query.getRawMany();
 
+            // Increment views for fetched tweets
+            const tweet_ids = tweets.map((t) => t.tweet_id).filter(Boolean);
+            this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
             tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((tweet) =>
@@ -262,6 +283,11 @@ export class TweetsRepository extends Repository<Tweet> {
             );
 
             let tweets = await query.getRawMany();
+
+            // Increment views for fetched posts
+            const tweet_ids = tweets.map((t) => t.tweet_id).filter(Boolean);
+            this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
             tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
@@ -330,6 +356,11 @@ export class TweetsRepository extends Repository<Tweet> {
             );
 
             let tweets = await query.getRawMany();
+
+            // Increment views for fetched replies
+            const tweet_ids = tweets.map((t) => t.tweet_id).filter(Boolean);
+            this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
             tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
@@ -401,6 +432,11 @@ export class TweetsRepository extends Repository<Tweet> {
             );
 
             let tweets = await query.getRawMany();
+
+            // Increment views for fetched media
+            const tweet_ids = tweets.map((t) => t.tweet_id).filter(Boolean);
+            this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
             tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
@@ -477,6 +513,11 @@ export class TweetsRepository extends Repository<Tweet> {
             );
 
             let tweets = await query.getRawMany();
+
+            // Increment views for liked posts
+            const tweet_ids = tweets.map((t) => t.tweet_id).filter(Boolean);
+            this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
             tweets = this.attachUserFollowFlags(tweets);
 
             const tweet_dtos = tweets.map((reply) =>
