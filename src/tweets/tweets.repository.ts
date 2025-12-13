@@ -17,8 +17,8 @@ import { UserPostsView } from './entities/user-posts-view.entity';
 import { TweetCategory } from './entities/tweet-category.entity';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
 import {
-    getPostsByUserIdAlyaaQuery,
-    getPostsByUserIdAlyaaQueryWithoutView,
+    getPostsByUserIdProfileQuery,
+    getPostsByUserIdProfileQueryWithoutView,
 } from './queries/get-posts-profile-view.query';
 
 @Injectable()
@@ -257,7 +257,7 @@ export class TweetsRepository extends Repository<Tweet> {
         try {
             let query = this.user_posts_view_repository.createQueryBuilder('tweet');
 
-            query = getPostsByUserIdAlyaaQuery(query, user_id);
+            query = getPostsByUserIdProfileQuery(query, user_id);
 
             query = query
                 .andWhere('tweet.type != :type', { type: 'reply' })
@@ -266,6 +266,8 @@ export class TweetsRepository extends Repository<Tweet> {
                 .limit(limit);
 
             query = this.attachQuotedTweetQuery(query);
+
+            query = this.attachRepostInfo(query, 'tweet');
 
             query = this.attachUserInteractionBooleanFlags(
                 query,
@@ -330,7 +332,7 @@ export class TweetsRepository extends Repository<Tweet> {
         try {
             let query = this.user_posts_view_repository.createQueryBuilder('tweet');
 
-            query = getPostsByUserIdAlyaaQuery(query, user_id);
+            query = getPostsByUserIdProfileQuery(query, user_id);
 
             query = query
                 .andWhere('tweet.type = :type', { type: 'reply' })
@@ -403,7 +405,7 @@ export class TweetsRepository extends Repository<Tweet> {
         try {
             let query = this.user_posts_view_repository.createQueryBuilder('tweet');
 
-            query = getPostsByUserIdAlyaaQuery(query, user_id);
+            query = getPostsByUserIdProfileQuery(query, user_id);
 
             query = query
                 .andWhere(
@@ -485,7 +487,7 @@ export class TweetsRepository extends Repository<Tweet> {
                     { user_id }
                 );
 
-            query = getPostsByUserIdAlyaaQueryWithoutView(query, user_id);
+            query = getPostsByUserIdProfileQueryWithoutView(query, user_id);
 
             query = query
                 .where('tweet.type != :type', { type: 'repost' })
@@ -1084,7 +1086,7 @@ export class TweetsRepository extends Repository<Tweet> {
         return query;
     }
 
-    /**************************** Alyaa ****************************/
+    /**************************** Profile ****************************/
 
     /**
      * Fetches a reply tweet along with its entire parent chain using a single recursive query.
