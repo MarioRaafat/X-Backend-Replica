@@ -25,10 +25,10 @@ export class FakeTrendService {
     ) {}
 
     // Every 20 minutes
-    @Cron('*/20 * * * *', {
-        name: 'fake-trends-job',
-        timeZone: 'UTC',
-    })
+    // @Cron('*/20 * * * *', {
+    //     name: 'fake-trends-job',
+    //     timeZone: 'UTC',
+    // })
     async fakeTrends(): Promise<void> {
         try {
             const trend_bot = await this.insertTrendBotIfNotExists();
