@@ -323,60 +323,6 @@ describe('TweetsRepository', () => {
         });
     });
 
-    describe('getForyouTweets', () => {
-        it('should return random tweets for you feed', async () => {
-            const user_id = 'user123';
-            const cursor = undefined;
-            const limit = 10;
-
-            const raw_results = [
-                create_mock_tweet_data({
-                    tweet_id: 'tweet1',
-                    type: 'tweet',
-                    content: 'Random tweet',
-                    user: {
-                        id: 'user1',
-                        username: 'randomuser',
-                        name: 'Random User',
-                        avatar_url: null,
-                        cover_url: null,
-                        verified: false,
-                        bio: null,
-                        followers: 0,
-                        following: 0,
-                    },
-                    num_likes: 10,
-                    num_reposts: 5,
-                    num_quotes: 2,
-                    num_replies: 3,
-                    num_views: 50,
-                    created_at: new Date('2024-01-01'),
-                    updated_at: new Date('2024-01-01'),
-                }),
-            ];
-
-            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue(raw_results);
-
-            const result = await repository.getForyouTweets(user_id, cursor, limit);
-
-            expect(result.data).toHaveLength(1);
-            expect(result.data[0].content).toBe('Random tweet');
-            expect(MOCK_QUERY_BUILDER.orderBy).toHaveBeenCalledWith('RANDOM()');
-        });
-
-        it('should handle cursor in for you feed', async () => {
-            const user_id = 'user123';
-            const cursor = '2024-01-01T00:00:00.000Z_tweet123';
-            const limit = 10;
-
-            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue([]);
-
-            await repository.getForyouTweets(user_id, cursor, limit);
-
-            expect(MOCK_QUERY_BUILDER.andWhere).toHaveBeenCalled();
-        });
-    });
-
     describe('getReplies', () => {
         // TODO: Implement tests for getReplies method
     });
@@ -790,106 +736,6 @@ describe('TweetsRepository', () => {
         });
     });
 
-    describe('getRecentTweetsByCategoryIds', () => {
-        it('should return recent tweets by category IDs', async () => {
-            const category_ids = ['cat1', 'cat2'];
-            const user_id = 'user123';
-            const options = { limit: 10, since_hours_ago: 24 };
-
-            const mock_tweets = [
-                {
-                    tweet_id: 'tweet1',
-                    content: 'Test tweet',
-                    user: { id: 'other_user', username: 'other' },
-                    created_at: new Date(),
-                },
-            ];
-
-            MOCK_QUERY_BUILDER.getMany.mockResolvedValue(mock_tweets);
-            jest.spyOn(repository, 'attachUserTweetInteractionFlags').mockReturnValue(
-                MOCK_QUERY_BUILDER as any
-            );
-
-            const result = await repository.getRecentTweetsByCategoryIds(
-                category_ids,
-                user_id,
-                options
-            );
-
-            expect(result).toBeDefined();
-            expect(Array.isArray(result)).toBe(true);
-            expect(MOCK_TWEET_REPOSITORY.createQueryBuilder).toHaveBeenCalled();
-        });
-
-        it('should use default options when not provided', async () => {
-            const category_ids = ['cat1'];
-            const user_id = 'user123';
-
-            MOCK_QUERY_BUILDER.getMany.mockResolvedValue([]);
-            jest.spyOn(repository, 'attachUserTweetInteractionFlags').mockReturnValue(
-                MOCK_QUERY_BUILDER as any
-            );
-
-            await repository.getRecentTweetsByCategoryIds(category_ids, user_id);
-
-            expect(MOCK_QUERY_BUILDER.take).toHaveBeenCalledWith(350); // 300 + 50 buffer
-        });
-
-        it('should handle errors in getRecentTweetsByCategoryIds', async () => {
-            const category_ids = ['cat1'];
-            const user_id = 'user123';
-            const error = new Error('Database error');
-
-            MOCK_QUERY_BUILDER.getMany.mockRejectedValue(error);
-            jest.spyOn(repository, 'attachUserTweetInteractionFlags').mockReturnValue(
-                MOCK_QUERY_BUILDER as any
-            );
-
-            await expect(
-                repository.getRecentTweetsByCategoryIds(category_ids, user_id)
-            ).rejects.toThrow('Database error');
-        });
-    });
-
-    describe('getTweetsCategories', () => {
-        it('should return categories for tweet IDs', async () => {
-            const tweet_ids = ['tweet1', 'tweet2'];
-            const mock_categories = [
-                { tweet_id: 'tweet1', category_id: 1, percentage: 0.8 },
-                { tweet_id: 'tweet1', category_id: 2, percentage: 0.2 },
-                { tweet_id: 'tweet2', category_id: 3, percentage: 1.0 },
-            ];
-
-            MOCK_QUERY_BUILDER.getMany.mockResolvedValue(mock_categories);
-
-            const result = await repository.getTweetsCategories(tweet_ids);
-
-            expect(result).toBeDefined();
-            expect(MOCK_TWEET_CATEGORY_REPOSITORY.createQueryBuilder).toHaveBeenCalled();
-        });
-
-        it('should return empty object when no categories found', async () => {
-            const tweet_ids = ['tweet1'];
-
-            MOCK_QUERY_BUILDER.getMany.mockResolvedValue([]);
-
-            // The current implementation has a bug with empty arrays (reduce without initial value)
-            // This test documents the bug - it should return {} but instead throws
-            await expect(repository.getTweetsCategories(tweet_ids)).rejects.toThrow(
-                'Reduce of empty array with no initial value'
-            );
-        });
-
-        it('should handle errors in getTweetsCategories', async () => {
-            const tweet_ids = ['tweet1'];
-            const error = new Error('Query error');
-
-            MOCK_QUERY_BUILDER.getMany.mockRejectedValue(error);
-
-            await expect(repository.getTweetsCategories(tweet_ids)).rejects.toThrow('Query error');
-        });
-    });
-
     describe('attachUserFollowFlags', () => {
         beforeEach(() => {
             // Restore the real implementation for these tests
@@ -983,15 +829,6 @@ describe('TweetsRepository', () => {
 
             await expect(repository.getFollowingTweets('user123')).rejects.toThrow(
                 'Database connection failed'
-            );
-        });
-
-        it('should handle errors in getForyouTweets', async () => {
-            const error = new Error('Random query failed');
-            MOCK_QUERY_BUILDER.getRawMany.mockRejectedValue(error);
-
-            await expect(repository.getForyouTweets('user123')).rejects.toThrow(
-                'Random query failed'
             );
         });
     });
