@@ -151,7 +151,6 @@ export class FCMService {
                     data: { tweet_id: payload.quote?.id || payload.quote?.tweet_id },
                 };
             case NotificationType.LIKE: {
-                // Handle both array format (likers/tweets) and singular format (liker/tweet)
                 const liker_name = payload.liker?.name || payload.likers?.[0]?.name || 'Someone';
                 const liked_tweet_content =
                     payload.tweet?.content || payload.tweets?.[0]?.content || 'your post';
@@ -164,7 +163,6 @@ export class FCMService {
                 };
             }
             case NotificationType.REPOST: {
-                // Handle both array format (reposters/tweets) and singular format (reposter/tweet)
                 const reposter_name = payload.reposter?.name || 'Someone';
                 const reposted_tweet_content = payload.tweet?.content || 'your post';
                 const reposted_tweet_id =
