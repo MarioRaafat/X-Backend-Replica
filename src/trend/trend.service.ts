@@ -37,11 +37,9 @@ export class TrendService {
             ? category.trim()[0].toUpperCase() + category.trim().slice(1).toLowerCase()
             : null;
 
-        if (category && !normalized_category) {
-            // Invalid category
-            return { data: [] };
-        }
-        const key = category ? `trending:${normalized_category}` : 'trending:global';
+        const valid_category = this.CATEGORIES.includes(normalized_category || '') || null;
+
+        const key = valid_category ? `trending:${normalized_category}` : 'trending:global';
 
         const trending = await this.redis_service.zrevrange(key, 0, limit - 1, 'WITHSCORES');
 
