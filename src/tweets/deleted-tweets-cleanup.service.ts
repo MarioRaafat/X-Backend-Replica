@@ -50,22 +50,22 @@ export class DeletedTweetsCleanupService {
 
             for (const deleted_tweet of deleted_tweets) {
                 // Extract and decrement hashtags
-                if (deleted_tweet.content) {
-                    const hashtag_matches =
-                        deleted_tweet.content.match(/#([\p{L}\p{N}_]+)/gu) || [];
-                    if (hashtag_matches.length > 0) {
-                        const hashtags = hashtag_matches.map((h) => h.slice(1).toLowerCase());
-                        const unique_hashtags = [...new Set(hashtags)];
+                // if (deleted_tweet.content) {
+                //     const hashtag_matches =
+                //         deleted_tweet.content.match(/#([\p{L}\p{N}_]+)/gu) || [];
+                //     if (hashtag_matches.length > 0) {
+                //         const hashtags = hashtag_matches.map((h) => h.slice(1).toLowerCase());
+                //         const unique_hashtags = [...new Set(hashtags)];
 
-                        if (unique_hashtags.length > 0) {
-                            await this.hashtag_repository.decrement(
-                                { name: In(unique_hashtags) },
-                                'usage_count',
-                                1
-                            );
-                        }
-                    }
-                }
+                //         if (unique_hashtags.length > 0) {
+                //             await this.hashtag_repository.decrement(
+                //                 { name: In(unique_hashtags) },
+                //                 'usage_count',
+                //                 1
+                //             );
+                //         }
+                //     }
+                // }
 
                 // Queue Elasticsearch deletion
                 await this.es_delete_tweet_service.queueDeleteTweet({
