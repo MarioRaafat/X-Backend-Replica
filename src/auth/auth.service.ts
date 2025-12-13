@@ -137,11 +137,11 @@ export class AuthService {
         const { name, birth_date, email, captcha_token } = dto;
 
         // Verify CAPTCHA first
-        // try {
-        //     await this.captcha_service.validateCaptcha(captcha_token);
-        // } catch (error) {
-        //     throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
-        // }
+        try {
+            await this.captcha_service.validateCaptcha(captcha_token);
+        } catch (error) {
+            throw new BadRequestException(ERROR_MESSAGES.CAPTCHA_VERIFICATION_FAILED);
+        }
 
         const existing_user = await this.user_repository.findByEmail(email);
         if (existing_user) {

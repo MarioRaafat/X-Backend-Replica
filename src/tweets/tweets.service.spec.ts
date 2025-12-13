@@ -4,6 +4,7 @@ import { TweetsService } from './tweets.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { DataSource, Repository } from 'typeorm';
 import { Tweet } from './entities/tweet.entity';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { TweetLike } from './entities/tweet-like.entity';
 import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
@@ -11,6 +12,7 @@ import { TweetReply } from './entities/tweet-reply.entity';
 import { TweetBookmark } from './entities/tweet-bookmark.entity';
 import { TweetSummary } from './entities/tweet-summary.entity';
 import { UserFollows } from '../user/entities/user-follows.entity';
+import { User } from '../user/entities/user.entity';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
 import { PaginationService } from '../shared/services/pagination/pagination.service';
@@ -182,6 +184,10 @@ describe('TweetsService', () => {
             createQueryRunner: jest.fn(() => mock_query_runner),
         };
 
+        const mock_user_repo = {
+            find: jest.fn().mockResolvedValue([]),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 TweetsService,
@@ -191,6 +197,7 @@ describe('TweetsService', () => {
                 { provide: getRepositoryToken(TweetQuote), useValue: mock_tweet_quote_repo },
                 { provide: getRepositoryToken(TweetReply), useValue: mock_tweet_reply_repo },
                 { provide: getRepositoryToken(TweetBookmark), useValue: mock_tweet_bookmark_repo },
+                { provide: getRepositoryToken(User), useValue: mock_user_repo },
                 { provide: getRepositoryToken(TweetSummary), useValue: mock_tweet_summary_repo },
                 { provide: getRepositoryToken(UserFollows), useValue: mock_user_follows_repo },
                 { provide: getRepositoryToken(UserPostsView), useValue: mock_user_posts_view_repo },
@@ -464,32 +471,30 @@ describe('TweetsService', () => {
         it('should delete the tweet successfully when user is authorized', async () => {
             const mock_tweet_id = 'tweet-123';
             const mock_user_id = 'user-1';
-            const mock_tweet = { tweet_id: mock_tweet_id, user_id: mock_user_id };
-            const mock_delete_result = { affected: 1 };
+            const mock_tweet = {
+                tweet_id: mock_tweet_id,
+                user_id: mock_user_id,
+                type: TweetType.TWEET,
+            };
 
-            const find_one_spy = jest
-                .spyOn(tweet_repo, 'findOne')
-                .mockResolvedValue(mock_tweet as any);
-            const delete_spy = jest
-                .spyOn(tweet_repo, 'delete')
-                .mockResolvedValue(mock_delete_result as any);
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(mock_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
+                affected: 1,
+            } as any);
 
             await expect(
                 tweets_service.deleteTweet(mock_tweet_id, mock_user_id)
             ).resolves.toBeUndefined();
 
-            expect(find_one_spy).toHaveBeenCalledWith({
-                where: { tweet_id: mock_tweet_id },
-                select: ['tweet_id', 'user_id', 'type'],
-            });
-            expect(delete_spy).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+            expect(mock_query_runner.connect).toHaveBeenCalled();
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
         });
 
         it('should throw NotFoundException if tweet not found', async () => {
             const mock_tweet_id = 'missing-tweet';
             const mock_user_id = 'user-1';
 
-            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(null);
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(null);
 
             await expect(tweets_service.deleteTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'Tweet not found'
@@ -499,9 +504,13 @@ describe('TweetsService', () => {
         it('should throw BadRequestException if user not authorized', async () => {
             const mock_tweet_id = 'tweet-123';
             const mock_user_id = 'user-1';
-            const mock_tweet = { tweet_id: mock_tweet_id, user_id: 'different-user' };
+            const mock_tweet = {
+                tweet_id: mock_tweet_id,
+                user_id: 'different-user',
+                type: TweetType.TWEET,
+            };
 
-            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(mock_tweet as any);
 
             await expect(tweets_service.deleteTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'User is not allowed to delete this tweet'
@@ -513,14 +522,13 @@ describe('TweetsService', () => {
             const mock_user_id = 'user-1';
             const db_error = new Error('Database failure');
 
-            jest.spyOn(tweet_repo, 'findOne').mockRejectedValue(db_error);
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockRejectedValue(db_error);
 
             await expect(tweets_service.deleteTweet(mock_tweet_id, mock_user_id)).rejects.toThrow(
                 'Database failure'
             );
         });
 
-        // TODO: Fix these tests - they need proper mocking of private method calls
         it('should delete reply tweet successfully', async () => {
             const mock_tweet_id = 'reply-tweet-123';
             const mock_user_id = 'user-1';
@@ -530,7 +538,7 @@ describe('TweetsService', () => {
             const mock_reply_tweet = {
                 tweet_id: mock_tweet_id,
                 user_id: mock_user_id,
-                type: 'REPLY',
+                type: TweetType.REPLY,
                 content: 'This is a reply',
             };
 
@@ -544,20 +552,20 @@ describe('TweetsService', () => {
                 user_id: mock_parent_user_id,
             };
 
-            tweet_repo.findOne = jest
-                .fn()
+            jest.spyOn(mock_query_runner.manager, 'findOne')
                 .mockResolvedValueOnce(mock_reply_tweet as any)
-                .mockResolvedValueOnce(mock_original_tweet as any)
-                .mockResolvedValueOnce(mock_reply_tweet as any);
-
-            tweet_reply_repo.findOne = jest.fn().mockResolvedValue(mock_tweet_reply as any);
-            tweet_repo.delete = jest.fn().mockResolvedValue({ affected: 1 } as any);
+                .mockResolvedValueOnce(mock_tweet_reply as any)
+                .mockResolvedValueOnce(mock_original_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
+                affected: 1,
+            } as any);
 
             await expect(
                 tweets_service.deleteTweet(mock_tweet_id, mock_user_id)
             ).resolves.not.toThrow();
 
-            expect(tweet_repo.delete).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
         });
 
         it('should delete quote tweet successfully', async () => {
@@ -569,7 +577,7 @@ describe('TweetsService', () => {
             const mock_quote_tweet = {
                 tweet_id: mock_tweet_id,
                 user_id: mock_user_id,
-                type: 'QUOTE',
+                type: TweetType.QUOTE,
                 content: 'This is a quote',
             };
 
@@ -583,20 +591,20 @@ describe('TweetsService', () => {
                 user_id: mock_parent_user_id,
             };
 
-            tweet_repo.findOne = jest
-                .fn()
+            jest.spyOn(mock_query_runner.manager, 'findOne')
                 .mockResolvedValueOnce(mock_quote_tweet as any)
-                .mockResolvedValueOnce(mock_original_tweet as any)
-                .mockResolvedValueOnce(mock_quote_tweet as any);
-
-            tweet_quote_repo.findOne = jest.fn().mockResolvedValue(mock_tweet_quote as any);
-            tweet_repo.delete = jest.fn().mockResolvedValue({ affected: 1 } as any);
+                .mockResolvedValueOnce(mock_tweet_quote as any)
+                .mockResolvedValueOnce(mock_original_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
+                affected: 1,
+            } as any);
 
             await expect(
                 tweets_service.deleteTweet(mock_tweet_id, mock_user_id)
             ).resolves.not.toThrow();
 
-            expect(tweet_repo.delete).toHaveBeenCalledWith({ tweet_id: mock_tweet_id });
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
         });
 
         it('should handle deletion of tweet with mentions', async () => {
@@ -606,24 +614,28 @@ describe('TweetsService', () => {
             const mock_tweet = {
                 tweet_id: mock_tweet_id,
                 user_id: mock_user_id,
-                type: 'TWEET',
+                type: TweetType.TWEET,
                 content: 'Hello @john @jane @alice',
             };
 
-            jest.spyOn(tweet_repo, 'findOne')
-                .mockResolvedValueOnce(mock_tweet as any)
-                .mockResolvedValueOnce(mock_tweet as any);
-            jest.spyOn(tweet_repo, 'delete').mockResolvedValue({ affected: 1 } as any);
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(mock_tweet as any);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
+                affected: 1,
+            } as any);
+            // Mock tweet_repo.findOne for queueMentionDeleteJobs
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
 
             await tweets_service.deleteTweet(mock_tweet_id, mock_user_id);
 
-            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledWith({
-                tweet_id: mock_tweet_id,
-                mentioned_by: mock_user_id,
-                mentioned_usernames: ['john', 'jane', 'alice'],
-                tweet_type: 'tweet',
-                action: 'remove',
-            });
+            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    tweet_id: mock_tweet_id,
+                    mentioned_by: mock_user_id,
+                    mentioned_user_ids: expect.arrayContaining(['@john', '@jane', '@alice']),
+                    tweet_type: 'tweet',
+                    action: 'remove',
+                })
+            );
         });
     });
 
@@ -664,10 +676,6 @@ describe('TweetsService', () => {
             jest.spyOn(tweets_repo, 'getReplyWithParentChain').mockResolvedValue(
                 mock_reply_chain as any
             );
-            jest.spyOn(tweets_repo, 'getReplies').mockResolvedValue({
-                tweets: [],
-                next_cursor: null,
-            } as any);
 
             const result = await tweets_service.getTweetById(mock_tweet_id, mock_user_id);
 
@@ -758,10 +766,6 @@ describe('TweetsService', () => {
             jest.spyOn(tweets_repo, 'getReplyWithParentChain').mockResolvedValue(
                 mock_reply_chain as any
             );
-            jest.spyOn(tweets_repo, 'getReplies').mockResolvedValue({
-                tweets: [],
-                next_cursor: null,
-            } as any);
 
             const result = await tweets_service.getTweetById(mock_tweet_id, mock_user_id);
 
@@ -1742,14 +1746,22 @@ describe('TweetsService', () => {
             const mock_user_id = 'user-1';
             const mock_tweet = { tweet_id: mock_tweet_id };
             const mock_query_dto = { limit: 20, cursor: undefined };
-            const mock_result = {
-                tweets: [],
-                next_cursor: null,
-            };
 
             jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
-            jest.spyOn(tweets_service['tweets_repository'], 'getReplies').mockResolvedValue(
-                mock_result as any
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                innerJoin: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([]),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
             );
 
             const result = await tweets_service.getTweetReplies(
@@ -1758,8 +1770,11 @@ describe('TweetsService', () => {
                 mock_query_dto
             );
 
+            expect(result).toBeDefined();
             expect(result.data).toBeDefined();
-            expect(result.next_cursor).toBeDefined();
+            expect(Array.isArray(result.data)).toBe(true);
+            expect(result.count).toBeDefined();
+            expect(result.has_more).toBeDefined();
         });
 
         it('should throw NotFoundException when tweet does not exist', async () => {
@@ -2221,6 +2236,12 @@ describe('TweetsService', () => {
                     News: 100,
                 });
 
+            // Mock the user repository find to return user data
+            const user_repo = (tweets_service as any).user_repository;
+            jest.spyOn(user_repo, 'find').mockResolvedValue([
+                { username: 'user1', id: 'user-id-1' } as any,
+            ]);
+
             const result = await (tweets_service as any).extractDataFromTweets(
                 mock_tweet,
                 mock_user_id,
@@ -2229,7 +2250,10 @@ describe('TweetsService', () => {
 
             expect(mention_spy).toHaveBeenCalled();
             expect(topics_spy).toHaveBeenCalled();
-            expect(result).toEqual(['@user1']);
+            expect(result).toEqual({
+                mentioned_user_ids: ['user-id-1'],
+                mentioned_usernames: ['user1'],
+            });
         });
 
         it('should return early when content is empty', async () => {
@@ -2240,13 +2264,16 @@ describe('TweetsService', () => {
 
             const spy = jest.spyOn(tweets_service as any, 'mentionNotification');
 
-            await (tweets_service as any).extractDataFromTweets(
+            const result = await (tweets_service as any).extractDataFromTweets(
                 mock_tweet,
                 mock_user_id,
                 mock_query_runner
             );
 
-            expect(spy).not.toHaveBeenCalled();
+            expect(result).toEqual({
+                mentioned_user_ids: [],
+                mentioned_usernames: [],
+            });
         });
     });
 

@@ -78,7 +78,7 @@ export const EXPLORE_CONFIG = {
     DEFAULT_SINCE_HOURS: 1,
     DEFAULT_BATCH_SIZE: 500,
     MIN_SCORE_THRESHOLD: 0.001,
-    MAX_CATEGORY_SIZE: 20,
+    MAX_CATEGORY_SIZE: 50,
 } as const;
 
 export const EXPLORE_CRON_SCHEDULE = '30 * * * *'; // Every hour at minute 30
