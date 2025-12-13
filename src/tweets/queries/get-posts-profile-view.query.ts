@@ -1,6 +1,6 @@
 import { SelectQueryBuilder } from 'typeorm';
 
-export function getPostsByUserIdAlyaaQuery(
+export function getPostsByUserIdProfileQuery(
     query: SelectQueryBuilder<any>,
     user_id: string
 ): SelectQueryBuilder<any> {
@@ -40,7 +40,7 @@ export function getPostsByUserIdAlyaaQuery(
         .where('tweet.profile_user_id = :user_id', { user_id });
 }
 
-export function getPostsByUserIdAlyaaQueryWithoutView(
+export function getPostsByUserIdProfileQueryWithoutView(
     query: SelectQueryBuilder<any>,
     user_id: string
 ): SelectQueryBuilder<any> {
