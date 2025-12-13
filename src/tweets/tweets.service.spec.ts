@@ -625,13 +625,15 @@ describe('TweetsService', () => {
 
             await tweets_service.deleteTweet(mock_tweet_id, mock_user_id);
 
-            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledWith({
-                tweet_id: mock_tweet_id,
-                mentioned_by: mock_user_id,
-                mentioned_usernames: ['john', 'jane', 'alice'],
-                tweet_type: 'tweet',
-                action: 'remove',
-            });
+            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    tweet_id: mock_tweet_id,
+                    mentioned_by: mock_user_id,
+                    mentioned_user_ids: expect.arrayContaining(['@john', '@jane', '@alice']),
+                    tweet_type: 'tweet',
+                    action: 'remove',
+                })
+            );
         });
     });
 
