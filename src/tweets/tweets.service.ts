@@ -368,6 +368,7 @@ export class TweetsService {
 
             const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
             await query_runner.commitTransaction();
+            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: updated_tweet.tweet_id,
@@ -412,8 +413,8 @@ export class TweetsService {
             await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id, query_runner);
 
             await query_runner.manager.delete(Tweet, { tweet_id });
-
             await query_runner.commitTransaction();
+            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             await this.es_delete_tweet_service.queueDeleteTweet({
                 tweet_id,
@@ -668,6 +669,7 @@ export class TweetsService {
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
+            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: saved_quote_tweet.tweet_id,
@@ -726,6 +728,7 @@ export class TweetsService {
             await query_runner.manager.insert(TweetRepost, new_repost);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
+            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             if (tweet.user_id !== user_id)
                 this.repost_job_service.queueRepostNotification({
@@ -782,11 +785,12 @@ export class TweetsService {
                 action: 'remove',
             });
 
-            await this.es_index_tweet_service.queueIndexTweet({
+            await this.es_delete_tweet_service.queueDeleteTweet({
                 tweet_id: tweet_id,
             });
 
             await query_runner.commitTransaction();
+            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
         } catch (error) {
             await query_runner.rollbackTransaction();
             console.error(error);
@@ -849,6 +853,7 @@ export class TweetsService {
             );
 
             await query_runner.commitTransaction();
+            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             if (user_id !== original_tweet.user_id)
                 this.reply_job_service.queueReplyNotification({
@@ -1231,26 +1236,12 @@ export class TweetsService {
                 });
 
                 if (reply_info?.original_tweet_id) {
-                    // Decrement reply count on all parent tweets up to conversation root
-                    await query_runner.query(
-                        `
-                        WITH RECURSIVE parent_chain AS (
-                            -- Start with the parent of the tweet being deleted
-                            SELECT $1::uuid as tweet_id
-                            
-                            UNION
-                            
-                            -- Recursively find all ancestor tweets
-                            SELECT tr.original_tweet_id
-                            FROM tweet_replies tr
-                            INNER JOIN parent_chain pc ON tr.reply_tweet_id = pc.tweet_id
-                            WHERE tr.original_tweet_id IS NOT NULL
-                        )
-                        UPDATE tweets
-                        SET num_replies = GREATEST(num_replies - 1, 0)
-                        WHERE tweet_id IN (SELECT tweet_id FROM parent_chain)
-                        `,
-                        [reply_info.original_tweet_id]
+                    // Decrement reply count only on the direct parent tweet
+                    await query_runner.manager.decrement(
+                        Tweet,
+                        { tweet_id: reply_info.original_tweet_id },
+                        'num_replies',
+                        1
                     );
 
                     const original_tweet = await query_runner.manager.findOne(Tweet, {

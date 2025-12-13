@@ -15,6 +15,7 @@ import { TweetSummary } from './entities/tweet-summary.entity';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 import { User } from 'src/user/entities';
+import { DeletedTweetsCleanupService, DeletedTweetsLog } from './deleted-tweets-cleanup.service';
 
 @Module({
     imports: [
@@ -31,6 +32,7 @@ import { User } from 'src/user/entities';
             TweetCategory,
             TweetSummary,
             User,
+            DeletedTweetsLog,
         ]),
         BackgroundJobsModule,
     ],
@@ -41,6 +43,7 @@ import { User } from 'src/user/entities';
         PaginationService,
         AzureStorageService,
         HashtagJobService,
+        DeletedTweetsCleanupService,
     ],
     exports: [TweetsService, TweetsRepository],
 })
