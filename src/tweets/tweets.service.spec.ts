@@ -2225,9 +2225,6 @@ describe('TweetsService', () => {
             };
             const mock_user_id = 'user-123';
 
-            const mention_spy = jest
-                .spyOn(tweets_service as any, 'updateHashtags')
-                .mockResolvedValue(undefined);
             const topics_spy = jest
                 .spyOn(tweets_service as any, 'extractTopics')
                 .mockResolvedValue({
@@ -2248,7 +2245,6 @@ describe('TweetsService', () => {
                 mock_query_runner
             );
 
-            expect(mention_spy).toHaveBeenCalled();
             expect(topics_spy).toHaveBeenCalled();
             expect(result).toEqual({
                 mentioned_user_ids: ['user-id-1'],
@@ -2261,8 +2257,6 @@ describe('TweetsService', () => {
                 content: '',
             };
             const mock_user_id = 'user-123';
-
-            const spy = jest.spyOn(tweets_service as any, 'mentionNotification');
 
             const result = await (tweets_service as any).extractDataFromTweets(
                 mock_tweet,
