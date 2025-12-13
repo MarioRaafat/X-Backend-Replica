@@ -6,8 +6,10 @@ import {
     Entity,
     JoinColumn,
     ManyToOne,
+    OneToMany,
     PrimaryColumn,
 } from 'typeorm';
+import { TweetHashtag } from './tweet-hashtag.entity';
 
 @Entity('hashtag')
 export class Hashtag {
@@ -23,4 +25,7 @@ export class Hashtag {
     // I guess we won't need this but just in case
     @DeleteDateColumn({ type: 'timestamptz' })
     deleted_at: Date;
+
+    @OneToMany(() => TweetHashtag, (tweet_hashtag) => tweet_hashtag.hashtag)
+    tweet_hashtags: TweetHashtag[];
 }

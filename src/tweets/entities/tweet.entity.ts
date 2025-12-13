@@ -17,6 +17,7 @@ import { TweetQuote } from './tweet-quote.entity';
 import { TweetRepost } from './tweet-repost.entity';
 import { TweetReply } from './tweet-reply.entity';
 import { TweetBookmark } from './tweet-bookmark.entity';
+import { TweetHashtag } from './tweet-hashtag.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';
 import { TweetType } from '../../shared/enums/tweet-types.enum';
 import { TweetSummary } from './tweet-summary.entity';
@@ -100,6 +101,9 @@ export class Tweet {
 
     @OneToOne(() => TweetSummary, (summary) => summary.tweet, { onDelete: 'CASCADE' })
     summary: TweetSummary;
+
+    @OneToMany(() => TweetHashtag, (tweet_hashtag) => tweet_hashtag.tweet)
+    tweet_hashtags: TweetHashtag[];
 
     // Virtual fields for current user interactions (loaded via leftJoinAndMapOne in queries)
     current_user_like?: TweetLike | null;
