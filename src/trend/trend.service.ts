@@ -54,23 +54,29 @@ export class TrendService {
             hashtag_names.push(trending[i]);
         }
 
-        const normalized_hashtags = hashtag_names.map((hashtag) => {
-            return hashtag.toLowerCase();
-        });
+        // const normalized_hashtags = hashtag_names.map((hashtag) => {
+        //     return hashtag.toLowerCase();
+        // });
 
         const hashtags = await this.hashtag_repository.find({
-            where: { name: In(normalized_hashtags) },
+            where: { name: In(hashtag_names) },
             select: ['name', 'usage_count'],
         });
 
-        const hashtag_categories = await this.getHashtagCategories(hashtag_names);
+        const existing_hashtag_names = new Set(hashtags.map((h) => h.name));
 
-        const trends: HashtagResponseDto[] = result.map((item, index) => {
-            const hashtag_data = hashtags.find((h) => h.name === item.hashtag.toLowerCase());
+        // Filter out hashtags that don't exist in the database
+        const filtered_result = result.filter((item) => existing_hashtag_names.has(item.hashtag));
+        const filtered_hashtag_names = filtered_result.map((item) => item.hashtag);
+
+        const hashtag_categories = await this.getHashtagCategories(filtered_hashtag_names);
+
+        const trends: HashtagResponseDto[] = filtered_result.map((item, index) => {
+            const hashtag_data = hashtags.find((h) => h.name === item.hashtag);
 
             return {
                 text: '#' + item.hashtag,
-                posts_count: hashtag_data ? hashtag_data.usage_count : 0,
+                posts_count: hashtag_data!.usage_count,
                 trend_rank: index + 1,
                 category: hashtag_categories[item.hashtag] || this.GENERAL_CATEGORY,
                 reference_id: item.hashtag.toLowerCase(),
