@@ -38,9 +38,16 @@ describe('FCMService', () => {
         (Expo as unknown as jest.Mock).mockImplementation(() => mock_expo_instance);
         (Expo.isExpoPushToken as unknown as jest.Mock) = jest.fn().mockReturnValue(true);
 
+        const mock_query_builder = {
+            where: jest.fn().mockReturnThis(),
+            select: jest.fn().mockReturnThis(),
+            getOne: jest.fn().mockResolvedValue(mock_user),
+        };
+
         mock_user_repository = {
             findOne: jest.fn().mockResolvedValue(mock_user),
             update: jest.fn().mockResolvedValue({ affected: 1 }),
+            createQueryBuilder: jest.fn().mockReturnValue(mock_query_builder),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -87,7 +94,6 @@ describe('FCMService', () => {
                     sound: 'default',
                     title: notification.title,
                     body: notification.body,
-                    subtitle: notification.body,
                     data: data,
                 },
             ]);
@@ -227,10 +233,7 @@ describe('FCMService', () => {
                 payload
             );
 
-            expect(mock_user_repository.findOne).toHaveBeenCalledWith({
-                where: { id: 'user-123' },
-                select: ['fcm_token'],
-            });
+            expect(mock_user_repository.createQueryBuilder).toHaveBeenCalledWith('user');
 
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith([
                 {
@@ -238,7 +241,6 @@ describe('FCMService', () => {
                     sound: 'default',
                     title: 'Liked by John Doe',
                     body: 'Tweet content',
-                    subtitle: 'Tweet content',
                     data: {
                         tweet_id: 'tweet-123',
                     },
@@ -306,7 +308,7 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        title: 'yapper',
+                        title: 'Yapper',
                         body: '@alice quoted your post and said: Quote content',
                     }),
                 ])
@@ -373,7 +375,7 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        title: 'yapper',
+                        title: 'Yapper',
                         body: '@emma followed you!',
                     }),
                 ])
@@ -404,7 +406,12 @@ describe('FCMService', () => {
         });
 
         it('should return false and warn if user has no FCM token', async () => {
-            mock_user_repository.findOne.mockResolvedValue({ id: 'user-123', fcm_token: null });
+            const mock_query_builder = {
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue({ id: 'user-123', fcm_token: null }),
+            };
+            mock_user_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
 
             const logger_spy = jest.spyOn(service['logger'], 'warn');
 
@@ -420,7 +427,12 @@ describe('FCMService', () => {
         });
 
         it('should return false and warn if user not found', async () => {
-            mock_user_repository.findOne.mockResolvedValue(null);
+            const mock_query_builder = {
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(null),
+            };
+            mock_user_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
 
             const logger_spy = jest.spyOn(service['logger'], 'warn');
 
