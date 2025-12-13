@@ -308,7 +308,7 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        title: 'yapper',
+                        title: 'Yapper',
                         body: '@alice quoted your post and said: Quote content',
                     }),
                 ])
@@ -375,7 +375,7 @@ describe('FCMService', () => {
             expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
                 expect.arrayContaining([
                     expect.objectContaining({
-                        title: 'yapper',
+                        title: 'Yapper',
                         body: '@emma followed you!',
                     }),
                 ])
