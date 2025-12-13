@@ -63,6 +63,9 @@ export class Tweet {
     @Column({ name: 'num_bookmarks', type: 'int', default: 0 })
     num_bookmarks: number;
 
+    @Column({ name: 'mentions', array: true, type: 'text', default: () => "'{}'" })
+    mentions: string[];
+
     @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 

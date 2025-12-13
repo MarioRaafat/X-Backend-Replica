@@ -20,17 +20,17 @@ export class TimelineService {
             pagination.limit
         );
     }
-    async getForyouTimeline(
-        user_id: string,
-        pagination: TimelinePaginationDto
-    ): Promise<{
-        data: TweetResponseDTO[];
-        pagination: { next_cursor: string | null; has_more: boolean };
-    }> {
-        return await this.tweet_repository.getForyouTweets(
-            user_id,
-            pagination.cursor,
-            pagination.limit
-        );
-    }
+    // async getForyouTimeline(
+    //     user_id: string,
+    //     pagination: TimelinePaginationDto
+    // ): Promise<{
+    //     data: TweetResponseDTO[];
+    //     pagination: { next_cursor: string | null; has_more: boolean };
+    // }> {
+    //     return await this.tweet_repository.getForyouTweets(
+    //         user_id,
+    //         pagination.cursor,
+    //         pagination.limit
+    //     );
+    // }
 }

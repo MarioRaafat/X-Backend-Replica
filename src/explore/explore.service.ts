@@ -4,9 +4,9 @@ import { In, Repository } from 'typeorm';
 import { RedisService } from '../redis/redis.service';
 import { Category } from '../category/entities/category.entity';
 import { TweetsService } from '../tweets/tweets.service';
-import { UserRepository } from '../user/user.repository';
 import { UserInterests } from 'src/user/entities/user-interests.entity';
 import { TrendService } from '../trend/trend.service';
+import { WhoToFollowService } from './who-to-follow.service';
 
 @Injectable()
 export class ExploreService {
@@ -16,12 +16,12 @@ export class ExploreService {
         private readonly category_repository: Repository<Category>,
         @InjectRepository(UserInterests)
         private readonly user_interests_repository: Repository<UserInterests>,
-        private readonly user_repository: UserRepository,
         private readonly tweets_service: TweetsService,
-        private readonly trend_service: TrendService
+        private readonly trend_service: TrendService,
+        private readonly who_to_follow_service: WhoToFollowService
     ) {}
 
-    private readonly DEFAULT_CATEGORIES = [21, 20, 3, 4, 5];
+    private readonly DEFAULT_CATEGORIES = [2, 3, 5, 4, 15];
 
     async getExploreData(current_user_id?: string) {
         // This method would fetch all explore data in one go
@@ -29,7 +29,7 @@ export class ExploreService {
 
         const [trending, who_to_follow, for_you] = await Promise.all([
             this.trend_service.getTrending('global', 5),
-            this.getWhoToFollow(current_user_id, 3),
+            this.who_to_follow_service.getWhoToFollow(current_user_id, 30),
             this.getForYouPosts(current_user_id),
         ]);
 
@@ -41,54 +41,7 @@ export class ExploreService {
     }
 
     async getWhoToFollow(current_user_id?: string, limit: number = 30) {
-        const query = this.user_repository
-            .createQueryBuilder('user')
-            .select([
-                'user.id',
-                'user.username',
-                'user.name',
-                'user.bio',
-                'user.avatar_url',
-                'user.verified',
-                'user.followers',
-                'user.following',
-            ])
-            .orderBy('RANDOM()')
-            .limit(limit);
-
-        if (current_user_id) {
-            query
-                .addSelect(
-                    `EXISTS(
-                        SELECT 1 FROM user_follows uf
-                        WHERE uf.follower_id = :current_user_id AND uf.followed_id = "user"."id"
-                    )`,
-                    'is_following'
-                )
-                .addSelect(
-                    `EXISTS(
-                        SELECT 1 FROM user_follows uf
-                        WHERE uf.follower_id = "user"."id" AND uf.followed_id = :current_user_id
-                    )`,
-                    'is_followed'
-                )
-                .setParameter('current_user_id', current_user_id);
-        }
-
-        const users = await query.getRawMany();
-
-        return users.map((user) => ({
-            id: user.user_id,
-            username: user.user_username,
-            name: user.user_name,
-            bio: user.user_bio || '',
-            avatar_url: user.user_avatar_url || '',
-            verified: user.user_verified || false,
-            followers: user.user_followers || 0,
-            following: user.user_following || 0,
-            is_following: user.is_following || false,
-            is_followed: user.is_followed || false,
-        }));
+        return this.who_to_follow_service.getWhoToFollow(current_user_id, limit);
     }
 
     async getCategoryTrending(
@@ -166,12 +119,23 @@ export class ExploreService {
         console.log('Time taken to fetch user interests:', time_after - time_before, 'ms');
 
         const categories = user_interests.map((interest) => interest.category);
-        if (categories.length === 0) {
-            // If no user interests, use default categories
-            const default_cats = await this.category_repository.find({
-                where: { id: In(this.DEFAULT_CATEGORIES) },
-            });
-            categories.push(...default_cats);
+
+        if (categories.length < 5) {
+            // Fill remaining slots with default categories
+            const existing_ids = categories.map((cat) => cat.id);
+            const needed = 5 - categories.length;
+            const qb = this.category_repository
+                .createQueryBuilder('c')
+                .where('c.id IN (:...ids)', { ids: this.DEFAULT_CATEGORIES })
+                .orderBy('c.id', 'ASC')
+                .limit(needed);
+
+            if (existing_ids.length > 0) {
+                qb.andWhere('c.id NOT IN (:...existing_ids)', { existing_ids });
+            }
+
+            const filler_cats = await qb.getMany();
+            categories.push(...filler_cats);
         }
         const keys = categories.map((cat) => `explore:category:${cat.id}`);
         const results = await this.redis_service.zrevrangeMultiple(keys, 0, 4);

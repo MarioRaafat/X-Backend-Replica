@@ -57,6 +57,7 @@ export class TimelineController {
             pagination.limit
         );
     }
+
     @ApiImplementationStatus({
         status: ImplementationStatus.IMPLEMENTED,
         summary: timeline_swagger.following.operation.summary,

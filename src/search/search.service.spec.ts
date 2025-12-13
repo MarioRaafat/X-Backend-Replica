@@ -147,7 +147,10 @@ describe('SearchService', () => {
                 hits: {
                     hits: [
                         {
-                            _source: { content: 'Check out #technology' },
+                            _source: {
+                                content: 'Check out #technology',
+                                hashtags: ['#technology'],
+                            },
                             highlight: { content: ['Check out #<MARK>tech</MARK>nology'] },
                         },
                     ],

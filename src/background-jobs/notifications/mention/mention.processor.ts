@@ -31,7 +31,7 @@ export class MentionProcessor {
     async handleSendMentionNotification(job: Job<MentionBackGroundNotificationJobDTO>) {
         try {
             const {
-                mentioned_usernames,
+                mentioned_user_ids,
                 mentioned_by,
                 tweet_id,
                 tweet,
@@ -42,33 +42,27 @@ export class MentionProcessor {
 
             if (action === 'remove') {
                 // For remove action, we need usernames to find user IDs
-                if (!mentioned_usernames || mentioned_usernames.length === 0 || !tweet_id) return;
-
-                // Fetch user IDs from usernames
-                const users = await this.user_repository.find({
-                    where: mentioned_usernames.map((username) => ({ username })),
-                    select: ['id'],
-                });
+                if (!mentioned_user_ids || mentioned_user_ids.length === 0 || !tweet_id) return;
 
                 // Queue removal for each mentioned user
-                for (const user of users) {
-                    if (user.id === mentioned_by) continue;
+                for (const user_id of mentioned_user_ids) {
+                    if (user_id === mentioned_by) continue;
 
-                    const was_deleted = await this.notifications_service.removeMentionNotification(
-                        user.id,
-                        tweet_id,
-                        mentioned_by
-                    );
+                    const notification_id =
+                        await this.notifications_service.removeMentionNotification(
+                            user_id,
+                            tweet_id,
+                            mentioned_by
+                        );
 
-                    if (was_deleted) {
+                    if (notification_id) {
                         this.notifications_service.sendNotificationOnly(
                             NotificationType.MENTION,
-                            user.id,
+                            user_id,
                             {
-                                type: NotificationType.MENTION,
-                                tweet_id,
-                                mentioned_by,
-                                action,
+                                id: notification_id,
+                                ...job.data,
+                                action: 'remove',
                             }
                         );
                     }
@@ -80,19 +74,13 @@ export class MentionProcessor {
                 }
 
                 // For add action with usernames (batch processing)
-                else if (mentioned_usernames && mentioned_usernames.length > 0) {
-                    // Fetch user IDs from usernames
-                    const users = await this.user_repository.find({
-                        where: mentioned_usernames.map((username) => ({ username })),
-                        select: ['id'],
-                    });
-
+                else if (mentioned_user_ids && mentioned_user_ids.length > 0) {
                     // Process mention for each user
-                    for (const user of users) {
-                        if (user.id === mentioned_by) continue;
+                    for (const user_id of mentioned_user_ids) {
+                        if (user_id === mentioned_by) continue;
 
                         await this.processMentionForUser(
-                            user.id,
+                            user_id,
                             mentioned_by,
                             tweet,
                             parent_tweet,

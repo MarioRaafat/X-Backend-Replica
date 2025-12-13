@@ -4,6 +4,13 @@ import { UserResponseDTO } from 'src/tweets/dto';
 
 export class MessageNotificationDto {
     @ApiProperty({
+        description: 'Notification ID',
+        example: '507f1f77bcf86cd799439011',
+        type: String,
+    })
+    id: string;
+
+    @ApiProperty({
         example: NotificationType.MESSAGE,
         enum: [NotificationType.MESSAGE],
         description: 'Type of notification',
