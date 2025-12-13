@@ -31,6 +31,7 @@ import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
 import { TweetBookmark } from './entities/tweet-bookmark.entity';
+import { TweetHashtag } from './entities/tweet-hashtag.entity';
 import { Hashtag } from './entities/hashtags.entity';
 import { UserFollows } from '../user/entities/user-follows.entity';
 import { User } from '../user/entities/user.entity';
@@ -307,6 +308,11 @@ export class TweetsService {
                 ...tweet,
             });
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
+
+            // Extract normalized hashtags to insert into tweet_hashtags table
+            const { content } = tweet;
+            await this.insertTweetHashtags(content, saved_tweet.tweet_id, user_id, query_runner);
+
             await query_runner.commitTransaction();
 
             await this.es_index_tweet_service.queueIndexTweet({
@@ -649,6 +655,14 @@ export class TweetsService {
 
             await query_runner.manager.save(TweetQuote, tweet_quote);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1);
+
+            const { content } = quote;
+            await this.insertTweetHashtags(
+                content,
+                saved_quote_tweet.tweet_id,
+                user_id,
+                query_runner
+            );
             await query_runner.commitTransaction();
 
             await this.es_index_tweet_service.queueIndexTweet({
@@ -825,6 +839,14 @@ export class TweetsService {
                 { tweet_id: original_tweet_id },
                 'num_replies',
                 1
+            );
+            // Extract normalized hashtags to insert into tweet_hashtags table
+            const { content } = reply_dto;
+            await this.insertTweetHashtags(
+                content,
+                saved_reply_tweet.tweet_id,
+                user_id,
+                query_runner
             );
 
             await query_runner.commitTransaction();
@@ -1338,7 +1360,7 @@ export class TweetsService {
             return hashtag.toLowerCase();
         });
 
-        await this.updateHashtags([...new Set(normalized_hashtags)], user_id, query_runner);
+        // await this.updateHashtags([...new Set(normalized_hashtags)], user_id, query_runner);
 
         // Extract topics using Groq AI or use predefined topics
         if (!skip_extract_topics) {
@@ -1492,7 +1514,8 @@ export class TweetsService {
     private async updateHashtags(
         names: string[],
         user_id: string,
-        query_runner: QueryRunner
+        query_runner: QueryRunner,
+        tweet_id?: string
     ): Promise<void> {
         if (names.length === 0) return;
 
@@ -1502,6 +1525,19 @@ export class TweetsService {
             upsertType: 'on-conflict-do-update',
         });
         await query_runner.manager.increment(Hashtag, { name: In(names) }, 'usage_count', 1);
+
+        // Insert hashtag-tweet associations if tweet_id is provided
+        if (tweet_id) {
+            const tweet_hashtags = names.map((hashtag_name) => ({
+                tweet_id,
+                hashtag_name,
+            }));
+
+            await query_runner.manager.insert(TweetHashtag, tweet_hashtags);
+            console.log(
+                `Inserted ${tweet_hashtags.length} hashtag associations for tweet ${tweet_id}`
+            );
+        }
     }
 
     async getTweetReplies(
@@ -1670,6 +1706,11 @@ export class TweetsService {
             });
 
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
+
+            // Extract and insert hashtags into tweet_hashtags table
+
+            await this.insertTweetHashtags(content, saved_tweet.tweet_id, user_id, query_runner);
+
             await query_runner.commitTransaction();
 
             await this.es_index_tweet_service.queueIndexTweet({
@@ -1728,6 +1769,22 @@ export class TweetsService {
         } catch (error) {
             console.error('Error deleting tweets by user:', error);
             throw error;
+        }
+    }
+
+    async insertTweetHashtags(
+        content: string,
+        tweet_id: string,
+        user_id: string,
+        query_runner: QueryRunner
+    ): Promise<void> {
+        if (content) {
+            const hashtags = extractHashtags(content) || [];
+            const unique_hashtags = [...new Set(hashtags)];
+            // const normalized_hashtags = unique_hashtags.map((h) => h.toLowerCase());
+            if (unique_hashtags.length > 0) {
+                await this.updateHashtags(unique_hashtags, user_id, query_runner, tweet_id);
+            }
         }
     }
 }
