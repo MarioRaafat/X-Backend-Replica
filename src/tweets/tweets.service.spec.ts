@@ -622,6 +622,8 @@ describe('TweetsService', () => {
             jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
                 affected: 1,
             } as any);
+            // Mock tweet_repo.findOne for queueMentionDeleteJobs
+            jest.spyOn(tweet_repo, 'findOne').mockResolvedValue(mock_tweet as any);
 
             await tweets_service.deleteTweet(mock_tweet_id, mock_user_id);
 
