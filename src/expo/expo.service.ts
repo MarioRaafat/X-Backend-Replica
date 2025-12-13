@@ -128,7 +128,7 @@ export class FCMService {
                 return {
                     title: 'Yapper',
                     body: `@${payload.follower_username || 'Someone'} followed you!`,
-                    data: { user_id: payload.follower_id },
+                    data: { user_id: payload.follower_id, type: 'user' },
                 };
             case NotificationType.MENTION: {
                 let content = payload.tweet?.content;
@@ -140,14 +140,22 @@ export class FCMService {
                 return {
                     title: `Mentioned by ${payload.mentioned_by?.name || 'Someone'}:`,
                     body: content || 'You were mentioned in a post',
-                    data: { tweet_id: payload.tweet?.id || payload.tweet?.tweet_id },
+                    data: {
+                        tweet_id: payload.tweet?.id || payload.tweet?.tweet_id,
+                        user_id: payload.mentioned_by?.id,
+                        type: 'tweet',
+                    },
                 };
             }
             case NotificationType.REPLY:
                 return {
                     title: `${payload.replier?.name || 'Someone'} replied:`,
                     body: payload.reply_tweet?.content || 'replied to your post',
-                    data: { tweet_id: payload.reply_tweet?.id || payload.reply_tweet?.tweet_id },
+                    data: {
+                        tweet_id: payload.reply_tweet?.id || payload.reply_tweet?.tweet_id,
+                        user_id: payload.replier?.id,
+                        type: 'tweet',
+                    },
                 };
             case NotificationType.QUOTE:
                 return {
@@ -155,7 +163,11 @@ export class FCMService {
                     body: `@${payload.quoted_by?.username || 'Someone'} quoted your post${
                         payload.quote?.content ? ` and said: ${payload.quote.content}` : ''
                     }`,
-                    data: { tweet_id: payload.quote?.id || payload.quote?.tweet_id },
+                    data: {
+                        tweet_id: payload.quote?.id || payload.quote?.tweet_id,
+                        user_id: payload.quoted_by?.id,
+                        type: 'tweet',
+                    },
                 };
             case NotificationType.LIKE: {
                 const liker_name = payload.liker?.name || payload.likers?.[0]?.name || 'Someone';
@@ -166,7 +178,7 @@ export class FCMService {
                 return {
                     title: `Liked by ${liker_name}`,
                     body: liked_tweet_content,
-                    data: { tweet_id: liked_tweet_id },
+                    data: { tweet_id: liked_tweet_id, user_id: payload.liker?.id, type: 'tweet' },
                 };
             }
             case NotificationType.REPOST: {
@@ -177,14 +189,18 @@ export class FCMService {
                 return {
                     title: `Reposted by ${reposter_name}:`,
                     body: reposted_tweet_content,
-                    data: { tweet_id: reposted_tweet_id },
+                    data: {
+                        tweet_id: reposted_tweet_id,
+                        user_id: payload.reposter?.id,
+                        type: 'tweet',
+                    },
                 };
             }
             case NotificationType.MESSAGE:
                 return {
                     title: payload.sender?.name || 'New Message',
                     body: payload.content || 'You have a new message',
-                    data: { chat_id: payload.chat_id },
+                    data: { chat_id: payload.chat_id, type: 'chat' },
                 };
             default:
                 return {

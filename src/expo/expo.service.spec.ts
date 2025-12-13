@@ -243,6 +243,8 @@ describe('FCMService', () => {
                     body: 'Tweet content',
                     data: {
                         tweet_id: 'tweet-123',
+                        type: 'tweet',
+                        user_id: undefined,
                     },
                 },
             ]);
@@ -499,6 +501,8 @@ describe('FCMService', () => {
                     expect.objectContaining({
                         data: {
                             tweet_id: 'tweet-123',
+                            type: 'tweet',
+                            user_id: undefined,
                         },
                     }),
                 ])
