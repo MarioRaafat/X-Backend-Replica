@@ -708,9 +708,13 @@ export class TweetsService {
                     action: 'add',
                 });
 
+            const mentioned_user_ids_without_original_author = mentioned_user_ids.filter(
+                (mentioned_user_id) => mentioned_user_id !== parent_tweet.user.id
+            );
+
             // Send mention notifications for quote tweet
             await this.mentionNotification(
-                mentioned_user_ids,
+                mentioned_user_ids_without_original_author,
                 user_id,
                 saved_quote_tweet,
                 'add',
