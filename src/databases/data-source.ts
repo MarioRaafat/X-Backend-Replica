@@ -23,6 +23,7 @@ import { Chat } from '../chat/entities/chat.entity';
 import { Message } from '../messages/entities/message.entity';
 import { MessageReaction } from '../messages/entities/message-reaction.entity';
 import { readFileSync } from 'fs';
+import { TweetHashtag } from '../tweets/entities/tweet-hashtag.entity';
 
 config({ path: resolve(__dirname, '../../config/.env') });
 
@@ -76,6 +77,7 @@ const base_config: any = {
         Message,
         MessageReaction,
         TweetSummary,
+        TweetHashtag,
     ],
 
     migrations: [__dirname + '/../migrations/*{.ts,.js}'],

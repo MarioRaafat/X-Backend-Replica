@@ -91,9 +91,6 @@ export class User {
     @Column({ name: 'fcm_token', type: 'varchar', unique: true, nullable: true, select: false })
     fcm_token?: string | null;
 
-    @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
-    hashtags: Hashtag[];
-
     @OneToMany(() => Tweet, (tweet) => tweet.user, {})
     tweets: Tweet[];
 

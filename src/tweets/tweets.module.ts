@@ -5,6 +5,7 @@ import { TweetsService } from './tweets.service';
 import { TweetsRepository } from './tweets.repository';
 import { Tweet, TweetLike, TweetQuote, TweetReply, TweetRepost } from './entities';
 import { TweetBookmark } from './entities/tweet-bookmark.entity';
+import { TweetHashtag } from './entities/tweet-hashtag.entity';
 import { Hashtag } from './entities/hashtags.entity';
 import { UserFollows } from 'src/user/entities/user-follows.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
@@ -26,6 +27,7 @@ import { DeletedTweetsCleanupService, DeletedTweetsLog } from './deleted-tweets-
             TweetQuote,
             TweetReply,
             TweetBookmark,
+            TweetHashtag,
             Hashtag,
             UserFollows,
             UserPostsView,
