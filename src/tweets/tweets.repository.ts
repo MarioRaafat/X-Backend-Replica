@@ -266,11 +266,10 @@ export class TweetsRepository extends Repository<Tweet> {
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
-            query = this.attachQuotedTweetQuery(query);
+            query = this.attachParentTweetQuery(query, current_user_id, 'tweet');
+            query = this.attachConversationTweetQuery(query, current_user_id, 'tweet');
 
             query = this.attachRepostInfo(query, 'tweet');
-
-            query = this.attachRepliedTweetQuery(query, user_id);
 
             query = this.attachUserInteractionBooleanFlags(
                 query,
@@ -350,7 +349,8 @@ export class TweetsRepository extends Repository<Tweet> {
                 'tweet.tweet_id'
             );
 
-            query = this.attachRepliedTweetQuery(query, current_user_id);
+            query = this.attachParentTweetQuery(query, current_user_id, 'tweet');
+            query = this.attachConversationTweetQuery(query, current_user_id, 'tweet');
 
             query = this.paginate_service.applyCursorPagination(
                 query,
@@ -426,7 +426,8 @@ export class TweetsRepository extends Repository<Tweet> {
                 'tweet.tweet_id'
             );
 
-            query = this.attachRepliedTweetQuery(query, current_user_id);
+            query = this.attachParentTweetQuery(query, current_user_id, 'tweet');
+            query = this.attachConversationTweetQuery(query, current_user_id, 'tweet');
 
             query = this.paginate_service.applyCursorPagination(
                 query,
@@ -498,7 +499,8 @@ export class TweetsRepository extends Repository<Tweet> {
                 .addOrderBy('tweet.tweet_id', 'DESC')
                 .limit(limit);
 
-            query = this.attachQuotedTweetQuery(query);
+            query = this.attachParentTweetQuery(query, user_id, 'tweet');
+            query = this.attachConversationTweetQuery(query, user_id, 'tweet');
 
             query = this.attachUserInteractionBooleanFlags(
                 query,
@@ -506,8 +508,6 @@ export class TweetsRepository extends Repository<Tweet> {
                 'tweet.tweet_author_id',
                 'tweet.tweet_id'
             );
-
-            query = this.attachRepliedTweetQuery(query, user_id);
 
             query = this.paginate_service.applyCursorPagination(
                 query,
@@ -729,7 +729,8 @@ export class TweetsRepository extends Repository<Tweet> {
 
     attachParentTweetQuery(
         query: SelectQueryBuilder<any>,
-        user_id?: string
+        user_id?: string,
+        table_alias: string = 'ranked'
     ): SelectQueryBuilder<any> {
         const get_interactions = (alias: string) => {
             if (!user_id) return '';
@@ -766,7 +767,7 @@ export class TweetsRepository extends Repository<Tweet> {
             `
         CASE 
             -- For replies: get parent from tweet_replies
-            WHEN ranked.type = 'reply' or (ranked.type='repost' and ranked.post_type='reply')THEN (
+            WHEN ${table_alias}.type = 'reply' or (${table_alias}.type='repost' and ${table_alias}.post_type='reply')THEN (
                 SELECT json_build_object(
                     'tweet_id',      p.tweet_id,
                     'content',       p.content,
@@ -831,12 +832,12 @@ export class TweetsRepository extends Repository<Tweet> {
                     )
                 )
                 FROM user_posts_view p
-                WHERE ranked.parent_id = p.tweet_id
+                WHERE ${table_alias}.parent_id = p.tweet_id
                 LIMIT 1
             )
             
             -- For quotes: get parent from tweet_quotes
-            WHEN ranked.type = 'quote' or (ranked.type='repost' and ranked.post_type='quote' )THEN (
+            WHEN ${table_alias}.type = 'quote' or (${table_alias}.type='repost' and ${table_alias}.post_type='quote' )THEN (
                 SELECT json_build_object(
                     'tweet_id',      q.tweet_id,
                     'content',       q.content,
@@ -864,7 +865,7 @@ export class TweetsRepository extends Repository<Tweet> {
                     )
                 )
                 FROM user_posts_view q 
-                WHERE ranked.parent_id = q.tweet_id
+                WHERE ${table_alias}.parent_id = q.tweet_id
                 LIMIT 1
             )
             
@@ -882,7 +883,8 @@ export class TweetsRepository extends Repository<Tweet> {
 
     attachConversationTweetQuery(
         query: SelectQueryBuilder<any>,
-        user_id?: string
+        user_id?: string,
+        table_alias: string = 'ranked'
     ): SelectQueryBuilder<any> {
         const get_interactions = (alias: string) => {
             if (!user_id) return '';
@@ -918,7 +920,7 @@ export class TweetsRepository extends Repository<Tweet> {
         query.addSelect(
             `
        CASE
-            WHEN ranked.conversation_id IS NOT NULL THEN  (
+            WHEN ${table_alias}.conversation_id IS NOT NULL THEN  (
             SELECT json_build_object(
                 'tweet_id',      c.tweet_id,
                 'content',       c.content,
@@ -983,7 +985,7 @@ export class TweetsRepository extends Repository<Tweet> {
                 )
             )
             FROM user_posts_view c       
-            WHERE ranked.conversation_id = c.tweet_id
+            WHERE ${table_alias}.conversation_id = c.tweet_id
             LIMIT 1
         )
             ELSE NULL
