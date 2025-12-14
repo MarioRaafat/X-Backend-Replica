@@ -29,6 +29,7 @@ describe('EsSyncProcessor', () => {
     const mock_elasticsearch_service = {
         index: jest.fn(),
         delete: jest.fn(),
+        bulk: jest.fn(),
         updateByQuery: jest.fn(),
         deleteByQuery: jest.fn(),
     };
@@ -218,63 +219,75 @@ describe('EsSyncProcessor', () => {
         it('should delete a tweet successfully', async () => {
             const job = {
                 data: {
-                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    tweet_ids: ['tweet-123', 'tweet-321'],
                 },
             } as Job;
 
-            mock_elasticsearch_service.delete.mockResolvedValue({} as any);
+            mock_elasticsearch_service.bulk.mockResolvedValue({} as any);
 
             const logger_spy = jest.spyOn(Logger.prototype, 'log');
 
             await processor.handleDeleteTweet(job);
 
-            expect(mock_elasticsearch_service.delete).toHaveBeenCalledWith({
-                index: ELASTICSEARCH_INDICES.TWEETS,
-                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+            expect(mock_elasticsearch_service.bulk).toHaveBeenCalledWith({
+                body: [
+                    { delete: { _index: ELASTICSEARCH_INDICES.TWEETS, _id: 'tweet-123' } },
+                    { delete: { _index: ELASTICSEARCH_INDICES.TWEETS, _id: 'tweet-321' } },
+                ],
             });
-            expect(logger_spy).toHaveBeenCalledWith(
-                'Deleted tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d from Elasticsearch'
-            );
+            expect(logger_spy).toHaveBeenCalledWith('Deleted 2 tweets from Elasticsearch');
         });
 
         it('should skip if tweet not found in ES (404)', async () => {
             const job = {
                 data: {
-                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    tweet_ids: ['tweet-123', 'tweet-321'],
                 },
             } as Job;
 
-            const error = {
-                meta: { statusCode: 404 },
-            };
-            mock_elasticsearch_service.delete.mockRejectedValue(error);
+            mock_elasticsearch_service.bulk.mockResolvedValue({
+                errors: true,
+                items: [
+                    {
+                        delete: {
+                            _id: 'tweet-123',
+                            status: 404,
+                            error: { type: 'document_missing_exception' },
+                        },
+                    },
+                    {
+                        delete: {
+                            _id: 'tweet-321',
+                            status: 404,
+                            error: { type: 'document_missing_exception' },
+                        },
+                    },
+                ],
+            });
 
             const logger_spy = jest.spyOn(Logger.prototype, 'warn');
 
             await processor.handleDeleteTweet(job);
 
-            expect(logger_spy).toHaveBeenCalledWith(
-                'Tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d not found in ES, skipping delete'
-            );
+            expect(logger_spy).toHaveBeenCalledWith('Tweet tweet-123 not found in ES, skipping');
+            expect(logger_spy).toHaveBeenCalledWith('Tweet tweet-321 not found in ES, skipping');
         });
 
         it('should handle delete errors', async () => {
             const job = {
                 data: {
-                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    tweet_ids: ['tweet-123', 'tweet-321'],
                 },
             } as Job;
 
-            const error = new Error('Delete failed');
-            mock_elasticsearch_service.delete.mockRejectedValue(error);
+            const error = new Error('Bulk delete failed');
+            mock_elasticsearch_service.bulk.mockRejectedValue(error);
 
             const logger_spy = jest.spyOn(Logger.prototype, 'error');
 
-            await expect(processor.handleDeleteTweet(job)).rejects.toThrow('Delete failed');
-            expect(logger_spy).toHaveBeenCalledWith(
-                'Failed to delete tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d:',
-                error
-            );
+            await expect(processor.handleDeleteTweet(job)).rejects.toThrow('Bulk delete failed');
+
+            expect(logger_spy).toHaveBeenCalledWith('Bulk delete failed:', error);
         });
     });
 

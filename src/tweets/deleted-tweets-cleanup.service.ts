@@ -48,32 +48,34 @@ export class DeletedTweetsCleanupService {
                 `Processing ${deleted_tweets.length} deleted tweets for ES cleanup and hashtag decrement`
             );
 
-            for (const deleted_tweet of deleted_tweets) {
-                // Extract and decrement hashtags
-                // if (deleted_tweet.content) {
-                //     const hashtag_matches =
-                //         deleted_tweet.content.match(/#([\p{L}\p{N}_]+)/gu) || [];
-                //     if (hashtag_matches.length > 0) {
-                //         const hashtags = hashtag_matches.map((h) => h.slice(1).toLowerCase());
-                //         const unique_hashtags = [...new Set(hashtags)];
+            // for (const deleted_tweet of deleted_tweets) {
+            // Extract and decrement hashtags
+            // if (deleted_tweet.content) {
+            //     const hashtag_matches =
+            //         deleted_tweet.content.match(/#([\p{L}\p{N}_]+)/gu) || [];
+            //     if (hashtag_matches.length > 0) {
+            //         const hashtags = hashtag_matches.map((h) => h.slice(1).toLowerCase());
+            //         const unique_hashtags = [...new Set(hashtags)];
 
-                //         if (unique_hashtags.length > 0) {
-                //             await this.hashtag_repository.decrement(
-                //                 { name: In(unique_hashtags) },
-                //                 'usage_count',
-                //                 1
-                //             );
-                //         }
-                //     }
-                // }
+            //         if (unique_hashtags.length > 0) {
+            //             await this.hashtag_repository.decrement(
+            //                 { name: In(unique_hashtags) },
+            //                 'usage_count',
+            //                 1
+            //             );
+            //         }
+            //     }
+            // }
 
-                // Queue Elasticsearch deletion
-                await this.es_delete_tweet_service.queueDeleteTweet({
-                    tweet_id: deleted_tweet.tweet_id,
-                });
-            }
+            // }
 
+            // Queue Elasticsearch deletion
             const tweet_ids = deleted_tweets.map((t) => t.tweet_id);
+
+            await this.es_delete_tweet_service.queueDeleteTweet({
+                tweet_ids,
+            });
+
             await this.deleted_tweets_repository.delete(tweet_ids);
 
             this.logger.log(`Successfully processed ${deleted_tweets.length} deleted tweets`);

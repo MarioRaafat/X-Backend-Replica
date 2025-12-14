@@ -3,7 +3,7 @@ import { EsDeleteTweetJobService } from './es-delete-tweet.service';
 import { getQueueToken } from '@nestjs/bull';
 import { QUEUE_NAMES } from '../constants/queue.constants';
 import type { Queue } from 'bull';
-import { EsSyncTweetDto } from './dtos/es-sync-tweet.dto';
+import { EsDeleteTweetsDto } from './dtos/es-delete-tweets.dto';
 
 describe('EsDeleteTweetJobService', () => {
     let service: EsDeleteTweetJobService;
@@ -37,7 +37,7 @@ describe('EsDeleteTweetJobService', () => {
 
     describe('queueDeleteTweet', () => {
         it('should queue a delete tweet job successfully', async () => {
-            const dto = { tweet_id: 'tweet-123' };
+            const dto = { tweet_ids: ['tweet-123', 'tweet-321'] };
             const mock_job = { id: 'job-123', data: dto };
 
             mock_queue.add.mockResolvedValue(mock_job as any);
@@ -56,7 +56,7 @@ describe('EsDeleteTweetJobService', () => {
         });
 
         it('should queue job with custom priority and delay', async () => {
-            const dto = { tweet_id: 'tweet-123' };
+            const dto = { tweet_ids: ['tweet-123', 'tweet-321'] };
             const custom_priority = 5;
             const custom_delay = 1000;
             const mock_job = { id: 'job-123', data: dto };
@@ -76,7 +76,7 @@ describe('EsDeleteTweetJobService', () => {
         });
 
         it('should handle queue errors', async () => {
-            const dto: EsSyncTweetDto = { tweet_id: 'tweet-123' };
+            const dto: EsDeleteTweetsDto = { tweet_ids: ['tweet-123', 'tweet-321'] };
             const error = new Error('Queue error');
 
             mock_queue.add.mockRejectedValue(error);

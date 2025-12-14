@@ -4,9 +4,10 @@ import type { Queue } from 'bull';
 import { JOB_DELAYS, JOB_NAMES, JOB_PRIORITIES, QUEUE_NAMES } from '../constants/queue.constants';
 import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
 import { EsSyncTweetDto } from './dtos/es-sync-tweet.dto';
+import { EsDeleteTweetsDto } from './dtos/es-delete-tweets.dto';
 
 @Injectable()
-export class EsDeleteTweetJobService extends BackgroundJobsService<EsSyncTweetDto> {
+export class EsDeleteTweetJobService extends BackgroundJobsService<EsDeleteTweetsDto> {
     constructor(@InjectQueue(QUEUE_NAMES.ELASTICSEARCH) private elasticsearch_queue: Queue) {
         super(
             elasticsearch_queue,
@@ -16,7 +17,7 @@ export class EsDeleteTweetJobService extends BackgroundJobsService<EsSyncTweetDt
         );
     }
 
-    async queueDeleteTweet(dto: EsSyncTweetDto, priority?: number, delay?: number) {
+    async queueDeleteTweet(dto: EsDeleteTweetsDto, priority?: number, delay?: number) {
         return await this.queueJob(
             dto,
             priority ?? this.priority,
