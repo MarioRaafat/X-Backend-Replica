@@ -209,10 +209,12 @@ export class FakeTrendService {
     async seedTrend(): Promise<void> {
         // UPDATE TWEET TIMESTAMP TO LAST 6 HOURS
         await this.data_source.query(`
-       UPDATE tweets
-SET created_at = NOW() - (random() * interval '6 hours');
-
+        UPDATE tweets
+        SET created_at = NOW() - (random() * interval '6 hours')
     `);
+
+        console.log('Updated tweet timestamps to last 6 hours DONE');
+
         await this.data_source.query(`
         UPDATE tweet_hashtags
         SET tweet_created_at = t.created_at
@@ -220,7 +222,9 @@ SET created_at = NOW() - (random() * interval '6 hours');
         WHERE tweet_hashtags.tweet_id = t.tweet_id
     `);
 
-        // SELECT TOP 50 HASHTAGS FROM EACH CATEGORY
+        console.log('Updated tweet_hashtags timestamps to match tweets DONE');
+
+        // SELECT TOP HASHTAGS FROM EACH CATEGORY
         const sports_hashtags = await this.hashtag_repository.find({
             where: { category: 'Sports' },
             order: { usage_count: 'DESC' },
@@ -239,14 +243,14 @@ SET created_at = NOW() - (random() * interval '6 hours');
             take: 20,
         });
 
-        // Combine all hashtags
+        console.log('Fetched top hashtags from each category DONE');
+
         const all_hashtags = [
             ...sports_hashtags.map((h) => ({ ...h, category: 'Sports' })),
             ...entertainment_hashtags.map((h) => ({ ...h, category: 'Entertainment' })),
             ...news_hashtags.map((h) => ({ ...h, category: 'News' })),
         ];
 
-        // Get tweet data for these hashtags with their timestamps
         const hashtag_names = all_hashtags.map((h) => h.name);
 
         const tweet_hashtag_data = await this.data_source.query(
@@ -259,11 +263,13 @@ SET created_at = NOW() - (random() * interval '6 hours');
         JOIN hashtag h ON th.hashtag_name = h.name
         WHERE th.hashtag_name = ANY($1)
         ORDER BY th.tweet_created_at DESC
-    `,
+        `,
             [hashtag_names]
         );
 
-        // Group by tweet timestamp and build HashtagJobDto for each unique timestamp
+        console.log('Fetched tweet hashtag timestamp DONE');
+
+        // Group by tweet timestamp
         const timestamp_map = new Map<number, Map<string, Record<string, number>>>();
 
         for (const row of tweet_hashtag_data) {
@@ -284,32 +290,46 @@ SET created_at = NOW() - (random() * interval '6 hours');
 
                 const categories = hashtag_map.get(hashtag_name);
                 if (categories) {
-                    // Set category percentage (you can adjust this logic based on your needs)
-                    // For now, setting 100% for the primary category
                     categories[category] = 100;
                 }
             }
         }
 
-        // Process each timestamp group
-        for (const [timestamp, hashtag_map] of timestamp_map.entries()) {
-            const hashtags: Record<string, Record<string, number>> = {};
+        console.log(`Processing ${timestamp_map.size} unique timestamps`);
 
-            for (const [hashtag_name, categories] of hashtag_map.entries()) {
-                hashtags[hashtag_name] = categories;
-            }
+        const BATCH_SIZE = 50;
+        const timestamps = Array.from(timestamp_map.entries());
 
-            const job_data: HashtagJobDto = {
-                hashtags,
-                timestamp,
-            };
+        for (let i = 0; i < timestamps.length; i += BATCH_SIZE) {
+            const batch = timestamps.slice(i, i + BATCH_SIZE);
 
-            // Call the three functions with properly formatted data
-            await this.trend_service.insertCandidateHashtags(job_data);
-            await this.trend_service.updateHashtagCounts(job_data);
-            await this.trend_service.insertCandidateCategories(job_data);
+            console.log(
+                `Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(timestamps.length / BATCH_SIZE)}`
+            );
+
+            await Promise.all(
+                batch.map(async ([timestamp, hashtag_map]) => {
+                    const hashtags: Record<string, Record<string, number>> = {};
+
+                    for (const [hashtag_name, categories] of hashtag_map.entries()) {
+                        hashtags[hashtag_name] = categories;
+                    }
+
+                    const job_data: HashtagJobDto = {
+                        hashtags,
+                        timestamp,
+                    };
+
+                    // Execute all three operations in parallel for each timestamp
+                    await Promise.all([
+                        this.trend_service.insertCandidateHashtags(job_data),
+                        this.trend_service.updateHashtagCounts(job_data),
+                        this.trend_service.insertCandidateCategories(job_data),
+                    ]);
+                })
+            );
         }
 
-        console.log(`Seeded trends for ${timestamp_map.size} unique timestamps`);
+        console.log(`Seeded trends for ${timestamp_map.size} unique timestamps DONE`);
     }
 }

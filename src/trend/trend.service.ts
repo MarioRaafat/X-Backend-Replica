@@ -200,6 +200,7 @@ export class TrendService {
                 hours_ago,
                 '+inf'
             );
+            console.log(active_hashtags.length, ' active hashtags found');
             // 2. Calculate base scores once for all hashtags
             const hashtag_scores: Map<string, IHashtagScore> = new Map();
 
