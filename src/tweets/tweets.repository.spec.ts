@@ -79,6 +79,7 @@ describe('TweetsRepository', () => {
         createEntityManager: jest.fn(() => ({
             createQueryBuilder: jest.fn(() => MOCK_QUERY_BUILDER),
         })),
+        query: jest.fn(),
     };
 
     const MOCK_TWEET_REPOSITORY = {
@@ -147,8 +148,10 @@ describe('TweetsRepository', () => {
         );
         pagination_service = module.get<PaginationService>(PaginationService);
         data_source = module.get<DataSource>(DataSource);
+    });
 
-        // Reset all mocks
+    beforeEach(() => {
+        // Clear all mocks before each test
         jest.clearAllMocks();
 
         // Restore mock implementations after clearAllMocks
@@ -157,6 +160,25 @@ describe('TweetsRepository', () => {
         MOCK_TWEET_REPOST_REPOSITORY.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
         MOCK_TWEET_CATEGORY_REPOSITORY.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
         MOCK_DATA_SOURCE.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
+
+        // Restore MOCK_QUERY_BUILDER chain methods
+        MOCK_QUERY_BUILDER.leftJoinAndSelect.mockReturnThis();
+        MOCK_QUERY_BUILDER.leftJoin.mockReturnThis();
+        MOCK_QUERY_BUILDER.innerJoin.mockReturnThis();
+        MOCK_QUERY_BUILDER.innerJoinAndSelect.mockReturnThis();
+        MOCK_QUERY_BUILDER.leftJoinAndMapOne.mockReturnThis();
+        MOCK_QUERY_BUILDER.select.mockReturnThis();
+        MOCK_QUERY_BUILDER.addSelect.mockReturnThis();
+        MOCK_QUERY_BUILDER.where.mockReturnThis();
+        MOCK_QUERY_BUILDER.andWhere.mockReturnThis();
+        MOCK_QUERY_BUILDER.orderBy.mockReturnThis();
+        MOCK_QUERY_BUILDER.addOrderBy.mockReturnThis();
+        MOCK_QUERY_BUILDER.limit.mockReturnThis();
+        MOCK_QUERY_BUILDER.take.mockReturnThis();
+        MOCK_QUERY_BUILDER.setParameter.mockReturnThis();
+        MOCK_QUERY_BUILDER.setParameters.mockReturnThis();
+        MOCK_QUERY_BUILDER.addCommonTableExpression.mockReturnThis();
+        MOCK_QUERY_BUILDER.from.mockReturnThis();
 
         // Mock repository helper methods to return the query builder
         jest.spyOn(repository as any, 'attachParentTweetQuery').mockImplementation((q) => q);
@@ -873,6 +895,42 @@ describe('TweetsRepository', () => {
             );
 
             expect(result).toBe(query);
+        });
+    });
+
+    describe('getTweetsByIds with current_user_id', () => {
+        it('should get tweets by IDs with interaction flags when user_id provided', async () => {
+            const tweet_ids = ['tweet-1', 'tweet-2'];
+            const current_user_id = 'user-123';
+
+            const mock_tweets = [
+                create_mock_tweet_data({ tweet_id: 'tweet-1' }),
+                create_mock_tweet_data({ tweet_id: 'tweet-2' }),
+            ];
+
+            (MOCK_TWEET_REPOSITORY.createQueryBuilder as jest.Mock).mockReturnValue(
+                MOCK_QUERY_BUILDER
+            );
+            MOCK_QUERY_BUILDER.getMany.mockResolvedValue(mock_tweets);
+            jest.spyOn(repository as any, 'attachUserTweetInteractionFlags').mockReturnValue(
+                MOCK_QUERY_BUILDER
+            );
+            jest.spyOn(repository as any, 'incrementTweetViewsAsync').mockResolvedValue(undefined);
+
+            const result = await repository.getTweetsByIds(tweet_ids, current_user_id);
+
+            expect(result).toHaveLength(2);
+            expect(repository['attachUserTweetInteractionFlags']).toHaveBeenCalledWith(
+                MOCK_QUERY_BUILDER,
+                current_user_id,
+                'tweet'
+            );
+        });
+
+        it('should return empty array when tweet_ids is empty', async () => {
+            const result = await repository.getTweetsByIds([]);
+
+            expect(result).toEqual([]);
         });
     });
 });
