@@ -22,6 +22,9 @@ export class Hashtag {
     @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
 
+    @Column({ type: 'varchar', nullable: true })
+    category?: string;
+
     // I guess we won't need this but just in case
     @DeleteDateColumn({ type: 'timestamptz' })
     deleted_at: Date;

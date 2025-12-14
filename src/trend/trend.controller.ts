@@ -35,4 +35,9 @@ export class TrendController {
     async deleteFakeTrends() {
         return await this.fake_trend_service.deleteFakeTrends();
     }
+
+    @Post('/seed-trends')
+    async seedTrends() {
+        return await this.fake_trend_service.seedTrend();
+    }
 }
