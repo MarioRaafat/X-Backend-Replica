@@ -1,4 +1,4 @@
-import { Entity, ForeignKey, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
+import { Column, Entity, ForeignKey, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { Hashtag } from './hashtags.entity';
 
@@ -13,6 +13,8 @@ export class TweetHashtag {
     @ManyToOne(() => Tweet, (tweet) => tweet.tweet_hashtags, {
         onDelete: 'CASCADE',
     })
+    @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
+    tweet_created_at: Date;
     @JoinColumn({ name: 'tweet_id' })
     tweet: Tweet;
 
