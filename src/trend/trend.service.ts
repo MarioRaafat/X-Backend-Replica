@@ -29,7 +29,7 @@ export class TrendService {
     private readonly GENERAL_CATEGORY = 'Only on Yapper';
 
     private readonly TOP_N = 30;
-    private readonly MIN_BUCKETS = 5 * 60 * 1000;
+    private readonly MIN_BUCKETS = 30 * 60 * 1000;
     private readonly CATEGORY_THRESHOLD = 30;
 
     async getTrending(category?: string, limit: number = 30) {
@@ -143,7 +143,7 @@ export class TrendService {
 
         //Expire after 2 hours
         // We may delegate it to trend worker
-        await this.redis_service.expire('candidates:active', 1 * 60 * 60);
+        await this.redis_service.expire('candidates:active', 6 * 60 * 60);
     }
     async insertCandidateCategories(hashtags: HashtagJobDto) {
         const pipeline = this.redis_service.pipeline();
@@ -157,7 +157,7 @@ export class TrendService {
                 if (percent >= this.CATEGORY_THRESHOLD) {
                     // Store hashtag with its category percentage as score
                     pipeline.zadd(`candidates:${category_name}`, percent, hashtag);
-                    pipeline.expire(`candidates:${category_name}`, 1 * 60 * 60);
+                    pipeline.expire(`candidates:${category_name}`, 6 * 60 * 60);
                 }
             }
         }
@@ -178,7 +178,7 @@ export class TrendService {
 
             await this.redis_service.zincrby(`hashtag:${hashtag}`, 1, time_bucket.toString());
 
-            await this.redis_service.expire(`hashtag:${hashtag}`, 1 * 60 * 60);
+            await this.redis_service.expire(`hashtag:${hashtag}`, 6 * 60 * 60);
         }
 
         await pipeline.exec();
@@ -192,12 +192,12 @@ export class TrendService {
         try {
             console.log('Calculate Trend.....');
             const now = Date.now();
-            const one_hour_ago = now - 60 * 60 * 1000;
+            const hours_ago = now - 6 * 60 * 60 * 1000;
 
             // 1. Get active candidates (last hour)
             const active_hashtags = await this.redis_service.zrangebyscore(
                 'candidates:active',
-                one_hour_ago,
+                hours_ago,
                 '+inf'
             );
             // 2. Calculate base scores once for all hashtags
@@ -215,7 +215,7 @@ export class TrendService {
             global_scored.sort((a, b) => b.score - a.score);
             const global_top_30 = global_scored.slice(0, this.TOP_N);
             await this.updateTrendingList('trending:global', global_top_30);
-            await this.calculateCategoryTrendsFromScores(hashtag_scores, one_hour_ago);
+            await this.calculateCategoryTrendsFromScores(hashtag_scores, hours_ago);
         } catch (err) {
             console.log(err);
             throw err;
@@ -224,7 +224,7 @@ export class TrendService {
 
     private async calculateCategoryTrendsFromScores(
         hashtag_scores: Map<string, IHashtagScore>,
-        one_hour_ago: number
+        hours_ago: number
     ) {
         for (const category of this.CATEGORIES) {
             try {

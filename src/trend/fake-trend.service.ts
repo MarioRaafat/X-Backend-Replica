@@ -209,35 +209,34 @@ export class FakeTrendService {
     async seedTrend(): Promise<void> {
         // UPDATE TWEET TIMESTAMP TO LAST 6 HOURS
         await this.data_source.query(`
-        UPDATE tweets
-        SET created_at = NOW() - (
-            CASE 
-                WHEN random() < 0.05 THEN random() * interval '6 hours'                         -- 00:00–06:00 (5%)
-                WHEN random() < 0.20 THEN interval '6 hours' + random() * interval '3 hours'   -- 06:00–09:00 (15%)
-                WHEN random() < 0.60 THEN interval '9 hours' + random() * interval '8 hours'   -- 09:00–17:00 (40%)
-                WHEN random() < 0.90 THEN interval '17 hours' + random() * interval '5 hours'  -- 17:00–22:00 (30%)
-                ELSE interval '22 hours' + random() * interval '2 hours'                        -- 22:00–00:00 (10%)
-            END
-        )
+       UPDATE tweets
+SET created_at = NOW() - (random() * interval '6 hours');
+
+    `);
+        await this.data_source.query(`
+        UPDATE tweet_hashtags
+        SET tweet_created_at = t.created_at
+        FROM tweets t
+        WHERE tweet_hashtags.tweet_id = t.tweet_id
     `);
 
         // SELECT TOP 50 HASHTAGS FROM EACH CATEGORY
         const sports_hashtags = await this.hashtag_repository.find({
             where: { category: 'Sports' },
             order: { usage_count: 'DESC' },
-            take: 50,
+            take: 30,
         });
 
         const entertainment_hashtags = await this.hashtag_repository.find({
             where: { category: 'Entertainment' },
             order: { usage_count: 'DESC' },
-            take: 50,
+            take: 30,
         });
 
         const news_hashtags = await this.hashtag_repository.find({
             where: { category: 'News' },
             order: { usage_count: 'DESC' },
-            take: 50,
+            take: 20,
         });
 
         // Combine all hashtags
