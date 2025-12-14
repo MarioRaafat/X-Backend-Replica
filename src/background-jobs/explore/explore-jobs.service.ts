@@ -420,4 +420,9 @@ export class ExploreJobsService {
 
         await pipeline.exec();
     }
+
+    async clearScoreRecalculation() {
+        this.logger.log('Clearing explore score recalculation');
+        await this.redis_service.deleteByPrefix('explore:category:');
+    }
 }
