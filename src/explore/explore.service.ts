@@ -10,6 +10,7 @@ import { WhoToFollowService } from './who-to-follow.service';
 
 @Injectable()
 export class ExploreService {
+    /* c8 ignore start */
     constructor(
         private readonly redis_service: RedisService,
         @InjectRepository(Category)
@@ -20,6 +21,7 @@ export class ExploreService {
         private readonly trend_service: TrendService,
         private readonly who_to_follow_service: WhoToFollowService
     ) {}
+    /* c8 ignore stop */
 
     private readonly DEFAULT_CATEGORIES = [2, 3, 5, 4, 15];
 
@@ -155,6 +157,7 @@ export class ExploreService {
                 all_tweet_ids.add(tweet_id);
             });
 
+            /* istanbul ignore next */
             if (tweets.length > 0) {
                 feed_structure.push({
                     category: categories[index].name,

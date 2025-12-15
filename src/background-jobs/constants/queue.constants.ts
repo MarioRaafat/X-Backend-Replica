@@ -15,9 +15,6 @@ export const JOB_NAMES = {
     EMAIL: {
         SEND_OTP: 'send-otp-email',
     },
-    TIMELINE: {
-        PREPARE_FEED: 'prepare-user-feed',
-    },
     FEED: {
         INDEX_TWEET: 'index-tweet-to-elastic',
     },
@@ -46,6 +43,11 @@ export const JOB_NAMES = {
     },
     AI_SUMMARY: {
         GENERATE_TWEET_SUMMARY: 'generate-tweet-summary',
+    },
+    TIMELINE: {
+        INIT_QUEUE: 'init-timeline-queue',
+        REFILL_QUEUE: 'refill-timeline-queue',
+        CLEANUP_OLD_TWEETS: 'cleanup-old-tweets',
     },
     HASHTAG: {
         UPDATE_HASHTAG: 'update-hashtag',

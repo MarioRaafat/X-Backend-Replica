@@ -7,6 +7,7 @@ import { Server, Socket } from 'socket.io';
 import { WsJwtGuard } from 'src/auth/guards/ws-jwt.guard';
 import { ChatRepository } from 'src/chat/chat.repository';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
+import { MessageType } from './entities/message.entity';
 
 describe('MessagesGateway', () => {
     let gateway: MessagesGateway;
@@ -409,6 +410,99 @@ describe('MessagesGateway', () => {
             expect(result.event).toBe('error');
             expect((result.data as any).message).toBe('Chat not found');
         });
+
+        it('should validate voice message fields', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            const result = await gateway.handleSendMessage(mock_client, {
+                chat_id: mock_chat_id,
+                message: {
+                    content: '',
+                    message_type: MessageType.VOICE,
+                    voice_note_url: '', // Missing URL
+                    voice_note_duration: '30',
+                } as any,
+            });
+
+            expect(result.event).toBe('error');
+            expect((result.data as any).message).toContain('voice_note_url');
+        });
+
+        it('should validate voice message duration format', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            const result = await gateway.handleSendMessage(mock_client, {
+                chat_id: mock_chat_id,
+                message: {
+                    content: '',
+                    message_type: MessageType.VOICE,
+                    voice_note_url: 'https://example.com/voice.mp3',
+                    voice_note_duration: 'invalid', // Invalid format
+                } as any,
+            });
+
+            expect(result.event).toBe('error');
+            expect((result.data as any).message).toContain('MM:SS format');
+        });
+
+        it('should handle first message scenario', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            const mock_chat = {
+                id: mock_chat_id,
+                user1_id: mock_user_id,
+                user2_id: 'user-999',
+            };
+
+            const mock_message = {
+                id: mock_message_id,
+                content: 'First message',
+                sender_id: mock_user_id,
+                recipient_id: 'user-999',
+                chat_id: mock_chat_id,
+            };
+
+            messages_service.validateChatParticipation.mockResolvedValue({
+                chat: mock_chat,
+                participant_id: 'user-999',
+            } as any);
+            messages_service.sendMessage.mockResolvedValue(mock_message as any);
+            jest.spyOn(gateway as any, 'isUserInChatRoom').mockResolvedValue(false);
+            const emit_to_user_spy = jest
+                .spyOn(gateway as any, 'emitToUser')
+                .mockImplementation(() => {});
+
+            await gateway.handleSendMessage(mock_client, {
+                chat_id: mock_chat_id,
+                message: {
+                    content: 'First message',
+                    is_first_message: true,
+                } as any,
+            });
+
+            // Should emit first_message event
+            expect(emit_to_user_spy).toHaveBeenCalledWith(
+                mock_user_id,
+                'first_message',
+                expect.any(Object),
+                mock_client.id
+            );
+            expect(emit_to_user_spy).toHaveBeenCalledWith(
+                'user-999',
+                'first_message',
+                expect.any(Object),
+                mock_client.id
+            );
+        });
     });
 
     describe('handleUpdateMessage', () => {
@@ -526,6 +620,310 @@ describe('MessagesGateway', () => {
             gateway.emitToUser(mock_user_id, 'test_event', { data: 'test' }, 'socket-1');
 
             expect(gateway.server.to).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('handleTypingStart', () => {
+        it('should emit typing_start event to other user in chat', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+                to: jest.fn().mockReturnThis(),
+                emit: jest.fn(),
+            } as any;
+
+            const mock_chat = {
+                id: mock_chat_id,
+                user1_id: mock_user_id,
+                user2_id: 'user-999',
+            };
+
+            messages_service.validateChatParticipation.mockResolvedValue({
+                chat: mock_chat,
+                participant_id: 'user-999',
+            } as any);
+
+            const result = await gateway.handleTypingStart(mock_client, {
+                chat_id: mock_chat_id,
+            });
+
+            expect(messages_service.validateChatParticipation).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_chat_id
+            );
+            expect(mock_client.to).toHaveBeenCalledWith(mock_chat_id);
+            expect(mock_client.emit).toHaveBeenCalledWith('user_typing', {
+                chat_id: mock_chat_id,
+                user_id: mock_user_id,
+            });
+            expect(result.event).toBe('typing_started');
+        });
+
+        it('should return error if validation fails', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            messages_service.validateChatParticipation.mockRejectedValue(
+                new Error('Chat not found')
+            );
+
+            const result = await gateway.handleTypingStart(mock_client, {
+                chat_id: mock_chat_id,
+            });
+
+            expect(result.event).toBe('error');
+            expect((result.data as any).message).toBe('Chat not found');
+        });
+    });
+
+    describe('handleTypingStop', () => {
+        it('should emit typing_stop event to other user in chat', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+                to: jest.fn().mockReturnThis(),
+                emit: jest.fn(),
+            } as any;
+
+            const mock_chat = {
+                id: mock_chat_id,
+                user1_id: mock_user_id,
+                user2_id: 'user-999',
+            };
+
+            messages_service.validateChatParticipation.mockResolvedValue({
+                chat: mock_chat,
+                participant_id: 'user-999',
+            } as any);
+
+            const result = await gateway.handleTypingStop(mock_client, {
+                chat_id: mock_chat_id,
+            });
+
+            expect(messages_service.validateChatParticipation).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_chat_id
+            );
+            expect(mock_client.to).toHaveBeenCalledWith(mock_chat_id);
+            expect(mock_client.emit).toHaveBeenCalledWith('user_stopped_typing', {
+                chat_id: mock_chat_id,
+                user_id: mock_user_id,
+            });
+            expect(result.event).toBe('typing_stopped');
+        });
+
+        it('should return error if validation fails', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            messages_service.validateChatParticipation.mockRejectedValue(
+                new Error('Not authorized')
+            );
+
+            const result = await gateway.handleTypingStop(mock_client, {
+                chat_id: mock_chat_id,
+            });
+
+            expect(result.event).toBe('error');
+        });
+    });
+
+    describe('handleGetMessages', () => {
+        it('should return messages for a chat', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            const mock_messages = {
+                sender: {
+                    id: 'user-999',
+                    username: 'user2',
+                    name: 'User Two',
+                    avatar_url: 'avatar2.jpg',
+                },
+                messages: [{ id: 'msg-1', content: 'Hello' }],
+                next_cursor: 'cursor-123',
+                has_more: true,
+            };
+
+            messages_service.getMessages.mockResolvedValue(mock_messages as any);
+
+            const result = await gateway.handleGetMessages(mock_client, {
+                chat_id: mock_chat_id,
+                limit: 50,
+            });
+
+            expect(messages_service.getMessages).toHaveBeenCalledWith(mock_user_id, mock_chat_id, {
+                limit: 50,
+                cursor: undefined,
+            });
+            expect(result.event).toBe('messages_retrieved');
+            expect((result.data as any).chat_id).toBe(mock_chat_id);
+            expect((result as any).pagination.next_cursor).toBe('cursor-123');
+            expect((result as any).pagination.has_more).toBe(true);
+        });
+
+        it('should handle cursor pagination', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            messages_service.getMessages.mockResolvedValue({ messages: [] } as any);
+
+            await gateway.handleGetMessages(mock_client, {
+                chat_id: mock_chat_id,
+                limit: 20,
+                cursor: 'cursor-abc',
+            });
+
+            expect(messages_service.getMessages).toHaveBeenCalledWith(mock_user_id, mock_chat_id, {
+                limit: 20,
+                cursor: 'cursor-abc',
+            });
+        });
+
+        it('should return error if get messages fails', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            messages_service.getMessages.mockRejectedValue(new Error('Database error'));
+
+            const result = await gateway.handleGetMessages(mock_client, {
+                chat_id: mock_chat_id,
+                limit: 50,
+            });
+
+            expect(result.event).toBe('error');
+            expect((result.data as any).message).toBe('Database error');
+        });
+    });
+
+    describe('handleAddReaction', () => {
+        it('should add reaction to message successfully', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            const mock_reaction = {
+                id: 'reaction-1',
+                message_id: mock_message_id,
+                user_id: mock_user_id,
+                emoji: '❤️',
+                created_at: new Date(),
+            };
+
+            messages_service.addReaction = jest.fn().mockResolvedValue(mock_reaction);
+            jest.spyOn(gateway.server, 'to').mockReturnThis();
+            jest.spyOn(gateway.server, 'emit');
+
+            const result = await gateway.handleAddReaction(mock_client, {
+                chat_id: mock_chat_id,
+                message_id: mock_message_id,
+                emoji: '❤️',
+            });
+
+            expect(messages_service.addReaction).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_chat_id,
+                mock_message_id,
+                { emoji: '❤️' }
+            );
+            expect(gateway.server.to).toHaveBeenCalledWith(mock_chat_id);
+            expect(gateway.server.emit).toHaveBeenCalledWith('reaction_added', {
+                chat_id: mock_chat_id,
+                message_id: mock_message_id,
+                user_id: mock_user_id,
+                emoji: '❤️',
+                created_at: mock_reaction.created_at,
+            });
+            expect(result.event).toBe('reaction_added');
+        });
+
+        it('should return error if add reaction fails', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            messages_service.addReaction = jest
+                .fn()
+                .mockRejectedValue(new Error('Reaction already exists'));
+
+            const result = await gateway.handleAddReaction(mock_client, {
+                chat_id: mock_chat_id,
+                message_id: mock_message_id,
+                emoji: '👍',
+            });
+
+            expect(result.event).toBe('error');
+            expect((result.data as any).message).toBe('Reaction already exists');
+        });
+    });
+
+    describe('handleRemoveReaction', () => {
+        it('should remove reaction from message successfully', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            const mock_response = {
+                message: 'Reaction removed successfully',
+            };
+
+            messages_service.removeReaction = jest.fn().mockResolvedValue(mock_response);
+            jest.spyOn(gateway.server, 'to').mockReturnThis();
+            jest.spyOn(gateway.server, 'emit');
+
+            const result = await gateway.handleRemoveReaction(mock_client, {
+                chat_id: mock_chat_id,
+                message_id: mock_message_id,
+                emoji: '❤️',
+            });
+
+            expect(messages_service.removeReaction).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_chat_id,
+                mock_message_id,
+                { emoji: '❤️' }
+            );
+            expect(gateway.server.to).toHaveBeenCalledWith(mock_chat_id);
+            expect(gateway.server.emit).toHaveBeenCalledWith('reaction_removed', {
+                chat_id: mock_chat_id,
+                message_id: mock_message_id,
+                user_id: mock_user_id,
+                emoji: '❤️',
+            });
+            expect(result.event).toBe('reaction_removed');
+        });
+
+        it('should return error if remove reaction fails', async () => {
+            const mock_client = {
+                id: 'socket-123',
+                data: { user: { id: mock_user_id } },
+            } as any;
+
+            messages_service.removeReaction = jest
+                .fn()
+                .mockRejectedValue(new Error('Reaction not found'));
+
+            const result = await gateway.handleRemoveReaction(mock_client, {
+                chat_id: mock_chat_id,
+                message_id: mock_message_id,
+                emoji: '👍',
+            });
+
+            expect(result.event).toBe('error');
+            expect((result.data as any).message).toBe('Reaction not found');
         });
     });
 

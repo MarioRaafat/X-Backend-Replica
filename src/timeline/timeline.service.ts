@@ -1,7 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { TimelinePaginationDto } from './dto/timeline-pagination.dto';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
-import { TimelineResponseDto } from './dto/timeline-response.dto';
 import { TweetResponseDTO } from 'src/tweets/dto/tweet-response.dto';
 
 @Injectable()

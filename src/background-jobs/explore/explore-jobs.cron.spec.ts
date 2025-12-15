@@ -62,5 +62,13 @@ describe('ExploreJobsCron', () => {
 
             expect(mock_explore_jobs_service.triggerScoreRecalculation).toHaveBeenCalled();
         });
+
+        it('should handle exceptions thrown during scheduling', async () => {
+            mock_explore_jobs_service.triggerScoreRecalculation.mockRejectedValue(
+                new Error('Unexpected error')
+            );
+
+            await expect(cron.scheduleExploreScoreUpdate()).resolves.not.toThrow();
+        });
     });
 });
