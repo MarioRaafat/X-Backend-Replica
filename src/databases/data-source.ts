@@ -18,6 +18,7 @@ import { Hashtag } from '../tweets/entities/hashtags.entity';
 import { UserPostsView } from '../tweets/entities/user-posts-view.entity';
 import { UserBlocks, UserFollows, UserMutes } from '../user/entities';
 import { UserInterests } from '../user/entities/user-interests.entity';
+import { UserTimelineCursor } from '../user/entities/user-timeline-cursor.entity';
 import { TweetCategory } from '../tweets/entities/tweet-category.entity';
 import { Chat } from '../chat/entities/chat.entity';
 import { Message } from '../messages/entities/message.entity';
@@ -78,6 +79,7 @@ const base_config: any = {
         MessageReaction,
         TweetSummary,
         TweetHashtag,
+        UserTimelineCursor,
     ],
 
     migrations: [__dirname + '/../migrations/*{.ts,.js}'],

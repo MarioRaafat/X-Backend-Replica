@@ -23,7 +23,9 @@ export class WhoToFollowService {
         CANDIDATE_MULTIPLIER: 3,
     };
 
+    /* istanbul ignore start */
     constructor(private readonly user_repository: UserRepository) {}
+    /* istanbul ignore stop */
 
     async getWhoToFollow(current_user_id?: string, limit: number = 30) {
         if (!current_user_id) {
@@ -110,12 +112,12 @@ export class WhoToFollowService {
             this.getFollowersNotFollowed(current_user_id, limits.followers),
         ]);
 
-        console.log('\n=== WHO TO FOLLOW DEBUG ===');
-        console.log(`Friends of Friends: ${friends_of_friends.length} users`);
-        console.log(`Interest-Based: ${interest_based.length} users`);
-        console.log(`Liked Users: ${liked_users.length} users`);
-        console.log(`Replied Users: ${replied_users.length} users`);
-        console.log(`Followers Not Followed: ${followers_not_followed.length} users`);
+        // console.log('\n=== WHO TO FOLLOW DEBUG ===');
+        // console.log(`Friends of Friends: ${friends_of_friends.length} users`);
+        // console.log(`Interest-Based: ${interest_based.length} users`);
+        // console.log(`Liked Users: ${liked_users.length} users`);
+        // console.log(`Replied Users: ${replied_users.length} users`);
+        // console.log(`Followers Not Followed: ${followers_not_followed.length} users`);
 
         // Combine users from different sources with distribution-based approach
         const combined_users_with_metadata = this.combineByDistribution(
@@ -180,14 +182,14 @@ export class WhoToFollowService {
             })
             .filter((u) => u !== null);
 
-        console.log('\n=== FINAL RECOMMENDATIONS (ordered by score) ===');
-        users_with_scores.forEach((item, index) => {
-            console.log(
-                `${index + 1}. @${item.user.user_username} - Score: ${item.score.toFixed(2)} - Source: ${item.source} - Data:`,
-                item.source_data
-            );
-        });
-        console.log('=========================\n');
+        // console.log('\n=== FINAL RECOMMENDATIONS (ordered by score) ===');
+        // users_with_scores.forEach((item, index) => {
+        //     console.log(
+        //         `${index + 1}. @${item.user.user_username} - Score: ${item.score.toFixed(2)} - Source: ${item.source} - Data:`,
+        //         item.source_data
+        //     );
+        // });
+        // console.log('=========================\n');
 
         return users_with_scores.map((item) => ({
             id: item.user.user_id,

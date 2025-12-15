@@ -1141,7 +1141,6 @@ export class SearchService {
                 .trim();
 
             if (completion.length < query.length + 3) return;
-            if (completion.length > 100) return;
             if (!completion.toLowerCase().startsWith(query_lower)) return;
             const middle_content = completion.substring(0, completion.length - 1);
             if (/[.!?]/.test(middle_content)) return;

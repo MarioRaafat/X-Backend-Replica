@@ -71,8 +71,6 @@ export class TweetsRepository extends Repository<Tweet> {
         // Increment views asynchronously (don't await)
         this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
 
-        console.log(tweets);
-
         return plainToInstance(TweetResponseDTO, tweets, {
             excludeExtraneousValues: true,
         });

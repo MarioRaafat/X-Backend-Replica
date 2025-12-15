@@ -31,6 +31,7 @@ import { JwtStrategy } from 'src/auth/strategies/jwt.strategy';
 @ApiBearerAuth('JWT-auth')
 @Controller('explore')
 export class ExploreController {
+    /* istanbul ignore next */
     constructor(private readonly explore_service: ExploreService) {}
 
     @ApiOperation(explore_root_swagger.operation)

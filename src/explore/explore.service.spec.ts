@@ -406,10 +406,13 @@ describe('ExploreService', () => {
 
         it('should use default categories when user has no interests', async () => {
             const mock_default_cats = [
-                { id: 21, name: 'Sports' },
-                { id: 20, name: 'Tech' },
+                { id: 2, name: 'Category2' },
+                { id: 3, name: 'Category3' },
+                { id: 5, name: 'Category5' },
+                { id: 4, name: 'Category4' },
+                { id: 15, name: 'Category15' },
             ];
-            const mock_tweet_ids = [['tweet-1'], ['tweet-2']];
+            const mock_tweet_ids = [['tweet-1'], ['tweet-2'], [], [], []];
             const mock_tweets = [
                 { tweet_id: 'tweet-1', content: 'test1' },
                 { tweet_id: 'tweet-2', content: 'test2' },
@@ -424,37 +427,121 @@ describe('ExploreService', () => {
             };
 
             mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
-            mock_category_repository.find.mockResolvedValue(mock_default_cats);
-            // ensure createQueryBuilder fallback returns same defaults in case service uses it
             mock_category_query_builder.getMany.mockResolvedValue(mock_default_cats);
             mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
             mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweets);
 
             const result = await service.getForYouPosts('user-456');
 
-            expect(
-                mock_category_repository.find.mock.calls.length > 0 ||
-                    mock_category_query_builder.getMany.mock.calls.length > 0
-            ).toBeTruthy();
+            expect(mock_category_query_builder.getMany).toHaveBeenCalled();
+            expect(mock_category_query_builder.where).toHaveBeenCalledWith('c.id IN (:...ids)', {
+                ids: [2, 3, 5, 4, 15],
+            });
             expect(result).toHaveLength(2);
         });
 
-        it('should use default categories when no user_id provided', async () => {
-            const mock_default_cats = [{ id: 21, name: 'Sports' }];
-            const mock_tweet_ids = [['tweet-1']];
+        it('should fill remaining slots with default categories when user has partial interests', async () => {
+            const user_id = 'user-789';
+            const mock_interests = [
+                { category: { id: 21, name: 'Sports' }, score: 100 },
+                { category: { id: 20, name: 'Tech' }, score: 90 },
+            ];
+            const mock_default_cats = [
+                { id: 2, name: 'Category2' },
+                { id: 3, name: 'Category3' },
+                { id: 5, name: 'Category5' },
+            ];
+            const mock_tweet_ids = [
+                ['tweet-1'],
+                ['tweet-2'],
+                ['tweet-3'],
+                ['tweet-4'],
+                ['tweet-5'],
+            ];
+            const mock_tweets = [
+                { tweet_id: 'tweet-1', content: 'test1' },
+                { tweet_id: 'tweet-2', content: 'test2' },
+                { tweet_id: 'tweet-3', content: 'test3' },
+                { tweet_id: 'tweet-4', content: 'test4' },
+                { tweet_id: 'tweet-5', content: 'test5' },
+            ];
 
-            mock_category_repository.find.mockResolvedValue(mock_default_cats);
-            // ensure query builder fallback also returns defaults
+            const mock_query_builder = {
+                innerJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_interests),
+            };
+
+            mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_category_query_builder.getMany.mockResolvedValue(mock_default_cats);
+            mock_category_query_builder.andWhere.mockReturnThis();
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweets);
+
+            const result = await service.getForYouPosts(user_id);
+
+            // Should call andWhere because existing_ids.length > 0
+            expect(mock_category_query_builder.andWhere).toHaveBeenCalledWith(
+                'c.id NOT IN (:...existing_ids)',
+                { existing_ids: [21, 20] }
+            );
+            expect(mock_category_query_builder.limit).toHaveBeenCalledWith(3); // needed = 5 - 2
+            expect(result.length).toBeGreaterThan(0);
+        });
+
+        it('should NOT call andWhere when user has zero interests (existing_ids.length === 0)', async () => {
+            const user_id = 'user-no-interests';
+            const mock_default_cats = [
+                { id: 2, name: 'Category2' },
+                { id: 3, name: 'Category3' },
+                { id: 5, name: 'Category5' },
+                { id: 4, name: 'Category4' },
+                { id: 15, name: 'Category15' },
+            ];
+            const mock_tweet_ids = [['tweet-1'], [], [], [], []];
+            const mock_tweets = [{ tweet_id: 'tweet-1', content: 'test1' }];
+
+            const mock_query_builder = {
+                innerJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([]),
+            };
+
+            mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_category_query_builder.andWhere.mockClear();
+            mock_category_query_builder.getMany.mockResolvedValue(mock_default_cats);
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweets);
+
+            await service.getForYouPosts(user_id);
+
+            // andWhere should NOT be called because existing_ids.length === 0
+            expect(mock_category_query_builder.andWhere).not.toHaveBeenCalled();
+            expect(mock_category_query_builder.limit).toHaveBeenCalledWith(5); // needed = 5 - 0
+        });
+
+        it('should use default categories when no user_id provided', async () => {
+            const mock_default_cats = [
+                { id: 2, name: 'Category2' },
+                { id: 3, name: 'Category3' },
+                { id: 5, name: 'Category5' },
+                { id: 4, name: 'Category4' },
+                { id: 15, name: 'Category15' },
+            ];
+            const mock_tweet_ids = [['tweet-1'], [], [], [], []];
+
             mock_category_query_builder.getMany.mockResolvedValue(mock_default_cats);
             mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
             mock_tweets_service.getTweetsByIds.mockResolvedValue([{ tweet_id: 'tweet-1' }]);
 
             const result = await service.getForYouPosts();
 
-            expect(
-                mock_category_repository.find.mock.calls.length > 0 ||
-                    mock_category_query_builder.getMany.mock.calls.length > 0
-            ).toBeTruthy();
+            expect(mock_category_query_builder.getMany).toHaveBeenCalled();
+            expect(mock_category_query_builder.andWhere).not.toHaveBeenCalled();
         });
 
         it('should return empty array when no tweets found', async () => {
@@ -468,6 +555,7 @@ describe('ExploreService', () => {
 
             mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
             mock_category_repository.find.mockResolvedValue([{ id: 21, name: 'Sports' }]);
+            mock_category_query_builder.getMany.mockResolvedValue([{ id: 21, name: 'Sports' }]);
             mock_redis_service.zrevrangeMultiple.mockResolvedValue([[]]);
 
             const result = await service.getForYouPosts('user-123');
@@ -498,6 +586,90 @@ describe('ExploreService', () => {
 
             expect(result).toHaveLength(1);
             expect(result[0].category.id).toBe(21);
+        });
+
+        it('should handle user with exactly 5 interests (no default categories needed)', async () => {
+            const user_id = 'user-full-interests';
+            const mock_interests = [
+                { category: { id: 21, name: 'Sports' }, score: 100 },
+                { category: { id: 20, name: 'Tech' }, score: 90 },
+                { category: { id: 19, name: 'Music' }, score: 80 },
+                { category: { id: 18, name: 'Gaming' }, score: 70 },
+                { category: { id: 17, name: 'News' }, score: 60 },
+            ];
+            const mock_tweet_ids = [
+                ['tweet-1'],
+                ['tweet-2'],
+                ['tweet-3'],
+                ['tweet-4'],
+                ['tweet-5'],
+            ];
+            const mock_tweets = [
+                { tweet_id: 'tweet-1', content: 'test1' },
+                { tweet_id: 'tweet-2', content: 'test2' },
+                { tweet_id: 'tweet-3', content: 'test3' },
+                { tweet_id: 'tweet-4', content: 'test4' },
+                { tweet_id: 'tweet-5', content: 'test5' },
+            ];
+
+            const mock_query_builder = {
+                innerJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_interests),
+            };
+
+            mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweets);
+
+            const result = await service.getForYouPosts(user_id);
+
+            // Should NOT call category_repository because categories.length === 5
+            expect(mock_category_query_builder.getMany).not.toHaveBeenCalled();
+            expect(result).toHaveLength(5);
+        });
+
+        it('should handle multiple tweets in feed_structure correctly', async () => {
+            const user_id = 'user-multi-tweets';
+            const mock_interests = [
+                { category: { id: 21, name: 'Sports' }, score: 100 },
+                { category: { id: 20, name: 'Tech' }, score: 90 },
+            ];
+            const mock_tweet_ids = [
+                ['tweet-1', 'tweet-2', 'tweet-3'],
+                ['tweet-4', 'tweet-5'],
+            ];
+            const mock_tweets = [
+                { tweet_id: 'tweet-1', content: 'test1' },
+                { tweet_id: 'tweet-2', content: 'test2' },
+                { tweet_id: 'tweet-3', content: 'test3' },
+                { tweet_id: 'tweet-4', content: 'test4' },
+                { tweet_id: 'tweet-5', content: 'test5' },
+            ];
+
+            const mock_query_builder = {
+                innerJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_interests),
+            };
+
+            mock_user_interests_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+            mock_redis_service.zrevrangeMultiple.mockResolvedValue(mock_tweet_ids);
+            mock_tweets_service.getTweetsByIds.mockResolvedValue(mock_tweets);
+
+            const result = await service.getForYouPosts(user_id);
+
+            expect(result).toHaveLength(2);
+            expect(result[0].tweets).toHaveLength(3);
+            expect(result[1].tweets).toHaveLength(2);
+            expect(mock_tweets_service.getTweetsByIds).toHaveBeenCalledWith(
+                expect.arrayContaining(['tweet-1', 'tweet-2', 'tweet-3', 'tweet-4', 'tweet-5']),
+                user_id
+            );
         });
     });
 });

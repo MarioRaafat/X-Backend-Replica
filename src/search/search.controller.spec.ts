@@ -163,6 +163,7 @@ describe('SearchController', () => {
                             'https://example.com/image2.jpg',
                         ],
                         videos: ['https://example.com/video1.mp4'],
+                        mentions: [],
                         user: {
                             id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
                             username: 'alyaa2242',
@@ -183,6 +184,7 @@ describe('SearchController', () => {
                                 'https://example.com/image2.jpg',
                             ],
                             videos: ['https://example.com/video1.mp4'],
+                            mentions: ['blah'],
                             user: {
                                 id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
                                 username: 'alyaa2242',
@@ -245,6 +247,7 @@ describe('SearchController', () => {
                             'https://example.com/image2.jpg',
                         ],
                         videos: ['https://example.com/video1.mp4'],
+                        mentions: [],
                         user: {
                             id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
                             username: 'alyaa2242',
@@ -265,6 +268,7 @@ describe('SearchController', () => {
                                 'https://example.com/image2.jpg',
                             ],
                             videos: ['https://example.com/video1.mp4'],
+                            mentions: ['blah'],
                             user: {
                                 id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
                                 username: 'alyaa2242',

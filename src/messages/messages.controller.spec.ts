@@ -230,4 +230,171 @@ describe('MessagesController', () => {
             expect(result.is_deleted).toBe(true);
         });
     });
+
+    describe('socketDocs', () => {
+        it('should return socket documentation', async () => {
+            const result = await controller.socketDocs();
+
+            expect(result).toBeDefined();
+            expect(typeof result).toBe('object');
+        });
+    });
+
+    describe('uploadMessageImage', () => {
+        beforeEach(() => {
+            messages_service.uploadMessageImage = jest.fn();
+        });
+
+        it('should upload message image successfully', async () => {
+            const mock_file = {
+                fieldname: 'file',
+                originalname: 'test.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                buffer: Buffer.from('test'),
+                size: 1024,
+            } as Express.Multer.File;
+
+            const mock_result = {
+                image_url: 'https://storage.azure.com/images/test.jpg',
+            };
+
+            messages_service.uploadMessageImage.mockResolvedValue(mock_result);
+
+            const result = await controller.uploadMessageImage(mock_file, mock_user_id);
+
+            expect(messages_service.uploadMessageImage).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_file
+            );
+            expect(result).toEqual(mock_result);
+        });
+
+        it('should handle upload errors', async () => {
+            const mock_file = {
+                fieldname: 'file',
+                originalname: 'test.jpg',
+                encoding: '7bit',
+                mimetype: 'image/jpeg',
+                buffer: Buffer.from('test'),
+                size: 1024,
+            } as Express.Multer.File;
+
+            messages_service.uploadMessageImage.mockRejectedValue(new Error('Upload failed'));
+
+            await expect(controller.uploadMessageImage(mock_file, mock_user_id)).rejects.toThrow(
+                'Upload failed'
+            );
+        });
+    });
+
+    describe('getMessageReactions', () => {
+        beforeEach(() => {
+            messages_service.getMessageReactions = jest.fn();
+        });
+
+        it('should get message reactions successfully', async () => {
+            const mock_reactions = [
+                {
+                    emoji: '❤️',
+                    count: 2,
+                    users: [
+                        {
+                            id: 'user-1',
+                            username: 'user1',
+                            name: 'User One',
+                            avatar_url: 'avatar1.jpg',
+                        },
+                        {
+                            id: 'user-2',
+                            username: 'user2',
+                            name: 'User Two',
+                            avatar_url: 'avatar2.jpg',
+                        },
+                    ],
+                    user_reacted: true,
+                },
+            ];
+
+            messages_service.getMessageReactions.mockResolvedValue(mock_reactions as any);
+
+            const result = await controller.getMessageReactions(
+                mock_chat_id,
+                mock_message_id,
+                mock_user_id
+            );
+
+            expect(messages_service.getMessageReactions).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_chat_id,
+                mock_message_id
+            );
+            expect(result).toEqual(mock_reactions);
+        });
+
+        it('should return empty array when no reactions', async () => {
+            messages_service.getMessageReactions.mockResolvedValue([]);
+
+            const result = await controller.getMessageReactions(
+                mock_chat_id,
+                mock_message_id,
+                mock_user_id
+            );
+
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('uploadVoiceNote', () => {
+        beforeEach(() => {
+            messages_service.uploadVoiceNote = jest.fn();
+        });
+
+        it('should upload voice note successfully', async () => {
+            const mock_file = {
+                fieldname: 'file',
+                originalname: 'voice.mp3',
+                encoding: '7bit',
+                mimetype: 'audio/mpeg',
+                buffer: Buffer.from('audio data'),
+                size: 5000,
+            } as Express.Multer.File;
+
+            const mock_body = { duration: '45' };
+            const mock_result = {
+                voice_note_url: 'https://storage.azure.com/voices/voice.mp3',
+                duration: '45',
+            };
+
+            messages_service.uploadVoiceNote.mockResolvedValue(mock_result);
+
+            const result = await controller.uploadVoiceNote(mock_file, mock_body, mock_user_id);
+
+            expect(messages_service.uploadVoiceNote).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_file,
+                '45'
+            );
+            expect(result).toEqual(mock_result);
+        });
+
+        it('should handle voice note upload errors', async () => {
+            const mock_file = {
+                fieldname: 'file',
+                originalname: 'voice.mp3',
+                encoding: '7bit',
+                mimetype: 'audio/mpeg',
+                buffer: Buffer.from('audio data'),
+                size: 5000,
+            } as Express.Multer.File;
+
+            const mock_body = { duration: '30' };
+
+            messages_service.uploadVoiceNote.mockRejectedValue(new Error('File too large'));
+
+            await expect(
+                controller.uploadVoiceNote(mock_file, mock_body, mock_user_id)
+            ).rejects.toThrow('File too large');
+        });
+    });
 });

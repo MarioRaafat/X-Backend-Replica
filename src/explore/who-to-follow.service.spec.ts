@@ -80,6 +80,43 @@ describe('WhoToFollowService', () => {
             expect(result[1].id).toBe('user-2');
         });
 
+        it('should handle null/undefined user fields in popular users', async () => {
+            const mock_users = [
+                {
+                    id: 'user-1',
+                    username: 'user1',
+                    name: 'User 1',
+                    bio: null,
+                    avatar_url: null,
+                    verified: null,
+                    followers: null,
+                    following: null,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_users),
+            };
+
+            jest.spyOn(user_repository, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+
+            const result = await service.getWhoToFollow(undefined, 1);
+
+            expect(result).toHaveLength(1);
+            expect(result[0].bio).toBe('');
+            expect(result[0].avatar_url).toBe('');
+            expect(result[0].verified).toBe(false);
+            expect(result[0].followers).toBe(0);
+            expect(result[0].following).toBe(0);
+        });
+
         it('should return personalized recommendations for authenticated users', async () => {
             const user_id = 'current-user-123';
 
@@ -231,6 +268,60 @@ describe('WhoToFollowService', () => {
             const result = await service.getWhoToFollow(user_id, 5);
 
             expect(result.length).toBe(4); // 2 from recommendations + 2 from popular
+        });
+
+        it('should handle null/undefined fields in personalized recommendations', async () => {
+            const user_id = 'current-user-test';
+
+            jest.spyOn(user_repository, 'query')
+                .mockResolvedValueOnce([{ user_id: 'user-1', mutual_count: 5 }])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([]);
+
+            const mock_users_with_nulls = [
+                {
+                    user_id: 'user-1',
+                    user_username: 'user1',
+                    user_name: 'User 1',
+                    user_bio: null,
+                    user_avatar_url: null,
+                    user_verified: null,
+                    user_followers: null,
+                    user_following: null,
+                    is_following: null,
+                    is_followed: null,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValue(mock_users_with_nulls),
+                getMany: jest.fn().mockResolvedValue([]),
+            };
+
+            jest.spyOn(user_repository, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+
+            const result = await service.getWhoToFollow(user_id, 10);
+
+            expect(result).toHaveLength(1);
+            expect(result[0].bio).toBe('');
+            expect(result[0].avatar_url).toBe('');
+            expect(result[0].verified).toBe(false);
+            expect(result[0].followers).toBe(0);
+            expect(result[0].following).toBe(0);
+            expect(result[0].is_following).toBe(false);
+            expect(result[0].is_followed).toBe(false);
         });
     });
 
@@ -451,6 +542,123 @@ describe('WhoToFollowService', () => {
             const user_ids = result.map((u) => u.id);
             const unique_user_ids = new Set(user_ids);
             expect(user_ids.length).toBe(unique_user_ids.size);
+        });
+    });
+
+    describe('calculateScore', () => {
+        it('should calculate score for friends of friends correctly', () => {
+            const user = { mutual_count: 5 };
+            // Access private method through any
+            const score = (service as any).calculateScore(user, 'fof');
+            expect(score).toBe(50); // 5/10 * 100 = 50
+        });
+
+        it('should cap friends of friends score at 100', () => {
+            const user = { mutual_count: 15 };
+            const score = (service as any).calculateScore(user, 'fof');
+            expect(score).toBe(100);
+        });
+
+        it('should calculate score for interest-based users correctly', () => {
+            const user = { common_categories: 1, avg_interest_score: 80 };
+            const score = (service as any).calculateScore(user, 'interests');
+            // (1/2 * 60) + (80/100 * 40) = 30 + 32 = 62
+            expect(score).toBe(62);
+        });
+
+        it('should cap interest-based score correctly', () => {
+            const user = { common_categories: 5, avg_interest_score: 100 };
+            const score = (service as any).calculateScore(user, 'interests');
+            expect(score).toBe(100); // 60 (capped) + 40 (capped) = 100
+        });
+
+        it('should calculate score for liked users correctly', () => {
+            const user = { like_count: 7 };
+            const score = (service as any).calculateScore(user, 'likes');
+            expect(score).toBe(70); // 7/10 * 100 = 70
+        });
+
+        it('should cap liked users score at 100', () => {
+            const user = { like_count: 20 };
+            const score = (service as any).calculateScore(user, 'likes');
+            expect(score).toBe(100);
+        });
+
+        it('should calculate score for replied users correctly', () => {
+            const user = { reply_count: 3 };
+            const score = (service as any).calculateScore(user, 'replies');
+            expect(score).toBe(30); // 3/10 * 100 = 30
+        });
+
+        it('should cap replied users score at 100', () => {
+            const user = { reply_count: 15 };
+            const score = (service as any).calculateScore(user, 'replies');
+            expect(score).toBe(100);
+        });
+
+        it('should return fixed score for followers', () => {
+            const user = {};
+            const score = (service as any).calculateScore(user, 'followers');
+            expect(score).toBe(50);
+        });
+
+        it('should return 0 for unknown source', () => {
+            const user = {};
+            const score = (service as any).calculateScore(user, 'unknown' as any);
+            expect(score).toBe(0);
+        });
+    });
+
+    describe('combineByDistribution', () => {
+        it('should handle empty arrays from all sources', () => {
+            const result = (service as any).combineByDistribution([], [], [], [], [], 10);
+            expect(result).toEqual([]);
+        });
+
+        it('should fill remaining slots when distribution yields fewer users', () => {
+            const fof_users = [{ user_id: 'user-1', mutual_count: 5 }];
+            const result = (service as any).combineByDistribution(fof_users, [], [], [], [], 10);
+            expect(result.length).toBeLessThanOrEqual(10);
+            expect(result.length).toBeGreaterThan(0);
+        });
+
+        it('should deduplicate users across sources', () => {
+            const duplicate_id = 'duplicate-user';
+            const fof_users = [{ user_id: duplicate_id, mutual_count: 5 }];
+            const interest_users = [
+                { user_id: duplicate_id, common_categories: 2, avg_interest_score: 80 },
+            ];
+            const result = (service as any).combineByDistribution(
+                fof_users,
+                interest_users,
+                [],
+                [],
+                [],
+                10
+            );
+            const user_ids = result.map((u: any) => u.user_id);
+            const unique_ids = new Set(user_ids);
+            expect(user_ids.length).toBe(unique_ids.size);
+        });
+
+        it('should sort results by score descending', () => {
+            const fof_users = [
+                { user_id: 'user-1', mutual_count: 2 },
+                { user_id: 'user-2', mutual_count: 8 },
+            ];
+            const result = (service as any).combineByDistribution(fof_users, [], [], [], [], 10);
+            if (result.length > 1) {
+                expect(result[0].score).toBeGreaterThanOrEqual(result[1].score);
+            }
+        });
+
+        it('should respect the limit parameter', () => {
+            const fof_users = Array.from({ length: 20 }, (_, i) => ({
+                user_id: `user-${i}`,
+                mutual_count: 5,
+            }));
+            const result = (service as any).combineByDistribution(fof_users, [], [], [], [], 5);
+            expect(result.length).toBeLessThanOrEqual(5);
         });
     });
 });
