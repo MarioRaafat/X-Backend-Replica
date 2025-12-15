@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { TimelineService } from './timeline.service';
 import { TimelineController } from './timeline.controller';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
@@ -27,7 +27,7 @@ import { RedisModuleConfig } from 'src/redis/redis.module';
             UserInterests,
             UserTimelineCursor,
         ]),
-        BackgroundJobsModule,
+        forwardRef(() => BackgroundJobsModule),
         RedisModuleConfig,
     ],
     controllers: [TimelineController],
