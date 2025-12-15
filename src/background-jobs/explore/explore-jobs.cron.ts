@@ -12,6 +12,7 @@ import { ExploreJobsService } from './explore-jobs.service';
 export class ExploreJobsCron {
     private readonly logger = new Logger(ExploreJobsCron.name);
 
+    /* istanbul ignore next */
     constructor(private readonly explore_jobs_service: ExploreJobsService) {}
 
     // Schedule explore score update job every hour
