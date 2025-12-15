@@ -343,7 +343,7 @@ export class AuthService {
     }
 
     async sendResetPasswordEmail(identifier: string) {
-        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
+        const { user_id } = await this.checkIdentifier(identifier);
         const user = await this.user_repository.findById(user_id);
         if (!user) {
             throw new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
@@ -371,7 +371,7 @@ export class AuthService {
     }
 
     async verifyResetPasswordOtp(identifier: string, token: string) {
-        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
+        const { user_id } = await this.checkIdentifier(identifier);
         const is_valid = await this.verification_service.validateOtp(user_id, token, 'password');
 
         if (!is_valid) {
@@ -412,7 +412,7 @@ export class AuthService {
     }
 
     async resetPassword(identifier: string, new_password: string, token: string) {
-        const { identifier_type, user_id } = await this.checkIdentifier(identifier);
+        const { user_id } = await this.checkIdentifier(identifier);
         const token_data = await this.verification_service.validatePasswordResetToken(token);
 
         if (!token_data) {

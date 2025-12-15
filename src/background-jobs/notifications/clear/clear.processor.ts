@@ -24,7 +24,6 @@ export class ClearProcessor {
             }
 
             if (tweet_ids?.length) {
-                console.log('Clearing notifications for user:', user_id, 'Tweet IDs:', tweet_ids);
                 await this.notifications_service.deleteNotificationsByTweetIds(user_id, tweet_ids);
                 this.logger.log(
                     `Successfully cleared ${tweet_ids.length} notification(s) by tweet IDs for user ${user_id}`
@@ -32,7 +31,6 @@ export class ClearProcessor {
             }
 
             if (user_ids?.length) {
-                console.log('Clearing notifications for user:', user_id, 'User IDs:', user_ids);
                 await this.notifications_service.cleanupNotificationsByUserIds(user_id, user_ids);
                 this.logger.log(
                     `Successfully cleared ${user_ids.length} notification(s) by user IDs for user ${user_id}`

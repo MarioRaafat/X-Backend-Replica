@@ -8,7 +8,6 @@ import { In, Repository } from 'typeorm';
 import { VelocityExponentialDetector } from './velocity-exponential-detector';
 import { HashtagResponseDto } from './dto/hashtag-response.dto';
 import { HashtagJobDto } from 'src/background-jobs/hashtag/hashtag-job.dto';
-import { TREND_CRON_SCHEDULE } from 'src/background-jobs';
 
 @Injectable()
 export class TrendService {
@@ -49,14 +48,10 @@ export class TrendService {
         for (let i = 0; i < trending.length; i += 2) {
             result.push({
                 hashtag: trending[i],
-                score: parseFloat(trending[i + 1]),
+                score: Number.parseFloat(trending[i + 1]),
             });
             hashtag_names.push(trending[i]);
         }
-
-        // const normalized_hashtags = hashtag_names.map((hashtag) => {
-        //     return hashtag.toLowerCase();
-        // });
 
         const hashtags = await this.hashtag_repository.find({
             where: { name: In(hashtag_names) },
@@ -120,8 +115,9 @@ export class TrendService {
             for (const category of this.CATEGORIES) {
                 const result = results[result_index];
                 // Check if result exists and has valid data
+
                 if (result && result[1] !== null && result[1] !== undefined) {
-                    const score = parseFloat(result[1] as string);
+                    const score = Number.parseFloat(result[1] as string);
                     if (score > max_score) {
                         max_score = score;
                         max_category = category;
@@ -143,7 +139,7 @@ export class TrendService {
 
         //Expire after 2 hours
         // We may delegate it to trend worker
-        await this.redis_service.expire('candidates:active', 6 * 60 * 60);
+        await this.redis_service.expire('candidates:active', 24 * 60 * 60);
     }
     async insertCandidateCategories(hashtags: HashtagJobDto) {
         const pipeline = this.redis_service.pipeline();
@@ -157,7 +153,7 @@ export class TrendService {
                 if (percent >= this.CATEGORY_THRESHOLD) {
                     // Store hashtag with its category percentage as score
                     pipeline.zadd(`candidates:${category_name}`, percent, hashtag);
-                    pipeline.expire(`candidates:${category_name}`, 6 * 60 * 60);
+                    pipeline.expire(`candidates:${category_name}`, 24 * 60 * 60);
                 }
             }
         }
@@ -178,7 +174,7 @@ export class TrendService {
 
             await this.redis_service.zincrby(`hashtag:${hashtag}`, 1, time_bucket.toString());
 
-            await this.redis_service.expire(`hashtag:${hashtag}`, 6 * 60 * 60);
+            await this.redis_service.expire(`hashtag:${hashtag}`, 24 * 60 * 60);
         }
 
         await pipeline.exec();
@@ -192,7 +188,7 @@ export class TrendService {
         try {
             console.log('Calculate Trend.....');
             const now = Date.now();
-            const hours_ago = now - 6 * 60 * 60 * 1000;
+            const hours_ago = now - 24 * 60 * 60 * 1000;
 
             // 1. Get active candidates (last hour)
             const active_hashtags = await this.redis_service.zrangebyscore(
@@ -245,7 +241,7 @@ export class TrendService {
 
                 for (let i = 0; i < category_candidates.length; i += 2) {
                     const hashtag = category_candidates[i];
-                    const category_percent = parseFloat(category_candidates[i + 1]);
+                    const category_percent = Number.parseFloat(category_candidates[i + 1]);
 
                     // Use pre-calculated score
                     const base_score_data = hashtag_scores.get(hashtag);
@@ -285,18 +281,17 @@ export class TrendService {
             const bucket_data: Array<{ timestamp: number; count: number }> = [];
             for (let i = 0; i < buckets_5m.length; i += 2) {
                 bucket_data.push({
-                    timestamp: parseInt(buckets_5m[i]),
-                    count: parseFloat(buckets_5m[i + 1]),
+                    timestamp: Number.parseInt(buckets_5m[i]),
+                    count: Number.parseFloat(buckets_5m[i + 1]),
                 });
             }
 
             // Calculate individual scores
             const volume_score = this.calculateTweetVolume(bucket_data);
-            // const acceleration_score = this.calculateAccelerationScore(bucket_data);
             const acceleration_score = this.velocity_calculator.calculateFinalMomentum(bucket_data);
 
             const last_seen = await this.redis_service.zscore('candidates:active', hashtag);
-            const last_seen_time = last_seen ? parseInt(last_seen) : null;
+            const last_seen_time = last_seen ? Number.parseInt(last_seen) : null;
             const recency_score = this.calculateRecencyScore(last_seen_time);
 
             const final_score = this.calculateFinalScore(

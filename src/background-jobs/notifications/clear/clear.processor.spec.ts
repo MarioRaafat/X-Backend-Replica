@@ -180,8 +180,8 @@ describe('ClearProcessor', () => {
             );
         });
 
-        it('should log console message when clearing notifications', async () => {
-            const console_spy = jest.spyOn(console, 'log').mockImplementation();
+        it('should log success message when clearing notifications', async () => {
+            const logger_spy = jest.spyOn(processor['logger'], 'log').mockImplementation();
 
             const job_data: ClearBackGroundNotificationJobDTO = {
                 user_id: 'user-123',
@@ -197,14 +197,11 @@ describe('ClearProcessor', () => {
                 mock_job as Job<ClearBackGroundNotificationJobDTO>
             );
 
-            expect(console_spy).toHaveBeenCalledWith(
-                'Clearing notifications for user:',
-                'user-123',
-                'Tweet IDs:',
-                ['tweet-1', 'tweet-2']
+            expect(logger_spy).toHaveBeenCalledWith(
+                'Successfully cleared 2 notification(s) by tweet IDs for user user-123'
             );
 
-            console_spy.mockRestore();
+            logger_spy.mockRestore();
         });
 
         it('should log success message after clearing notifications', async () => {
@@ -231,6 +228,75 @@ describe('ClearProcessor', () => {
             );
 
             logger_log_spy.mockRestore();
+        });
+
+        it('should handle database errors gracefully', async () => {
+            const db_error = new Error('Database connection failed');
+            mock_notifications_service.deleteNotificationsByTweetIds.mockRejectedValue(db_error);
+
+            const job_data: ClearBackGroundNotificationJobDTO = {
+                user_id: 'user-123',
+                tweet_ids: ['tweet-1'],
+            };
+
+            const mock_job = {
+                id: 'job-error',
+                data: job_data,
+            } as Job<ClearBackGroundNotificationJobDTO>;
+
+            const logger_error_spy = jest.spyOn(Logger.prototype, 'error').mockImplementation();
+
+            await expect(processor.handleClearNotification(mock_job)).rejects.toThrow(
+                'Database connection failed'
+            );
+
+            expect(logger_error_spy).toHaveBeenCalledWith(
+                'Error processing clear notification job job-error:',
+                db_error
+            );
+
+            logger_error_spy.mockRestore();
+        });
+
+        it('should handle empty tweet_ids array as invalid', async () => {
+            const job_data: ClearBackGroundNotificationJobDTO = {
+                user_id: 'user-123',
+                tweet_ids: [],
+            };
+
+            const mock_job = {
+                id: 'job-empty',
+                data: job_data,
+            } as Job<ClearBackGroundNotificationJobDTO>;
+
+            const logger_spy = jest.spyOn(Logger.prototype, 'warn').mockImplementation();
+
+            await processor.handleClearNotification(mock_job);
+
+            expect(mock_notifications_service.deleteNotificationsByTweetIds).not.toHaveBeenCalled();
+            expect(logger_spy).toHaveBeenCalled();
+
+            logger_spy.mockRestore();
+        });
+
+        it('should handle large arrays of tweet IDs', async () => {
+            const large_tweet_ids = Array.from({ length: 100 }, (_, i) => `tweet-${i}`);
+            const job_data: ClearBackGroundNotificationJobDTO = {
+                user_id: 'user-123',
+                tweet_ids: large_tweet_ids,
+            };
+
+            const mock_job = {
+                id: 'job-large',
+                data: job_data,
+            } as Job<ClearBackGroundNotificationJobDTO>;
+
+            await processor.handleClearNotification(mock_job);
+
+            expect(mock_notifications_service.deleteNotificationsByTweetIds).toHaveBeenCalledWith(
+                'user-123',
+                large_tweet_ids
+            );
         });
     });
 });

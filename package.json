@@ -30,7 +30,8 @@
         "seed": "ts-node -r tsconfig-paths/register src/databases/seeds/scripts/seed.ts",
         "es:seed": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-seed.ts",
         "es:reset": "ts-node -r tsconfig-paths/register src/elasticsearch/scripts/es-reset.ts",
-        "generate-encryption-key": "node -r ts-node/register src/shared/services/encryption/generate-encryption-key.ts"
+        "generate-encryption-key": "node -r ts-node/register src/shared/services/encryption/generate-encryption-key.ts",
+        "sonar": "npm run test:cov && sonar-scanner"
     },
     "lint-staged": {
         "*.ts": [
@@ -125,6 +126,7 @@
         "jest": "^30.0.0",
         "lint-staged": "^16.2.4",
         "prettier": "^3.4.2",
+        "sonarqube-scanner": "^4.3.2",
         "source-map-support": "^0.5.21",
         "supertest": "^7.0.0",
         "ts-jest": "^29.2.5",

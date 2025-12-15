@@ -13,7 +13,6 @@ export class HashtagProcessor {
 
     @Process(JOB_NAMES.HASHTAG.UPDATE_HASHTAG)
     async handleUpdateHashtags(job: bull.Job<HashtagJobDto>) {
-        const { hashtags, timestamp } = job.data;
         await this.trend_service.insertCandidateHashtags(job.data);
         await this.trend_service.insertCandidateCategories(job.data);
 

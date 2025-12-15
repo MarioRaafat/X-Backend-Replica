@@ -12,7 +12,7 @@ import type { Queue } from 'bull';
 
 @Injectable()
 export class LikeJobService extends BackgroundJobsService<LikeBackGroundNotificationJobDTO> {
-    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private reply_queue: Queue) {
+    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private readonly reply_queue: Queue) {
         super(reply_queue, JOB_NAMES.NOTIFICATION.LIKE, JOB_PRIORITIES.HIGH, JOB_DELAYS.IMMEDIATE);
     }
 

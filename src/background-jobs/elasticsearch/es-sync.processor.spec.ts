@@ -29,8 +29,10 @@ describe('EsSyncProcessor', () => {
     const mock_elasticsearch_service = {
         index: jest.fn(),
         delete: jest.fn(),
+        bulk: jest.fn(),
         updateByQuery: jest.fn(),
         deleteByQuery: jest.fn(),
+        get: jest.fn(),
     };
 
     const mock_user_follows_repository = {
@@ -183,6 +185,7 @@ describe('EsSyncProcessor', () => {
             const mock_tweet = {
                 tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 content: 'Reply tweet',
+                type: TweetType.REPLY,
                 user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
                 user: {
                     name: 'Test User',
@@ -212,69 +215,335 @@ describe('EsSyncProcessor', () => {
                 }),
             });
         });
+
+        it('should use existing parent_id from ES when not provided in job data', async () => {
+            const mock_tweet = {
+                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Reply tweet',
+                type: TweetType.REPLY,
+                user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                user: {
+                    name: 'Test User',
+                    username: 'testuser',
+                } as User,
+            } as Tweet;
+
+            const job = {
+                data: {
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    parent_id: undefined,
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                },
+            } as Job;
+
+            const existing_es_doc = {
+                _source: {
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                },
+            };
+
+            mock_tweets_repository.findOne.mockResolvedValue(mock_tweet);
+            mock_elasticsearch_service.get.mockResolvedValue(existing_es_doc as any);
+            mock_elasticsearch_service.index.mockResolvedValue({} as any);
+
+            await processor.handleIndexTweet(job);
+
+            expect(mock_elasticsearch_service.get).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+            });
+            expect(mock_elasticsearch_service.index).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                document: expect.objectContaining({
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                }),
+            });
+        });
+
+        it('should use existing conversation_id from ES when not provided in job data', async () => {
+            const mock_tweet = {
+                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Reply tweet',
+                type: TweetType.REPLY,
+                user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                user: {
+                    name: 'Test User',
+                    username: 'testuser',
+                } as User,
+            } as Tweet;
+
+            const job = {
+                data: {
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: undefined,
+                },
+            } as Job;
+
+            const existing_es_doc = {
+                _source: {
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                },
+            };
+
+            mock_tweets_repository.findOne.mockResolvedValue(mock_tweet);
+            mock_elasticsearch_service.get.mockResolvedValue(existing_es_doc as any);
+            mock_elasticsearch_service.index.mockResolvedValue({} as any);
+
+            await processor.handleIndexTweet(job);
+
+            expect(mock_elasticsearch_service.get).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+            });
+            expect(mock_elasticsearch_service.index).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                document: expect.objectContaining({
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                }),
+            });
+        });
+
+        it('should use existing parent_id and conversation_id from ES when both not provided', async () => {
+            const mock_tweet = {
+                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Reply tweet',
+                type: TweetType.REPLY,
+                user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                user: {
+                    name: 'Test User',
+                    username: 'testuser',
+                } as User,
+            } as Tweet;
+
+            const job = {
+                data: {
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    parent_id: undefined,
+                    conversation_id: undefined,
+                },
+            } as Job;
+
+            const existing_es_doc = {
+                _source: {
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                },
+            };
+
+            mock_tweets_repository.findOne.mockResolvedValue(mock_tweet);
+            mock_elasticsearch_service.get.mockResolvedValue(existing_es_doc as any);
+            mock_elasticsearch_service.index.mockResolvedValue({} as any);
+
+            await processor.handleIndexTweet(job);
+
+            expect(mock_elasticsearch_service.get).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+            });
+            expect(mock_elasticsearch_service.index).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                document: expect.objectContaining({
+                    parent_id: '6ba9c7cf-302b-433f-8642-50de81ef0372',
+                    conversation_id: '4fa1b0f4-a059-4b6f-ab1f-137217d33d3c',
+                }),
+            });
+        });
+
+        it('should skip ES lookup when tweet type is TWEET even if IDs not provided', async () => {
+            const mock_tweet = {
+                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Regular tweet',
+                type: TweetType.TWEET,
+                user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                user: {
+                    name: 'Test User',
+                    username: 'testuser',
+                } as User,
+            } as Tweet;
+
+            const job = {
+                data: {
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    parent_id: undefined,
+                    conversation_id: undefined,
+                },
+            } as Job;
+
+            mock_tweets_repository.findOne.mockResolvedValue(mock_tweet);
+            mock_elasticsearch_service.index.mockResolvedValue({} as any);
+
+            await processor.handleIndexTweet(job);
+
+            expect(mock_elasticsearch_service.get).not.toHaveBeenCalled();
+            expect(mock_elasticsearch_service.index).toHaveBeenCalled();
+        });
+
+        it('should handle ES get error gracefully and continue with indexing', async () => {
+            const mock_tweet = {
+                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Reply tweet',
+                type: TweetType.REPLY,
+                user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                user: {
+                    name: 'Test User',
+                    username: 'testuser',
+                } as User,
+            } as Tweet;
+
+            const job = {
+                data: {
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    parent_id: undefined,
+                    conversation_id: undefined,
+                },
+            } as Job;
+
+            mock_tweets_repository.findOne.mockResolvedValue(mock_tweet);
+            mock_elasticsearch_service.get.mockRejectedValue(new Error('Document not found'));
+            mock_elasticsearch_service.index.mockResolvedValue({} as any);
+
+            const logger_spy = jest.spyOn(Logger.prototype, 'debug');
+
+            await processor.handleIndexTweet(job);
+
+            expect(logger_spy).toHaveBeenCalledWith(
+                'No existing ES document for tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d'
+            );
+            expect(mock_elasticsearch_service.index).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                document: expect.objectContaining({
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                }),
+            });
+        });
+
+        it('should prefer job data IDs over existing ES document IDs', async () => {
+            const mock_tweet = {
+                tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                content: 'Reply tweet',
+                type: TweetType.REPLY,
+                user_id: '1a2b3c4d-5e6f-7g8h-9i0j-k1l2m3n4o5p6',
+                user: {
+                    name: 'Test User',
+                    username: 'testuser',
+                } as User,
+            } as Tweet;
+
+            const job = {
+                data: {
+                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    parent_id: 'new-parent-id',
+                    conversation_id: 'new-conversation-id',
+                },
+            } as Job;
+
+            const existing_es_doc = {
+                _source: {
+                    parent_id: 'old-parent-id',
+                    conversation_id: 'old-conversation-id',
+                },
+            };
+
+            mock_tweets_repository.findOne.mockResolvedValue(mock_tweet);
+            mock_elasticsearch_service.get.mockResolvedValue(existing_es_doc as any);
+            mock_elasticsearch_service.index.mockResolvedValue({} as any);
+
+            await processor.handleIndexTweet(job);
+
+            expect(mock_elasticsearch_service.get).not.toHaveBeenCalled();
+            expect(mock_elasticsearch_service.index).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                document: expect.objectContaining({
+                    parent_id: 'new-parent-id',
+                    conversation_id: 'new-conversation-id',
+                }),
+            });
+        });
     });
 
     describe('handleDeleteTweet', () => {
         it('should delete a tweet successfully', async () => {
             const job = {
                 data: {
-                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    tweet_ids: ['tweet-123', 'tweet-321'],
                 },
             } as Job;
 
-            mock_elasticsearch_service.delete.mockResolvedValue({} as any);
+            mock_elasticsearch_service.bulk.mockResolvedValue({} as any);
 
             const logger_spy = jest.spyOn(Logger.prototype, 'log');
 
             await processor.handleDeleteTweet(job);
 
-            expect(mock_elasticsearch_service.delete).toHaveBeenCalledWith({
-                index: ELASTICSEARCH_INDICES.TWEETS,
-                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+            expect(mock_elasticsearch_service.bulk).toHaveBeenCalledWith({
+                body: [
+                    { delete: { _index: ELASTICSEARCH_INDICES.TWEETS, _id: 'tweet-123' } },
+                    { delete: { _index: ELASTICSEARCH_INDICES.TWEETS, _id: 'tweet-321' } },
+                ],
             });
-            expect(logger_spy).toHaveBeenCalledWith(
-                'Deleted tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d from Elasticsearch'
-            );
+            expect(logger_spy).toHaveBeenCalledWith('Deleted 2 tweets from Elasticsearch');
         });
 
         it('should skip if tweet not found in ES (404)', async () => {
             const job = {
                 data: {
-                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    tweet_ids: ['tweet-123', 'tweet-321'],
                 },
             } as Job;
 
-            const error = {
-                meta: { statusCode: 404 },
-            };
-            mock_elasticsearch_service.delete.mockRejectedValue(error);
+            mock_elasticsearch_service.bulk.mockResolvedValue({
+                errors: true,
+                items: [
+                    {
+                        delete: {
+                            _id: 'tweet-123',
+                            status: 404,
+                            error: { type: 'document_missing_exception' },
+                        },
+                    },
+                    {
+                        delete: {
+                            _id: 'tweet-321',
+                            status: 404,
+                            error: { type: 'document_missing_exception' },
+                        },
+                    },
+                ],
+            });
 
             const logger_spy = jest.spyOn(Logger.prototype, 'warn');
 
             await processor.handleDeleteTweet(job);
 
-            expect(logger_spy).toHaveBeenCalledWith(
-                'Tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d not found in ES, skipping delete'
-            );
+            expect(logger_spy).toHaveBeenCalledWith('Tweet tweet-123 not found in ES, skipping');
+            expect(logger_spy).toHaveBeenCalledWith('Tweet tweet-321 not found in ES, skipping');
         });
 
         it('should handle delete errors', async () => {
             const job = {
                 data: {
-                    tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    tweet_ids: ['tweet-123', 'tweet-321'],
                 },
             } as Job;
 
-            const error = new Error('Delete failed');
-            mock_elasticsearch_service.delete.mockRejectedValue(error);
+            const error = new Error('Bulk delete failed');
+            mock_elasticsearch_service.bulk.mockRejectedValue(error);
 
             const logger_spy = jest.spyOn(Logger.prototype, 'error');
 
-            await expect(processor.handleDeleteTweet(job)).rejects.toThrow('Delete failed');
-            expect(logger_spy).toHaveBeenCalledWith(
-                'Failed to delete tweet 0c059899-f706-4c8f-97d7-ba2e9fc22d6d:',
-                error
-            );
+            await expect(processor.handleDeleteTweet(job)).rejects.toThrow('Bulk delete failed');
+
+            expect(logger_spy).toHaveBeenCalledWith('Bulk delete failed:', error);
         });
     });
 

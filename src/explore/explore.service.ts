@@ -51,7 +51,7 @@ export class ExploreService {
         limit: number = 20
     ) {
         const category = await this.category_repository.findOne({
-            where: { id: parseInt(category_id) },
+            where: { id: Number.parseInt(category_id) },
         });
 
         if (!category) {

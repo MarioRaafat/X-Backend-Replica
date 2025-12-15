@@ -1,11 +1,8 @@
-import { User } from '../../user/entities/user.entity';
 import {
     Column,
     CreateDateColumn,
     DeleteDateColumn,
     Entity,
-    JoinColumn,
-    ManyToOne,
     OneToMany,
     PrimaryColumn,
 } from 'typeorm';

@@ -12,7 +12,7 @@ import { QuoteBackGroundNotificationJobDTO } from './quote.dto';
 
 @Injectable()
 export class QuoteJobService extends BackgroundJobsService<QuoteBackGroundNotificationJobDTO> {
-    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private quote_queue: Queue) {
+    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private readonly quote_queue: Queue) {
         super(quote_queue, JOB_NAMES.NOTIFICATION.QUOTE, JOB_PRIORITIES.HIGH, JOB_DELAYS.IMMEDIATE);
     }
 

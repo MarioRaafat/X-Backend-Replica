@@ -1,4 +1,4 @@
-import { Expose, Type } from 'class-transformer';
+import { Expose } from 'class-transformer';
 import { TweetResponseDTO } from 'src/tweets/dto/tweet-response.dto';
 
 export class ScoredCandidateDTO extends TweetResponseDTO {

@@ -41,10 +41,8 @@ export class MentionProcessor {
             } = job.data;
 
             if (action === 'remove') {
-                // For remove action, we need usernames to find user IDs
                 if (!mentioned_user_ids || mentioned_user_ids.length === 0 || !tweet_id) return;
 
-                // Queue removal for each mentioned user
                 for (const user_id of mentioned_user_ids) {
                     if (user_id === mentioned_by) continue;
 
@@ -71,11 +69,7 @@ export class MentionProcessor {
                 if (!tweet) {
                     this.logger.warn(`Tweet data not provided in job ${job.id}.`);
                     return;
-                }
-
-                // For add action with usernames (batch processing)
-                else if (mentioned_user_ids && mentioned_user_ids.length > 0) {
-                    // Process mention for each user
+                } else if (mentioned_user_ids && mentioned_user_ids.length > 0) {
                     for (const user_id of mentioned_user_ids) {
                         if (user_id === mentioned_by) continue;
 
@@ -114,7 +108,6 @@ export class MentionProcessor {
 
         mentioner.id = mentioned_by;
 
-        // Build payload
         const payload: any = {
             type: NotificationType.MENTION,
             mentioned_by: mentioner,
@@ -122,7 +115,6 @@ export class MentionProcessor {
         };
 
         if (tweet_type === 'quote' && parent_tweet) {
-            // Use parent_tweet from DTO (already formatted)
             const quote = plainToInstance(
                 TweetQuoteResponseDTO,
                 {
@@ -133,7 +125,6 @@ export class MentionProcessor {
             );
             payload.tweet = quote;
         } else {
-            // For normal tweets or replies
             payload.tweet = plainToInstance(TweetResponseDTO, tweet, {
                 excludeExtraneousValues: true,
             });
