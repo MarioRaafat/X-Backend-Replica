@@ -230,7 +230,7 @@ describe('TrendService', () => {
                 expect.any(Number),
                 expect.any(String)
             );
-            expect(redis_service.expire).toHaveBeenCalledWith('candidates:active', 6 * 60 * 60);
+            expect(redis_service.expire).toHaveBeenCalledWith('candidates:active', 24 * 60 * 60);
         });
     });
 
@@ -301,7 +301,7 @@ describe('TrendService', () => {
             await trend_service.updateHashtagCounts(hashtag_job);
 
             expect(redis_service.zincrby).toHaveBeenCalled();
-            expect(redis_service.expire).toHaveBeenCalledWith('hashtag:#trending', 6 * 60 * 60);
+            expect(redis_service.expire).toHaveBeenCalledWith('hashtag:#trending', 24 * 60 * 60);
             expect(mock_pipeline.exec).toHaveBeenCalled();
         });
     });

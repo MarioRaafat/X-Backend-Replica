@@ -113,7 +113,7 @@ export class InterestsCandidateSource {
             .setParameters(cte_query.getParameters())
             .setParameter('user_id', user_id)
             .orderBy('ranked.post_date', 'DESC')
-            .addOrderBy('ranked.tweet_id', 'DESC')
+            .addOrderBy('ranked.id', 'DESC')
             .limit(limit);
 
         query = this.tweet_repository.attachUserInteractionBooleanFlags(
@@ -199,7 +199,7 @@ export class InterestsCandidateSource {
                 .setParameter('user_id', user_id)
                 .orderBy('RANDOM()')
                 .addOrderBy('ranked.post_date', 'DESC')
-                .addOrderBy('ranked.tweet_id', 'DESC')
+                .addOrderBy('ranked.id', 'DESC')
                 .limit(limit);
 
             query = this.tweet_repository.attachUserInteractionBooleanFlags(

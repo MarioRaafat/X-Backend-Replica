@@ -56,6 +56,11 @@ export class DeletedTweetsCleanupService {
             }
 
             const tweet_ids = deleted_tweets.map((t) => t.tweet_id);
+
+            await this.es_delete_tweet_service.queueDeleteTweet({
+                tweet_ids,
+            });
+
             await this.deleted_tweets_repository.delete(tweet_ids);
 
             this.logger.log(`Successfully processed ${deleted_tweets.length} deleted tweets`);

@@ -139,7 +139,7 @@ export class TrendService {
 
         //Expire after 2 hours
         // We may delegate it to trend worker
-        await this.redis_service.expire('candidates:active', 6 * 60 * 60);
+        await this.redis_service.expire('candidates:active', 24 * 60 * 60);
     }
     async insertCandidateCategories(hashtags: HashtagJobDto) {
         const pipeline = this.redis_service.pipeline();
@@ -153,7 +153,7 @@ export class TrendService {
                 if (percent >= this.CATEGORY_THRESHOLD) {
                     // Store hashtag with its category percentage as score
                     pipeline.zadd(`candidates:${category_name}`, percent, hashtag);
-                    pipeline.expire(`candidates:${category_name}`, 6 * 60 * 60);
+                    pipeline.expire(`candidates:${category_name}`, 24 * 60 * 60);
                 }
             }
         }
@@ -174,7 +174,7 @@ export class TrendService {
 
             await this.redis_service.zincrby(`hashtag:${hashtag}`, 1, time_bucket.toString());
 
-            await this.redis_service.expire(`hashtag:${hashtag}`, 6 * 60 * 60);
+            await this.redis_service.expire(`hashtag:${hashtag}`, 24 * 60 * 60);
         }
 
         await pipeline.exec();
