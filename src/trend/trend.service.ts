@@ -188,7 +188,7 @@ export class TrendService {
         try {
             console.log('Calculate Trend.....');
             const now = Date.now();
-            const hours_ago = now - 6 * 60 * 60 * 1000;
+            const hours_ago = now - 24 * 60 * 60 * 1000;
 
             // 1. Get active candidates (last hour)
             const active_hashtags = await this.redis_service.zrangebyscore(
