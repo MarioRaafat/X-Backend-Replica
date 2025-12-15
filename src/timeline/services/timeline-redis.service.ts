@@ -33,11 +33,14 @@ export class TimelineRedisService {
         });
 
         const results = await pipeline.exec();
-        if (!results) return 0;
+        if (!results) {
+            return 0;
+        }
 
         // Return the length after last push
         const last_result = results[results.length - 1];
-        return last_result && !last_result[0] ? (last_result[1] as number) : 0;
+        const final_count = last_result && !last_result[0] ? (last_result[1] as number) : 0;
+        return final_count;
     }
 
     /**

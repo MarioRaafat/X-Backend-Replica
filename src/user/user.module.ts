@@ -15,6 +15,7 @@ import { UsernameService } from 'src/auth/username.service';
 import { FollowJobService } from 'src/background-jobs/notifications/follow/follow.service';
 import { BackgroundJobsModule } from 'src/background-jobs';
 import { CommunicationModule } from 'src/communication/communication.module';
+import { TimelineModule } from 'src/timeline/timeline.module';
 
 @Module({
     imports: [
@@ -24,6 +25,7 @@ import { CommunicationModule } from 'src/communication/communication.module';
         CategoryModule,
         TweetsModule,
         BackgroundJobsModule,
+        TimelineModule,
     ],
     controllers: [UserController],
     providers: [UserService, UserRepository, PaginationService, UsernameService, FollowJobService],

@@ -8,6 +8,8 @@ import { UserTimelineCursor } from 'src/user/entities/user-timeline-cursor.entit
 import { TimelineRedisService } from '../timeline-redis.service';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { RefillTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
+import { TweetResponseDTO } from 'src/tweets/dto';
+import { TimelineCandidatesService } from '../timeline-candidates.service';
 
 @Injectable()
 export class ForyouService {
@@ -19,7 +21,8 @@ export class ForyouService {
         private readonly timeline_redis_service: TimelineRedisService,
         private readonly tweets_repository: TweetsRepository,
         private readonly refill_queue_job_service: RefillTimelineQueueJobService,
-        private readonly config_service: ConfigService
+        private readonly config_service: ConfigService,
+        private readonly timeline_candidates_service: TimelineCandidatesService
     ) {
         this.refill_batch_size = this.config_service.get<number>('TIMELINE_REFILL_BATCH_SIZE', 20);
     }
@@ -29,7 +32,8 @@ export class ForyouService {
         cursor?: string, // Keep for API compatibility but not used
         limit: number = 20
     ): Promise<{
-        data: ScoredCandidateDTO[];
+        // data: ScoredCandidateDTO[];
+        data: TweetResponseDTO[];
         pagination: { next_cursor: string | null; has_more: boolean };
     }> {
         // Get or create cursor for this user
@@ -38,30 +42,19 @@ export class ForyouService {
         });
 
         if (!timeline_cursor) {
+            console.log(`[ForYou API] No cursor found, creating new one for user ${user_id}`);
             timeline_cursor = this.timeline_cursor_repository.create({
                 user_id,
                 last_fetched_tweet_id: null,
+                last_fetched_position: 0,
             });
             await this.timeline_cursor_repository.save(timeline_cursor);
+        } else {
+            // console.log(`[ForYou API] Found cursor for user ${user_id}, last tweet: ${timeline_cursor.last_fetched_tweet_id}`);
         }
 
-        const last_tweet_id = timeline_cursor.last_fetched_tweet_id;
-        let start_index = 0;
-
-        // If we have a last fetched tweet, find its position in the queue
-        if (last_tweet_id) {
-            const queue_size = await this.timeline_redis_service.getQueueSize(user_id);
-            const all_tweets = await this.timeline_redis_service.getFromQueue(
-                user_id,
-                0,
-                queue_size
-            );
-
-            const last_index = all_tweets.findIndex((t) => t.tweet_id === last_tweet_id);
-            if (last_index !== -1) {
-                start_index = last_index + 1; // Start from next tweet
-            }
-        }
+        const start_index = timeline_cursor.last_fetched_position || 0;
+        // console.log(`[ForYou API] Starting from position ${start_index} in queue`);
 
         const redis_tweets = await this.timeline_redis_service.getFromQueue(
             user_id,
@@ -70,14 +63,39 @@ export class ForyouService {
         );
 
         if (redis_tweets.length === 0) {
-            // Queue is empty or exhausted
+            console.log(
+                `[ForYou API] No tweets found in Redis queue for user ${user_id} - using direct fallback`
+            );
+
+            // Fallback: Fetch tweets directly from candidates service
+            // This handles the case where frontend calls immediately after assigning interests
+            const candidates = await this.timeline_candidates_service.getCandidates(
+                user_id,
+                new Set(), // No exclusions for fresh start
+                limit
+            );
+
+            if (candidates.length === 0) {
+                console.log(`[ForYou API] No candidates found either, returning empty`);
+                return {
+                    data: [],
+                    pagination: { next_cursor: null, has_more: false },
+                };
+            }
+
+            const candidate_tweet_ids = candidates.map((c) => c.tweet_id);
+            const fallback_tweets = await this.tweets_repository.getTweetsByIds(
+                candidate_tweet_ids,
+                user_id
+            );
             return {
-                data: [],
+                data: fallback_tweets,
                 pagination: { next_cursor: null, has_more: false },
             };
         }
 
         const tweet_ids = redis_tweets.map((t) => t.tweet_id);
+        // console.log(`[ForYou API] Fetching ${tweet_ids.length} tweets from DB, IDs:`, tweet_ids.slice(0, 3));
         const tweets = await this.tweets_repository.getTweetsByIds(tweet_ids, user_id);
 
         // Filter out tweets from blocked/muted users
@@ -86,33 +104,14 @@ export class ForyouService {
             return tweet !== null;
         });
 
-        // Convert to ScoredCandidateDTO with default scores
-        // TODO: Implement proper scoring algorithm
-        const scored_tweets = filtered_tweets.map((tweet) => {
-            const scored = plainToInstance(ScoredCandidateDTO, tweet, {
-                excludeExtraneousValues: false,
-            });
+        // Update cursor position
+        if (redis_tweets.length > 0) {
+            const last_redis_tweet = redis_tweets[redis_tweets.length - 1];
+            const new_position = start_index + redis_tweets.length;
+            const previous_position = timeline_cursor.last_fetched_position;
 
-            // Set default scores (can be enhanced later)
-            scored.recency_score = 0.5;
-            scored.relevance_score = 50;
-            scored.engagement_score = (tweet.likes_count || 0) + (tweet.reposts_count || 0) * 3;
-            scored.media_boost =
-                (tweet.images?.length || 0) > 0 || (tweet.videos?.length || 0) > 0 ? 10 : 0;
-            scored.credibility_boost = tweet.user?.verified ? 10 : 0;
-            scored.diversity_penalty = 0;
-            scored.location_boost = 0;
-            scored.virality_score = tweet.views_count || 0;
-            scored._final_score =
-                scored.engagement_score + scored.media_boost + scored.credibility_boost;
-
-            return scored;
-        });
-
-        // Update cursor to last fetched tweet
-        if (scored_tweets.length > 0) {
-            const last_tweet = scored_tweets[scored_tweets.length - 1];
-            timeline_cursor.last_fetched_tweet_id = last_tweet.tweet_id;
+            timeline_cursor.last_fetched_tweet_id = last_redis_tweet.tweet_id;
+            timeline_cursor.last_fetched_position = new_position;
             timeline_cursor.last_updated_at = new Date();
             await this.timeline_cursor_repository.save(timeline_cursor);
         }
@@ -126,10 +125,9 @@ export class ForyouService {
 
         // Check if there are more tweets available
         const remaining_size = await this.timeline_redis_service.getQueueSize(user_id);
-        const has_more = remaining_size > start_index + scored_tweets.length;
-
+        const has_more = remaining_size > start_index + redis_tweets.length;
         return {
-            data: scored_tweets,
+            data: filtered_tweets,
             pagination: {
                 next_cursor: has_more ? 'next' : null, // Dummy cursor for compatibility
                 has_more,

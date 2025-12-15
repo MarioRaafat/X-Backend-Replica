@@ -8,7 +8,8 @@ export class UserTimelineCursor {
 
     @Column({ type: 'uuid', nullable: true })
     last_fetched_tweet_id: string | null;
-
+    @Column({ type: 'integer', default: 0 })
+    last_fetched_position: number;
     @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
     last_updated_at: Date;
 

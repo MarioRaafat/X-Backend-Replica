@@ -47,14 +47,14 @@ export class TimelineCandidatesService {
         excluded_tweet_ids: Set<string>,
         limit: number
     ): Promise<ICandidateTweet[]> {
-        console.log(
-            `[Candidates] Getting ${limit} candidates for user ${user_id}, excluding ${excluded_tweet_ids.size} tweets`
-        );
+        // console.log(
+        //     `[Candidates] Getting ${limit} candidates for user ${user_id}, excluding ${excluded_tweet_ids.size} tweets`
+        // );
         const user_interests = await this.user_interests_repository.find({
             where: { user_id },
             order: { score: 'DESC' },
         });
-        console.log(`[Candidates] Found ${user_interests.length} interests for user ${user_id}`);
+        // console.log(`[Candidates] Found ${user_interests.length} interests for user ${user_id}`);
 
         if (user_interests.length === 0) {
             console.log(`[Candidates] No interests found, using random fallback`);
@@ -108,9 +108,6 @@ export class TimelineCandidatesService {
         }
 
         const final_candidates = candidates.sort((a, b) => b.score - a.score).slice(0, limit);
-        console.log(
-            `[Candidates] Returning ${final_candidates.length} final candidates for user ${user_id}`
-        );
         return final_candidates;
     }
 
@@ -127,7 +124,7 @@ export class TimelineCandidatesService {
             .innerJoin('tc.tweet', 'tweet')
             .innerJoin('tweet.user', 'user')
             .where('tc.category_id = :category_id', { category_id })
-            .andWhere('tweet.created_at >= :cutoff_date', { cutoff_date })
+            // .andWhere('tweet.created_at >= :cutoff_date', { cutoff_date })
             .andWhere('tweet.deleted_at IS NULL')
             .andWhere('user.deleted_at IS NULL')
             // Exclude blocked users

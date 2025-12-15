@@ -50,6 +50,10 @@ import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-del
 import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
 import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
 import { InitTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
+import { Job } from 'bull';
+import { IInitTimelineQueueJobDTO } from 'src/background-jobs/timeline/timeline.dto';
+import { TimelineRedisService } from 'src/timeline/services/timeline-redis.service';
+import { TimelineCandidatesService } from 'src/timeline/services/timeline-candidates.service';
 
 @Injectable()
 export class UserService {
@@ -66,7 +70,9 @@ export class UserService {
         private readonly es_update_user_job_service: EsUpdateUserJobService,
         private readonly es_delete_user_job_service: EsDeleteUserJobService,
         private readonly es_follow_job_service: EsFollowJobService,
-        private readonly init_timeline_queue_job_service: InitTimelineQueueJobService
+        private readonly init_timeline_queue_job_service: InitTimelineQueueJobService,
+        private readonly timeline_redis_service: TimelineRedisService,
+        private readonly timeline_candidates_service: TimelineCandidatesService
     ) {}
 
     async getUsersByIds(
@@ -800,9 +806,50 @@ export class UserService {
         await this.user_repository.insertUserInterests(user_interests);
 
         // Trigger background job to initialize timeline queue
-        await this.init_timeline_queue_job_service.queueInitTimelineQueue({
-            user_id,
-        });
+        // await this.init_timeline_queue_job_service.queueInitTimelineQueue({
+        //     user_id,
+        // });
+
+        await this.handleInitTimelineQueue({ user_id });
+    }
+
+    async handleInitTimelineQueue(job_data: IInitTimelineQueueJobDTO) {
+        const { user_id } = job_data;
+
+        try {
+            console.log(`[Timeline] Initializing queue for user ${user_id}`);
+
+            // Get existing tweet IDs in queue (should be empty for init, but check anyway)
+            const existing_tweet_ids =
+                await this.timeline_redis_service.getTweetIdsInQueue(user_id);
+
+            // Get candidates
+            const candidates = await this.timeline_candidates_service.getCandidates(
+                user_id,
+                existing_tweet_ids,
+                100 // Fetch up to 100 candidates for initialization
+            );
+
+            if (candidates.length === 0) {
+                console.log(`[Timeline] No candidates found for user ${user_id}`);
+                return;
+            }
+
+            // Initialize queue with candidates
+            const tweets = candidates.map((c) => ({
+                tweet_id: c.tweet_id,
+                created_at: c.created_at.toISOString(),
+            }));
+
+            const queue_size = await this.timeline_redis_service.initializeQueue(user_id, tweets);
+
+            console.log(
+                `[Timeline] Initialized queue for user ${user_id} with ${queue_size} tweets`
+            );
+        } catch (error) {
+            console.error(`[Timeline] Error initializing queue for user ${user_id}:`, error);
+            throw error;
+        }
     }
 
     async changeLanguage(
