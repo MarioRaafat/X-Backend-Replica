@@ -27,6 +27,6 @@ import { CommunicationModule } from 'src/communication/communication.module';
     ],
     controllers: [UserController],
     providers: [UserService, UserRepository, PaginationService, UsernameService, FollowJobService],
-    exports: [UserRepository],
+    exports: [UserRepository, UserService],
 })
 export class UserModule {}

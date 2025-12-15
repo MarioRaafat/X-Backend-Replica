@@ -18,6 +18,7 @@ import { FollowProcessor } from './notifications/follow/follow.processor';
 import { NotificationsModule } from 'src/notifications/notifications.module';
 import { NotificationsGateway } from 'src/notifications/notifications.gateway';
 import { User, UserFollows } from 'src/user/entities';
+import { UserInterests } from 'src/user/entities/user-interests.entity';
 import { TweetReply } from 'src/tweets/entities/tweet-reply.entity';
 import { TweetQuote } from 'src/tweets/entities/tweet-quote.entity';
 import { ReplyJobService } from './notifications/reply/reply.service';
@@ -52,6 +53,14 @@ import { TweetSummary } from 'src/tweets/entities/tweet-summary.entity';
 import { HashtagJobService } from './hashtag/hashtag.service';
 import { HashtagProcessor } from './hashtag/hashtag.processor';
 import { TrendModule } from 'src/trend/trend.module';
+import { TimelineModule } from '../timeline/timeline.module';
+import {
+    CleanupOldTweetsJobService,
+    InitTimelineQueueJobService,
+    RefillTimelineQueueJobService,
+} from './timeline/timeline.service';
+import { TimelineProcessor } from './timeline/timeline.processor';
+import { TimelineCron } from './timeline/timeline.cron';
 
 @Module({
     imports: [
@@ -144,6 +153,16 @@ import { TrendModule } from 'src/trend/trend.module';
                 },
             },
         }),
+        BullModule.registerQueue({
+            name: QUEUE_NAMES.TIMELINE,
+            defaultJobOptions: {
+                attempts: 3,
+                backoff: {
+                    type: 'exponential',
+                    delay: 2000,
+                },
+            },
+        }),
 
         TypeOrmModule.forFeature([User]),
         TypeOrmModule.forFeature([UserFollows]),
@@ -151,11 +170,13 @@ import { TrendModule } from 'src/trend/trend.module';
         TypeOrmModule.forFeature([TweetSummary]),
         TypeOrmModule.forFeature([TweetReply, TweetQuote]),
         TypeOrmModule.forFeature([Message]),
+        TypeOrmModule.forFeature([UserInterests, TweetCategory]),
         CommunicationModule,
         RedisModuleConfig,
         NotificationsModule,
         ElasticsearchModule,
         TrendModule,
+        forwardRef(() => TimelineModule),
     ],
     controllers: [ExploreController, EmailJobsController],
     providers: [
@@ -192,6 +213,11 @@ import { TrendModule } from 'src/trend/trend.module';
         AiSummaryProcessor,
         HashtagJobService,
         HashtagProcessor,
+        InitTimelineQueueJobService,
+        RefillTimelineQueueJobService,
+        CleanupOldTweetsJobService,
+        TimelineProcessor,
+        TimelineCron,
     ],
 
     exports: [
@@ -220,6 +246,9 @@ import { TrendModule } from 'src/trend/trend.module';
         EsFollowJobService,
         CompressVideoJobService,
         AiSummaryJobService,
+        InitTimelineQueueJobService,
+        RefillTimelineQueueJobService,
+        CleanupOldTweetsJobService,
     ],
 })
 export class BackgroundJobsModule {}

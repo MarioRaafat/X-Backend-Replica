@@ -49,6 +49,7 @@ import { EsUpdateUserJobService } from 'src/background-jobs/elasticsearch/es-upd
 import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
 import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
+import { InitTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
 
 @Injectable()
 export class UserService {
@@ -64,7 +65,8 @@ export class UserService {
         private readonly follow_job_service: FollowJobService,
         private readonly es_update_user_job_service: EsUpdateUserJobService,
         private readonly es_delete_user_job_service: EsDeleteUserJobService,
-        private readonly es_follow_job_service: EsFollowJobService
+        private readonly es_follow_job_service: EsFollowJobService,
+        private readonly init_timeline_queue_job_service: InitTimelineQueueJobService
     ) {}
 
     async getUsersByIds(
@@ -796,6 +798,11 @@ export class UserService {
         }));
 
         await this.user_repository.insertUserInterests(user_interests);
+
+        // Trigger background job to initialize timeline queue
+        await this.init_timeline_queue_job_service.queueInitTimelineQueue({
+            user_id,
+        });
     }
 
     async changeLanguage(
