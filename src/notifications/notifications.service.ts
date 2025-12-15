@@ -14,7 +14,6 @@ import { TweetBookmark } from 'src/tweets/entities/tweet-bookmark.entity';
 import { UserFollows } from 'src/user/entities/user-follows.entity';
 import { UserBlocks } from 'src/user/entities/user-blocks.entity';
 import { UserMutes } from 'src/user/entities/user-mutes.entity';
-import { Message } from 'src/messages/entities/message.entity';
 import { In, Repository } from 'typeorm';
 import { ReplyNotificationEntity } from './entities/reply-notification.entity';
 import { RepostNotificationEntity } from './entities/repost-notification.entity';
@@ -24,7 +23,6 @@ import { FollowNotificationEntity } from './entities/follow-notification.entity'
 import { MentionNotificationEntity } from './entities/mention-notification.entity';
 import { MessageNotificationEntity } from './entities/message-notification.entity';
 import { NotificationDto } from './dto/notifications-response.dto';
-import { BackgroundJobsModule } from 'src/background-jobs';
 import { ClearJobService } from 'src/background-jobs/notifications/clear/clear.service';
 import { FCMService } from 'src/expo/expo.service';
 import { MessagesGateway } from 'src/messages/messages.gateway';
@@ -609,9 +607,7 @@ export class NotificationsService implements OnModuleInit {
                     if (new Date(n.created_at) < one_day_ago) return false;
 
                     const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
-                    const reposted_by_array = Array.isArray(n.reposted_by)
-                        ? n.reposted_by
-                        : [n.reposted_by];
+
                     // Match if: same tweet, only one tweet in array (not aggregated by person)
                     return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
                 });
@@ -625,7 +621,6 @@ export class NotificationsService implements OnModuleInit {
                     const reposted_by_array = Array.isArray(n.reposted_by)
                         ? n.reposted_by
                         : [n.reposted_by];
-                    const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
                     // Match if: same person, only one person in array (not aggregated by tweet)
                     return (
                         reposted_by_array.includes(new_reposted_by) &&

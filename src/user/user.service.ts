@@ -6,21 +6,15 @@ import {
     InternalServerErrorException,
     NotFoundException,
 } from '@nestjs/common';
-import { CreateUserDto } from './dto/create-user.dto';
 import { In, Repository } from 'typeorm';
-import { User } from './entities/user.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { UserProfileDto } from './dto/user-profile.dto';
-import { instanceToInstance, plainToInstance } from 'class-transformer';
+import { plainToInstance } from 'class-transformer';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
-import { SelectQueryBuilder } from 'typeorm/browser';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
-import { MutualFollowerDto } from './dto/mutual-follower.dto';
 import { GetFollowersDto } from './dto/get-followers.dto';
 import { UserListItemDto } from './dto/user-list-item.dto';
-import { PaginationParamsDto } from './dto/pagination-params.dto';
 import { UserRepository } from './user.repository';
-import { UserFollows } from './entities';
 import { RelationshipType } from './enums/relationship-type.enum';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { GetUsersByIdDto } from './dto/get-users-by-id.dto';
@@ -32,10 +26,7 @@ import { AssignInterestsDto } from './dto/assign-interests.dto';
 import { Category } from 'src/category/entities';
 import { ChangeLanguageDto } from './dto/change-language.dto';
 import { DeleteFileDto } from './dto/delete-file.dto';
-import { delete_cover } from './user.swagger';
-import { promises } from 'dns';
 import { UploadFileResponseDto } from './dto/upload-file-response.dto';
-import { TweetsService } from 'src/tweets/tweets.service';
 import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
 import { CursorPaginationDto } from './dto/cursor-pagination-params.dto';

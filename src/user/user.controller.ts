@@ -9,19 +9,17 @@ import {
     Post,
     Query,
     Req,
-    Res,
     UploadedFile,
     UseGuards,
     UseInterceptors,
 } from '@nestjs/common';
-import type { Request, Response } from 'express';
+import type { Request } from 'express';
 import { UserService } from './user.service';
 import {
     ApiBearerAuth,
     ApiBody,
     ApiConsumes,
     ApiCreatedResponse,
-    ApiNoContentResponse,
     ApiOkResponse,
     ApiOperation,
     ApiTags,
@@ -70,9 +68,7 @@ import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
 import { GetUsersByIdDto } from './dto/get-users-by-id.dto';
 import { GetUsersByUsernameDto } from './dto/get-users-by-username.dto';
 import { GetFollowersDto } from './dto/get-followers.dto';
-import { PaginationParamsDto } from './dto/pagination-params.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
-import { UpdatePhoneNumberDto } from './dto/update_phone_number.dto';
 import { GetUserId } from 'src/decorators/get-userId.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { DeleteFileDto } from './dto/delete-file.dto';

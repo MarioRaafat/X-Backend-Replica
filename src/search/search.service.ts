@@ -13,7 +13,6 @@ import { plainToInstance } from 'class-transformer';
 import { User } from 'src/user/entities';
 import { SuggestionsResponseDto } from './dto/suggestions-response.dto';
 import { SuggestedUserDto } from './dto/suggested-user.dto';
-import { bool } from 'sharp';
 import { TweetResponseDTO } from 'src/tweets/dto';
 import { RedisService } from 'src/redis/redis.service';
 
@@ -257,7 +256,7 @@ export class SearchService {
 
     private validateAndSanitizeQuery(query: string): string | null {
         const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\p{L}\p{N}\s#\s_]/gu, '');
+        const sanitized_query = decoded_query.replaceAll(/[^\p{L}\p{N}\s#\s_]/gu, '');
 
         if (!sanitized_query || sanitized_query.trim().length === 0) {
             return null;
@@ -500,7 +499,7 @@ export class SearchService {
     } {
         const hashtag_pattern = /#[\p{L}\p{N}_]+/gu;
         const hashtags = sanitized_query.match(hashtag_pattern) || [];
-        const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
+        const remaining_text = sanitized_query.replaceAll(hashtag_pattern, '').trim();
 
         return { hashtags, remaining_text };
     }
@@ -1099,7 +1098,7 @@ export class SearchService {
             let text = hit.highlight?.content?.[0] || hit._source?.content;
             if (!text) return;
 
-            text = text.replace(/<\/?MARK>/g, '');
+            text = text.replaceAll(/<\/?MARK>/g, '');
 
             const lower_text = text.toLowerCase();
             const query_index = lower_text.indexOf(query_lower);
@@ -1151,7 +1150,7 @@ export class SearchService {
 
             for (let i = 0; i < result.length; i += 2) {
                 const hashtag = result[i];
-                const score = parseFloat(result[i + 1]);
+                const score = Number.parseFloat(result[i + 1]);
 
                 const normalized = hashtag.toLowerCase().startsWith('#')
                     ? hashtag.toLowerCase()

@@ -21,7 +21,7 @@ export class ChatService {
 
     async createChat(user_id: string, dto: CreateChatDto) {
         try {
-            return this.chat_repository.createChat(user_id, dto);
+            return await this.chat_repository.createChat(user_id, dto);
         } catch (error) {
             console.error('Error in createChat:', error);
             throw error;

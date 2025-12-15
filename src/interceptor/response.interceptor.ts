@@ -12,7 +12,7 @@ export interface IResponse<T> {
 
 @Injectable()
 export class ResponseInterceptor<T> implements NestInterceptor<T, IResponse<T>> {
-    constructor(private reflector: Reflector) {}
+    constructor(private readonly reflector: Reflector) {}
 
     intercept(context: ExecutionContext, next: CallHandler): Observable<IResponse<T>> {
         const custom_message = this.reflector.get<string>(

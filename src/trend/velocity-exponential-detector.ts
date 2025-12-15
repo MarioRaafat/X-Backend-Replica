@@ -121,7 +121,6 @@ export class VelocityExponentialDetector {
             exponential_result = regression.exponential(data_points);
 
             // // Extract parameters
-            const a = exponential_result.equation[0]; // coefficient
             const b = exponential_result.equation[1]; // exponent (growth rate)
 
             growth_rate = b;
@@ -133,10 +132,6 @@ export class VelocityExponentialDetector {
 
             growth_rate = m;
         }
-
-        // Calculate doubling time (how long to 2x current size)
-        // Formula: t = ln(2) / b
-        const double_time = growth_rate > 0 ? Math.log(2) / growth_rate : Infinity;
 
         // Determine if truly exponential
         const is_exponential = growth_rate >= this.EXPONENTIAL_THRESHOLD;

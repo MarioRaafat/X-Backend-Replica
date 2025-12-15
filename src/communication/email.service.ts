@@ -5,9 +5,9 @@ import { SendEmailDto } from './dto/send-email.dto';
 
 @Injectable()
 export class EmailService {
-    private mail_transport: Transporter;
+    private readonly mail_transport: Transporter;
 
-    constructor(private config_service: ConfigService) {
+    constructor(private readonly config_service: ConfigService) {
         this.mail_transport = createTransport({
             host: this.config_service.get<string>('EMAIL_HOST', 'smtp.gmail.com'),
             port: this.config_service.get<number>('EMAIL_PORT', 587),

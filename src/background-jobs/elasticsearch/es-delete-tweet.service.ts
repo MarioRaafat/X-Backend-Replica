@@ -7,7 +7,9 @@ import { EsSyncTweetDto } from './dtos/es-sync-tweet.dto';
 
 @Injectable()
 export class EsDeleteTweetJobService extends BackgroundJobsService<EsSyncTweetDto> {
-    constructor(@InjectQueue(QUEUE_NAMES.ELASTICSEARCH) private elasticsearch_queue: Queue) {
+    constructor(
+        @InjectQueue(QUEUE_NAMES.ELASTICSEARCH) private readonly elasticsearch_queue: Queue
+    ) {
         super(
             elasticsearch_queue,
             JOB_NAMES.ELASTICSEARCH.DELETE_TWEET,

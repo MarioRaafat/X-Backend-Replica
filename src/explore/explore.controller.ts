@@ -69,8 +69,8 @@ export class ExploreController {
         @Query('page') page?: string,
         @Query('limit') limit?: string
     ) {
-        const parsed_page = page ? parseInt(page, 10) : 1;
-        const parsed_limit = limit ? parseInt(limit, 10) : 20;
+        const parsed_page = page ? Number.parseInt(page, 10) : 1;
+        const parsed_limit = limit ? Number.parseInt(limit, 10) : 20;
         return await this.explore_service.getCategoryTrending(
             category_id,
             user_id,

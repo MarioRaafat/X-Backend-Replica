@@ -189,7 +189,6 @@ export class AppService {
         let replies_count = 0;
         for (const reply_data of TestDataConstants.TEST_REPLIES) {
             const replier = created_users[reply_data.replier_index];
-            const original_user = created_users[reply_data.original_user_index];
             const original_tweet =
                 all_tweets[reply_data.original_user_index][reply_data.original_tweet_index];
 
@@ -396,6 +395,7 @@ export class AppService {
         user_identifier: string,
         file: Express.Multer.File
     ): Promise<UploadFileResponseDto> {
+        //eslint-disable-next-line
         if (!file || !file.buffer) {
             throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
         }

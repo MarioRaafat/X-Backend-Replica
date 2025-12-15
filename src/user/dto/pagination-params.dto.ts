@@ -8,7 +8,7 @@ export class PaginationParamsDto {
         example: 1,
         type: Number,
     })
-    @Transform(({ value }) => (value ? parseInt(value, 10) : 0))
+    @Transform(({ value }) => (value ? Number.parseInt(value, 10) : 0))
     @IsInt()
     @Min(0)
     page_offset: number = 0;
@@ -18,7 +18,7 @@ export class PaginationParamsDto {
         example: 10,
         type: Number,
     })
-    @Transform(({ value }) => (value ? parseInt(value, 10) : 10))
+    @Transform(({ value }) => (value ? Number.parseInt(value, 10) : 10))
     @IsInt()
     @Min(1)
     @Max(100)
