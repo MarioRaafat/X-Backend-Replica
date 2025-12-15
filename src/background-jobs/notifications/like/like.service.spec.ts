@@ -139,5 +139,41 @@ describe('LikeJobService', () => {
             const result = await service.queueLikeNotification(mock_like_dto);
             expect(result).toEqual({ success: false, error: 'Queue error' });
         });
+
+        it('should handle different tweet object structures', async () => {
+            const dto_with_complex_tweet: LikeBackGroundNotificationJobDTO = {
+                like_to: 'user-123',
+                liked_by: 'user-456',
+                tweet: {
+                    tweet_id: 'tweet-789',
+                    content: 'Complex tweet',
+                    user: { id: 'user-123', username: 'testuser' },
+                } as any,
+            };
+
+            const result = await service.queueLikeNotification(dto_with_complex_tweet);
+
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.LIKE,
+                dto_with_complex_tweet,
+                expect.any(Object)
+            );
+            expect(result.success).toBe(true);
+        });
+
+        it('should queue job with action parameter', async () => {
+            const dto_with_action = {
+                ...mock_like_dto,
+                action: 'add' as const,
+            };
+
+            await service.queueLikeNotification(dto_with_action);
+
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.LIKE,
+                dto_with_action,
+                expect.any(Object)
+            );
+        });
     });
 });

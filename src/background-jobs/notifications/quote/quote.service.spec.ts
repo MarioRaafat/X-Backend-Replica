@@ -163,5 +163,57 @@ describe('QuoteJobService', () => {
 
             expect(result).toEqual({ success: true, job_id: 'job-remove' });
         });
+
+        it('should handle quote with complex tweet structures', async () => {
+            const dto: QuoteBackGroundNotificationJobDTO = {
+                quote_to: 'author-complex',
+                quoted_by: 'quoter-complex',
+                quote_tweet_id: 'quote-complex',
+                quote_tweet: {
+                    tweet_id: 'quote-complex',
+                    content: 'Complex quote with media',
+                    media: [{ url: 'image.jpg' }],
+                    user: { id: 'quoter-complex', username: 'quoter' },
+                } as any,
+                parent_tweet: {
+                    tweet_id: 'parent-complex',
+                    content: 'Original complex tweet',
+                } as any,
+                action: 'add',
+            };
+
+            const mock_job = { id: 'job-complex' };
+            queue.add.mockResolvedValue(mock_job as any);
+
+            const result = await service.queueQuoteNotification(dto);
+
+            expect(result).toEqual({ success: true, job_id: 'job-complex' });
+        });
+
+        it('should apply default job options correctly', async () => {
+            const dto: QuoteBackGroundNotificationJobDTO = {
+                quote_to: 'author-defaults',
+                quoted_by: 'quoter-defaults',
+                quote_tweet_id: 'quote-defaults',
+                action: 'add',
+            };
+
+            const mock_job = { id: 'job-defaults' };
+            queue.add.mockResolvedValue(mock_job as any);
+
+            const result = await service.queueQuoteNotification(dto);
+
+            expect(queue.add).toHaveBeenCalledWith(
+                expect.any(String),
+                dto,
+                expect.objectContaining({
+                    attempts: 3,
+                    backoff: expect.any(Object),
+                    removeOnComplete: 10,
+                    removeOnFail: 5,
+                })
+            );
+            expect(result.success).toBe(true);
+        });
     });
 });

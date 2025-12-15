@@ -168,5 +168,49 @@ describe('MentionJobService', () => {
 
             expect(result).toEqual({ success: true, job_id: 'job-empty' });
         });
+
+        it('should handle mention in quote tweet', async () => {
+            const dto: MentionBackGroundNotificationJobDTO = {
+                mentioned_usernames: ['user9'],
+                mentioned_by: 'author-quote',
+                tweet_id: 'tweet-quote',
+                tweet: { tweet_id: 'tweet-quote' } as any,
+                parent_tweet: { tweet_id: 'quoted-tweet' } as any,
+                tweet_type: 'quote',
+                action: 'add',
+            };
+
+            const mock_job = { id: 'job-quote' };
+            queue.add.mockResolvedValue(mock_job as any);
+
+            const result = await service.queueMentionNotification(dto);
+
+            expect(result).toEqual({ success: true, job_id: 'job-quote' });
+        });
+
+        it('should handle mention with default priority and delay', async () => {
+            const dto: MentionBackGroundNotificationJobDTO = {
+                mentioned_usernames: ['user10'],
+                mentioned_by: 'author-default',
+                tweet_id: 'tweet-default',
+                tweet_type: 'tweet',
+                action: 'add',
+            };
+
+            const mock_job = { id: 'job-default' };
+            queue.add.mockResolvedValue(mock_job as any);
+
+            const result = await service.queueMentionNotification(dto);
+
+            expect(queue.add).toHaveBeenCalledWith(
+                expect.any(String),
+                dto,
+                expect.objectContaining({
+                    attempts: 3,
+                    backoff: expect.any(Object),
+                })
+            );
+            expect(result.success).toBe(true);
+        });
     });
 });

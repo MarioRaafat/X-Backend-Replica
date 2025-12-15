@@ -11,7 +11,6 @@ export class FCMService {
     private readonly expo: Expo;
 
     constructor(@InjectRepository(User) private readonly user_repository: Repository<User>) {
-        // Initialize Expo SDK client
         this.expo = new Expo({
             useFcmV1: true,
         });
@@ -23,7 +22,6 @@ export class FCMService {
         notification?: { title: string; body: string }
     ): Promise<ExpoPushTicket> {
         try {
-            // Check that the push token is a valid Expo push token
             if (!Expo.isExpoPushToken(device_token)) {
                 this.logger.error(
                     `Push token ${String(device_token)} is not a valid Expo push token`
@@ -31,7 +29,6 @@ export class FCMService {
                 throw new Error('Invalid Expo push token');
             }
 
-            // Construct the Expo push message
             const message: ExpoPushMessage = {
                 to: device_token,
                 sound: 'default',
@@ -40,13 +37,11 @@ export class FCMService {
                 data: data,
             };
 
-            // Send the push notification
             const ticket_chunk = await this.expo.sendPushNotificationsAsync([message]);
             const ticket = ticket_chunk[0];
 
             this.logger.log(`Expo push notification sent: ${JSON.stringify(ticket)}`);
 
-            // Check for errors in the ticket
             if (ticket.status === 'error') {
                 const error_ticket = ticket;
                 const error_message = String(error_ticket.message || 'Unknown error');
@@ -65,7 +60,6 @@ export class FCMService {
     }
 
     async addUserDeviceToken(user_id: string, device_token: string) {
-        // Implementation to store the device token associated with the user
         try {
             await this.user_repository.update(user_id, { fcm_token: device_token });
         } catch (error) {
@@ -75,7 +69,6 @@ export class FCMService {
     }
 
     async removeUserDeviceToken(user_id: string) {
-        // Implementation to remove the device token associated with the user
         try {
             await this.user_repository.update(user_id, { fcm_token: null });
         } catch (error) {
@@ -219,7 +212,7 @@ export class FCMService {
      */
     async sendBatchNotifications(messages: ExpoPushMessage[]): Promise<ExpoPushTicket[]> {
         try {
-            // Filter out invalid tokens
+            // Filter invalid tokens
             const valid_messages = messages.filter((message) => {
                 if (!Expo.isExpoPushToken(message.to as string)) {
                     const token = Array.isArray(message.to) ? message.to.join(', ') : message.to;
@@ -234,7 +227,7 @@ export class FCMService {
                 return [];
             }
 
-            // Chunk the notifications to respect Expo's batch size limits
+            // Chunk the notifications
             const chunks = this.expo.chunkPushNotifications(valid_messages);
             const tickets: ExpoPushTicket[] = [];
 
@@ -244,7 +237,6 @@ export class FCMService {
                     const ticket_chunk = await this.expo.sendPushNotificationsAsync(chunk);
                     tickets.push(...ticket_chunk);
 
-                    // Log any errors
                     ticket_chunk.forEach((ticket, index) => {
                         if (ticket.status === 'error') {
                             const token = Array.isArray(chunk[index].to)
@@ -283,7 +275,7 @@ export class FCMService {
                 try {
                     const receipts = await this.expo.getPushNotificationReceiptsAsync(chunk);
 
-                    // Check each receipt for errors
+                    // Check errors for each receipt
                     for (const receipt_id in receipts) {
                         const receipt = receipts[receipt_id];
 
