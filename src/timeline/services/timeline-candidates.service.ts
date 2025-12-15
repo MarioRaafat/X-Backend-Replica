@@ -47,12 +47,17 @@ export class TimelineCandidatesService {
         excluded_tweet_ids: Set<string>,
         limit: number
     ): Promise<ICandidateTweet[]> {
+        console.log(
+            `[Candidates] Getting ${limit} candidates for user ${user_id}, excluding ${excluded_tweet_ids.size} tweets`
+        );
         const user_interests = await this.user_interests_repository.find({
             where: { user_id },
             order: { score: 'DESC' },
         });
+        console.log(`[Candidates] Found ${user_interests.length} interests for user ${user_id}`);
 
         if (user_interests.length === 0) {
+            console.log(`[Candidates] No interests found, using random fallback`);
             // Fallback: Get random fresh tweets if user has no interests
             return this.getRandomFreshTweets(user_id, excluded_tweet_ids, limit);
         }
@@ -89,16 +94,24 @@ export class TimelineCandidatesService {
         // If we don't have enough candidates, try fallback
         if (candidates.length < limit) {
             const additional_needed = limit - candidates.length;
+            console.log(
+                `[Candidates] Only found ${candidates.length}/${limit} tweets, fetching ${additional_needed} from fallback`
+            );
             const fallback_tweets = await this.getFallbackTweets(
                 user_id,
                 excluded_tweet_ids,
                 additional_needed,
                 new Set(user_interests.map((i) => i.category_id as any))
             );
+            console.log(`[Candidates] Fallback provided ${fallback_tweets.length} tweets`);
             candidates.push(...fallback_tweets);
         }
 
-        return candidates.sort((a, b) => b.score - a.score).slice(0, limit);
+        const final_candidates = candidates.sort((a, b) => b.score - a.score).slice(0, limit);
+        console.log(
+            `[Candidates] Returning ${final_candidates.length} final candidates for user ${user_id}`
+        );
+        return final_candidates;
     }
 
     private async getTweetsForCategory(
@@ -179,7 +192,6 @@ export class TimelineCandidatesService {
         const query = this.tweet_repository
             .createQueryBuilder('tweet')
             .innerJoin('tweet.user', 'user')
-            .leftJoin('tweet.tweet_categories', 'tc')
             .where('tweet.created_at >= :cutoff_date', { cutoff_date })
             .andWhere('tweet.deleted_at IS NULL')
             .andWhere('user.deleted_at IS NULL')
