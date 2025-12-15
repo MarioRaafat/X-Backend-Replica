@@ -1,17 +1,28 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { InterestsCandidateSource } from './canditate-sources/interests-source';
-import { ScoredCandidateDTO } from 'src/timeline/dto/scored-candidates.dto';
 import { ForyouService } from './for-you.service';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { ConfigService } from '@nestjs/config';
+import { Repository } from 'typeorm';
+import { UserTimelineCursor } from 'src/user/entities/user-timeline-cursor.entity';
+import { TimelineRedisService } from '../timeline-redis.service';
+import { TweetsRepository } from 'src/tweets/tweets.repository';
+import { RefillTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
+import { TimelineCandidatesService } from '../timeline-candidates.service';
+import { TweetResponseDTO } from 'src/tweets/dto';
 
 describe('ForyouService', () => {
     let service: ForyouService;
-    let interest_source: jest.Mocked<InterestsCandidateSource>;
+    let timeline_cursor_repository: jest.Mocked<Repository<UserTimelineCursor>>;
+    let timeline_redis_service: jest.Mocked<TimelineRedisService>;
+    let tweets_repository: jest.Mocked<TweetsRepository>;
+    let refill_queue_service: jest.Mocked<RefillTimelineQueueJobService>;
+    let timeline_candidates_service: jest.Mocked<TimelineCandidatesService>;
+    let config_service: jest.Mocked<ConfigService>;
 
     const mock_user_id = 'user-123';
-    const mock_cursor = 'cursor-abc';
     const mock_limit = 20;
 
-    const mock_scored_candidate: ScoredCandidateDTO = {
+    const mock_tweet: TweetResponseDTO = {
         tweet_id: 'tweet-1',
         profile_user_id: 'profile-1',
         tweet_author_id: 'author-1',
@@ -42,28 +53,69 @@ describe('ForyouService', () => {
         },
     } as any;
 
-    const mock_interest_source_response = {
-        data: [mock_scored_candidate],
-        pagination: {
-            next_cursor: 'next-cursor-123',
-            has_more: true,
-        },
-    };
+    let mock_cursor: UserTimelineCursor;
 
     beforeEach(async () => {
-        const mock_interest_source_provider = {
-            provide: InterestsCandidateSource,
-            useValue: {
-                getCandidates: jest.fn().mockResolvedValue(mock_interest_source_response),
-            },
-        };
+        // Reset mock cursor for each test
+        mock_cursor = {
+            user_id: mock_user_id,
+            last_fetched_tweet_id: null,
+            last_fetched_position: 0,
+            last_updated_at: new Date(),
+        } as UserTimelineCursor;
 
         const module: TestingModule = await Test.createTestingModule({
-            providers: [ForyouService, mock_interest_source_provider],
+            providers: [
+                ForyouService,
+                {
+                    provide: getRepositoryToken(UserTimelineCursor),
+                    useValue: {
+                        findOne: jest.fn(),
+                        create: jest.fn(),
+                        save: jest.fn(),
+                    },
+                },
+                {
+                    provide: TimelineRedisService,
+                    useValue: {
+                        getFromQueue: jest.fn(),
+                        getQueueSize: jest.fn(),
+                    },
+                },
+                {
+                    provide: TweetsRepository,
+                    useValue: {
+                        getTweetsByIds: jest.fn(),
+                    },
+                },
+                {
+                    provide: RefillTimelineQueueJobService,
+                    useValue: {
+                        queueRefillTimelineQueue: jest.fn(),
+                    },
+                },
+                {
+                    provide: ConfigService,
+                    useValue: {
+                        get: jest.fn().mockReturnValue(20),
+                    },
+                },
+                {
+                    provide: TimelineCandidatesService,
+                    useValue: {
+                        getCandidates: jest.fn(),
+                    },
+                },
+            ],
         }).compile();
 
         service = module.get<ForyouService>(ForyouService);
-        interest_source = module.get(InterestsCandidateSource);
+        timeline_cursor_repository = module.get(getRepositoryToken(UserTimelineCursor));
+        timeline_redis_service = module.get(TimelineRedisService);
+        tweets_repository = module.get(TweetsRepository);
+        refill_queue_service = module.get(RefillTimelineQueueJobService);
+        timeline_candidates_service = module.get(TimelineCandidatesService);
+        config_service = module.get(ConfigService);
     });
 
     afterEach(() => {
@@ -75,139 +127,208 @@ describe('ForyouService', () => {
     });
 
     describe('getForyouTimeline', () => {
-        it('should call interest source with correct parameters', async () => {
-            await service.getForyouTimeline(mock_user_id, mock_cursor, mock_limit);
+        it('should create new cursor if not exists', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(null);
+            timeline_cursor_repository.create.mockReturnValue(mock_cursor);
+            timeline_cursor_repository.save.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
 
-            expect(interest_source.getCandidates).toHaveBeenCalledWith(
-                mock_user_id,
-                mock_cursor,
-                mock_limit
-            );
-            expect(interest_source.getCandidates).toHaveBeenCalledTimes(1);
-        });
-
-        it('should return data from interest source', async () => {
-            const result = await service.getForyouTimeline(mock_user_id, mock_cursor, mock_limit);
-
-            expect(result).toEqual(mock_interest_source_response);
-            expect(result.data).toEqual(mock_interest_source_response.data);
-            expect(result.data.length).toBe(1);
-            expect(result.data[0]).toEqual(mock_scored_candidate);
-        });
-
-        it('should return correct pagination from interest source', async () => {
-            const result = await service.getForyouTimeline(mock_user_id, mock_cursor, mock_limit);
-
-            expect(result.pagination).toEqual(mock_interest_source_response.pagination);
-            expect(result.pagination.next_cursor).toBe('next-cursor-123');
-            expect(result.pagination.has_more).toBe(true);
-        });
-
-        it('should use default limit of 20 when not provided', async () => {
-            await service.getForyouTimeline(mock_user_id, mock_cursor);
-
-            expect(interest_source.getCandidates).toHaveBeenCalledWith(
-                mock_user_id,
-                mock_cursor,
-                20
-            );
-        });
-
-        it('should work without cursor parameter', async () => {
             await service.getForyouTimeline(mock_user_id);
 
-            expect(interest_source.getCandidates).toHaveBeenCalledWith(mock_user_id, undefined, 20);
+            expect(timeline_cursor_repository.create).toHaveBeenCalledWith({
+                user_id: mock_user_id,
+                last_fetched_tweet_id: null,
+                last_fetched_position: 0,
+            });
+            expect(timeline_cursor_repository.save).toHaveBeenCalled();
         });
 
-        it('should work with only user_id parameter', async () => {
+        it('should use existing cursor if found', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
+
+            await service.getForyouTimeline(mock_user_id);
+
+            expect(timeline_cursor_repository.create).not.toHaveBeenCalled();
+            expect(timeline_redis_service.getFromQueue).toHaveBeenCalledWith(mock_user_id, 0, 20);
+        });
+
+        it('should fetch tweets from Redis queue', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+                { tweet_id: 'tweet-2', created_at: '2024-01-02' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
+
             const result = await service.getForyouTimeline(mock_user_id);
 
-            expect(result).toEqual(mock_interest_source_response);
-            expect(interest_source.getCandidates).toHaveBeenCalledWith(mock_user_id, undefined, 20);
+            expect(timeline_redis_service.getFromQueue).toHaveBeenCalledWith(
+                mock_user_id,
+                0,
+                mock_limit
+            );
+            expect(tweets_repository.getTweetsByIds).toHaveBeenCalledWith(
+                ['tweet-1', 'tweet-2'],
+                mock_user_id
+            );
         });
 
-        it('should handle empty data from interest source', async () => {
-            const empty_response = {
-                data: [],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
-            };
-            interest_source.getCandidates.mockResolvedValue(empty_response);
+        it('should update cursor position after fetching', async () => {
+            const updated_cursor = { ...mock_cursor, last_fetched_position: 20 };
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_cursor_repository.save.mockResolvedValue(updated_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
 
-            const result = await service.getForyouTimeline(mock_user_id, mock_cursor, mock_limit);
+            await service.getForyouTimeline(mock_user_id);
+
+            expect(timeline_cursor_repository.save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    last_fetched_tweet_id: 'tweet-1',
+                    last_fetched_position: 1,
+                })
+            );
+        });
+
+        it('should use fallback when queue is empty', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([]);
+            timeline_candidates_service.getCandidates.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: new Date(), category_id: 1, score: 10 },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+
+            const result = await service.getForyouTimeline(mock_user_id);
+
+            expect(timeline_candidates_service.getCandidates).toHaveBeenCalledWith(
+                mock_user_id,
+                expect.any(Set),
+                mock_limit
+            );
+            expect(result.data).toEqual([mock_tweet]);
+        });
+
+        it('should return empty when queue and fallback are empty', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([]);
+            timeline_candidates_service.getCandidates.mockResolvedValue([]);
+
+            const result = await service.getForyouTimeline(mock_user_id);
 
             expect(result.data).toEqual([]);
-            expect(result.pagination.next_cursor).toBeNull();
             expect(result.pagination.has_more).toBe(false);
         });
 
-        it('should handle multiple scored candidates', async () => {
-            const multiple_candidates = {
-                data: [
-                    mock_scored_candidate,
-                    { ...mock_scored_candidate, tweet_id: 'tweet-2' },
-                    { ...mock_scored_candidate, tweet_id: 'tweet-3' },
-                ],
-                pagination: {
-                    next_cursor: 'next-cursor-456',
-                    has_more: true,
-                },
-            };
-            interest_source.getCandidates.mockResolvedValue(multiple_candidates);
+        it('should queue refill job after fetching', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
 
-            const result = await service.getForyouTimeline(mock_user_id, mock_cursor, mock_limit);
+            await service.getForyouTimeline(mock_user_id);
 
-            expect(result.data.length).toBe(3);
-            expect(result.data[0].tweet_id).toBe('tweet-1');
-            expect(result.data[1].tweet_id).toBe('tweet-2');
-            expect(result.data[2].tweet_id).toBe('tweet-3');
+            expect(refill_queue_service.queueRefillTimelineQueue).toHaveBeenCalledWith({
+                user_id: mock_user_id,
+                refill_count: 20,
+            });
+        });
+
+        it('should correctly calculate has_more based on queue size', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(25);
+
+            const result = await service.getForyouTimeline(mock_user_id);
+
+            expect(result.pagination.has_more).toBe(true);
+        });
+
+        it('should return has_more false when at end of queue', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(1);
+
+            const result = await service.getForyouTimeline(mock_user_id);
+
+            expect(result.pagination.has_more).toBe(false);
+        });
+
+        it('should use default limit of 20 when not provided', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
+
+            await service.getForyouTimeline(mock_user_id);
+
+            expect(timeline_redis_service.getFromQueue).toHaveBeenCalledWith(mock_user_id, 0, 20);
         });
 
         it('should handle custom limit values', async () => {
             const custom_limit = 50;
-            await service.getForyouTimeline(mock_user_id, mock_cursor, custom_limit);
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
 
-            expect(interest_source.getCandidates).toHaveBeenCalledWith(
+            await service.getForyouTimeline(mock_user_id, undefined, custom_limit);
+
+            expect(timeline_redis_service.getFromQueue).toHaveBeenCalledWith(
                 mock_user_id,
-                mock_cursor,
+                0,
                 custom_limit
             );
         });
 
-        it('should propagate errors from interest source', async () => {
-            const error = new Error('Database connection failed');
-            interest_source.getCandidates.mockRejectedValue(error);
+        it('should filter out null tweets', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+                { tweet_id: 'tweet-2', created_at: '2024-01-02' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet, null as any]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
 
-            await expect(
-                service.getForyouTimeline(mock_user_id, mock_cursor, mock_limit)
-            ).rejects.toThrow('Database connection failed');
+            const result = await service.getForyouTimeline(mock_user_id);
+
+            expect(result.data.length).toBe(1);
+            expect(result.data[0]).toEqual(mock_tweet);
         });
 
-        it('should handle null cursor correctly', async () => {
-            await service.getForyouTimeline(mock_user_id, null as any);
+        it('should return correct structure', async () => {
+            timeline_cursor_repository.findOne.mockResolvedValue(mock_cursor);
+            timeline_redis_service.getFromQueue.mockResolvedValue([
+                { tweet_id: 'tweet-1', created_at: '2024-01-01' },
+            ]);
+            tweets_repository.getTweetsByIds.mockResolvedValue([mock_tweet]);
+            timeline_redis_service.getQueueSize.mockResolvedValue(100);
 
-            expect(interest_source.getCandidates).toHaveBeenCalledWith(mock_user_id, null, 20);
-        });
-
-        it('should preserve pagination has_more flag when false', async () => {
-            const response_with_no_more = {
-                data: [mock_scored_candidate],
-                pagination: {
-                    next_cursor: null,
-                    has_more: false,
-                },
-            };
-            interest_source.getCandidates.mockResolvedValue(response_with_no_more);
-
-            const result = await service.getForyouTimeline(mock_user_id, mock_cursor, mock_limit);
-
-            expect(result.pagination.has_more).toBe(false);
-        });
-
-        it('should return the exact structure from interest source', async () => {
-            const result = await service.getForyouTimeline(mock_user_id, mock_cursor, mock_limit);
+            const result = await service.getForyouTimeline(mock_user_id);
 
             expect(result).toHaveProperty('data');
             expect(result).toHaveProperty('pagination');
