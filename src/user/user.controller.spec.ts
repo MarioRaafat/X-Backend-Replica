@@ -13,6 +13,7 @@ import {
     ConflictException,
     ForbiddenException,
     NotFoundException,
+    UnauthorizedException,
 } from '@nestjs/common';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { GetUsersByIdDto } from './dto/get-users-by-id.dto';
@@ -29,6 +30,7 @@ import { CursorPaginationDto } from './dto/cursor-pagination-params.dto';
 import { TweetResponseDTO } from 'src/tweets/dto/tweet-response.dto';
 import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { UsernameRecommendationsResponseDto } from './dto/username-recommendations-response.dto';
+import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
 
 describe('UserController', () => {
     let controller: UserController;
@@ -65,6 +67,7 @@ describe('UserController', () => {
             assignInterests: jest.fn(),
             changeLanguage: jest.fn(),
             getUsernameRecommendations: jest.fn(),
+            getUserRelationsCounts: jest.fn(),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -672,6 +675,144 @@ describe('UserController', () => {
 
             await expect(
                 controller.getFollowers(current_user_id, target_user_id, query_dto)
+            ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            expect(get_followers).toHaveBeenCalledWith(current_user_id, target_user_id, query_dto);
+            expect(get_followers).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('getFollowings', () => {
+        it('should call user_service.getFollowing with the current user id, target user id and getFollowingDto without following filter', async () => {
+            const mock_response: UserListResponseDto = {
+                data: [
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Amira Khalid',
+                        username: 'amira2342',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: true,
+                        is_follower: false,
+                        is_muted: true,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                    has_more: false,
+                },
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const query_dto: GetFollowersDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
+            };
+
+            const get_followers_spy = jest
+                .spyOn(user_service, 'getFollowing')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getFollowing(
+                current_user_id,
+                target_user_id,
+                query_dto
+            );
+
+            expect(get_followers_spy).toHaveBeenCalledWith(
+                current_user_id,
+                target_user_id,
+                query_dto
+            );
+            expect(get_followers_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+        it('should call user_service.getFollowing with the current user id, target user id and getFollowingDto with following filter', async () => {
+            const mock_response: UserListResponseDto = {
+                data: [
+                    {
+                        user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                        name: 'Alyaa Ali',
+                        username: 'Alyaali242',
+                        bio: 'hi there!',
+                        avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                        is_following: false,
+                        is_follower: false,
+                        is_muted: false,
+                        is_blocked: true,
+                        verified: false,
+                        followers: 0,
+                        following: 0,
+                    },
+                ],
+                pagination: {
+                    next_cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                    has_more: false,
+                },
+            };
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+            const query_dto: GetFollowersDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
+            };
+
+            const get_followers_spy = jest
+                .spyOn(user_service, 'getFollowing')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getFollowing(
+                current_user_id,
+                target_user_id,
+                query_dto
+            );
+
+            expect(get_followers_spy).toHaveBeenCalledWith(
+                current_user_id,
+                target_user_id,
+                query_dto
+            );
+            expect(get_followers_spy).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if service throws user not found', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            const query_dto: GetFollowersDto = {
+                cursor: '2025-10-31T12:00:00.000Z_550e8400-e29b-41d4-a716-446655440000',
+                limit: 20,
+            };
+
+            const error = new NotFoundException(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            const get_followers = jest
+                .spyOn(user_service, 'getFollowing')
+                .mockRejectedValueOnce(error);
+
+            await expect(
+                controller.getFollowing(current_user_id, target_user_id, query_dto)
             ).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
 
             expect(get_followers).toHaveBeenCalledWith(current_user_id, target_user_id, query_dto);
@@ -2132,6 +2273,120 @@ describe('UserController', () => {
 
             expect(get_username_recommendations_spy).toHaveBeenCalledWith(current_user_id);
             expect(get_username_recommendations_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('getRelationsCount', () => {
+        it('should return user relations count', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const mock_relations: UserRelationsResponseDto = {
+                blocked_count: 5,
+                muted_count: 10,
+            };
+
+            user_service.getUserRelationsCounts.mockResolvedValueOnce(mock_relations);
+
+            const result = await controller.getRelationsCount(current_user_id);
+
+            expect(result).toEqual(mock_relations);
+            expect(result.blocked_count).toBe(5);
+            expect(result.muted_count).toBe(10);
+            expect(user_service.getUserRelationsCounts).toHaveBeenCalledWith(current_user_id);
+            expect(user_service.getUserRelationsCounts).toHaveBeenCalledTimes(1);
+        });
+
+        it('should handle zero counts', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const mock_relations: UserRelationsResponseDto = {
+                blocked_count: 0,
+                muted_count: 0,
+            };
+
+            user_service.getUserRelationsCounts.mockResolvedValueOnce(mock_relations);
+
+            const result = await controller.getRelationsCount(current_user_id);
+
+            expect(result).toEqual(mock_relations);
+            expect(result.blocked_count).toBe(0);
+            expect(result.muted_count).toBe(0);
+        });
+
+        it('should throw error when service fails', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            user_service.getUserRelationsCounts.mockRejectedValueOnce(new Error('Database error'));
+
+            await expect(controller.getRelationsCount(current_user_id)).rejects.toThrow(
+                'Database error'
+            );
+            expect(user_service.getUserRelationsCounts).toHaveBeenCalledWith(current_user_id);
+        });
+
+        it('should handle service returning null', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            user_service.getUserRelationsCounts.mockResolvedValueOnce(null as any);
+
+            const result = await controller.getRelationsCount(current_user_id);
+
+            expect(result).toBeNull();
+        });
+
+        it('should handle large blocked and muted counts', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const mock_relations: UserRelationsResponseDto = {
+                blocked_count: 1000,
+                muted_count: 500,
+            };
+
+            user_service.getUserRelationsCounts.mockResolvedValueOnce(mock_relations);
+
+            const result = await controller.getRelationsCount(current_user_id);
+
+            expect(result.blocked_count).toBe(1000);
+            expect(result.muted_count).toBe(500);
+        });
+
+        it('should handle only blocked count with no muted', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const mock_relations: UserRelationsResponseDto = {
+                blocked_count: 25,
+                muted_count: 0,
+            };
+
+            user_service.getUserRelationsCounts.mockResolvedValueOnce(mock_relations);
+
+            const result = await controller.getRelationsCount(current_user_id);
+
+            expect(result.blocked_count).toBe(25);
+            expect(result.muted_count).toBe(0);
+        });
+
+        it('should handle only muted count with no blocked', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const mock_relations: UserRelationsResponseDto = {
+                blocked_count: 0,
+                muted_count: 15,
+            };
+
+            user_service.getUserRelationsCounts.mockResolvedValueOnce(mock_relations);
+
+            const result = await controller.getRelationsCount(current_user_id);
+
+            expect(result.blocked_count).toBe(0);
+            expect(result.muted_count).toBe(15);
+        });
+
+        it('should handle unauthorized error', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            user_service.getUserRelationsCounts.mockRejectedValueOnce(
+                new UnauthorizedException(ERROR_MESSAGES.INVALID_OR_EXPIRED_TOKEN)
+            );
+
+            await expect(controller.getRelationsCount(current_user_id)).rejects.toThrow(
+                UnauthorizedException
+            );
         });
     });
 });
