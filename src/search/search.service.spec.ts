@@ -347,99 +347,6 @@ describe('SearchService', () => {
             expect(elasticsearch_service.search).not.toHaveBeenCalled();
         });
 
-        it('should search posts and return results without related tweets', async () => {
-            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
-            const query_dto: PostsSearchDto = {
-                query: 'technology',
-                limit: 20,
-            };
-
-            const mock_tweet = {
-                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
-                content: 'This is a post about technology',
-                created_at: '2024-01-15T10:30:00Z',
-                updated_at: '2024-01-15T10:30:00Z',
-                num_likes: 10,
-                num_reposts: 5,
-                num_views: 100,
-                num_replies: 3,
-                num_quotes: 2,
-                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
-                username: 'alyaa242',
-                name: 'Alyaa Ali',
-                avatar_url: 'https://example.com/avatar.jpg',
-                followers: 100,
-                following: 50,
-                images: [],
-                videos: [],
-            };
-
-            const mock_elasticsearch_response = {
-                hits: {
-                    hits: [
-                        {
-                            _source: mock_tweet,
-                            sort: [
-                                2.5,
-                                '2024-01-15T10:30:00Z',
-                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                            ],
-                        },
-                    ],
-                },
-            };
-
-            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
-            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
-
-            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
-
-            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
-                {
-                    ...mock_tweet,
-                    is_liked: false,
-                    is_reposted: false,
-                    is_bookmarked: false,
-                },
-            ]);
-
-            const result = await service.searchPosts(current_user_id, query_dto);
-
-            expect(elasticsearch_service.search).toHaveBeenCalledWith({
-                index: ELASTICSEARCH_INDICES.TWEETS,
-                body: expect.objectContaining({
-                    query: expect.objectContaining({
-                        function_score: expect.objectContaining({
-                            query: expect.objectContaining({
-                                bool: expect.objectContaining({
-                                    must: [],
-                                    should: expect.any(Array),
-                                }),
-                            }),
-
-                            functions: expect.any(Array),
-                            boost_mode: 'sum',
-                            score_mode: 'sum',
-                        }),
-                    }),
-
-                    size: 21,
-                    sort: [
-                        { _score: { order: 'desc' } },
-                        { created_at: { order: 'desc' } },
-                        { tweet_id: { order: 'desc' } },
-                    ],
-                }),
-            });
-
-            expect(result.data).toHaveLength(1);
-            expect(result.data[0].tweet_id).toBe('a1b2c3d4-e5f6-7890-abcd-ef1234567890');
-            expect(result.data[0].content).toBe('This is a post about technology');
-            expect(result.pagination.has_more).toBe(false);
-            expect(result.pagination.next_cursor).toBe(null);
-        });
-
         it('should search posts with media filter', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const query_dto: PostsSearchDto = {
@@ -450,7 +357,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
+                type: 'tweet',
                 content: 'This is a post with images',
                 created_at: '2024-01-15T10:30:00Z',
                 updated_at: '2024-01-15T10:30:00Z',
@@ -549,7 +456,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
+                type: 'tweet',
                 content: 'This is a post with images',
                 created_at: '2024-01-15T10:30:00Z',
                 updated_at: '2024-01-15T10:30:00Z',
@@ -590,7 +497,7 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                    type: 'post',
+                    type: 'tweet',
                     content: 'This is a post with images',
                     created_at: '2024-01-15T10:30:00Z',
                     updated_at: '2024-01-15T10:30:00Z',
@@ -658,7 +565,7 @@ describe('SearchService', () => {
             expect(result.data[0].user.username).toBe('alyaa242');
         });
 
-        it('should search posts with hashtag query', async () => {
+        it('should search posts with hashtag query and apply trending hashtag boost', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const query_dto: PostsSearchDto = {
                 query: '#technology',
@@ -667,7 +574,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
+                type: 'tweet',
                 content: 'Post with #technology',
                 created_at: '2024-01-15T10:30:00Z',
                 updated_at: '2024-01-15T10:30:00Z',
@@ -702,6 +609,14 @@ describe('SearchService', () => {
                 },
             };
 
+            const trending_hashtags = new Map([
+                ['#technology', 150],
+                ['#ai', 100],
+            ]);
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(
+                trending_hashtags
+            );
             elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
             elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
 
@@ -734,7 +649,6 @@ describe('SearchService', () => {
                                             },
                                         },
                                     ]),
-                                    should: expect.any(Array),
                                 }),
                             }),
                             functions: expect.arrayContaining([
@@ -748,6 +662,14 @@ describe('SearchService', () => {
                                         field: 'num_reposts',
                                     }),
                                 }),
+                                expect.objectContaining({
+                                    filter: expect.objectContaining({
+                                        term: {
+                                            hashtags: { value: '#technology' },
+                                        },
+                                    }),
+                                    weight: expect.any(Number),
+                                }),
                             ]),
                             boost_mode: 'sum',
                             score_mode: 'sum',
@@ -760,7 +682,7 @@ describe('SearchService', () => {
             expect(result.data[0].content).toContain('#technology');
         });
 
-        it('should search posts with both hashtag and text query', async () => {
+        it('should search posts with both hashtag and text query with trending boost', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const query_dto: PostsSearchDto = {
                 query: '#technology AI innovation',
@@ -769,7 +691,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
+                type: 'tweet',
                 content: 'Post about AI innovation with #technology',
                 created_at: '2024-01-15T10:30:00Z',
                 updated_at: '2024-01-15T10:30:00Z',
@@ -804,6 +726,14 @@ describe('SearchService', () => {
                 },
             };
 
+            const trending_hashtags = new Map([
+                ['#technology', 200],
+                ['#ai', 150],
+            ]);
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(
+                trending_hashtags
+            );
             elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
             elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
 
@@ -848,14 +778,170 @@ describe('SearchService', () => {
                                             }),
                                         }),
                                     ]),
+                                    minimum_should_match: 1,
                                 }),
                             }),
+                            functions: expect.any(Array),
                         }),
                     }),
                 }),
             });
 
             expect(result.data).toHaveLength(1);
+        });
+
+        it('should apply boosting with empty trending hashtags map', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
+                limit: 20,
+            };
+
+            const mock_tweet = {
+                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                type: 'tweet',
+                content: 'Post about technology',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                num_likes: 10,
+                num_reposts: 5,
+                num_views: 100,
+                num_replies: 3,
+                num_quotes: 2,
+                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                followers: 100,
+                following: 50,
+                hashtags: [],
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [
+                                2.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(new Map());
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
+            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
+                {
+                    ...mock_tweet,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
+                },
+            ]);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            functions: expect.arrayContaining([
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_likes',
+                                    }),
+                                }),
+                            ]),
+                        }),
+                    }),
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+        });
+
+        it('should search with multiple hashtags', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: '#technology #ai #innovation',
+                limit: 20,
+            };
+
+            const mock_tweet = {
+                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                type: 'tweet',
+                content: 'Post with multiple hashtags #technology #ai #innovation',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                num_likes: 20,
+                num_reposts: 10,
+                num_views: 300,
+                num_replies: 8,
+                num_quotes: 5,
+                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                followers: 100,
+                following: 50,
+                hashtags: ['#technology', '#ai', '#innovation'],
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [
+                                5.0,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            const trending_hashtags = new Map([
+                ['#technology', 200],
+                ['#ai', 250],
+                ['#innovation', 180],
+            ]);
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(
+                trending_hashtags
+            );
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
+            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
+                {
+                    ...mock_tweet,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
+                },
+            ]);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].content).toContain('#technology');
+            expect(result.data[0].content).toContain('#ai');
+            expect(result.data[0].content).toContain('#innovation');
         });
 
         it('should search posts with multiple filters (media + username)', async () => {
@@ -869,7 +955,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
+                type: 'tweet',
                 content: 'Tech post with media',
                 created_at: '2024-01-15T10:30:00Z',
                 updated_at: '2024-01-15T10:30:00Z',
@@ -961,7 +1047,7 @@ describe('SearchService', () => {
             const mock_tweets = [
                 {
                     tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                    type: 'post',
+                    type: 'tweet',
                     content: 'This is a post with images',
                     created_at: '2024-01-15T10:30:00Z',
                     updated_at: '2024-01-15T10:30:00Z',
@@ -982,7 +1068,7 @@ describe('SearchService', () => {
                 },
                 {
                     tweet_id: 'b2c3d4e5-f6g7-8901-bcde-fg2345678901',
-                    type: 'post',
+                    type: 'tweet',
                     content: 'Second post about technology',
                     created_at: '2024-01-15T09:30:00Z',
                     updated_at: '2024-01-15T09:30:00Z',
@@ -1073,7 +1159,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
+                type: 'tweet',
                 content: 'This is a post with images',
                 created_at: '2024-01-15T10:30:00Z',
                 updated_at: '2024-01-15T10:30:00Z',
@@ -1204,7 +1290,7 @@ describe('SearchService', () => {
                 num_quotes: 0,
                 author_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
                 username: 'replyuser',
-                name: 'Alyaa Ali',
+                name: 'Reply User',
                 avatar_url: 'https://example.com/reply-avatar.jpg',
                 followers: 50,
                 following: 25,
@@ -1242,6 +1328,7 @@ describe('SearchService', () => {
                 ],
             };
 
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(new Map());
             elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
             elasticsearch_service.mget.mockResolvedValueOnce(mock_mget_response as any);
 
@@ -1251,6 +1338,7 @@ describe('SearchService', () => {
                         ...tweet,
                         is_liked: false,
                         is_reposted: false,
+                        is_bookmarked: false,
                     }))
                 )
             );
@@ -1277,6 +1365,317 @@ describe('SearchService', () => {
             expect(result.data[0].conversation_tweet?.tweet_id).toBe(
                 '0c059822-f706-4c8f-97d7-ba2e9fc22d6d'
             );
+        });
+
+        it('should search posts and attach parent tweet for quote', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'quote',
+                limit: 20,
+            };
+
+            const mock_parent_tweet = {
+                tweet_id: 'parent-quote-id',
+                type: 'post',
+                content: 'Original quoted post',
+                created_at: '2024-01-15T09:00:00Z',
+                updated_at: '2024-01-15T09:00:00Z',
+                num_likes: 25,
+                num_reposts: 12,
+                num_views: 250,
+                num_replies: 6,
+                num_quotes: 4,
+                author_id: 'parent-author-id',
+                username: 'originaluser',
+                name: 'Original User',
+                avatar_url: 'https://example.com/original-avatar.jpg',
+                followers: 120,
+                following: 60,
+                images: [],
+                videos: [],
+            };
+
+            const mock_tweet = {
+                tweet_id: 'quote-tweet-id',
+                type: 'quote',
+                content: 'Quoting this great post',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                parent_id: 'parent-quote-id',
+                num_likes: 8,
+                num_reposts: 4,
+                num_views: 80,
+                num_replies: 2,
+                num_quotes: 1,
+                author_id: 'quote-author-id',
+                username: 'quoteuser',
+                name: 'Quote User',
+                avatar_url: 'https://example.com/quote-avatar.jpg',
+                followers: 75,
+                following: 35,
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [2.8, '2024-01-15T10:30:00Z', 'quote-tweet-id'],
+                        },
+                    ],
+                },
+            };
+
+            const mock_mget_response = {
+                docs: [
+                    {
+                        _id: 'parent-quote-id',
+                        found: true,
+                        _source: mock_parent_tweet,
+                    },
+                ],
+            };
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(new Map());
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce(mock_mget_response as any);
+
+            jest.spyOn(service as any, 'attachUserInteractions').mockImplementation((tweets: any) =>
+                Promise.resolve(
+                    tweets.map((tweet) => ({
+                        ...tweet,
+                        is_liked: false,
+                        is_reposted: false,
+                        is_bookmarked: false,
+                    }))
+                )
+            );
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.mget).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: {
+                    ids: ['parent-quote-id'],
+                },
+            });
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].type).toBe('quote');
+            expect(result.data[0].parent_tweet).toBeDefined();
+            expect(result.data[0].parent_tweet?.tweet_id).toBe('parent-quote-id');
+        });
+
+        it('should handle posts without related tweets (regular posts)', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'regular post',
+                limit: 20,
+            };
+
+            const mock_tweet = {
+                tweet_id: 'regular-post-id',
+                type: 'post',
+                content: 'Just a regular post',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                num_likes: 15,
+                num_reposts: 7,
+                num_views: 150,
+                num_replies: 4,
+                num_quotes: 2,
+                author_id: 'regular-author-id',
+                username: 'regularuser',
+                name: 'Regular User',
+                avatar_url: 'https://example.com/regular-avatar.jpg',
+                followers: 90,
+                following: 45,
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [2.6, '2024-01-15T10:30:00Z', 'regular-post-id'],
+                        },
+                    ],
+                },
+            };
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(new Map());
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            jest.spyOn(service as any, 'attachUserInteractions').mockImplementation((tweets: any) =>
+                Promise.resolve(
+                    tweets.map((tweet) => ({
+                        ...tweet,
+                        is_liked: false,
+                        is_reposted: false,
+                        is_bookmarked: false,
+                    }))
+                )
+            );
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].type).toBe('post');
+            expect(result.data[0].parent_tweet).toBeUndefined();
+            expect(result.data[0].conversation_tweet).toBeUndefined();
+        });
+
+        it('should filter out tweets with missing parent interactions for quotes', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'quote test',
+                limit: 20,
+            };
+
+            const mock_parent_tweet = null;
+
+            const mock_quote_tweet = {
+                tweet_id: 'quote-id',
+                type: 'quote',
+                content: 'Quoting blocked user',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+                parent_id: 'parent-id',
+                num_likes: 5,
+                num_reposts: 2,
+                num_views: 50,
+                num_replies: 1,
+                num_quotes: 0,
+                author_id: 'quote-author-id',
+                username: 'quoteuser',
+                name: 'Quote User',
+                avatar_url: 'https://example.com/quote-avatar.jpg',
+                followers: 40,
+                following: 20,
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_quote_tweet,
+                            sort: [2.0, '2024-01-15T10:00:00Z', 'quote-id'],
+                        },
+                    ],
+                },
+            };
+
+            const mock_mget_response = {
+                docs: [
+                    {
+                        _id: 'parent-id',
+                        found: false,
+                        _source: mock_parent_tweet,
+                    },
+                ],
+            };
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(new Map());
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce(mock_mget_response as any);
+
+            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([]);
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(result.data).toHaveLength(0);
+        });
+
+        it('should filter out replies with missing parent or conversation interactions', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'reply test',
+                limit: 20,
+            };
+
+            const mock_conversation_tweet = {
+                tweet_id: 'conversation-id',
+                type: 'post',
+                content: 'Conversation starter',
+                created_at: '2024-01-15T08:00:00Z',
+                updated_at: '2024-01-15T08:00:00Z',
+                num_likes: 15,
+                num_reposts: 7,
+                num_views: 150,
+                num_replies: 5,
+                num_quotes: 2,
+                author_id: 'blocked-conversation-author',
+                username: 'blockedconvo',
+                name: 'Blocked Convo',
+                avatar_url: 'https://example.com/blocked-convo-avatar.jpg',
+                followers: 60,
+                following: 30,
+                images: [],
+                videos: [],
+            };
+
+            const mock_reply_tweet = {
+                tweet_id: 'reply-id',
+                type: 'reply',
+                content: 'This is a reply',
+                created_at: '2024-01-15T10:00:00Z',
+                updated_at: '2024-01-15T10:00:00Z',
+                parent_id: 'parent-id',
+                conversation_id: 'conversation-id',
+                num_likes: 5,
+                num_reposts: 2,
+                num_views: 50,
+                num_replies: 1,
+                num_quotes: 0,
+                author_id: 'reply-author-id',
+                username: 'replyuser',
+                name: 'Reply User',
+                avatar_url: 'https://example.com/reply-avatar.jpg',
+                followers: 40,
+                following: 20,
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_reply_tweet,
+                            sort: [2.0, '2024-01-15T10:00:00Z', 'reply-id'],
+                        },
+                    ],
+                },
+            };
+
+            const mock_mget_response = {
+                docs: [
+                    {
+                        _id: 'conversation-id',
+                        found: true,
+                        _source: mock_conversation_tweet,
+                    },
+                ],
+            };
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(new Map());
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce(mock_mget_response as any);
+
+            jest.spyOn(service as any, 'attachUserInteractions').mockImplementation((tweets: any) =>
+                Promise.resolve([])
+            );
+
+            const result = await service.searchPosts(current_user_id, query_dto);
+
+            expect(result.data).toHaveLength(0);
         });
 
         it('should return empty result on elasticsearch error', async () => {
@@ -1329,7 +1728,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                type: 'post',
+                type: 'tweet',
                 content: 'Latest post',
                 created_at: '2024-01-16T10:30:00Z',
                 updated_at: '2024-01-16T10:30:00Z',
@@ -1411,7 +1810,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                type: 'post',
+                type: 'tweet',
                 content: 'Next post',
                 created_at: '2024-01-16T09:30:00Z',
                 updated_at: '2024-01-16T09:30:00Z',
@@ -1505,7 +1904,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
+                type: 'tweet',
                 content: 'This is a post with images',
                 created_at: '2024-01-15T10:30:00Z',
                 updated_at: '2024-01-15T10:30:00Z',
@@ -1546,7 +1945,7 @@ describe('SearchService', () => {
             jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
                 {
                     tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                    type: 'post',
+                    type: 'tweet',
                     content: 'This is a post with images',
                     created_at: '2024-01-15T10:30:00Z',
                     updated_at: '2024-01-15T10:30:00Z',
@@ -1614,7 +2013,7 @@ describe('SearchService', () => {
             expect(result.data[0].user.username).toBe('alyaa242');
         });
 
-        it('should search posts with hashtag query', async () => {
+        it('should search latest posts with hashtag query and apply trending hashtag boost', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const query_dto: PostsSearchDto = {
                 query: '#technology',
@@ -1623,7 +2022,7 @@ describe('SearchService', () => {
 
             const mock_tweet = {
                 tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
-                type: 'post',
+                type: 'tweet',
                 content: 'Post with #technology',
                 created_at: '2024-01-15T10:30:00Z',
                 updated_at: '2024-01-15T10:30:00Z',
@@ -1658,6 +2057,14 @@ describe('SearchService', () => {
                 },
             };
 
+            const trending_hashtags = new Map([
+                ['#technology', 150],
+                ['#ai', 100],
+            ]);
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(
+                trending_hashtags
+            );
             elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
             elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
 
@@ -1690,7 +2097,6 @@ describe('SearchService', () => {
                                             },
                                         },
                                     ]),
-                                    should: expect.any(Array),
                                 }),
                             }),
                             functions: expect.arrayContaining([
@@ -1704,6 +2110,14 @@ describe('SearchService', () => {
                                         field: 'num_reposts',
                                     }),
                                 }),
+                                expect.objectContaining({
+                                    filter: expect.objectContaining({
+                                        term: {
+                                            hashtags: { value: '#technology' },
+                                        },
+                                    }),
+                                    weight: expect.any(Number),
+                                }),
                             ]),
                             boost_mode: 'sum',
                             score_mode: 'sum',
@@ -1715,6 +2129,262 @@ describe('SearchService', () => {
             expect(result.data).toHaveLength(1);
             expect(result.data[0].content).toContain('#technology');
         });
+
+        it('should search latest posts with both hashtag and text query with trending boost', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: '#technology AI innovation',
+                limit: 20,
+            };
+
+            const mock_tweet = {
+                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                type: 'tweet',
+                content: 'Post about AI innovation with #technology',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                num_likes: 15,
+                num_reposts: 8,
+                num_views: 200,
+                num_replies: 5,
+                num_quotes: 3,
+                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                followers: 100,
+                following: 50,
+                hashtags: ['#technology'],
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [
+                                3.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            const trending_hashtags = new Map([
+                ['#technology', 200],
+                ['#ai', 150],
+            ]);
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(
+                trending_hashtags
+            );
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
+            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
+                {
+                    ...mock_tweet,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
+                },
+            ]);
+
+            const result = await service.searchLatestPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            query: expect.objectContaining({
+                                bool: expect.objectContaining({
+                                    must: expect.arrayContaining([
+                                        {
+                                            term: {
+                                                hashtags: {
+                                                    value: '#technology',
+                                                    boost: 10,
+                                                },
+                                            },
+                                        },
+                                    ]),
+                                    should: expect.arrayContaining([
+                                        expect.objectContaining({
+                                            multi_match: expect.objectContaining({
+                                                query: expect.stringContaining('AI'),
+                                                fields: expect.arrayContaining([
+                                                    'content^3',
+                                                    'username^2',
+                                                    'name',
+                                                ]),
+                                            }),
+                                        }),
+                                    ]),
+                                    minimum_should_match: 1,
+                                }),
+                            }),
+                            functions: expect.any(Array),
+                        }),
+                    }),
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+        });
+
+        it('should apply boosting in latest posts with empty trending hashtags map', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: PostsSearchDto = {
+                query: 'technology',
+                limit: 20,
+            };
+
+            const mock_tweet = {
+                tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                type: 'tweet',
+                content: 'Post about technology',
+                created_at: '2024-01-15T10:30:00Z',
+                updated_at: '2024-01-15T10:30:00Z',
+                num_likes: 10,
+                num_reposts: 5,
+                num_views: 100,
+                num_replies: 3,
+                num_quotes: 2,
+                author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+                username: 'alyaa242',
+                name: 'Alyaa Ali',
+                avatar_url: 'https://example.com/avatar.jpg',
+                followers: 100,
+                following: 50,
+                hashtags: [],
+                images: [],
+                videos: [],
+            };
+
+            const mock_elasticsearch_response = {
+                hits: {
+                    hits: [
+                        {
+                            _source: mock_tweet,
+                            sort: [
+                                2.5,
+                                '2024-01-15T10:30:00Z',
+                                'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+                            ],
+                        },
+                    ],
+                },
+            };
+
+            jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(new Map());
+            elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+            elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+            jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
+            jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
+                {
+                    ...mock_tweet,
+                    is_liked: false,
+                    is_reposted: false,
+                    is_bookmarked: false,
+                },
+            ]);
+
+            const result = await service.searchLatestPosts(current_user_id, query_dto);
+
+            expect(elasticsearch_service.search).toHaveBeenCalledWith({
+                index: ELASTICSEARCH_INDICES.TWEETS,
+                body: expect.objectContaining({
+                    query: expect.objectContaining({
+                        function_score: expect.objectContaining({
+                            functions: expect.arrayContaining([
+                                expect.objectContaining({
+                                    field_value_factor: expect.objectContaining({
+                                        field: 'num_likes',
+                                    }),
+                                }),
+                            ]),
+                        }),
+                    }),
+                }),
+            });
+
+            expect(result.data).toHaveLength(1);
+        });
+    });
+
+    it('should search latest posts with multiple hashtags', async () => {
+        const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+        const query_dto: PostsSearchDto = {
+            query: '#technology #ai #innovation',
+            limit: 20,
+        };
+
+        const mock_tweet = {
+            tweet_id: 'a1b2c3d4-e5f6-7890-abcd-ef1234567890',
+            type: 'tweet',
+            content: 'Post with multiple hashtags #technology #ai #innovation',
+            created_at: '2024-01-15T10:30:00Z',
+            updated_at: '2024-01-15T10:30:00Z',
+            num_likes: 20,
+            num_reposts: 10,
+            num_views: 300,
+            num_replies: 8,
+            num_quotes: 5,
+            author_id: '1a8e9906-65bb-4fa4-a614-ecc6a434ee94',
+            username: 'alyaa242',
+            name: 'Alyaa Ali',
+            avatar_url: 'https://example.com/avatar.jpg',
+            followers: 100,
+            following: 50,
+            hashtags: ['#technology', '#ai', '#innovation'],
+            images: [],
+            videos: [],
+        };
+
+        const mock_elasticsearch_response = {
+            hits: {
+                hits: [
+                    {
+                        _source: mock_tweet,
+                        sort: [5.0, '2024-01-15T10:30:00Z', 'a1b2c3d4-e5f6-7890-abcd-ef1234567890'],
+                    },
+                ],
+            },
+        };
+
+        const trending_hashtags = new Map([
+            ['#technology', 200],
+            ['#ai', 250],
+            ['#innovation', 180],
+        ]);
+
+        jest.spyOn(service as any, 'getTrendingHashtags').mockResolvedValueOnce(trending_hashtags);
+        elasticsearch_service.search.mockResolvedValueOnce(mock_elasticsearch_response as any);
+        elasticsearch_service.mget.mockResolvedValueOnce({ docs: [] } as any);
+
+        jest.spyOn(service as any, 'attachRelatedTweets').mockResolvedValueOnce([mock_tweet]);
+        jest.spyOn(service as any, 'attachUserInteractions').mockResolvedValueOnce([
+            {
+                ...mock_tweet,
+                is_liked: false,
+                is_reposted: false,
+                is_bookmarked: false,
+            },
+        ]);
+
+        const result = await service.searchLatestPosts(current_user_id, query_dto);
+
+        expect(result.data).toHaveLength(1);
+        expect(result.data[0].content).toContain('#technology');
+        expect(result.data[0].content).toContain('#ai');
+        expect(result.data[0].content).toContain('#innovation');
     });
 
     describe('getMentionSuggestions', () => {

@@ -8,10 +8,14 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { FakeTrendService } from './fake-trend.service';
 import { User } from 'src/user/entities/user.entity';
 import { TweetsModule } from 'src/tweets/tweets.module';
+import { TweetHashtag } from 'src/tweets/entities/tweet-hashtag.entity';
 
 @Module({
     controllers: [TrendController],
-    imports: [TypeOrmModule.forFeature([Hashtag, User]), forwardRef(() => TweetsModule)],
+    imports: [
+        TypeOrmModule.forFeature([Hashtag, User, TweetHashtag]),
+        forwardRef(() => TweetsModule),
+    ],
 
     providers: [TrendService, RedisService, VelocityExponentialDetector, FakeTrendService],
     exports: [TrendService, FakeTrendService],

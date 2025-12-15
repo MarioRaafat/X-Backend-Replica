@@ -4,9 +4,9 @@ import * as crypto from 'crypto';
 
 @Injectable()
 export class EncryptionService {
-    private algorithm = 'aes-256-cbc';
-    private encryptionKey: Buffer;
-    private ivLength = 16; // Initialization vector length for AES
+    private readonly algorithm = 'aes-256-cbc';
+    private readonly encryptionKey: Buffer;
+    private readonly ivLength = 16; // Initialization vector length for AES
     private readonly DEFAULT_ENCRYPTION_KEY =
         'yapper-default-encryption-key-fallback-value-change-in-production-environment'; // Fallback for development
 

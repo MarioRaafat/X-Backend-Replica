@@ -37,4 +37,11 @@ export class ExploreController {
             queue_stats: stats,
         };
     }
+
+    @Post('clear')
+    @ApiOperation({ summary: 'Manually clear explore score recalculation' })
+    @ApiResponse({ status: 200, description: 'Explore score job cleared successfully' })
+    async clearExploreUpdate() {
+        return await this.explore_jobs_service.clearScoreRecalculation();
+    }
 }

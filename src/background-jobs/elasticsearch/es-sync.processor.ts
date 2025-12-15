@@ -12,6 +12,7 @@ import { User, UserFollows } from 'src/user/entities';
 import { EsSyncUserDto } from './dtos/es-sync-user.dto';
 import { EsSyncFollowDto } from './dtos/es-sync-follow.dto';
 import { TweetType } from 'src/shared/enums/tweet-types.enum';
+import { EsDeleteTweetsDto } from './dtos/es-delete-tweets.dto';
 
 @Processor(QUEUE_NAMES.ELASTICSEARCH)
 export class EsSyncProcessor {
@@ -19,9 +20,9 @@ export class EsSyncProcessor {
 
     constructor(
         @InjectRepository(Tweet)
-        private tweets_repository: Repository<Tweet>,
+        private readonly tweets_repository: Repository<Tweet>,
         @InjectRepository(User)
-        private user_repository: Repository<User>,
+        private readonly user_repository: Repository<User>,
         private readonly elasticsearch_service: ElasticsearchService,
         @InjectRepository(UserFollows)
         private readonly user_follows_repository: Repository<UserFollows>
@@ -77,23 +78,41 @@ export class EsSyncProcessor {
     }
 
     @Process(JOB_NAMES.ELASTICSEARCH.DELETE_TWEET)
-    async handleDeleteTweet(job: Job<EsSyncTweetDto>) {
-        const { tweet_id } = job.data;
+    async handleDeleteTweet(job: Job<EsDeleteTweetsDto>) {
+        const { tweet_ids } = job.data;
+
+        if (!tweet_ids?.length) {
+            this.logger.warn('No tweet_ids provided, skipping ES delete');
+            return;
+        }
 
         try {
-            await this.elasticsearch_service.delete({
-                index: ELASTICSEARCH_INDICES.TWEETS,
-                id: tweet_id,
-            });
+            const body = tweet_ids.flatMap((tweet_id: string) => [
+                { delete: { _index: ELASTICSEARCH_INDICES.TWEETS, _id: tweet_id } },
+            ]);
 
-            this.logger.log(`Deleted tweet ${tweet_id} from Elasticsearch`);
-        } catch (error) {
-            if (error.meta?.statusCode === 404) {
-                this.logger.warn(`Tweet ${tweet_id} not found in ES, skipping delete`);
-            } else {
-                this.logger.error(`Failed to delete tweet ${tweet_id}:`, error);
-                throw error;
+            const response = await this.elasticsearch_service.bulk({ body });
+
+            if (response.errors) {
+                response.items.forEach((item, i) => {
+                    const result = item.delete;
+                    if (result?.error) {
+                        if (result.status === 404) {
+                            this.logger.warn(`Tweet ${tweet_ids[i]} not found in ES, skipping`);
+                        } else {
+                            this.logger.error(
+                                `Failed to delete tweet ${tweet_ids[i]}:`,
+                                result.error
+                            );
+                        }
+                    }
+                });
             }
+
+            this.logger.log(`Deleted ${tweet_ids.length} tweets from Elasticsearch`);
+        } catch (error) {
+            this.logger.error('Bulk delete failed:', error);
+            throw error;
         }
     }
 

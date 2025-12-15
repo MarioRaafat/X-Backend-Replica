@@ -12,7 +12,7 @@ import type { Queue } from 'bull';
 
 @Injectable()
 export class MentionJobService extends BackgroundJobsService<MentionBackGroundNotificationJobDTO> {
-    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private mention_queue: Queue) {
+    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private readonly mention_queue: Queue) {
         super(
             mention_queue,
             JOB_NAMES.NOTIFICATION.MENTION,

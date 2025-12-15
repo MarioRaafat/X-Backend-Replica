@@ -29,9 +29,9 @@ interface ITweetScoreData {
 export class ExploreJobsService {
     private readonly logger = new Logger(ExploreJobsService.name);
     constructor(
-        @InjectQueue(QUEUE_NAMES.EXPLORE) private explore_queue: Queue,
-        @InjectRepository(Tweet) private tweet_repository: Repository<Tweet>,
-        private redis_service: RedisService
+        @InjectQueue(QUEUE_NAMES.EXPLORE) private readonly explore_queue: Queue,
+        @InjectRepository(Tweet) private readonly tweet_repository: Repository<Tweet>,
+        private readonly redis_service: RedisService
     ) {}
 
     // ============================================
@@ -292,7 +292,7 @@ export class ExploreJobsService {
             const top_tweets: Array<{ tweet_id: string; score: number }> = [];
             for (let j = 0; j < results.length; j += 2) {
                 const tweet_id = results[j] as string;
-                const score = parseFloat(results[j + 1] as string);
+                const score = Number.parseFloat(results[j + 1] as string);
                 top_tweets.push({ tweet_id, score });
                 all_tweet_ids.add(tweet_id);
             }
@@ -419,5 +419,10 @@ export class ExploreJobsService {
         }
 
         await pipeline.exec();
+    }
+
+    async clearScoreRecalculation() {
+        this.logger.log('Clearing explore score recalculation');
+        await this.redis_service.deleteByPrefix('explore:category:');
     }
 }
