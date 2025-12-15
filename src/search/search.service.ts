@@ -402,6 +402,7 @@ export class SearchService {
                 },
                 images: parent_source.images ?? [],
                 videos: parent_source.videos ?? [],
+                mentions: parent_source.mentions ?? [],
             };
         }
 
@@ -426,6 +427,7 @@ export class SearchService {
                 },
                 images: conversation_source.images ?? [],
                 videos: conversation_source.videos ?? [],
+                mentions: parent_source.mentions ?? [],
             };
         }
 

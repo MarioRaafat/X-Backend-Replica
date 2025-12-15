@@ -122,6 +122,7 @@ export class TweetSeederService {
             following: tweet.user?.following || 0,
             images: tweet.images || [],
             videos: tweet.videos || [],
+            mentions: tweet.mentions || [],
             bio: tweet.user?.bio,
             avatar_url: tweet.user?.avatar_url,
         };
