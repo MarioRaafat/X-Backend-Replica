@@ -19,17 +19,19 @@ export class TrendService {
     ) {}
 
     private readonly WEIGHTS = {
-        VOLUME: 0.35,
-        ACCELERATION: 0.4,
-        RECENCY: 0.25,
+        VOLUME: 0.7, // Most important
+        ACCELERATION: 0.25, // Growth matters
+        RECENCY: 0.05, // Just a small boost
     };
-
     private readonly CATEGORIES = ['Sports', 'News', 'Entertainment'];
     private readonly GENERAL_CATEGORY = 'Only on Yapper';
+    private readonly RECENCY_MIN_SCORE = 5;
+    private readonly TRENDING_WINDOW_HOURS = 6;
 
     private readonly TOP_N = 30;
     private readonly MIN_BUCKETS = 30 * 60 * 1000;
     private readonly CATEGORY_THRESHOLD = 30;
+    private readonly RECENCY_FULL_SCORE_MINUTES = 30;
 
     async getTrending(category?: string, limit: number = 30) {
         const normalized_category = category?.trim()
@@ -188,7 +190,7 @@ export class TrendService {
         try {
             console.log('Calculate Trend.....');
             const now = Date.now();
-            const hours_ago = now - 24 * 60 * 60 * 1000;
+            const hours_ago = now - this.TRENDING_WINDOW_HOURS * 60 * 60 * 1000;
 
             // 1. Get active candidates (last hour)
             const active_hashtags = await this.redis_service.zrangebyscore(
@@ -364,11 +366,17 @@ export class TrendService {
 
         const minutes_ago = (Date.now() - last_seen) / (60 * 1000);
 
-        if (minutes_ago <= 1) return 100;
+        // Full score for recent hashtags
+        if (minutes_ago <= this.RECENCY_FULL_SCORE_MINUTES) return 100;
 
-        const score = 100 - (minutes_ago / 60) * 100;
+        // Linear decay over the trending window
+        const hours_ago = minutes_ago / 60;
 
-        return Math.max(0, score);
+        // Decay from 100 to RECENCY_MIN_SCORE instead of 0
+        const score =
+            100 - (hours_ago / this.TRENDING_WINDOW_HOURS) * (100 - this.RECENCY_MIN_SCORE);
+
+        return Math.max(this.RECENCY_MIN_SCORE, Math.min(100, score));
     }
 
     private calculateFinalScore(volume: number, acceleration: number, recency: number): number {
