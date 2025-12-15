@@ -355,7 +355,6 @@ export class NotificationsService implements OnModuleInit {
                     ? follow_notification.follower_id[0]
                     : follow_notification.follower_id;
 
-                // Find the user document and check for existing FOLLOW notification
                 const user_document = await this.notificationModel
                     .findOne({ user: user_id })
                     .lean();
@@ -377,7 +376,6 @@ export class NotificationsService implements OnModuleInit {
                     recent_follow_notification_index
                 ] as any;
 
-                // Update the specific notification and return the updated document
                 const updated_doc = await this.notificationModel.findOneAndUpdate(
                     {
                         user: user_id,
@@ -406,13 +404,11 @@ export class NotificationsService implements OnModuleInit {
                     return { aggregated: false };
                 }
 
-                // Find the updated notification
                 const updated_notification = updated_doc.notifications?.find(
                     (n: any) =>
                         n.type === NotificationType.FOLLOW && new Date(n.created_at) >= one_day_ago
                 );
 
-                // If we can't find the updated notification, treat as non-aggregated
                 if (!updated_notification) {
                     return { aggregated: false };
                 }
@@ -438,7 +434,6 @@ export class NotificationsService implements OnModuleInit {
                     ? like_notification.liked_by[0]
                     : like_notification.liked_by;
 
-                // Find the user document and check for existing LIKE notification
                 const user_document = await this.notificationModel
                     .findOne({ user: user_id })
                     .lean();
@@ -447,32 +442,25 @@ export class NotificationsService implements OnModuleInit {
                     return { aggregated: false };
                 }
 
-                // First, try to find aggregation by TWEET (multiple people liking the same tweet)
-                // This matches notifications that have the same tweet AND only one tweet (either single notification or already aggregated by tweet)
                 const matching_by_tweet_index = user_document.notifications.findIndex((n: any) => {
                     if (n.type !== NotificationType.LIKE) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
 
                     const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
-                    // Match if: same tweet, only one tweet in array (not aggregated by person)
                     return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
                 });
 
-                // Second, try to find aggregation by PERSON (same person liking multiple tweets)
-                // This matches notifications that have the same person AND only one person (either single notification or already aggregated by person)
                 const matching_by_person_index = user_document.notifications.findIndex((n: any) => {
                     if (n.type !== NotificationType.LIKE) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
 
                     const liked_by_array = Array.isArray(n.liked_by) ? n.liked_by : [n.liked_by];
-                    // Match if: same person, only one person in array (not aggregated by tweet)
                     return liked_by_array.includes(new_liked_by) && liked_by_array.length === 1;
                 });
 
                 let aggregation_type: 'tweet' | 'person' | null = null;
                 let matching_index = -1;
 
-                // Prioritize aggregation by tweet if found
                 if (matching_by_tweet_index !== -1) {
                     aggregation_type = 'tweet';
                     matching_index = matching_by_tweet_index;
@@ -485,10 +473,8 @@ export class NotificationsService implements OnModuleInit {
 
                 const old_notification = user_document.notifications[matching_index] as any;
 
-                // Update based on aggregation type and return the updated document
                 let updated_doc_like;
                 if (aggregation_type === 'tweet') {
-                    // Add the new person to the existing notification for this tweet
                     updated_doc_like = await this.notificationModel.findOneAndUpdate(
                         { user: user_id },
                         {
@@ -514,7 +500,6 @@ export class NotificationsService implements OnModuleInit {
                         }
                     );
                 } else {
-                    // Add the new tweet to the existing notification for this person
                     updated_doc_like = await this.notificationModel.findOneAndUpdate(
                         { user: user_id },
                         {
@@ -545,7 +530,6 @@ export class NotificationsService implements OnModuleInit {
                     return { aggregated: false };
                 }
 
-                // Find the updated notification
                 const updated_notification_like = updated_doc_like.notifications?.find((n: any) => {
                     if (n.type !== NotificationType.LIKE) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
@@ -557,7 +541,6 @@ export class NotificationsService implements OnModuleInit {
                     );
                 });
 
-                // If we can't find the updated notification, treat as non-aggregated
                 if (!updated_notification_like) {
                     return { aggregated: false };
                 }
@@ -584,7 +567,6 @@ export class NotificationsService implements OnModuleInit {
                     ? repost_notification.reposted_by[0]
                     : repost_notification.reposted_by;
 
-                // Find the user document and check for existing REPOST notification
                 const user_document = await this.notificationModel
                     .findOne({ user: user_id })
                     .lean();
@@ -593,8 +575,6 @@ export class NotificationsService implements OnModuleInit {
                     return { aggregated: false };
                 }
 
-                // First, try to find aggregation by TWEET (multiple people reposting the same tweet)
-                // This matches notifications that have the same tweet AND only one tweet (either single notification or already aggregated by tweet)
                 const matching_by_tweet_index = user_document.notifications.findIndex((n: any) => {
                     if (n.type !== NotificationType.REPOST) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
@@ -603,12 +583,9 @@ export class NotificationsService implements OnModuleInit {
                     const reposted_by_array = Array.isArray(n.reposted_by)
                         ? n.reposted_by
                         : [n.reposted_by];
-                    // Match if: same tweet, only one tweet in array (not aggregated by person)
                     return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
                 });
 
-                // Second, try to find aggregation by PERSON (same person reposting multiple tweets)
-                // This matches notifications that have the same person AND only one person (either single notification or already aggregated by person)
                 const matching_by_person_index = user_document.notifications.findIndex((n: any) => {
                     if (n.type !== NotificationType.REPOST) return false;
                     if (new Date(n.created_at) < one_day_ago) return false;
@@ -617,7 +594,6 @@ export class NotificationsService implements OnModuleInit {
                         ? n.reposted_by
                         : [n.reposted_by];
                     const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
-                    // Match if: same person, only one person in array (not aggregated by tweet)
                     return (
                         reposted_by_array.includes(new_reposted_by) &&
                         reposted_by_array.length === 1
@@ -627,7 +603,6 @@ export class NotificationsService implements OnModuleInit {
                 let aggregation_type: 'tweet' | 'person' | null = null;
                 let matching_index = -1;
 
-                // Prioritize aggregation by tweet if found
                 if (matching_by_tweet_index !== -1) {
                     aggregation_type = 'tweet';
                     matching_index = matching_by_tweet_index;
@@ -640,12 +615,8 @@ export class NotificationsService implements OnModuleInit {
 
                 const old_notification = user_document.notifications[matching_index] as any;
 
-                // Update based on aggregation type and return the updated document
                 let updated_doc_repost;
                 if (aggregation_type === 'tweet') {
-                    // Add the new person to the existing notification for this tweet
-                    // Use $exists checks to ensure we only match notifications with exactly 1 tweet
-                    // (not aggregated by person)
                     updated_doc_repost = await this.notificationModel.findOneAndUpdate(
                         { user: user_id },
                         {
@@ -671,7 +642,6 @@ export class NotificationsService implements OnModuleInit {
                         }
                     );
                 } else {
-                    // Add the new tweet to the existing notification for this person
                     updated_doc_repost = await this.notificationModel.findOneAndUpdate(
                         { user: user_id },
                         {
@@ -702,7 +672,6 @@ export class NotificationsService implements OnModuleInit {
                     return { aggregated: false };
                 }
 
-                // Find the updated notification
                 const updated_notification_repost = updated_doc_repost.notifications?.find(
                     (n: any) => {
                         if (n.type !== NotificationType.REPOST) return false;
@@ -719,7 +688,6 @@ export class NotificationsService implements OnModuleInit {
                     }
                 );
 
-                // If we can't find the updated notification, treat as non-aggregated
                 if (!updated_notification_repost) {
                     return { aggregated: false };
                 }
@@ -738,7 +706,6 @@ export class NotificationsService implements OnModuleInit {
             }
 
             default:
-                // Quote and Reply notifications are not aggregated
                 return { aggregated: false };
         }
     }
