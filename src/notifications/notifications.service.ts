@@ -579,7 +579,6 @@ export class NotificationsService implements OnModuleInit {
 
                     const tweet_id_array = Array.isArray(n.tweet_id) ? n.tweet_id : [n.tweet_id];
 
-                    // Match if: same tweet, only one tweet in array (not aggregated by person)
                     return tweet_id_array.includes(new_tweet_id) && tweet_id_array.length === 1;
                 });
 
@@ -590,7 +589,6 @@ export class NotificationsService implements OnModuleInit {
                     const reposted_by_array = Array.isArray(n.reposted_by)
                         ? n.reposted_by
                         : [n.reposted_by];
-                    // Match if: same person, only one person in array (not aggregated by tweet)
                     return (
                         reposted_by_array.includes(new_reposted_by) &&
                         reposted_by_array.length === 1
@@ -1077,7 +1075,6 @@ export class NotificationsService implements OnModuleInit {
                     case NotificationType.LIKE: {
                         const like_notification = notification as LikeNotificationEntity;
 
-                        // Skip notifications with missing tweet_id
                         if (
                             !like_notification.tweet_id ||
                             like_notification.tweet_id.length === 0
@@ -1085,12 +1082,10 @@ export class NotificationsService implements OnModuleInit {
                             return null;
                         }
 
-                        // Get ALL tweet IDs as an array
                         const tweet_ids_array = Array.isArray(like_notification.tweet_id)
                             ? like_notification.tweet_id
                             : [like_notification.tweet_id as any];
 
-                        // Map all tweet IDs to tweet objects
                         const tweets = tweet_ids_array
                             .map((id) => tweet_map.get(id))
                             .filter((tweet) => tweet !== undefined)
@@ -1172,7 +1167,6 @@ export class NotificationsService implements OnModuleInit {
                             : null;
                         const original_tweet = tweet_map.get(reply_notification.original_tweet_id);
 
-                        // We need replier and original_tweet, reply_tweet is optional
                         if (!replier || !original_tweet) {
                             if (!replier && reply_notification.replied_by) {
                                 missing_user_ids.add(reply_notification.replied_by);
@@ -1200,7 +1194,6 @@ export class NotificationsService implements OnModuleInit {
                     case NotificationType.REPOST: {
                         const repost_notification = notification as RepostNotificationEntity;
 
-                        // Skip notifications with missing tweet_id
                         if (
                             !repost_notification.tweet_id ||
                             repost_notification.tweet_id.length === 0
@@ -1208,12 +1201,10 @@ export class NotificationsService implements OnModuleInit {
                             return null;
                         }
 
-                        // Get ALL tweet IDs as an array
                         const tweet_ids_array = Array.isArray(repost_notification.tweet_id)
                             ? repost_notification.tweet_id
                             : [repost_notification.tweet_id as any];
 
-                        // Map all tweet IDs to tweet objects
                         const tweets = tweet_ids_array
                             .map((id) => tweet_map.get(id))
                             .filter((tweet) => tweet !== undefined)
@@ -1272,7 +1263,6 @@ export class NotificationsService implements OnModuleInit {
                             return null;
                         }
 
-                        // For quote tweets, include parent_tweet if available
                         let mention_tweet = tweet;
                         if (
                             mention_notification.tweet_type === 'quote' &&
@@ -1506,7 +1496,6 @@ export class NotificationsService implements OnModuleInit {
 
         const missing_tweet_ids = new Set<string>();
 
-        // Process filtered notifications
         const response_notifications: NotificationDto[] = filtered_notifications
             .map((notification: any) => {
                 if (!notification._id) return null;
@@ -1522,7 +1511,6 @@ export class NotificationsService implements OnModuleInit {
                         return null;
                     }
 
-                    // For quote tweets, include parent_tweet if available
                     let mention_tweet = tweet;
                     if (
                         mention_notification.tweet_type === 'quote' &&
@@ -1579,7 +1567,6 @@ export class NotificationsService implements OnModuleInit {
             })
             .filter((notification) => notification !== null);
 
-        // Clean up notifications with missing tweets
         if (missing_tweet_ids.size > 0) {
             await this.clear_jobs_service.queueClearNotification({
                 user_id,
@@ -2255,7 +2242,6 @@ export class NotificationsService implements OnModuleInit {
         const user_ids = new Set<string>();
         const tweet_ids = new Set<string>();
 
-        // Collect user IDs and tweet IDs based on notification type
         switch (notification.type) {
             case NotificationType.FOLLOW: {
                 const follow_notification = notification as FollowNotificationEntity;
@@ -2336,7 +2322,6 @@ export class NotificationsService implements OnModuleInit {
         const missing_tweet_ids = new Set<string>();
         const missing_user_ids = new Set<string>();
 
-        // Build the notification DTO based on type
         switch (notification.type) {
             case NotificationType.FOLLOW: {
                 const follow_notification = notification as FollowNotificationEntity;
