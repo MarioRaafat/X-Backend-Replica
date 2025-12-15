@@ -5,14 +5,13 @@ import { ChatRepository } from 'src/chat/chat.repository';
 import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
 import { MessageType } from './entities/message.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
-import { path } from '@ffmpeg-installer/ffmpeg';
 import { MESSAGE_CONTENT_LENGTH } from 'src/constants/variables';
 
 @Injectable()
 export class MessagesGateway {
     server: Server;
     // Store active connections: user_id -> socket_id[]
-    private userSockets = new Map<string, Set<string>>();
+    private readonly userSockets = new Map<string, Set<string>>();
 
     constructor(
         private readonly messages_service: MessagesService,

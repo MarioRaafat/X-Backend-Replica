@@ -1,5 +1,4 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Transform } from 'class-transformer';
 import { IsArray, IsOptional, IsString, IsUrl, MaxLength } from 'class-validator';
 import { LARGE_MAX_LENGTH, POST_CONTENT_LENGTH } from 'src/constants/variables';
 

@@ -7,7 +7,9 @@ import { EsSyncUserDto } from './dtos/es-sync-user.dto';
 
 @Injectable()
 export class EsDeleteUserJobService extends BackgroundJobsService<EsSyncUserDto> {
-    constructor(@InjectQueue(QUEUE_NAMES.ELASTICSEARCH) private elasticsearch_queue: Queue) {
+    constructor(
+        @InjectQueue(QUEUE_NAMES.ELASTICSEARCH) private readonly elasticsearch_queue: Queue
+    ) {
         super(
             elasticsearch_queue,
             JOB_NAMES.ELASTICSEARCH.DELETE_USER,

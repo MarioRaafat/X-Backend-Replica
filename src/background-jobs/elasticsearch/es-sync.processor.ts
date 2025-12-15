@@ -20,9 +20,9 @@ export class EsSyncProcessor {
 
     constructor(
         @InjectRepository(Tweet)
-        private tweets_repository: Repository<Tweet>,
+        private readonly tweets_repository: Repository<Tweet>,
         @InjectRepository(User)
-        private user_repository: Repository<User>,
+        private readonly user_repository: Repository<User>,
         private readonly elasticsearch_service: ElasticsearchService,
         @InjectRepository(UserFollows)
         private readonly user_follows_repository: Repository<UserFollows>

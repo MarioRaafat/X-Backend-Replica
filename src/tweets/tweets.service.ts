@@ -5,14 +5,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-    DataSource,
-    In,
-    ObjectLiteral,
-    QueryRunner,
-    Repository,
-    SelectQueryBuilder,
-} from 'typeorm';
+import { DataSource, In, QueryRunner, Repository } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import {
     CreateTweetDTO,
@@ -20,8 +13,6 @@ import {
     PaginatedTweetRepostsResponseDTO,
     UpdateTweetDTO,
 } from './dto';
-import { promises as fs } from 'fs';
-import * as path from 'path';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { PostgresErrorCodes } from '../shared/enums/postgres-error-codes';
 import { Tweet } from './entities/tweet.entity';
@@ -37,17 +28,13 @@ import { User } from '../user/entities/user.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { TweetsRepository } from './tweets.repository';
-import { TimelinePaginationDto } from 'src/timeline/dto/timeline-pagination.dto';
 import { GetTweetRepliesQueryDto } from './dto';
 import { plainToInstance } from 'class-transformer';
 import { TweetQuoteResponseDTO } from './dto/tweet-quote-reponse';
-import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { TweetReplyResponseDTO } from './dto/tweet-reply-response';
 import { TweetType } from 'src/shared/enums/tweet-types.enum';
-import { UserPostsView } from './entities/user-posts-view.entity';
-import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
-import { categorize_prompt, summarize_prompt, TOPICS } from './constants';
+import { categorize_prompt, TOPICS } from './constants';
 import { CompressVideoJobService } from 'src/background-jobs/videos/compress-video.service';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
@@ -88,7 +75,7 @@ export class TweetsService {
         private readonly user_repository: Repository<User>,
         @InjectRepository(TweetSummary)
         private readonly tweet_summary_repository: Repository<TweetSummary>,
-        private data_source: DataSource,
+        private readonly data_source: DataSource,
         private readonly paginate_service: PaginationService,
         private readonly tweets_repository: TweetsRepository,
         private readonly reply_job_service: ReplyJobService,
@@ -390,7 +377,6 @@ export class TweetsService {
 
             const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
             await query_runner.commitTransaction();
-            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: updated_tweet.tweet_id,
@@ -399,7 +385,6 @@ export class TweetsService {
             // Send mention notifications for updated tweet
             await this.mentionNotification(mentioned_user_ids, user_id, updated_tweet, 'add');
 
-            // return TweetMapper.toDTO(tweet_with_type_info);
             return plainToInstance(TweetResponseDTO, updated_tweet, {
                 excludeExtraneousValues: true,
             });
@@ -436,7 +421,6 @@ export class TweetsService {
 
             await query_runner.manager.delete(Tweet, { tweet_id });
             await query_runner.commitTransaction();
-            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             await this.es_delete_tweet_service.queueDeleteTweet({
                 tweet_ids: [tweet_id],
@@ -460,8 +444,8 @@ export class TweetsService {
         if (!tweet) throw new NotFoundException('Tweet not found');
 
         const cleaned_content = tweet.content
-            .replace(/#[a-zA-Z0-9_]+/g, '')
-            .replace(/\s+/g, ' ')
+            .replaceAll(/#[a-zA-Z0-9_]+/g, '')
+            .replaceAll(/\s+/g, ' ')
             .trim();
 
         if (cleaned_content.length < 120) {
@@ -699,7 +683,6 @@ export class TweetsService {
             );
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
-            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: saved_quote_tweet.tweet_id,
@@ -824,7 +807,6 @@ export class TweetsService {
             });
 
             await query_runner.commitTransaction();
-            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
         } catch (error) {
             await query_runner.rollbackTransaction();
             console.error(error);
@@ -895,7 +877,6 @@ export class TweetsService {
             );
 
             await query_runner.commitTransaction();
-            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             if (user_id !== original_tweet.user_id)
                 this.reply_job_service.queueReplyNotification({
@@ -1503,8 +1484,6 @@ export class TweetsService {
             return hashtag.toLowerCase();
         });
 
-        // await this.updateHashtags([...new Set(normalized_hashtags)], user_id, query_runner);
-
         // Extract topics using Groq AI or use predefined topics
         if (!skip_extract_topics) {
             const topics = await this.extractTopics(content, unique_hashtags);
@@ -1576,8 +1555,8 @@ export class TweetsService {
             console.log('HASHTAGS: ', hashtags);
             // remove hashtags and extra spaces
             content = content
-                .replace(/#[^\s]+/g, '') // remove anything starting with
-                .replace(/\s+/g, ' ')
+                .replaceAll(/#[^\s]+/g, '') // remove anything starting with
+                .replaceAll(/\s+/g, ' ')
                 .trim();
 
             const prompt = categorize_prompt(content, hashtags);

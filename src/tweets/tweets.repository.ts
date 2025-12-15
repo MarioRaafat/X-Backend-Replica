@@ -3,15 +3,11 @@ import { Tweet, TweetLike, TweetReply, TweetRepost } from './entities';
 import { TweetBookmark } from './entities/tweet-bookmark.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Injectable } from '@nestjs/common';
-import { TimelineResponseDto } from 'src/timeline/dto/timeline-response.dto';
-import { TimelinePaginationDto } from 'src/timeline/dto/timeline-pagination.dto';
 import { TweetResponseDTO } from './dto';
-import { TweetType } from 'src/shared/enums/tweet-types.enum';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { plainToInstance } from 'class-transformer';
-import { User, UserFollows } from 'src/user/entities';
+import { UserFollows } from 'src/user/entities';
 import { getReplyWithParentChainQuery } from './queries/reply-parent-chain.query';
-import { getPostsByUserIdQuery } from './queries/get-posts-by-userId.query';
 import { SelectQueryBuilder } from 'typeorm/browser';
 import { UserPostsView } from './entities/user-posts-view.entity';
 import { TweetCategory } from './entities/tweet-category.entity';
@@ -34,9 +30,9 @@ export class TweetsRepository extends Repository<Tweet> {
         @InjectRepository(TweetCategory)
         private readonly tweet_category_repository: Repository<TweetCategory>,
         private readonly paginate_service: PaginationService,
-        private data_source: DataSource,
+        private readonly data_source: DataSource,
         @InjectRepository(UserPostsView)
-        private user_posts_view_repository: Repository<UserPostsView>
+        private readonly user_posts_view_repository: Repository<UserPostsView>
     ) {
         super(Tweet, data_source.createEntityManager());
     }

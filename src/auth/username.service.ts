@@ -104,8 +104,8 @@ export class UsernameService {
 
     private cleanName(name: string): string {
         return name
-            .replace(/[^a-zA-Z0-9]/g, '') // Remove special characters
-            .replace(/\s+/g, ''); // Remove spaces
+            .replaceAll(/[^a-zA-Z0-9]/g, '') // Remove special characters
+            .replaceAll(/\s+/g, ''); // Remove spaces
     }
 
     private truncateToMaxLength(str: string): string {

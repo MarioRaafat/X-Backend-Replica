@@ -7,8 +7,8 @@ import { AuthService } from '../auth.service';
 @Injectable()
 export class GoogleStrategy extends PassportStrategy(Strategy) {
     constructor(
-        private config_service: ConfigService,
-        private auth_service: AuthService
+        private readonly config_service: ConfigService,
+        private readonly auth_service: AuthService
     ) {
         super({
             clientID: config_service.get('GOOGLE_CLIENT_ID') || '',

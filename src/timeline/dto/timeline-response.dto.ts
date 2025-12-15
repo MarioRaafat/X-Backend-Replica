@@ -1,6 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { Tweet } from 'src/tweets/entities';
-import { TweetResponseDTO, TweetsListResponseDTO } from 'src/tweets/dto';
+import { TweetResponseDTO } from 'src/tweets/dto';
 
 export class TimelineResponseDto {
     @ApiProperty({

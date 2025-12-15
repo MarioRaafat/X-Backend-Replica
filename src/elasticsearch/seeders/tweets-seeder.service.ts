@@ -13,7 +13,7 @@ export class TweetSeederService {
 
     constructor(
         @InjectRepository(Tweet)
-        private tweets_repository: Repository<Tweet>,
+        private readonly tweets_repository: Repository<Tweet>,
         private readonly elasticsearch_service: ElasticsearchService,
         private readonly data_source: DataSource
     ) {}

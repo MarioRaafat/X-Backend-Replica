@@ -46,7 +46,7 @@ export class ChatController {
     @Post()
     async createChat(@Body() create_chat_dto: CreateChatDto, @GetUserId() user_id: string) {
         try {
-            return this.chat_service.createChat(user_id, create_chat_dto);
+            return await this.chat_service.createChat(user_id, create_chat_dto);
         } catch (error) {
             console.error('Error in ChatController.createChat:', error);
             throw error;

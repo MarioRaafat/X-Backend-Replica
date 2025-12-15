@@ -31,16 +31,14 @@ import {
     ALLOWED_IMAGE_MIME_TYPES,
     ALLOWED_VOICE_MIME_TYPES,
     MAX_IMAGE_FILE_SIZE,
-    MAX_VOICE_DURATION,
     MAX_VOICE_FILE_SIZE,
-    MIN_VOICE_DURATION,
 } from 'src/constants/variables';
 import { MessageReactionRepository } from './message-reaction.repository';
 
 @Injectable()
 export class MessagesService {
-    private message_images_container: string;
-    private message_voices_container: string;
+    private readonly message_images_container: string;
+    private readonly message_voices_container: string;
 
     constructor(
         private readonly message_repository: MessageRepository,
