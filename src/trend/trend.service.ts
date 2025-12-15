@@ -293,6 +293,9 @@ export class TrendService {
             const last_seen = await this.redis_service.zscore('candidates:active', hashtag);
             const last_seen_time = last_seen ? Number.parseInt(last_seen) : null;
             const recency_score = this.calculateRecencyScore(last_seen_time);
+            console.log(
+                `Hashtag: ${hashtag}, Volume: ${volume_score.toFixed(2)}, Acceleration: ${acceleration_score.toFixed(2)}, Recency: ${recency_score.toFixed(2)}`
+            );
 
             const final_score = this.calculateFinalScore(
                 volume_score,
