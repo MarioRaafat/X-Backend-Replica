@@ -15,6 +15,7 @@ import { TimelineRedisService } from './services/timeline-redis.service';
 import { TimelineCandidatesService } from './services/timeline-candidates.service';
 import { BackgroundJobsModule } from 'src/background-jobs/background-jobs.module';
 import { RedisModuleConfig } from 'src/redis/redis.module';
+import { Category } from 'src/category/entities';
 
 @Module({
     imports: [
@@ -26,6 +27,7 @@ import { RedisModuleConfig } from 'src/redis/redis.module';
             TweetCategory,
             UserInterests,
             UserTimelineCursor,
+            Category,
         ]),
         forwardRef(() => BackgroundJobsModule),
         RedisModuleConfig,
