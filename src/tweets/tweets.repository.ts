@@ -116,8 +116,47 @@ export class TweetsRepository extends Repository<Tweet> {
                 .andWhere(
                     'tweet.profile_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
                     { user_id }
+                )
+                .andWhere(
+                    new Brackets((qb) =>
+                        qb
+                            .where('tweet.conversation_user_id IS NULL')
+                            .orWhere(
+                                'tweet.conversation_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
+                                { user_id }
+                            )
+                    )
+                )
+                .andWhere(
+                    new Brackets((qb) =>
+                        qb
+                            .where('tweet.parent_user_id IS NULL')
+                            .orWhere(
+                                'tweet.parent_user_id NOT IN (SELECT muted_id FROM user_mutes WHERE muter_id = :user_id)',
+                                { user_id }
+                            )
+                    )
+                )
+                .andWhere(
+                    new Brackets((qb) =>
+                        qb
+                            .where('tweet.conversation_user_id IS NULL')
+                            .orWhere(
+                                'tweet.conversation_user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = :user_id)',
+                                { user_id }
+                            )
+                    )
+                )
+                .andWhere(
+                    new Brackets((qb) =>
+                        qb
+                            .where('tweet.parent_user_id IS NULL')
+                            .orWhere(
+                                'tweet.parent_user_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = :user_id)',
+                                { user_id }
+                            )
+                    )
                 );
-
             let query = this.user_posts_view_repository.manager
                 .createQueryBuilder()
                 .addCommonTableExpression(cte_query.getQuery(), 'filtered_tweets')
