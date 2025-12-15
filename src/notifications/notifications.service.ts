@@ -1146,7 +1146,7 @@ export class NotificationsService implements OnModuleInit {
                             }
                             return null;
                         }
-                        // Nest parent_tweet inside quote_tweet
+
                         const quote_tweet_with_parent = {
                             ...this.enrichTweetWithStatus(quote_tweet),
                             parent_tweet: this.cleanTweet(parent_tweet),
@@ -1854,7 +1854,6 @@ export class NotificationsService implements OnModuleInit {
             one_day_ago.setDate(one_day_ago.getDate() - 1);
             const now = new Date();
 
-            // First, check for aggregated notifications
             const user_document = await this.notificationModel.findOne({ user: user_id }).lean();
 
             if (!user_document || !user_document.notifications) {

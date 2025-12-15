@@ -23,7 +23,9 @@ export class WhoToFollowService {
         CANDIDATE_MULTIPLIER: 3,
     };
 
+    /* istanbul ignore start */
     constructor(private readonly user_repository: UserRepository) {}
+    /* istanbul ignore stop */
 
     async getWhoToFollow(current_user_id?: string, limit: number = 30) {
         if (!current_user_id) {

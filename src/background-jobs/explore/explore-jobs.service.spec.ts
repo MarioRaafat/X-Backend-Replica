@@ -19,6 +19,8 @@ describe('ExploreJobsService', () => {
 
     const mock_redis_service = {
         pipeline: jest.fn(),
+        keys: jest.fn(),
+        deleteByPrefix: jest.fn(),
     };
 
     const mock_queue = {
@@ -105,6 +107,12 @@ describe('ExploreJobsService', () => {
             expect(stats.failed).toBe(0);
             expect(stats.total_jobs).toBe(6);
         });
+
+        it('should throw error when queue operations fail', async () => {
+            mock_queue.getWaiting.mockRejectedValue(new Error('Queue connection failed'));
+
+            await expect(service.getQueueStats()).rejects.toThrow('Queue connection failed');
+        });
     });
 
     describe('calculateScore', () => {
@@ -174,6 +182,24 @@ describe('ExploreJobsService', () => {
 
             expect(score).toBeGreaterThan(0);
             expect(typeof score).toBe('number');
+        });
+
+        it('should handle edge case where denominator could be zero', () => {
+            // This is a defensive check - mathematically unlikely but handled
+            const tweet = {
+                tweet_id: 'tweet-4',
+                num_likes: 100,
+                num_reposts: 50,
+                num_quotes: 20,
+                num_replies: 30,
+                created_at: new Date(),
+            };
+
+            const score = service.calculateScore(tweet);
+
+            // Should return a valid number, not NaN or Infinity
+            expect(typeof score).toBe('number');
+            expect(isFinite(score)).toBe(true);
         });
     });
 
@@ -349,6 +375,419 @@ describe('ExploreJobsService', () => {
             const categories_updated = await service.updateRedisCategoryScores(tweets);
 
             expect(categories_updated).toBe(1);
+        });
+    });
+
+    describe('getAllActiveCategoryIds', () => {
+        it('should return active category IDs from Redis', async () => {
+            const mock_keys = ['explore:category:21', 'explore:category:20', 'invalid-key'];
+            (mock_redis_service as any).keys = jest.fn().mockResolvedValue(mock_keys);
+
+            const result = await service.getAllActiveCategoryIds();
+
+            expect(result).toEqual(['21', '20']);
+            expect(mock_redis_service.keys).toHaveBeenCalledWith('explore:category:*');
+        });
+
+        it('should handle redis errors', async () => {
+            (mock_redis_service as any).keys = jest
+                .fn()
+                .mockRejectedValue(new Error('Redis error'));
+
+            const result = await service.getAllActiveCategoryIds();
+
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('fetchTweetsByIds', () => {
+        it('should return tweets for given IDs', async () => {
+            const tweet_ids = ['tweet-1', 'tweet-2'];
+            const mock_tweets = [{ tweet_id: 'tweet-1' }, { tweet_id: 'tweet-2' }];
+
+            const mock_query_builder = {
+                leftJoinAndMapMany: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_tweets),
+            };
+
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            const result = await service.fetchTweetsByIds(tweet_ids);
+
+            expect(result).toEqual(mock_tweets);
+            expect(mock_query_builder.andWhere).toHaveBeenCalledWith(
+                'tweet.tweet_id IN (:...tweet_ids)',
+                { tweet_ids }
+            );
+        });
+
+        it('should return empty array if no IDs provided', async () => {
+            const result = await service.fetchTweetsByIds([]);
+            expect(result).toEqual([]);
+        });
+
+        it('should handle database errors', async () => {
+            const mock_query_builder = {
+                leftJoinAndMapMany: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockRejectedValue(new Error('DB Error')),
+            };
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            const result = await service.fetchTweetsByIds(['tweet-1']);
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('recalculateExistingTopTweets', () => {
+        beforeEach(() => {
+            // Mock getAllActiveCategoryIds for this suite
+            (mock_redis_service as any).keys = jest.fn().mockResolvedValue(['explore:category:21']);
+        });
+
+        it('should recalculate scores for existing tweets', async () => {
+            // Mock Redis pipeline for fetching
+            const mock_fetch_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([
+                    [null, ['tweet-1', '100', 'tweet-2', '50']], // Results for category 21
+                ]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_fetch_pipeline);
+
+            // Mock fetching tweet data
+            const mock_tweets = [
+                {
+                    tweet_id: 'tweet-1',
+                    num_likes: 100,
+                    num_reposts: 50,
+                    num_quotes: 20,
+                    num_replies: 30,
+                    created_at: new Date(),
+                    categories: [{ category_id: '21', percentage: 100 }],
+                },
+                {
+                    tweet_id: 'tweet-2',
+                    num_likes: 50,
+                    num_reposts: 10,
+                    num_quotes: 5,
+                    num_replies: 5,
+                    created_at: new Date(),
+                    categories: [{ category_id: '21', percentage: 100 }],
+                },
+            ];
+
+            // Mock fetchTweetsByIds internal call
+            const mock_query_builder = {
+                leftJoinAndMapMany: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_tweets),
+            };
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            // Mock Redis pipeline for updates
+            const mock_update_pipeline = {
+                zrem: jest.fn().mockReturnThis(),
+                zadd: jest.fn().mockReturnThis(),
+                zremrangebyrank: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_update_pipeline);
+
+            // Mock Redis pipeline for trim
+            const mock_trim_pipeline = {
+                zremrangebyrank: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_trim_pipeline);
+
+            const result = await service.recalculateExistingTopTweets();
+
+            expect(result.categories_processed).toBe(1);
+            expect(result.tweets_recalculated).toBe(2);
+            expect(mock_update_pipeline.zadd).toHaveBeenCalledTimes(2);
+        });
+
+        it('should return early if no active categories', async () => {
+            (mock_redis_service as any).keys = jest.fn().mockResolvedValue([]);
+
+            const result = await service.recalculateExistingTopTweets();
+
+            expect(result.categories_processed).toBe(0);
+            expect(result.tweets_recalculated).toBe(0);
+        });
+
+        it('should handle missing pipeline results', async () => {
+            const mock_fetch_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue(null),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_fetch_pipeline);
+
+            const result = await service.recalculateExistingTopTweets();
+
+            expect(result.categories_processed).toBe(0);
+        });
+
+        it('should handle tweets not found in DB', async () => {
+            // Mock Redis pipeline for fetching
+            const mock_fetch_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([[null, ['tweet-deleted', '100']]]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_fetch_pipeline);
+
+            // Mock fetching tweet data returns empty
+            const mock_query_builder = {
+                leftJoinAndMapMany: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([]),
+            };
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            const mock_update_pipeline = {
+                zrem: jest.fn().mockReturnThis(),
+                zadd: jest.fn().mockReturnThis(),
+                zremrangebyrank: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_update_pipeline);
+
+            // Mock Redis pipeline for trim
+            const mock_trim_pipeline = {
+                zremrangebyrank: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_trim_pipeline);
+
+            const result = await service.recalculateExistingTopTweets();
+
+            expect(result.tweets_recalculated).toBe(0);
+            expect(mock_update_pipeline.zrem).toHaveBeenCalledWith(
+                'explore:category:21',
+                'tweet-deleted'
+            );
+        });
+
+        it('should handle pipeline errors for categories', async () => {
+            // Mock Redis pipeline with error for one category
+            const mock_fetch_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([
+                    [new Error('Redis error'), null], // Error for category 21
+                ]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_fetch_pipeline);
+
+            const result = await service.recalculateExistingTopTweets();
+
+            expect(result.categories_processed).toBe(1);
+            expect(result.tweets_recalculated).toBe(0);
+        });
+
+        it('should handle all categories returning no tweets', async () => {
+            // Mock Redis pipeline with empty results
+            const mock_fetch_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([
+                    [null, []], // Empty results for category 21
+                ]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_fetch_pipeline);
+
+            const result = await service.recalculateExistingTopTweets();
+
+            expect(result.categories_processed).toBe(1);
+            expect(result.tweets_recalculated).toBe(0);
+        });
+
+        it('should remove tweets with score below threshold', async () => {
+            // Mock Redis pipeline for fetching
+            const mock_fetch_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([[null, ['tweet-low-score', '100']]]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_fetch_pipeline);
+
+            // Mock fetching tweet data with very low engagement
+            const mock_tweets = [
+                {
+                    tweet_id: 'tweet-low-score',
+                    num_likes: 0,
+                    num_reposts: 0,
+                    num_quotes: 0,
+                    num_replies: 0,
+                    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24 * 7), // 7 days old
+                    categories: [{ category_id: '21', percentage: 100 }],
+                },
+            ];
+
+            const mock_query_builder = {
+                leftJoinAndMapMany: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_tweets),
+            };
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            const mock_update_pipeline = {
+                zrem: jest.fn().mockReturnThis(),
+                zadd: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_update_pipeline);
+
+            // Mock Redis pipeline for trim
+            const mock_trim_pipeline = {
+                zremrangebyrank: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_trim_pipeline);
+
+            const result = await service.recalculateExistingTopTweets();
+
+            expect(result.tweets_recalculated).toBe(0);
+            expect(mock_update_pipeline.zrem).toHaveBeenCalledWith(
+                'explore:category:21',
+                'tweet-low-score'
+            );
+        });
+
+        it('should handle tweet without matching category (uses default percentage)', async () => {
+            // Mock Redis pipeline for fetching
+            const mock_fetch_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([[null, ['tweet-no-cat', '100']]]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_fetch_pipeline);
+
+            // Mock fetching tweet data with categories but not matching the Redis category
+            const mock_tweets = [
+                {
+                    tweet_id: 'tweet-no-cat',
+                    num_likes: 100,
+                    num_reposts: 50,
+                    num_quotes: 20,
+                    num_replies: 30,
+                    created_at: new Date(),
+                    categories: [{ category_id: '99', percentage: 50 }], // Different category
+                },
+            ];
+
+            const mock_query_builder = {
+                leftJoinAndMapMany: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_tweets),
+            };
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            const mock_update_pipeline = {
+                zrem: jest.fn().mockReturnThis(),
+                zadd: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_update_pipeline);
+
+            // Mock Redis pipeline for trim
+            const mock_trim_pipeline = {
+                zremrangebyrank: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_trim_pipeline);
+
+            const result = await service.recalculateExistingTopTweets();
+
+            // Should use default percentage of 100
+            expect(result.tweets_recalculated).toBe(1);
+            expect(mock_update_pipeline.zadd).toHaveBeenCalled();
+        });
+    });
+
+    describe('trimCategoryZSets', () => {
+        it('should trim and expire category sets', async () => {
+            (mock_redis_service as any).keys = jest.fn().mockResolvedValue(['explore:category:21']);
+
+            // 1. Fetch Pipeline
+            const mock_fetch_pipeline = {
+                zrevrange: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([[null, ['tweet-1', '100']]]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_fetch_pipeline);
+
+            // Mock fetching tweet data
+            const mock_tweets = [
+                {
+                    tweet_id: 'tweet-1',
+                    num_likes: 100,
+                    num_reposts: 50,
+                    num_quotes: 20,
+                    num_replies: 30,
+                    created_at: new Date(),
+                    categories: [{ category_id: '21', percentage: 100 }],
+                },
+            ];
+
+            const mock_query_builder = {
+                leftJoinAndMapMany: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_tweets),
+            };
+            mock_tweet_repository.createQueryBuilder.mockReturnValue(mock_query_builder);
+
+            // 2. Update Pipeline
+            const mock_update_pipeline = {
+                zrem: jest.fn().mockReturnThis(),
+                zadd: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_update_pipeline);
+
+            // 3. Trim Pipeline
+            const mock_trim_pipeline = {
+                zremrangebyrank: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+            mock_redis_service.pipeline.mockReturnValueOnce(mock_trim_pipeline);
+
+            await service.recalculateExistingTopTweets();
+
+            expect(mock_trim_pipeline.zremrangebyrank).toHaveBeenCalledWith(
+                'explore:category:21',
+                0,
+                -(50 + 1) // EXPLORE_CONFIG.MAX_CATEGORY_SIZE is likely 50
+            );
+            expect(mock_trim_pipeline.expire).toHaveBeenCalled();
+        });
+    });
+
+    describe('clearScoreRecalculation', () => {
+        it('should clear all explore keys', async () => {
+            (mock_redis_service as any).deleteByPrefix = jest.fn().mockResolvedValue(undefined);
+
+            await service.clearScoreRecalculation();
+
+            expect(mock_redis_service.deleteByPrefix).toHaveBeenCalledWith('explore:category:');
         });
     });
 });

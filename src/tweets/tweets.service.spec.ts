@@ -52,6 +52,8 @@ describe('TweetsService', () => {
     let reply_job_service: any;
     let quote_job_service: any;
     let mention_job_service: any;
+    let hashtag_job_service: any;
+    let pagination_service: any;
 
     beforeAll(() => {
         original_env = { ...process.env };
@@ -100,6 +102,7 @@ describe('TweetsService', () => {
             attachUserTweetInteractionFlags: jest.fn(),
             getReplyWithParentChain: jest.fn(),
             getReplies: jest.fn(),
+            getTweetsByIds: jest.fn(),
         };
 
         const mock_azure_storage_service = {
@@ -177,11 +180,13 @@ describe('TweetsService', () => {
                 findOne: jest.fn(),
                 merge: jest.fn(),
                 upsert: jest.fn(),
+                find: jest.fn(),
             },
         };
 
         const mock_data_source = {
             createQueryRunner: jest.fn(() => mock_query_runner),
+            query: jest.fn(),
         };
 
         const mock_user_repo = {
@@ -229,6 +234,8 @@ describe('TweetsService', () => {
         reply_job_service = mock_reply_job_service;
         quote_job_service = mock_quote_job_service;
         mention_job_service = mock_mention_job_service;
+        hashtag_job_service = mock_hashtag_job_service;
+        pagination_service = mock_pagination_service;
 
         // Mock extractTopics to prevent real Groq API calls
         jest.spyOn(tweets_service as any, 'extractTopics').mockResolvedValue({
@@ -2795,6 +2802,1513 @@ describe('TweetsService', () => {
 
             await expect(tweets_service.getTweetSummary(tweet_id)).rejects.toThrow(
                 'Queue service error'
+            );
+        });
+    });
+
+    describe('getTweetLikes', () => {
+        it('should return paginated likes for tweet owner', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'owner-123';
+            const cursor = undefined;
+            const limit = 20;
+
+            const mock_tweet = {
+                tweet_id,
+                num_likes: 2,
+                user_id: current_user_id,
+            };
+
+            const mock_likes = [
+                {
+                    user: {
+                        id: 'user-1',
+                        username: 'user1',
+                        name: 'User One',
+                    },
+                    created_at: new Date('2024-01-01'),
+                    following_relation: { follower_id: current_user_id },
+                    follower_relation: null,
+                },
+                {
+                    user: {
+                        id: 'user-2',
+                        username: 'user2',
+                        name: 'User Two',
+                    },
+                    created_at: new Date('2024-01-02'),
+                    following_relation: null,
+                    follower_relation: { follower_id: 'user-2' },
+                },
+            ];
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                leftJoinAndMapOne: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_likes),
+            };
+
+            jest.spyOn(tweet_like_repo, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue('next-cursor');
+
+            const result = await tweets_service.getTweetLikes(
+                tweet_id,
+                current_user_id,
+                cursor,
+                limit
+            );
+
+            expect(tweet_repo.findOne).toHaveBeenCalledWith({
+                where: { tweet_id },
+                select: ['tweet_id', 'num_likes', 'user_id'],
+            });
+            expect(result.data).toBeDefined();
+            expect(result.next_cursor).toBe('next-cursor');
+            expect(result.has_more).toBe(false);
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const tweet_id = 'nonexistent-tweet';
+            const current_user_id = 'user-123';
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(null);
+
+            await expect(tweets_service.getTweetLikes(tweet_id, current_user_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+
+        it('should throw BadRequestException when non-owner tries to view likes', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'non-owner-123';
+
+            const mock_tweet = {
+                tweet_id,
+                num_likes: 5,
+                user_id: 'owner-456',
+            };
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+
+            await expect(tweets_service.getTweetLikes(tweet_id, current_user_id)).rejects.toThrow(
+                'Only the tweet owner can see who liked their tweet'
+            );
+        });
+
+        it('should apply cursor pagination correctly', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'owner-123';
+            const cursor = '2024-01-01T00:00:00.000Z_user-1';
+            const limit = 10;
+
+            const mock_tweet = {
+                tweet_id,
+                num_likes: 1,
+                user_id: current_user_id,
+            };
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                leftJoinAndMapOne: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([]),
+            };
+
+            jest.spyOn(tweet_like_repo, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue(null);
+
+            await tweets_service.getTweetLikes(tweet_id, current_user_id, cursor, limit);
+
+            expect(pagination_service.applyCursorPagination).toHaveBeenCalledWith(
+                mock_query_builder,
+                cursor,
+                'like',
+                'created_at',
+                'user_id'
+            );
+        });
+    });
+
+    describe('getTweetReposts', () => {
+        it('should return paginated reposts', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'user-123';
+            const cursor = undefined;
+            const limit = 20;
+
+            const mock_tweet = {
+                tweet_id,
+                num_reposts: 2,
+                user_id: 'owner-123',
+            };
+
+            const mock_reposts = [
+                {
+                    user: {
+                        id: 'user-1',
+                        username: 'user1',
+                        name: 'User One',
+                    },
+                    created_at: new Date('2024-01-01'),
+                    following_relation: { follower_id: current_user_id },
+                    follower_relation: null,
+                },
+            ];
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                leftJoinAndMapOne: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_reposts),
+            };
+
+            jest.spyOn(tweet_repost_repo, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue('next-cursor');
+
+            const result = await tweets_service.getTweetReposts(
+                tweet_id,
+                current_user_id,
+                cursor,
+                limit
+            );
+
+            expect(tweet_repo.findOne).toHaveBeenCalledWith({
+                where: { tweet_id },
+                select: ['tweet_id', 'num_reposts', 'user_id'],
+            });
+            expect(result.data).toBeDefined();
+            expect(result.next_cursor).toBe('next-cursor');
+            expect(result.has_more).toBe(false);
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const tweet_id = 'nonexistent-tweet';
+            const current_user_id = 'user-123';
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(null);
+
+            await expect(tweets_service.getTweetReposts(tweet_id, current_user_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+
+        it('should handle has_more flag when limit is reached', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'user-123';
+            const limit = 2;
+
+            const mock_tweet = {
+                tweet_id,
+                num_reposts: 2,
+                user_id: 'owner-123',
+            };
+
+            const mock_reposts = [
+                {
+                    user: { id: 'user-1', username: 'user1' },
+                    created_at: new Date('2024-01-01'),
+                    following_relation: null,
+                    follower_relation: null,
+                },
+                {
+                    user: { id: 'user-2', username: 'user2' },
+                    created_at: new Date('2024-01-02'),
+                    following_relation: null,
+                    follower_relation: null,
+                },
+            ];
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                leftJoinAndMapOne: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_reposts),
+            };
+
+            jest.spyOn(tweet_repost_repo, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue('next-cursor');
+
+            const result = await tweets_service.getTweetReposts(
+                tweet_id,
+                current_user_id,
+                undefined,
+                limit
+            );
+
+            expect(result.has_more).toBe(true);
+        });
+    });
+
+    describe('getTweetQuotes', () => {
+        it('should return paginated quote tweets', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'user-123';
+            const cursor = undefined;
+            const limit = 20;
+
+            const mock_tweet = {
+                tweet_id,
+                num_quotes: 1,
+                user: { id: 'owner-123', username: 'owner' },
+            };
+
+            const mock_quotes = [
+                {
+                    quote_tweet: {
+                        tweet_id: 'quote-1',
+                        content: 'Quote content',
+                        user: { id: 'user-1', username: 'user1' },
+                        created_at: new Date('2024-01-01'),
+                    },
+                },
+            ];
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_tweet),
+            };
+
+            const mock_quote_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_quotes),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweet_quote_repo, 'createQueryBuilder').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue('next-cursor');
+            jest.spyOn(tweets_service as any, 'incrementTweetViewsAsync').mockResolvedValue(
+                undefined
+            );
+
+            const result = await tweets_service.getTweetQuotes(
+                tweet_id,
+                current_user_id,
+                cursor,
+                limit
+            );
+
+            expect(result.data).toBeDefined();
+            expect(result.count).toBe(1);
+            expect(result.parent).toEqual(mock_tweet);
+            expect(result.next_cursor).toBe('next-cursor');
+            expect(result.has_more).toBe(false);
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const tweet_id = 'nonexistent-tweet';
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(null),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+
+            await expect(tweets_service.getTweetQuotes(tweet_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+
+        it('should work without current_user_id', async () => {
+            const tweet_id = 'tweet-123';
+
+            const mock_tweet = {
+                tweet_id,
+                num_quotes: 0,
+                user: { id: 'owner-123', username: 'owner' },
+            };
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_tweet),
+            };
+
+            const mock_quote_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue([]),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweet_quote_repo, 'createQueryBuilder').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue(null);
+            jest.spyOn(tweets_service as any, 'incrementTweetViewsAsync').mockResolvedValue(
+                undefined
+            );
+
+            const result = await tweets_service.getTweetQuotes(tweet_id);
+
+            expect(result.data).toHaveLength(0);
+            expect(result.count).toBe(0);
+        });
+
+        it('should increment views for quote tweets', async () => {
+            const tweet_id = 'tweet-123';
+
+            const mock_tweet = {
+                tweet_id,
+                num_quotes: 1,
+                user: { id: 'owner-123', username: 'owner' },
+            };
+
+            const mock_quotes = [
+                {
+                    quote_tweet: {
+                        tweet_id: 'quote-1',
+                        content: 'Quote',
+                        created_at: new Date(),
+                    },
+                },
+            ];
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_tweet),
+            };
+
+            const mock_quote_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_quotes),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweet_quote_repo, 'createQueryBuilder').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_quote_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue(null);
+
+            const increment_spy = jest
+                .spyOn(tweets_service as any, 'incrementTweetViewsAsync')
+                .mockResolvedValue(undefined);
+
+            await tweets_service.getTweetQuotes(tweet_id);
+
+            expect(increment_spy).toHaveBeenCalledWith(['quote-1']);
+        });
+    });
+
+    describe('getTweetReplies', () => {
+        it('should return paginated replies', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'user-123';
+            const query_dto = { cursor: undefined, limit: 20 };
+
+            const mock_tweet = {
+                tweet_id,
+            };
+
+            const mock_replies = [
+                {
+                    tweet_id: 'reply-1',
+                    content: 'Reply content',
+                    user: { id: 'user-1', username: 'user1' },
+                    created_at: new Date('2024-01-01'),
+                },
+            ];
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                innerJoin: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_replies),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue('next-cursor');
+            jest.spyOn(tweets_service as any, 'incrementTweetViewsAsync').mockResolvedValue(
+                undefined
+            );
+
+            const result = await tweets_service.getTweetReplies(
+                tweet_id,
+                current_user_id,
+                query_dto
+            );
+
+            expect(tweet_repo.findOne).toHaveBeenCalledWith({
+                where: { tweet_id },
+                select: ['tweet_id'],
+            });
+            expect(result.data).toBeDefined();
+            expect(result.count).toBe(1);
+            expect(result.has_more).toBe(false);
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const tweet_id = 'nonexistent-tweet';
+            const current_user_id = 'user-123';
+            const query_dto = { cursor: undefined, limit: 20 };
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(null);
+
+            await expect(
+                tweets_service.getTweetReplies(tweet_id, current_user_id, query_dto)
+            ).rejects.toThrow('Tweet not found');
+        });
+
+        it('should handle has_more flag correctly when more replies exist', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'user-123';
+            const query_dto = { cursor: undefined, limit: 2 };
+
+            const mock_tweet = { tweet_id };
+
+            const mock_replies = [
+                {
+                    tweet_id: 'reply-1',
+                    content: 'Reply 1',
+                    created_at: new Date('2024-01-01'),
+                },
+                {
+                    tweet_id: 'reply-2',
+                    content: 'Reply 2',
+                    created_at: new Date('2024-01-02'),
+                },
+                {
+                    tweet_id: 'reply-3',
+                    content: 'Reply 3',
+                    created_at: new Date('2024-01-03'),
+                },
+            ];
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                innerJoin: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_replies),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue(null);
+            jest.spyOn(tweets_service as any, 'incrementTweetViewsAsync').mockResolvedValue(
+                undefined
+            );
+
+            const result = await tweets_service.getTweetReplies(
+                tweet_id,
+                current_user_id,
+                query_dto
+            );
+
+            expect(result.data).toHaveLength(2);
+            expect(result.has_more).toBe(true);
+        });
+
+        it('should increment views for reply tweets', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'user-123';
+            const query_dto = { cursor: undefined, limit: 20 };
+
+            const mock_tweet = { tweet_id };
+            const mock_replies = [
+                { tweet_id: 'reply-1', created_at: new Date() },
+                { tweet_id: 'reply-2', created_at: new Date() },
+            ];
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                innerJoin: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                take: jest.fn().mockReturnThis(),
+                getMany: jest.fn().mockResolvedValue(mock_replies),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'applyCursorPagination').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(pagination_service, 'generateNextCursor').mockReturnValue(null);
+
+            const increment_spy = jest
+                .spyOn(tweets_service as any, 'incrementTweetViewsAsync')
+                .mockResolvedValue(undefined);
+
+            await tweets_service.getTweetReplies(tweet_id, current_user_id, query_dto);
+
+            expect(increment_spy).toHaveBeenCalledWith(['reply-1', 'reply-2']);
+        });
+    });
+
+    describe('incrementTweetViews', () => {
+        it('should increment tweet views successfully', async () => {
+            const tweet_id = 'tweet-123';
+            const mock_tweet = { tweet_id, num_views: 10 };
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+            (tweet_repo.increment as jest.Mock) = jest.fn().mockResolvedValue(undefined);
+
+            const result = await tweets_service.incrementTweetViews(tweet_id);
+
+            expect(tweet_repo.findOne).toHaveBeenCalledWith({ where: { tweet_id } });
+            expect(tweet_repo.increment).toHaveBeenCalledWith({ tweet_id }, 'num_views', 1);
+            expect(result).toEqual({ success: true });
+        });
+
+        it('should throw NotFoundException when tweet does not exist', async () => {
+            const tweet_id = 'nonexistent-tweet';
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(null);
+
+            await expect(tweets_service.incrementTweetViews(tweet_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+
+        it('should handle and rethrow database errors', async () => {
+            const tweet_id = 'tweet-123';
+            const mock_tweet = { tweet_id };
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(mock_tweet);
+            (tweet_repo.increment as jest.Mock) = jest
+                .fn()
+                .mockRejectedValue(new Error('Database error'));
+
+            await expect(tweets_service.incrementTweetViews(tweet_id)).rejects.toThrow(
+                'Database error'
+            );
+        });
+    });
+
+    describe('getTweetsByIds', () => {
+        it('should return tweets by IDs', async () => {
+            const tweet_ids = ['tweet-1', 'tweet-2'];
+            const current_user_id = 'user-123';
+            const mock_tweets = [
+                { tweet_id: 'tweet-1', content: 'Tweet 1' },
+                { tweet_id: 'tweet-2', content: 'Tweet 2' },
+            ];
+
+            jest.spyOn(tweets_repo, 'getTweetsByIds').mockResolvedValue(mock_tweets as any);
+
+            const result = await tweets_service.getTweetsByIds(tweet_ids, current_user_id);
+
+            expect(result).toEqual(mock_tweets);
+        });
+
+        it('should handle errors when fetching tweets by IDs', async () => {
+            const tweet_ids = ['tweet-1'];
+            const error = new Error('Database error');
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            jest.spyOn(tweets_repo, 'getTweetsByIds').mockRejectedValue(error);
+
+            await expect(tweets_service.getTweetsByIds(tweet_ids)).rejects.toThrow(
+                'Database error'
+            );
+
+            console_error_spy.mockRestore();
+        });
+    });
+
+    describe('incrementTweetViewsAsync', () => {
+        it('should increment views for multiple tweets', async () => {
+            const tweet_ids = ['tweet-1', 'tweet-2', 'tweet-3'];
+            const query_spy = jest.spyOn(data_source, 'query').mockResolvedValue(undefined as any);
+
+            await (tweets_service as any).incrementTweetViewsAsync(tweet_ids);
+
+            expect(query_spy).toHaveBeenCalledWith(
+                'SELECT increment_tweet_views_batch($1::uuid[])',
+                [tweet_ids]
+            );
+        });
+
+        it('should return early if tweet_ids array is empty', async () => {
+            const query_spy = jest.spyOn(data_source, 'query').mockResolvedValue(undefined as any);
+
+            await (tweets_service as any).incrementTweetViewsAsync([]);
+
+            expect(query_spy).not.toHaveBeenCalled();
+        });
+
+        it('should handle database errors silently', async () => {
+            const tweet_ids = ['tweet-1'];
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+            jest.spyOn(data_source, 'query').mockRejectedValue(new Error('DB Error'));
+
+            // Should not throw
+            await expect(
+                (tweets_service as any).incrementTweetViewsAsync(tweet_ids)
+            ).resolves.toBeUndefined();
+
+            console_error_spy.mockRestore();
+        });
+    });
+
+    describe('getTweetById', () => {
+        it('should return tweet by ID with user', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'user-123';
+            const mock_tweet = {
+                tweet_id,
+                content: 'Test tweet',
+                user: { id: 'user-1', username: 'user1' },
+            };
+
+            jest.spyOn(tweets_service as any, 'getTweetWithUserById').mockResolvedValue(mock_tweet);
+
+            const result = await tweets_service.getTweetById(tweet_id, current_user_id);
+
+            expect(result).toEqual(mock_tweet);
+        });
+
+        it('should handle errors and rethrow', async () => {
+            const tweet_id = 'tweet-123';
+            const error = new Error('Tweet not found');
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            jest.spyOn(tweets_service as any, 'getTweetWithUserById').mockRejectedValue(error);
+
+            await expect(tweets_service.getTweetById(tweet_id)).rejects.toThrow('Tweet not found');
+            expect(console_error_spy).toHaveBeenCalled();
+
+            console_error_spy.mockRestore();
+        });
+    });
+
+    describe('uploadImageToAzure', () => {
+        it('should upload image to Azure successfully', async () => {
+            const image_buffer = Buffer.from('test');
+            const image_name = 'test-image.jpg';
+            const container_name = 'post-images';
+
+            process.env.AZURE_STORAGE_CONNECTION_STRING =
+                'DefaultEndpointsProtocol=https;AccountName=test;AccountKey=testkey;EndpointSuffix=core.windows.net';
+
+            const mock_blob_url = 'https://test.blob.core.windows.net/post-images/test-image.jpg';
+            const mock_upload = jest.fn().mockResolvedValue({});
+            const mock_block_blob_client = {
+                upload: mock_upload,
+                url: mock_blob_url,
+            };
+            const mock_container_client = {
+                createIfNotExists: jest.fn().mockResolvedValue({}),
+                getBlockBlobClient: jest.fn().mockReturnValue(mock_block_blob_client),
+            };
+            const mock_blob_service_client = {
+                getContainerClient: jest.fn().mockReturnValue(mock_container_client),
+            };
+
+            (BlobServiceClient.fromConnectionString as jest.Mock).mockReturnValue(
+                mock_blob_service_client
+            );
+
+            const result = await (tweets_service as any).uploadImageToAzure(
+                image_buffer,
+                image_name,
+                container_name
+            );
+
+            expect(result).toBe(mock_blob_url);
+            expect(mock_upload).toHaveBeenCalled();
+        });
+
+        it('should throw error when connection string is missing', async () => {
+            delete process.env.AZURE_STORAGE_CONNECTION_STRING;
+
+            const image_buffer = Buffer.from('image data');
+            const image_name = 'test.jpg';
+            const container_name = 'images';
+
+            await expect(
+                (tweets_service as any).uploadImageToAzure(image_buffer, image_name, container_name)
+            ).rejects.toThrow('AZURE_STORAGE_CONNECTION_STRING is not defined');
+        });
+    });
+
+    describe('queueRepostAndQuoteDeleteJobs', () => {
+        it('should handle reply deletion and decrement reply count', async () => {
+            const tweet = { tweet_id: 'reply-123', user_id: 'user-123', type: TweetType.REPLY };
+            const user_id = 'user-123';
+
+            const mock_reply_info = { original_tweet_id: 'parent-123' };
+            const mock_original_tweet = { user_id: 'parent-owner' };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValueOnce(mock_reply_info)
+                .mockResolvedValueOnce(mock_original_tweet);
+            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue(undefined as any);
+
+            await (tweets_service as any).queueRepostAndQuoteDeleteJobs(
+                tweet,
+                TweetType.REPLY,
+                user_id,
+                mock_query_runner
+            );
+
+            expect(mock_query_runner.manager.decrement).toHaveBeenCalledWith(
+                expect.any(Function),
+                { tweet_id: 'parent-123' },
+                'num_replies',
+                1
+            );
+            expect(reply_job_service.queueReplyNotification).toHaveBeenCalled();
+        });
+
+        it('should handle quote deletion and decrement counts', async () => {
+            const tweet = { tweet_id: 'quote-123', user_id: 'user-123', type: TweetType.QUOTE };
+            const user_id = 'user-123';
+
+            const mock_quote_info = { original_tweet_id: 'parent-123' };
+            const mock_original_tweet = { user_id: 'parent-owner' };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValueOnce(mock_quote_info)
+                .mockResolvedValueOnce(mock_original_tweet);
+            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue(undefined as any);
+
+            await (tweets_service as any).queueRepostAndQuoteDeleteJobs(
+                tweet,
+                TweetType.QUOTE,
+                user_id,
+                mock_query_runner
+            );
+
+            expect(mock_query_runner.manager.decrement).toHaveBeenCalledTimes(2);
+            expect(quote_job_service.queueQuoteNotification).toHaveBeenCalled();
+        });
+
+        it('should handle errors gracefully', async () => {
+            const tweet = { tweet_id: 'tweet-123', user_id: 'user-123', type: TweetType.REPLY };
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockRejectedValue(
+                new Error('DB Error')
+            );
+
+            await (tweets_service as any).queueRepostAndQuoteDeleteJobs(
+                tweet,
+                TweetType.REPLY,
+                'user-123',
+                mock_query_runner
+            );
+
+            expect(console_error_spy).toHaveBeenCalled();
+            console_error_spy.mockRestore();
+        });
+
+        it('should not queue notification if no parent owner found', async () => {
+            const tweet = { tweet_id: 'reply-123', user_id: 'user-123', type: TweetType.REPLY };
+
+            const mock_reply_info = { original_tweet_id: 'parent-123' };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValueOnce(mock_reply_info)
+                .mockResolvedValueOnce(null);
+            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue(undefined as any);
+
+            await (tweets_service as any).queueRepostAndQuoteDeleteJobs(
+                tweet,
+                TweetType.REPLY,
+                'user-123',
+                mock_query_runner
+            );
+
+            expect(reply_job_service.queueReplyNotification).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('queueMentionDeleteJobs', () => {
+        it('should extract mentions and queue deletion notifications', async () => {
+            const tweet = { tweet_id: 'tweet-123', content: 'Hello @user1 and @user2' };
+            const user_id = 'user-123';
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(tweet);
+            jest.spyOn(tweets_service as any, 'mentionNotification').mockResolvedValue(undefined);
+
+            await (tweets_service as any).queueMentionDeleteJobs(tweet, user_id);
+
+            expect(tweets_service['mentionNotification']).toHaveBeenCalledWith(
+                ['@user1', '@user2'],
+                user_id,
+                tweet,
+                'remove'
+            );
+        });
+
+        it('should return early if content is empty', async () => {
+            const tweet = { tweet_id: 'tweet-123' };
+            const user_id = 'user-123';
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(tweet);
+
+            await (tweets_service as any).queueMentionDeleteJobs(tweet, user_id);
+
+            // Should not throw and should return early
+            expect(tweet_repo.findOne).toHaveBeenCalled();
+        });
+
+        it('should return early if no mentions found', async () => {
+            const tweet = { tweet_id: 'tweet-123', content: 'No mentions here' };
+            const user_id = 'user-123';
+
+            (tweet_repo.findOne as jest.Mock).mockResolvedValue(tweet);
+
+            await (tweets_service as any).queueMentionDeleteJobs(tweet, user_id);
+
+            // Should not throw
+            expect(tweet_repo.findOne).toHaveBeenCalled();
+        });
+
+        it('should handle errors gracefully', async () => {
+            const tweet = { tweet_id: 'tweet-123' };
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            (tweet_repo.findOne as jest.Mock).mockRejectedValue(new Error('DB Error'));
+
+            await (tweets_service as any).queueMentionDeleteJobs(tweet, 'user-123');
+
+            expect(console_error_spy).toHaveBeenCalled();
+            console_error_spy.mockRestore();
+        });
+    });
+
+    describe('getTweetWithUserById', () => {
+        it('should return tweet with user data for non-reply tweet', async () => {
+            const tweet_id = 'tweet-123';
+            const current_user_id = 'user-123';
+
+            const mock_tweet = {
+                tweet_id,
+                content: 'Test',
+                type: TweetType.TWEET,
+                user: { id: 'user-1', username: 'user1' },
+            };
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(mock_tweet),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+            jest.spyOn(tweets_service as any, 'incrementTweetViewsAsync').mockResolvedValue(
+                undefined
+            );
+            jest.spyOn(tweets_service as any, 'getReplyWithUserById').mockResolvedValue(null);
+
+            const result = await (tweets_service as any).getTweetWithUserById(
+                tweet_id,
+                current_user_id
+            );
+
+            expect(result).toBeDefined();
+            expect(tweets_service['incrementTweetViewsAsync']).toHaveBeenCalledWith([tweet_id]);
+        });
+
+        it('should throw NotFoundException if tweet not found', async () => {
+            const tweet_id = 'nonexistent';
+
+            const mock_query_builder = {
+                leftJoinAndSelect: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                select: jest.fn().mockReturnThis(),
+                getOne: jest.fn().mockResolvedValue(null),
+            };
+
+            jest.spyOn(tweet_repo, 'createQueryBuilder').mockReturnValue(mock_query_builder as any);
+            jest.spyOn(tweets_repo, 'attachUserTweetInteractionFlags').mockReturnValue(
+                mock_query_builder as any
+            );
+
+            await expect((tweets_service as any).getTweetWithUserById(tweet_id)).rejects.toThrow(
+                'Tweet not found'
+            );
+        });
+    });
+
+    describe('insertTweetHashtags', () => {
+        it('should extract and insert hashtags', async () => {
+            const content = 'Test #hashtag1 #hashtag2 #Hashtag1';
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+
+            const upsert_spy = jest
+                .spyOn(mock_query_runner.manager, 'upsert')
+                .mockResolvedValue(undefined as any);
+
+            await (tweets_service as any).insertTweetHashtags(
+                content,
+                tweet_id,
+                user_id,
+                mock_query_runner
+            );
+
+            expect(upsert_spy).toHaveBeenCalled();
+        });
+
+        it('should return early if no hashtags found', async () => {
+            const content = 'No hashtags here';
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+
+            const upsert_spy = jest.spyOn(mock_query_runner.manager, 'upsert');
+
+            await (tweets_service as any).insertTweetHashtags(
+                content,
+                tweet_id,
+                user_id,
+                mock_query_runner
+            );
+
+            expect(upsert_spy).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('mentionNotification', () => {
+        it('should queue mention notifications for add action', async () => {
+            const mentioned_user_ids = ['user-1', 'user-2'];
+            const user_id = 'author-123';
+            const tweet = { tweet_id: 'tweet-123', content: 'Test', type: TweetType.TWEET };
+
+            await (tweets_service as any).mentionNotification(
+                mentioned_user_ids,
+                user_id,
+                tweet,
+                'add'
+            );
+
+            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledTimes(1);
+            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledWith({
+                tweet,
+                tweet_id: tweet.tweet_id,
+                parent_tweet: undefined,
+                mentioned_by: user_id,
+                mentioned_user_ids,
+                tweet_type: tweet.type,
+                action: 'add',
+            });
+        });
+
+        it('should queue mention notifications for remove action', async () => {
+            const mentions = ['user-1', 'user-2'];
+            const user_id = 'author-123';
+            const tweet = { tweet_id: 'tweet-123', type: TweetType.TWEET };
+
+            await (tweets_service as any).mentionNotification(mentions, user_id, tweet, 'remove');
+
+            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledTimes(1);
+        });
+
+        it('should handle empty mentioned users array', async () => {
+            await (tweets_service as any).mentionNotification([], 'user-123', {}, 'add');
+
+            expect(mention_job_service.queueMentionNotification).not.toHaveBeenCalled();
+        });
+
+        it('should handle errors gracefully', async () => {
+            const mentioned_user_ids = ['user-1'];
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            jest.spyOn(mention_job_service, 'queueMentionNotification').mockRejectedValue(
+                new Error('Queue error')
+            );
+
+            await (tweets_service as any).mentionNotification(
+                mentioned_user_ids,
+                'user-123',
+                { tweet_id: 'tweet-1', type: TweetType.TWEET },
+                'add'
+            );
+
+            expect(console_error_spy).toHaveBeenCalled();
+            console_error_spy.mockRestore();
+        });
+
+        it('should deduplicate mentioned user IDs', async () => {
+            const mentioned_user_ids = ['user-1', 'user-2', 'user-1', 'user-2'];
+            const user_id = 'author-123';
+            const tweet = { tweet_id: 'tweet-123', type: TweetType.TWEET };
+
+            await (tweets_service as any).mentionNotification(
+                mentioned_user_ids,
+                user_id,
+                tweet,
+                'add'
+            );
+
+            expect(mention_job_service.queueMentionNotification).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    mentioned_user_ids: ['user-1', 'user-2'],
+                })
+            );
+        });
+    });
+
+    describe('Edge cases and error handling', () => {
+        it('should handle transaction rollback when isTransactionActive is false', async () => {
+            const mock_tweet_dto: CreateTweetDTO = { content: 'Test' } as CreateTweetDTO;
+            const mock_user_id = 'user-123';
+
+            mock_query_runner.isTransactionActive = false;
+            jest.spyOn(mock_query_runner.manager, 'create').mockImplementation(() => {
+                throw new Error('Create failed');
+            });
+
+            await expect(tweets_service.createTweet(mock_tweet_dto, mock_user_id)).rejects.toThrow(
+                'Create failed'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).not.toHaveBeenCalled();
+            mock_query_runner.isTransactionActive = true;
+        });
+
+        it('should handle updateTweet when user is not the owner', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const update_dto = { content: 'Updated' };
+            const existing_tweet = { tweet_id, user_id: 'different-user' };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(existing_tweet);
+
+            await expect(
+                tweets_service.updateTweet(update_dto as any, tweet_id, user_id)
+            ).rejects.toThrow('User is not allowed to update this tweet');
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should handle deleteTweet when user is not the owner', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const existing_tweet = { tweet_id, user_id: 'different-user', type: TweetType.TWEET };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(existing_tweet);
+
+            await expect(tweets_service.deleteTweet(tweet_id, user_id)).rejects.toThrow(
+                'User is not allowed to delete this tweet'
+            );
+
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+        });
+
+        it('should handle deleteTweet error and log it', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockRejectedValue(
+                new Error('DB Error')
+            );
+
+            await expect(tweets_service.deleteTweet(tweet_id, user_id)).rejects.toThrow('DB Error');
+            expect(console_error_spy).toHaveBeenCalled();
+
+            console_error_spy.mockRestore();
+        });
+
+        it('should handle unlikeTweet error and log it', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockRejectedValue(
+                new Error('DB Error')
+            );
+
+            await expect(tweets_service.unlikeTweet(tweet_id, user_id)).rejects.toThrow('DB Error');
+            expect(console_error_spy).toHaveBeenCalled();
+
+            console_error_spy.mockRestore();
+        });
+
+        it('should handle unbookmarkTweet error and log it', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            jest.spyOn(mock_query_runner.manager, 'exists').mockRejectedValue(
+                new Error('DB Error')
+            );
+
+            await expect(tweets_service.unbookmarkTweet(tweet_id, user_id)).rejects.toThrow(
+                'DB Error'
+            );
+            expect(console_error_spy).toHaveBeenCalled();
+
+            console_error_spy.mockRestore();
+        });
+
+        it('should handle deleteRepost error and log it', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockRejectedValue(
+                new Error('DB Error')
+            );
+
+            await expect(tweets_service.deleteRepost(tweet_id, user_id)).rejects.toThrow(
+                'DB Error'
+            );
+            expect(console_error_spy).toHaveBeenCalled();
+
+            console_error_spy.mockRestore();
+        });
+
+        it('should handle repostTweetWithQuote when user is same as parent owner', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const quote_dto = { content: 'Quote' } as CreateTweetDTO;
+            const parent_tweet = {
+                tweet_id,
+                user: { id: user_id },
+            };
+
+            jest.spyOn(tweets_service as any, 'getTweetWithUserById').mockResolvedValue(
+                parent_tweet
+            );
+            jest.spyOn(tweets_service as any, 'extractDataFromTweets').mockResolvedValue({
+                mentioned_user_ids: [],
+                mentioned_usernames: [],
+            });
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue({
+                tweet_id: 'quote-1',
+            });
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue(undefined as any);
+            jest.spyOn(tweets_service as any, 'insertTweetHashtags').mockResolvedValue(undefined);
+
+            await tweets_service.repostTweetWithQuote(tweet_id, user_id, quote_dto);
+
+            expect(quote_job_service.queueQuoteNotification).not.toHaveBeenCalled();
+        });
+
+        it('should handle replyToTweet when user is same as original tweet owner', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const reply_dto = { content: 'Reply' } as CreateTweetDTO;
+            const original_tweet = { tweet_id, user_id };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne')
+                .mockResolvedValueOnce(original_tweet)
+                .mockResolvedValueOnce(null);
+            jest.spyOn(tweets_service as any, 'extractDataFromTweets').mockResolvedValue({
+                mentioned_user_ids: [],
+                mentioned_usernames: [],
+            });
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue({
+                tweet_id: 'reply-1',
+            });
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue(undefined as any);
+            jest.spyOn(tweets_service as any, 'insertTweetHashtags').mockResolvedValue(undefined);
+
+            await tweets_service.replyToTweet(tweet_id, user_id, reply_dto);
+
+            expect(reply_job_service.queueReplyNotification).not.toHaveBeenCalled();
+        });
+
+        it('should handle likeTweet when user is the tweet owner', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const tweet = { tweet_id, user_id };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(tweet);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockResolvedValue(undefined as any);
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue(undefined as any);
+
+            await tweets_service.likeTweet(tweet_id, user_id);
+
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+            // Should not queue notification when liking own tweet
+        });
+
+        it('should handle unlikeTweet when user is the tweet owner', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const tweet = { tweet_id, user_id };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(tweet);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
+                affected: 1,
+            } as any);
+            jest.spyOn(mock_query_runner.manager, 'decrement').mockResolvedValue(undefined as any);
+
+            await tweets_service.unlikeTweet(tweet_id, user_id);
+
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
+
+        it('should handle repostTweet when user is the tweet owner', async () => {
+            const tweet_id = 'tweet-123';
+            const user_id = 'user-123';
+            const tweet = { tweet_id, user_id };
+
+            jest.spyOn(mock_query_runner.manager, 'findOne').mockResolvedValue(tweet);
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({} as any);
+            jest.spyOn(mock_query_runner.manager, 'insert').mockResolvedValue(undefined as any);
+            jest.spyOn(mock_query_runner.manager, 'increment').mockResolvedValue(undefined as any);
+
+            await tweets_service.repostTweet(tweet_id, user_id);
+
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
+    });
+
+    describe('updateHashtags', () => {
+        it('should update hashtags', async () => {
+            const names = ['hashtag1', 'hashtag2'];
+            const user_id = 'user-123';
+            const tweet_id = 'tweet-123';
+
+            jest.spyOn(mock_query_runner.manager, 'upsert').mockResolvedValue(undefined as any);
+
+            await (tweets_service as any).updateHashtags(
+                names,
+                user_id,
+                mock_query_runner,
+                tweet_id
+            );
+
+            expect(mock_query_runner.manager.upsert).toHaveBeenCalled();
+        });
+    });
+
+    describe('buildDefaultHashtagTopics', () => {
+        it('should build default hashtag topics', () => {
+            const hashtags = ['sports', 'football'];
+            const topic = 'Sports';
+
+            const result = (tweets_service as any).buildDefaultHashtagTopics(hashtags, topic);
+
+            expect(result).toHaveProperty('sports');
+            expect(result.sports.Sports).toBe(100);
+        });
+    });
+
+    describe('createFakeTrendTweet', () => {
+        it('should create fake trend tweet', async () => {
+            const content = 'Fake trend #sports';
+            const user_id = 'user-123';
+            const hashtag_topics = { sports: { Sports: 100 } };
+
+            jest.spyOn(tweets_service as any, 'extractDataFromTweets').mockResolvedValue({
+                mentioned_user_ids: [],
+                mentioned_usernames: [],
+            });
+            jest.spyOn(mock_query_runner.manager, 'create').mockReturnValue({
+                tweet_id: 'fake-1',
+            } as any);
+            jest.spyOn(mock_query_runner.manager, 'save').mockResolvedValue({ tweet_id: 'fake-1' });
+            jest.spyOn(tweets_service as any, 'insertTweetHashtags').mockResolvedValue(undefined);
+
+            const result = await tweets_service.createFakeTrendTweet(
+                content,
+                user_id,
+                hashtag_topics
+            );
+
+            expect(result).toBeDefined();
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
+    });
+
+    describe('deleteTweetsByUserId', () => {
+        it('should delete all tweets by user', async () => {
+            const user_id = 'user-123';
+
+            const mock_tweets = [
+                { tweet_id: 'tweet-1', type: TweetType.TWEET },
+                { tweet_id: 'tweet-2', type: TweetType.REPLY },
+            ];
+
+            (tweet_repo.find as jest.Mock).mockResolvedValue(mock_tweets);
+            jest.spyOn(mock_query_runner.manager, 'delete').mockResolvedValue({
+                affected: 2,
+            } as any);
+            jest.spyOn(tweets_service as any, 'queueRepostAndQuoteDeleteJobs').mockResolvedValue(
+                undefined
+            );
+
+            await tweets_service.deleteTweetsByUserId(user_id);
+
+            expect(tweet_repo.find).toHaveBeenCalledWith({
+                where: { user_id },
+                select: ['tweet_id', 'user_id', 'type'],
+            });
+            expect(mock_query_runner.commitTransaction).toHaveBeenCalled();
+        });
+
+        it('should return early when no tweets found', async () => {
+            const user_id = 'user-123';
+            const console_log_spy = jest.spyOn(console, 'log').mockImplementation();
+
+            (tweet_repo.find as jest.Mock).mockResolvedValue([]);
+
+            await tweets_service.deleteTweetsByUserId(user_id);
+
+            expect(console_log_spy).toHaveBeenCalledWith(`No tweets found for user ${user_id}`);
+            expect(mock_query_runner.commitTransaction).not.toHaveBeenCalled();
+
+            console_log_spy.mockRestore();
+        });
+
+        it('should handle errors during deletion', async () => {
+            const user_id = 'user-123';
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+
+            (tweet_repo.find as jest.Mock).mockRejectedValue(new Error('DB Error'));
+
+            await expect(tweets_service.deleteTweetsByUserId(user_id)).rejects.toThrow('DB Error');
+            expect(mock_query_runner.rollbackTransaction).toHaveBeenCalled();
+
+            console_error_spy.mockRestore();
+        });
+    });
+
+    describe('getReplyWithUserById', () => {
+        it('should return reply with parent chain', async () => {
+            const tweet_id = 'reply-123';
+            const current_user_id = 'user-123';
+
+            const mock_reply_chain = [
+                { tweet_id: 'reply-123', type: TweetType.REPLY },
+                { tweet_id: 'parent-123', type: TweetType.TWEET },
+            ];
+
+            jest.spyOn(tweets_repo, 'getReplyWithParentChain').mockResolvedValue(
+                mock_reply_chain as any
+            );
+            jest.spyOn(tweets_service as any, 'incrementTweetViewsAsync').mockResolvedValue(
+                undefined
+            );
+
+            const result = await (tweets_service as any).getReplyWithUserById(
+                tweet_id,
+                current_user_id
+            );
+
+            expect(result).toBeDefined();
+            expect(tweets_repo.getReplyWithParentChain).toHaveBeenCalledWith(
+                tweet_id,
+                current_user_id
+            );
+        });
+
+        it('should throw NotFoundException when reply chain is empty', async () => {
+            const tweet_id = 'nonexistent';
+
+            jest.spyOn(tweets_repo, 'getReplyWithParentChain').mockResolvedValue([]);
+
+            await expect((tweets_service as any).getReplyWithUserById(tweet_id)).rejects.toThrow(
+                'Tweet not found'
             );
         });
     });
