@@ -27,7 +27,6 @@ export class LikeProcessor {
             const { like_to, liked_by, tweet, action, tweet_id } = job.data;
 
             if (action === 'remove') {
-                // Remove the notification from MongoDB
                 let notification_id: string | null = null;
                 if (tweet_id) {
                     notification_id = await this.notifications_service.removeLikeNotification(

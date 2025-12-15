@@ -115,7 +115,7 @@ export class TrendService {
             for (const category of this.CATEGORIES) {
                 const result = results[result_index];
                 // Check if result exists and has valid data
-                //eslint-disable-next-line
+
                 if (result && result[1] !== null && result[1] !== undefined) {
                     const score = Number.parseFloat(result[1] as string);
                     if (score > max_score) {

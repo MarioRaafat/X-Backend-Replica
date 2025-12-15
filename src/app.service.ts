@@ -395,7 +395,6 @@ export class AppService {
         user_identifier: string,
         file: Express.Multer.File
     ): Promise<UploadFileResponseDto> {
-        //eslint-disable-next-line
         if (!file || !file.buffer) {
             throw new BadRequestException(ERROR_MESSAGES.FILE_NOT_FOUND);
         }
