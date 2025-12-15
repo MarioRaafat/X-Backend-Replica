@@ -1,13 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { InjectQueue } from '@nestjs/bull';
 import type { Queue } from 'bull';
 import { JOB_DELAYS, JOB_NAMES, JOB_PRIORITIES, QUEUE_NAMES } from '../constants/queue.constants';
 import { BackgroundJobsService } from 'src/background-jobs/background-jobs';
-import { EsSyncTweetDto } from './dtos/es-sync-tweet.dto';
 import { EsDeleteTweetsDto } from './dtos/es-delete-tweets.dto';
 
 @Injectable()
-export class EsDeleteTweetJobService extends BackgroundJobsService<EsSyncTweetDto> {
+export class EsDeleteTweetJobService extends BackgroundJobsService<EsDeleteTweetsDto> {
     constructor(
         @InjectQueue(QUEUE_NAMES.ELASTICSEARCH) private readonly elasticsearch_queue: Queue
     ) {

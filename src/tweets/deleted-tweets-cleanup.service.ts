@@ -48,13 +48,6 @@ export class DeletedTweetsCleanupService {
                 `Processing ${deleted_tweets.length} deleted tweets for ES cleanup and hashtag decrement`
             );
 
-            for (const deleted_tweet of deleted_tweets) {
-                // Queue Elasticsearch deletion
-                await this.es_delete_tweet_service.queueDeleteTweet({
-                    tweet_id: deleted_tweet.tweet_id,
-                });
-            }
-
             const tweet_ids = deleted_tweets.map((t) => t.tweet_id);
 
             await this.es_delete_tweet_service.queueDeleteTweet({
