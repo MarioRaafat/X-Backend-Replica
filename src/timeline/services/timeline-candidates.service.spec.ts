@@ -6,13 +6,17 @@ import { Repository } from 'typeorm';
 import { UserInterests } from 'src/user/entities/user-interests.entity';
 import { TweetCategory } from 'src/tweets/entities/tweet-category.entity';
 import { Tweet } from 'src/tweets/entities/tweet.entity';
+import { Category } from 'src/category/entities/category.entity';
+import { InitTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
 
 describe('TimelineCandidatesService', () => {
     let service: TimelineCandidatesService;
     let user_interests_repository: jest.Mocked<Repository<UserInterests>>;
     let tweet_category_repository: jest.Mocked<Repository<TweetCategory>>;
     let tweet_repository: jest.Mocked<Repository<Tweet>>;
+    let category_repository: jest.Mocked<Repository<Category>>;
     let config_service: jest.Mocked<ConfigService>;
+    let init_timeline_queue_job_service: jest.Mocked<InitTimelineQueueJobService>;
 
     const mock_user_id = 'user-123';
     const mock_user_interests = [
@@ -48,6 +52,8 @@ describe('TimelineCandidatesService', () => {
                     provide: getRepositoryToken(UserInterests),
                     useValue: {
                         find: jest.fn(),
+                        create: jest.fn(),
+                        save: jest.fn(),
                     },
                 },
                 {
@@ -60,6 +66,22 @@ describe('TimelineCandidatesService', () => {
                     provide: getRepositoryToken(Tweet),
                     useValue: {
                         createQueryBuilder: jest.fn(),
+                    },
+                },
+                {
+                    provide: getRepositoryToken(Category),
+                    useValue: {
+                        createQueryBuilder: jest.fn(() => ({
+                            orderBy: jest.fn().mockReturnThis(),
+                            limit: jest.fn().mockReturnThis(),
+                            getMany: jest.fn().mockResolvedValue([]),
+                        })),
+                    },
+                },
+                {
+                    provide: InitTimelineQueueJobService,
+                    useValue: {
+                        queueInitTimelineQueue: jest.fn().mockResolvedValue(undefined),
                     },
                 },
                 {
@@ -78,6 +100,8 @@ describe('TimelineCandidatesService', () => {
         user_interests_repository = module.get(getRepositoryToken(UserInterests));
         tweet_category_repository = module.get(getRepositoryToken(TweetCategory));
         tweet_repository = module.get(getRepositoryToken(Tweet));
+        category_repository = module.get(getRepositoryToken(Category));
+        init_timeline_queue_job_service = module.get(InitTimelineQueueJobService);
         config_service = module.get(ConfigService);
     });
 
