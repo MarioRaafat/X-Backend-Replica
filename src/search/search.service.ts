@@ -16,6 +16,7 @@ import { SuggestedUserDto } from './dto/suggested-user.dto';
 import { bool } from 'sharp';
 import { TweetResponseDTO } from 'src/tweets/dto';
 import { RedisService } from 'src/redis/redis.service';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
 
 @Injectable()
 export class SearchService {
@@ -785,27 +786,48 @@ export class SearchService {
             ])
         );
 
-        const filtered_tweets = tweets.filter((tweet) => interactions_map.has(tweet.tweet_id));
+        const result_tweets = tweets
+            .map((tweet) => {
+                const main_interaction = interactions_map.get(tweet.tweet_id);
 
-        return filtered_tweets.map((tweet) => {
-            const main_interaction = interactions_map.get(tweet.tweet_id);
+                if (!main_interaction) {
+                    return null;
+                }
 
-            const result: any = {
-                ...tweet,
-                is_liked: main_interaction?.is_liked ?? false,
-                is_reposted: main_interaction?.is_reposted ?? false,
-                is_bookmarked: main_interaction?.is_bookmarked ?? false,
-                user: {
-                    ...tweet.user,
-                    is_following: main_interaction?.is_following ?? false,
-                    is_follower: main_interaction?.is_follower ?? false,
-                },
-            };
+                const parent_interaction = tweet.parent_tweet
+                    ? interactions_map.get(tweet.parent_tweet.tweet_id)
+                    : undefined;
 
-            if (tweet.parent_tweet) {
-                const parent_interaction = interactions_map.get(tweet.parent_tweet.tweet_id);
+                const conversation_interaction = tweet.conversation_tweet
+                    ? interactions_map.get(tweet.conversation_tweet.tweet_id)
+                    : undefined;
 
-                if (parent_interaction) {
+                if (tweet.type === TweetType.QUOTE && !parent_interaction) {
+                    return null;
+                }
+
+                if (tweet.type === TweetType.REPLY) {
+                    if (!parent_interaction) {
+                        return null;
+                    }
+                    if (!conversation_interaction) {
+                        return null;
+                    }
+                }
+
+                const result: any = {
+                    ...tweet,
+                    is_liked: main_interaction.is_liked,
+                    is_reposted: main_interaction.is_reposted,
+                    is_bookmarked: main_interaction.is_bookmarked,
+                    user: {
+                        ...tweet.user,
+                        is_following: main_interaction.is_following,
+                        is_follower: main_interaction.is_follower,
+                    },
+                };
+
+                if (tweet.parent_tweet && parent_interaction) {
                     result.parent_tweet = {
                         ...tweet.parent_tweet,
                         is_liked: parent_interaction.is_liked,
@@ -817,17 +839,9 @@ export class SearchService {
                             is_follower: parent_interaction.is_follower,
                         },
                     };
-                } else {
-                    delete result.parent_tweet;
                 }
-            }
 
-            if (tweet.conversation_tweet) {
-                const conversation_interaction = interactions_map.get(
-                    tweet.conversation_tweet.tweet_id
-                );
-
-                if (conversation_interaction) {
+                if (tweet.conversation_tweet && conversation_interaction) {
                     result.conversation_tweet = {
                         ...tweet.conversation_tweet,
                         is_liked: conversation_interaction.is_liked,
@@ -839,13 +853,13 @@ export class SearchService {
                             is_follower: conversation_interaction.is_follower,
                         },
                     };
-                } else {
-                    delete result.conversation_tweet;
                 }
-            }
 
-            return result;
-        });
+                return result;
+            })
+            .filter((tweet) => tweet !== null);
+
+        return result_tweets;
     }
 
     private buildUserPrefixQuery(sanitized_query: string): string {

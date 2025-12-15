@@ -439,7 +439,7 @@ export class TweetsService {
             // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             await this.es_delete_tweet_service.queueDeleteTweet({
-                tweet_id,
+                tweet_ids: [tweet_id],
             });
         } catch (error) {
             console.error(error);
@@ -819,7 +819,7 @@ export class TweetsService {
                 action: 'remove',
             });
 
-            await this.es_delete_tweet_service.queueDeleteTweet({
+            await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: tweet_id,
             });
 
@@ -1901,7 +1901,7 @@ export class TweetsService {
 
                     // Queue elasticsearch deletion
                     await this.es_delete_tweet_service.queueDeleteTweet({
-                        tweet_id: tweet.tweet_id,
+                        tweet_ids: [tweet.tweet_id],
                     });
                 } catch (error) {
                     console.error(`Error deleting tweet ${tweet.tweet_id}:`, error);
