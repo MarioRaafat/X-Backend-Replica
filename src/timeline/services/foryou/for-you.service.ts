@@ -85,7 +85,7 @@ export class ForyouService {
             );
             return {
                 data: fallback_tweets,
-                pagination: { next_cursor: null, has_more: false },
+                pagination: { next_cursor: 'next', has_more: true },
             };
         }
 
