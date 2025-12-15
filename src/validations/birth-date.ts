@@ -20,7 +20,7 @@ export class AgeRangeValidator implements ValidatorConstraintInterface {
         const today = new Date();
 
         // Check if date is valid
-        if (isNaN(birth_date.getTime())) {
+        if (Number.isNaN(birth_date.getTime())) {
             this.age_calculation_result = { age: 0, is_valid: false, reason: 'invalid' };
             return false;
         }
@@ -59,7 +59,7 @@ export class AgeRangeValidator implements ValidatorConstraintInterface {
             return `User age must be between ${min_age} and ${max_age} years`;
         }
 
-        const { age, reason } = this.age_calculation_result;
+        const { reason } = this.age_calculation_result;
 
         switch (reason) {
             case 'too_young':

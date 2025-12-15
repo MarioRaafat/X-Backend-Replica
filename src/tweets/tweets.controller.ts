@@ -29,16 +29,9 @@ import {
 } from '@nestjs/swagger';
 import { CreateTweetDTO } from './dto/create-tweet.dto';
 import { UpdateTweetDTO } from './dto/update-tweet.dto';
-import { UpdateTweetWithQuoteDTO } from './dto/update-tweet-with-quote.dto';
-import { GetTweetsQueryDto } from './dto/get-tweets-query.dto';
-import { GetTweetLikesQueryDto } from './dto/get-tweet-likes-query.dto';
-import { GetTweetRepostsQueryDto } from './dto/get-tweet-reposts-query.dto';
 import { GetTweetRepliesQueryDto } from './dto/get-tweet-replies-query.dto';
-import { UploadMediaResponseDTO } from './dto/upload-media.dto';
-import { PaginatedTweetsResponseDTO } from './dto/paginated-tweets-response.dto';
 import { PaginatedTweetLikesResponseDTO } from './dto/paginated-tweet-likes-response.dto';
 import { PaginatedTweetRepostsResponseDTO } from './dto/paginated-tweet-reposts-response.dto';
-import { PaginatedTweetRepliesResponseDTO } from './dto/paginated-tweet-replies-response.dto';
 import { PaginatedBookmarksResponseDTO } from './dto/paginated-bookmarks-response.dto';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { TweetsService } from './tweets.service';
@@ -58,7 +51,6 @@ import {
     create_tweet_swagger,
     delete_repost_swagger,
     delete_tweet_swagger,
-    get_all_tweets_swagger,
     get_tweet_by_id_swagger,
     get_tweet_likes_swagger,
     get_tweet_quotes_swagger,
@@ -70,10 +62,8 @@ import {
     quote_tweet_swagger,
     reply_to_tweet_swagger,
     repost_tweet_swagger,
-    track_tweet_view_swagger,
     unbookmark_tweet_swagger,
     unlike_tweet_swagger,
-    update_quote_tweet_swagger,
     update_tweet_swagger,
     upload_image_swagger,
     upload_video_swagger,

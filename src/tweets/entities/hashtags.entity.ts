@@ -1,11 +1,8 @@
-import { User } from '../../user/entities/user.entity';
 import {
     Column,
     CreateDateColumn,
     DeleteDateColumn,
     Entity,
-    JoinColumn,
-    ManyToOne,
     OneToMany,
     PrimaryColumn,
 } from 'typeorm';
@@ -21,6 +18,9 @@ export class Hashtag {
 
     @CreateDateColumn({ type: 'timestamptz' })
     created_at: Date;
+
+    @Column({ type: 'varchar', nullable: true })
+    category?: string;
 
     // I guess we won't need this but just in case
     @DeleteDateColumn({ type: 'timestamptz' })

@@ -26,6 +26,11 @@ export class TrendController {
         return await this.trend_service.getTrending(trends_dto?.category, trends_dto?.limit);
     }
 
+    @Get('/calculate-trends')
+    async calculateTrends() {
+        return await this.trend_service.calculateTrend();
+    }
+
     @Post('/fake-trends')
     async fakeTrends() {
         return await this.fake_trend_service.fakeTrends();
@@ -34,5 +39,10 @@ export class TrendController {
     @Delete('/fake-trends')
     async deleteFakeTrends() {
         return await this.fake_trend_service.deleteFakeTrends();
+    }
+
+    @Post('/seed-trends')
+    async seedTrends() {
+        return await this.fake_trend_service.seedTrend();
     }
 }

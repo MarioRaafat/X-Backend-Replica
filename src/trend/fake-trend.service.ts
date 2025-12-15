@@ -1,11 +1,14 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { Cron } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { User } from 'src/user/entities/user.entity';
 import { TrendDataConstants } from 'src/constants/variables';
 import * as bcrypt from 'bcrypt';
+import { Hashtag } from 'src/tweets/entities/hashtags.entity';
+import { TweetHashtag } from 'src/tweets/entities/tweet-hashtag.entity';
+import { TrendService } from './trend.service';
+import { HashtagJobDto } from 'src/background-jobs/hashtag/hashtag-job.dto';
 
 interface IFakeTrendHashtags {
     hashtags: string[];
@@ -20,8 +23,15 @@ export class FakeTrendService {
 
     constructor(
         private readonly tweets_service: TweetsService,
+        private readonly trend_service: TrendService,
+
         @InjectRepository(User)
-        private readonly user_repository: Repository<User>
+        private readonly user_repository: Repository<User>,
+        @InjectRepository(Hashtag)
+        private readonly hashtag_repository: Repository<Hashtag>,
+        private readonly data_source: DataSource,
+        @InjectRepository(TweetHashtag)
+        private readonly tweet_hashtags_repository: Repository<TweetHashtag>
     ) {}
 
     // Every 20 minutes
@@ -193,5 +203,132 @@ export class FakeTrendService {
 
         const random_template = templates[Math.floor(Math.random() * templates.length)];
         return random_template;
+    }
+
+    async seedTrend(): Promise<void> {
+        // UPDATE TWEET TIMESTAMP TO LAST 6 HOURS
+        await this.data_source.query(`
+        UPDATE tweets
+        SET created_at = NOW() - (random() * interval '6 hours')
+    `);
+
+        console.log('Updated tweet timestamps to last 6 hours DONE');
+
+        await this.data_source.query(`
+        UPDATE tweet_hashtags
+        SET tweet_created_at = t.created_at
+        FROM tweets t
+        WHERE tweet_hashtags.tweet_id = t.tweet_id
+    `);
+
+        console.log('Updated tweet_hashtags timestamps to match tweets DONE');
+
+        // SELECT TOP HASHTAGS FROM EACH CATEGORY
+        const sports_hashtags = await this.hashtag_repository.find({
+            where: { category: 'Sports' },
+            order: { usage_count: 'DESC' },
+            take: 30,
+        });
+
+        const entertainment_hashtags = await this.hashtag_repository.find({
+            where: { category: 'Entertainment' },
+            order: { usage_count: 'DESC' },
+            take: 30,
+        });
+
+        const news_hashtags = await this.hashtag_repository.find({
+            where: { category: 'News' },
+            order: { usage_count: 'DESC' },
+            take: 20,
+        });
+
+        console.log('Fetched top hashtags from each category DONE');
+
+        const all_hashtags = [
+            ...sports_hashtags.map((h) => ({ ...h, category: 'Sports' })),
+            ...entertainment_hashtags.map((h) => ({ ...h, category: 'Entertainment' })),
+            ...news_hashtags.map((h) => ({ ...h, category: 'News' })),
+        ];
+
+        const hashtag_names = all_hashtags.map((h) => h.name);
+
+        const tweet_hashtag_data = await this.data_source.query(
+            `
+        SELECT 
+            th.hashtag_name,
+            th.tweet_created_at,
+            h.category
+        FROM tweet_hashtags th
+        JOIN hashtag h ON th.hashtag_name = h.name
+        WHERE th.hashtag_name = ANY($1)
+        ORDER BY th.tweet_created_at DESC
+        `,
+            [hashtag_names]
+        );
+
+        console.log('Fetched tweet hashtag timestamp DONE');
+
+        // Group by tweet timestamp
+        const timestamp_map = new Map<number, Map<string, Record<string, number>>>();
+
+        for (const row of tweet_hashtag_data) {
+            const timestamp = new Date(row.tweet_created_at).getTime();
+            const hashtag_name = row.hashtag_name;
+            const category = row.category;
+
+            if (!timestamp_map.has(timestamp)) {
+                timestamp_map.set(timestamp, new Map());
+            }
+
+            const hashtag_map = timestamp_map.get(timestamp);
+
+            if (hashtag_map) {
+                if (!hashtag_map.has(hashtag_name)) {
+                    hashtag_map.set(hashtag_name, {});
+                }
+
+                const categories = hashtag_map.get(hashtag_name);
+                if (categories) {
+                    categories[category] = 100;
+                }
+            }
+        }
+
+        console.log(`Processing ${timestamp_map.size} unique timestamps`);
+
+        const BATCH_SIZE = 50;
+        const timestamps = Array.from(timestamp_map.entries());
+
+        for (let i = 0; i < timestamps.length; i += BATCH_SIZE) {
+            const batch = timestamps.slice(i, i + BATCH_SIZE);
+
+            console.log(
+                `Processing batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(timestamps.length / BATCH_SIZE)}`
+            );
+
+            await Promise.all(
+                batch.map(async ([timestamp, hashtag_map]) => {
+                    const hashtags: Record<string, Record<string, number>> = {};
+
+                    for (const [hashtag_name, categories] of hashtag_map.entries()) {
+                        hashtags[hashtag_name] = categories;
+                    }
+
+                    const job_data: HashtagJobDto = {
+                        hashtags,
+                        timestamp,
+                    };
+
+                    // Execute all three operations in parallel for each timestamp
+                    await Promise.all([
+                        this.trend_service.insertCandidateHashtags(job_data),
+                        this.trend_service.updateHashtagCounts(job_data),
+                        this.trend_service.insertCandidateCategories(job_data),
+                    ]);
+                })
+            );
+        }
+
+        console.log(`Seeded trends for ${timestamp_map.size} unique timestamps DONE`);
     }
 }

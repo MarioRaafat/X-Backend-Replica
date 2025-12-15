@@ -7,8 +7,8 @@ import { Repository } from 'typeorm';
 
 @Injectable()
 export class FCMService {
-    private logger = new Logger(FCMService.name);
-    private expo: Expo;
+    private readonly logger = new Logger(FCMService.name);
+    private readonly expo: Expo;
 
     constructor(@InjectRepository(User) private readonly user_repository: Repository<User>) {
         this.expo = new Expo({
@@ -153,6 +153,7 @@ export class FCMService {
             case NotificationType.QUOTE:
                 return {
                     title: 'Yapper',
+                    //eslint-disable-next-line
                     body: `@${payload.quoted_by?.username || 'Someone'} quoted your post${
                         payload.quote?.content ? ` and said: ${payload.quote.content}` : ''
                     }`,

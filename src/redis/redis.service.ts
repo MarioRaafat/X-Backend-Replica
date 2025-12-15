@@ -139,4 +139,11 @@ export class RedisService {
     async zrem(key: string, ...members: string[]): Promise<number> {
         return this.redis_client.zrem(key, ...members);
     }
+
+    async deleteByPrefix(prefix: string): Promise<void> {
+        const keys = await this.redis_client.keys(`${prefix}*`);
+        if (keys.length > 0) {
+            await this.redis_client.del(...keys);
+        }
+    }
 }

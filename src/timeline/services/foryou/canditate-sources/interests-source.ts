@@ -3,18 +3,16 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { plainToInstance } from 'class-transformer';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { ScoredCandidateDTO } from 'src/timeline/dto/scored-candidates.dto';
-import { Tweet } from 'src/tweets/entities';
 import { UserPostsView } from 'src/tweets/entities/user-posts-view.entity';
 import { TweetsRepository } from 'src/tweets/tweets.repository';
-import { UserInterests } from 'src/user/entities/user-interests.entity';
-import { Brackets, QueryResult, Repository, SelectQueryBuilder } from 'typeorm';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class InterestsCandidateSource {
     constructor(
         private readonly tweet_repository: TweetsRepository,
         @InjectRepository(UserPostsView)
-        private user_posts_view_repository: Repository<UserPostsView>,
+        private readonly user_posts_view_repository: Repository<UserPostsView>,
         private readonly paginate_service: PaginationService
     ) {}
 
@@ -115,7 +113,7 @@ export class InterestsCandidateSource {
             .setParameters(cte_query.getParameters())
             .setParameter('user_id', user_id)
             .orderBy('ranked.post_date', 'DESC')
-            .addOrderBy('ranked.tweet_id', 'DESC')
+            .addOrderBy('ranked.id', 'DESC')
             .limit(limit);
 
         query = this.tweet_repository.attachUserInteractionBooleanFlags(
@@ -141,7 +139,6 @@ export class InterestsCandidateSource {
         // console.log(interset_tweets);
 
         if (interset_tweets.length === 0) {
-            console.log('no interest tweets, fetching random tweets');
             query = this.user_posts_view_repository.manager
                 .createQueryBuilder()
                 .addCommonTableExpression(cte_query.getQuery(), 'filtered_tweets')
@@ -202,7 +199,7 @@ export class InterestsCandidateSource {
                 .setParameter('user_id', user_id)
                 .orderBy('RANDOM()')
                 .addOrderBy('ranked.post_date', 'DESC')
-                .addOrderBy('ranked.tweet_id', 'DESC')
+                .addOrderBy('ranked.id', 'DESC')
                 .limit(limit);
 
             query = this.tweet_repository.attachUserInteractionBooleanFlags(

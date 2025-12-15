@@ -13,7 +13,7 @@ interface IAuthenticatedSocket extends Socket {
 
 @Injectable()
 export class WsJwtGuard implements CanActivate {
-    constructor(private jwt_service: JwtService) {}
+    constructor(private readonly jwt_service: JwtService) {}
 
     async canActivate(context: ExecutionContext): Promise<boolean> {
         try {

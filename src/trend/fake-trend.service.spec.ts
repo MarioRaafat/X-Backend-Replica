@@ -1,11 +1,15 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { FakeTrendService } from './fake-trend.service';
 import { getRepositoryToken } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { DataSource, Repository } from 'typeorm';
 import { User } from 'src/user/entities/user.entity';
 import { TweetsService } from 'src/tweets/tweets.service';
 import { TrendDataConstants } from 'src/constants/variables';
 import * as bcrypt from 'bcrypt';
+import { TrendService } from './trend.service';
+import { Hashtag } from 'src/tweets/entities/hashtags.entity';
+import { Tweet } from 'src/tweets/entities';
+import { TweetHashtag } from 'src/tweets/entities/tweet-hashtag.entity';
 
 jest.mock('bcrypt');
 
@@ -13,6 +17,10 @@ describe('FakeTrendService', () => {
     let fake_trend_service: FakeTrendService;
     let user_repo: Repository<User>;
     let tweets_service: TweetsService;
+    let trend_service: TrendService;
+    let hashtag_repo: Repository<Hashtag>;
+    let tweet_hashtag_repo: Repository<TweetHashtag>;
+    let data_source: DataSource;
 
     const mock_repo = (): Record<string, jest.Mock> => ({
         create: jest.fn(),
@@ -49,19 +57,33 @@ describe('FakeTrendService', () => {
             buildDefaultHashtagTopics: jest.fn().mockReturnValue({}),
             deleteTweetsByUserId: jest.fn().mockResolvedValue(undefined),
         };
+        const mock_trend_service = {};
+        const mock_hashtag_repo = mock_repo();
+        const mock_tweet_hashtag_repo = mock_repo();
+        const mock_data_source = {};
 
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 FakeTrendService,
                 { provide: getRepositoryToken(User), useValue: mock_user_repo },
                 { provide: TweetsService, useValue: mock_tweets_service },
+                { provide: TrendService, useValue: { mock_trend_service } },
+                { provide: getRepositoryToken(Hashtag), useValue: mock_repo() },
+                { provide: getRepositoryToken(TweetHashtag), useValue: mock_repo() },
+                { provide: DataSource, useValue: mock_data_source },
             ],
         }).compile();
 
         fake_trend_service = module.get<FakeTrendService>(FakeTrendService);
         user_repo = mock_user_repo as unknown as Repository<User>;
         tweets_service = module.get<TweetsService>(TweetsService);
+        trend_service = module.get<TrendService>(TrendService);
+        hashtag_repo = module.get<Repository<Hashtag>>(getRepositoryToken(Hashtag));
+        tweet_hashtag_repo = module.get<Repository<TweetHashtag>>(getRepositoryToken(TweetHashtag));
+        data_source = module.get<DataSource>(DataSource);
+    });
 
+    afterEach(() => {
         jest.clearAllMocks();
     });
 
@@ -69,6 +91,9 @@ describe('FakeTrendService', () => {
         expect(fake_trend_service).toBeDefined();
         expect(user_repo).toBeDefined();
         expect(tweets_service).toBeDefined();
+        expect(trend_service).toBeDefined();
+        expect(hashtag_repo).toBeDefined();
+        expect(tweet_hashtag_repo).toBeDefined();
     });
 
     describe('insertTrendBotIfNotExists', () => {

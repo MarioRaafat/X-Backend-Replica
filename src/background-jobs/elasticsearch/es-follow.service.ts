@@ -7,7 +7,9 @@ import { EsSyncFollowDto } from './dtos/es-sync-follow.dto';
 
 @Injectable()
 export class EsFollowJobService extends BackgroundJobsService<EsSyncFollowDto> {
-    constructor(@InjectQueue(QUEUE_NAMES.ELASTICSEARCH) private elasticsearch_queue: Queue) {
+    constructor(
+        @InjectQueue(QUEUE_NAMES.ELASTICSEARCH) private readonly elasticsearch_queue: Queue
+    ) {
         super(
             elasticsearch_queue,
             JOB_NAMES.ELASTICSEARCH.FOLLOW,
