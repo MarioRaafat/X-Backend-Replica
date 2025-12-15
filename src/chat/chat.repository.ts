@@ -16,10 +16,10 @@ import { EncryptionService } from 'src/shared/services/encryption/encryption.ser
 @Injectable()
 export class ChatRepository extends Repository<Chat> {
     constructor(
-        private data_source: DataSource,
-        private pagination_service: PaginationService,
-        private user_repository: UserRepository,
-        private encryption_service: EncryptionService
+        private readonly data_source: DataSource,
+        private readonly pagination_service: PaginationService,
+        private readonly user_repository: UserRepository,
+        private readonly encryption_service: EncryptionService
     ) {
         super(Chat, data_source.createEntityManager());
     }

@@ -1,13 +1,4 @@
-import {
-    Column,
-    CreateDateColumn,
-    Entity,
-    JoinColumn,
-    ManyToOne,
-    PrimaryColumn,
-    PrimaryGeneratedColumn,
-    Unique,
-} from 'typeorm';
+import { CreateDateColumn, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { Tweet } from './tweet.entity';
 import { User } from '../../user/entities/user.entity';
 import { UserFollows } from '../../user/entities/user-follows.entity';

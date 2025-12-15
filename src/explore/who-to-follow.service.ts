@@ -399,7 +399,7 @@ export class WhoToFollowService {
 
         return result.map((r) => ({
             user_id: r.user_id,
-            mutual_count: parseInt(r.mutual_count),
+            mutual_count: Number.parseInt(r.mutual_count),
         }));
     }
 
@@ -440,8 +440,8 @@ export class WhoToFollowService {
 
         return result.map((r) => ({
             user_id: r.user_id,
-            common_categories: parseInt(r.common_categories),
-            avg_interest_score: parseFloat(r.avg_interest_score),
+            common_categories: Number.parseInt(r.common_categories),
+            avg_interest_score: Number.parseFloat(r.avg_interest_score),
         }));
     }
 
@@ -477,7 +477,7 @@ export class WhoToFollowService {
 
         return result.map((r) => ({
             user_id: r.user_id,
-            like_count: parseInt(r.like_count),
+            like_count: Number.parseInt(r.like_count),
         }));
     }
 
@@ -514,7 +514,7 @@ export class WhoToFollowService {
 
         return result.map((r) => ({
             user_id: r.user_id,
-            reply_count: parseInt(r.reply_count),
+            reply_count: Number.parseInt(r.reply_count),
         }));
     }
 

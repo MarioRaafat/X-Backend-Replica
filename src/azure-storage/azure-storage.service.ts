@@ -8,7 +8,7 @@ export class AzureStorageService implements OnModuleInit {
     private blob_service_client: BlobServiceClient;
     private profile_image_container_name: string;
 
-    constructor(private configService: ConfigService) {}
+    constructor(private readonly configService: ConfigService) {}
 
     onModuleInit() {
         const connection_string = this.configService.get<string>('AZURE_STORAGE_CONNECTION_STRING');

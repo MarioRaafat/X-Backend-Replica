@@ -8,8 +8,8 @@ import { GitHubUserDto } from '../dto/github-user.dto';
 @Injectable()
 export class GitHubStrategy extends PassportStrategy(Strategy, 'github') {
     constructor(
-        private config_service: ConfigService,
-        private auth_service: AuthService
+        private readonly config_service: ConfigService,
+        private readonly auth_service: AuthService
     ) {
         super({
             clientID: config_service.get('GITHUB_CLIENT_ID') || '',

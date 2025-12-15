@@ -1,4 +1,4 @@
-import { Column, Entity, Index, JoinColumn, ManyToMany, PrimaryColumn } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToMany, ManyToOne, PrimaryColumn } from 'typeorm';
 import { User } from '../../user/entities/user.entity';
 
 @Entity('user_blocks')
@@ -13,11 +13,11 @@ export class UserBlocks {
     @Column({ type: 'timestamptz', default: () => 'CURRENT_TIMESTAMP' })
     created_at: Date;
 
-    @ManyToMany(() => User, { onDelete: 'CASCADE' })
+    @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'blocker_id' })
     blocker: User;
 
-    @ManyToMany(() => User, { onDelete: 'CASCADE' })
+    @ManyToOne(() => User, { onDelete: 'CASCADE' })
     @JoinColumn({ name: 'blocked_id' })
     blocked: User;
 

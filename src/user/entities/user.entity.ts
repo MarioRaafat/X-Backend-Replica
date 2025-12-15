@@ -1,6 +1,5 @@
 import { Exclude } from 'class-transformer';
 import { Tweet } from '../../tweets/entities/tweet.entity';
-import { Hashtag } from '../../tweets/entities/hashtags.entity';
 import {
     Column,
     DeleteDateColumn,

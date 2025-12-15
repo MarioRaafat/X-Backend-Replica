@@ -189,7 +189,6 @@ export class AppService {
         let replies_count = 0;
         for (const reply_data of TestDataConstants.TEST_REPLIES) {
             const replier = created_users[reply_data.replier_index];
-            const original_user = created_users[reply_data.original_user_index];
             const original_tweet =
                 all_tweets[reply_data.original_user_index][reply_data.original_tweet_index];
 

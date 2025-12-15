@@ -12,7 +12,7 @@ import { RepostBackGroundNotificationJobDTO } from './repost.dto';
 
 @Injectable()
 export class RepostJobService extends BackgroundJobsService<RepostBackGroundNotificationJobDTO> {
-    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private repost_queue: Queue) {
+    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private readonly repost_queue: Queue) {
         super(
             repost_queue,
             JOB_NAMES.NOTIFICATION.REPOST,

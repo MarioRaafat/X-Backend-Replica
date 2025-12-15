@@ -24,7 +24,6 @@ import {
 } from '@nestjs/swagger';
 import {
     ApiBadRequestErrorResponse,
-    ApiConflictErrorResponse,
     ApiForbiddenErrorResponse,
     ApiNotFoundErrorResponse,
     ApiUnauthorizedErrorResponse,
@@ -32,13 +31,7 @@ import {
 import { GetUserId } from '../decorators/get-userId.decorator';
 import { ResponseMessage } from '../decorators/response-message.decorator';
 import { ERROR_MESSAGES, SUCCESS_MESSAGES } from '../constants/swagger-messages';
-import {
-    GetMessagesQueryDto,
-    SendMessageDto,
-    UpdateMessageDto,
-    UploadMessageImageDto,
-    UploadVoiceNoteDto,
-} from './dto';
+import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
 import {
     delete_message_swagger,
     get_message_reactions_swagger,

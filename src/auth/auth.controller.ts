@@ -406,7 +406,8 @@ export class AuthController {
     @ApiResponse(google_oauth_swagger.responses.success)
     @ApiResponse(google_oauth_swagger.responses.InternalServerError)
     @Get('google')
-    googleLogin() {}
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    googleLogin() {} // Intentionally empty - GoogleAuthGuard handles the OAuth redirect
 
     @ApiOperation(google_mobile_swagger.operation)
     @ApiBody({ type: MobileGoogleAuthDto })
@@ -505,7 +506,8 @@ export class AuthController {
     @ApiResponse(facebook_oauth_swagger.responses.success)
     @ApiResponse(facebook_oauth_swagger.responses.InternalServerError)
     @Get('facebook')
-    facebookLogin() {}
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    facebookLogin() {} // Intentionally empty - FacebookAuthGuard handles the OAuth redirect
 
     @UseGuards(FacebookAuthGuard)
     @ApiOperation(facebook_callback_swagger.operation)
@@ -561,7 +563,8 @@ export class AuthController {
     @ApiResponse(github_oauth_swagger.responses.success)
     @ApiResponse(github_oauth_swagger.responses.InternalServerError)
     @Get('github')
-    async githubLogin() {}
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
+    async githubLogin() {} // Intentionally empty - GitHubAuthGuard handles the OAuth redirect
 
     @ApiOperation(github_mobile_swagger.operation)
     @ApiBody({ type: MobileGitHubAuthDto })

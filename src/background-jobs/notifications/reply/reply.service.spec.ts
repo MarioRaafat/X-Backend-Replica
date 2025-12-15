@@ -142,5 +142,63 @@ describe('ReplyJobService', () => {
             const result = await service.queueReplyNotification(mock_reply_dto);
             expect(result).toEqual({ success: false, error: 'Queue error' });
         });
+
+        it('should queue reply with complete conversation context', async () => {
+            const dto_with_context: ReplyBackGroundNotificationJobDTO = {
+                reply_to: 'user-123',
+                replied_by: 'user-456',
+                tweet: {
+                    tweet_id: 'reply-tweet-123',
+                    content: 'This is a reply',
+                    user: { id: 'user-456', username: 'replier' },
+                } as any,
+                reply_tweet_id: 'reply-tweet-123',
+                original_tweet_id: 'original-tweet-123',
+                conversation_id: 'conversation-123',
+            };
+
+            const result = await service.queueReplyNotification(dto_with_context);
+
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.REPLY,
+                dto_with_context,
+                expect.any(Object)
+            );
+            expect(result.success).toBe(true);
+        });
+
+        it('should handle reply to reply (nested conversations)', async () => {
+            const nested_reply_dto: ReplyBackGroundNotificationJobDTO = {
+                reply_to: 'user-789',
+                replied_by: 'user-456',
+                tweet: {} as any,
+                reply_tweet_id: 'reply-tweet-456',
+                original_tweet_id: 'original-tweet-123',
+                conversation_id: 'conversation-123',
+            };
+
+            await service.queueReplyNotification(nested_reply_dto);
+
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.REPLY,
+                nested_reply_dto,
+                expect.any(Object)
+            );
+        });
+
+        it('should handle action parameter for removing replies', async () => {
+            const remove_reply_dto = {
+                ...mock_reply_dto,
+                action: 'remove' as const,
+            };
+
+            await service.queueReplyNotification(remove_reply_dto);
+
+            expect(mock_queue.add).toHaveBeenCalledWith(
+                JOB_NAMES.NOTIFICATION.REPLY,
+                remove_reply_dto,
+                expect.any(Object)
+            );
+        });
     });
 });

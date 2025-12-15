@@ -13,9 +13,9 @@ import { plainToInstance } from 'class-transformer';
 import { User } from 'src/user/entities';
 import { SuggestionsResponseDto } from './dto/suggestions-response.dto';
 import { SuggestedUserDto } from './dto/suggested-user.dto';
-import { bool } from 'sharp';
 import { TweetResponseDTO } from 'src/tweets/dto';
 import { RedisService } from 'src/redis/redis.service';
+import { TweetType } from 'src/shared/enums/tweet-types.enum';
 
 @Injectable()
 export class SearchService {
@@ -257,7 +257,7 @@ export class SearchService {
 
     private validateAndSanitizeQuery(query: string): string | null {
         const decoded_query = decodeURIComponent(query);
-        const sanitized_query = decoded_query.replace(/[^\p{L}\p{N}\s#\s_]/gu, '');
+        const sanitized_query = decoded_query.replaceAll(/[^\p{L}\p{N}\s#\s_]/gu, '');
 
         if (!sanitized_query || sanitized_query.trim().length === 0) {
             return null;
@@ -402,6 +402,7 @@ export class SearchService {
                 },
                 images: parent_source.images ?? [],
                 videos: parent_source.videos ?? [],
+                mentions: parent_source.mentions ?? [],
             };
         }
 
@@ -426,6 +427,7 @@ export class SearchService {
                 },
                 images: conversation_source.images ?? [],
                 videos: conversation_source.videos ?? [],
+                mentions: parent_source.mentions ?? [],
             };
         }
 
@@ -451,7 +453,14 @@ export class SearchService {
             {
                 multi_match: {
                     query: sanitized_query.trim(),
-                    fields: ['content^3', 'content.arabic^3', 'username^2', 'name', 'name.arabic'],
+                    fields: [
+                        'content^3',
+                        'content.arabic^3',
+                        'username^2',
+                        'name',
+                        'name.arabic',
+                        'mentions^2',
+                    ],
                     type: 'best_fields',
                     fuzziness: 'AUTO',
                     prefix_length: 1,
@@ -500,7 +509,7 @@ export class SearchService {
     } {
         const hashtag_pattern = /#[\p{L}\p{N}_]+/gu;
         const hashtags = sanitized_query.match(hashtag_pattern) || [];
-        const remaining_text = sanitized_query.replace(hashtag_pattern, '').trim();
+        const remaining_text = sanitized_query.replaceAll(hashtag_pattern, '').trim();
 
         return { hashtags, remaining_text };
     }
@@ -785,27 +794,48 @@ export class SearchService {
             ])
         );
 
-        const filtered_tweets = tweets.filter((tweet) => interactions_map.has(tweet.tweet_id));
+        const result_tweets = tweets
+            .map((tweet) => {
+                const main_interaction = interactions_map.get(tweet.tweet_id);
 
-        return filtered_tweets.map((tweet) => {
-            const main_interaction = interactions_map.get(tweet.tweet_id);
+                if (!main_interaction) {
+                    return null;
+                }
 
-            const result: any = {
-                ...tweet,
-                is_liked: main_interaction?.is_liked ?? false,
-                is_reposted: main_interaction?.is_reposted ?? false,
-                is_bookmarked: main_interaction?.is_bookmarked ?? false,
-                user: {
-                    ...tweet.user,
-                    is_following: main_interaction?.is_following ?? false,
-                    is_follower: main_interaction?.is_follower ?? false,
-                },
-            };
+                const parent_interaction = tweet.parent_tweet
+                    ? interactions_map.get(tweet.parent_tweet.tweet_id)
+                    : undefined;
 
-            if (tweet.parent_tweet) {
-                const parent_interaction = interactions_map.get(tweet.parent_tweet.tweet_id);
+                const conversation_interaction = tweet.conversation_tweet
+                    ? interactions_map.get(tweet.conversation_tweet.tweet_id)
+                    : undefined;
 
-                if (parent_interaction) {
+                if (tweet.type === TweetType.QUOTE && !parent_interaction) {
+                    return null;
+                }
+
+                if (tweet.type === TweetType.REPLY) {
+                    if (!parent_interaction) {
+                        return null;
+                    }
+                    if (!conversation_interaction) {
+                        return null;
+                    }
+                }
+
+                const result: any = {
+                    ...tweet,
+                    is_liked: main_interaction.is_liked,
+                    is_reposted: main_interaction.is_reposted,
+                    is_bookmarked: main_interaction.is_bookmarked,
+                    user: {
+                        ...tweet.user,
+                        is_following: main_interaction.is_following,
+                        is_follower: main_interaction.is_follower,
+                    },
+                };
+
+                if (tweet.parent_tweet && parent_interaction) {
                     result.parent_tweet = {
                         ...tweet.parent_tweet,
                         is_liked: parent_interaction.is_liked,
@@ -817,17 +847,9 @@ export class SearchService {
                             is_follower: parent_interaction.is_follower,
                         },
                     };
-                } else {
-                    delete result.parent_tweet;
                 }
-            }
 
-            if (tweet.conversation_tweet) {
-                const conversation_interaction = interactions_map.get(
-                    tweet.conversation_tweet.tweet_id
-                );
-
-                if (conversation_interaction) {
+                if (tweet.conversation_tweet && conversation_interaction) {
                     result.conversation_tweet = {
                         ...tweet.conversation_tweet,
                         is_liked: conversation_interaction.is_liked,
@@ -839,13 +861,13 @@ export class SearchService {
                             is_follower: conversation_interaction.is_follower,
                         },
                     };
-                } else {
-                    delete result.conversation_tweet;
                 }
-            }
 
-            return result;
-        });
+                return result;
+            })
+            .filter((tweet) => tweet !== null);
+
+        return result_tweets;
     }
 
     private buildUserPrefixQuery(sanitized_query: string): string {
@@ -1099,7 +1121,7 @@ export class SearchService {
             let text = hit.highlight?.content?.[0] || hit._source?.content;
             if (!text) return;
 
-            text = text.replace(/<\/?MARK>/g, '');
+            text = text.replaceAll(/<\/?MARK>/g, '');
 
             const lower_text = text.toLowerCase();
             const query_index = lower_text.indexOf(query_lower);
@@ -1119,7 +1141,6 @@ export class SearchService {
                 .trim();
 
             if (completion.length < query.length + 3) return;
-            if (completion.length > 100) return;
             if (!completion.toLowerCase().startsWith(query_lower)) return;
             const middle_content = completion.substring(0, completion.length - 1);
             if (/[.!?]/.test(middle_content)) return;
@@ -1151,7 +1172,7 @@ export class SearchService {
 
             for (let i = 0; i < result.length; i += 2) {
                 const hashtag = result[i];
-                const score = parseFloat(result[i + 1]);
+                const score = Number.parseFloat(result[i + 1]);
 
                 const normalized = hashtag.toLowerCase().startsWith('#')
                     ? hashtag.toLowerCase()
