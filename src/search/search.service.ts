@@ -453,7 +453,14 @@ export class SearchService {
             {
                 multi_match: {
                     query: sanitized_query.trim(),
-                    fields: ['content^3', 'content.arabic^3', 'username^2', 'name', 'name.arabic'],
+                    fields: [
+                        'content^3',
+                        'content.arabic^3',
+                        'username^2',
+                        'name',
+                        'name.arabic',
+                        'mentions^2',
+                    ],
                     type: 'best_fields',
                     fuzziness: 'AUTO',
                     prefix_length: 1,
