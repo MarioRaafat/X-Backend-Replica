@@ -3,6 +3,9 @@ import { UserService } from './user.service';
 import { UserRepository } from './user.repository';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
+import { InitTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
+import { TimelineRedisService } from 'src/timeline/services/timeline-redis.service';
+import { TimelineCandidatesService } from 'src/timeline/services/timeline-candidates.service';
 import {
     BadRequestException,
     ConflictException,
@@ -131,6 +134,19 @@ describe('UserService', () => {
             findBy: jest.fn(),
         };
 
+        const mock_init_timeline_queue_job_service = {
+            addJob: jest.fn(),
+        };
+
+        const mock_timeline_redis_service = {
+            initializeQueue: jest.fn(),
+            getTweetIdsInQueue: jest.fn().mockResolvedValue(new Set()),
+        };
+
+        const mock_timeline_candidates_service = {
+            getCandidates: jest.fn().mockResolvedValue([]),
+        };
+
         const module: TestingModule = await Test.createTestingModule({
             providers: [
                 UserService,
@@ -145,6 +161,12 @@ describe('UserService', () => {
                 { provide: EsUpdateUserJobService, useValue: mock_es_update_user_job_service },
                 { provide: EsDeleteUserJobService, useValue: mock_es_delete_user_job_service },
                 { provide: EsFollowJobService, useValue: mock_es_follow_job_service },
+                {
+                    provide: InitTimelineQueueJobService,
+                    useValue: mock_init_timeline_queue_job_service,
+                },
+                { provide: TimelineRedisService, useValue: mock_timeline_redis_service },
+                { provide: TimelineCandidatesService, useValue: mock_timeline_candidates_service },
             ],
         }).compile();
 
@@ -1906,7 +1928,6 @@ describe('UserService', () => {
                 online: false,
                 followers: 10,
                 following: 15,
-                hashtags: [],
                 tweets: [],
             };
 
@@ -1929,7 +1950,6 @@ describe('UserService', () => {
                 online: false,
                 followers: 10,
                 following: 15,
-                hashtags: [],
                 tweets: [],
             };
 
@@ -2013,7 +2033,7 @@ describe('UserService', () => {
                 online: false,
                 followers: 10,
                 following: 15,
-                hashtags: [],
+                // hashtags: [],
                 tweets: [],
             };
 
@@ -2516,7 +2536,6 @@ describe('UserService', () => {
                 online: false,
                 followers: 10,
                 following: 15,
-                hashtags: [],
                 tweets: [],
             };
 

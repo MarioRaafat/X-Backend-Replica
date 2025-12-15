@@ -2,8 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { Repository } from 'typeorm';
-import { plainToInstance } from 'class-transformer';
-import { ScoredCandidateDTO } from 'src/timeline/dto/scored-candidates.dto';
 import { UserTimelineCursor } from 'src/user/entities/user-timeline-cursor.entity';
 import { TimelineRedisService } from '../timeline-redis.service';
 import { TweetsRepository } from 'src/tweets/tweets.repository';

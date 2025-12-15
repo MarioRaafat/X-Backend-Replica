@@ -50,7 +50,6 @@ import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-del
 import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
 import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
 import { InitTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
-import { Job } from 'bull';
 import { IInitTimelineQueueJobDTO } from 'src/background-jobs/timeline/timeline.dto';
 import { TimelineRedisService } from 'src/timeline/services/timeline-redis.service';
 import { TimelineCandidatesService } from 'src/timeline/services/timeline-candidates.service';
