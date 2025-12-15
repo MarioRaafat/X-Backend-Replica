@@ -96,32 +96,38 @@ describe('ElasticsearchModule', () => {
     });
 });
 
-describe('ElasticsearchModule - Configuration', () => {
-    it('should configure with default values when env vars not set', () => {
+describe('custom configuration values', () => {
+    it('should use custom node when ELASTICSEARCH_NODE is provided', () => {
         const mock_config_service = {
-            get: jest.fn().mockReturnValue(undefined),
+            get: jest.fn().mockReturnValue('http://custom:9200'),
         };
 
-        const config = {
-            node: mock_config_service.get('ELASTICSEARCH_NODE') || 'http://localhost:9200',
-            auth: {
-                username: mock_config_service.get('ELASTICSEARCH_USERNAME') || 'elastic',
-                password: mock_config_service.get('ELASTICSEARCH_PASSWORD') || 'dummy_password',
-            },
-            tls: {
-                rejectUnauthorized: false,
-            },
-        };
+        const node = mock_config_service.get('ELASTICSEARCH_NODE') || 'http://localhost:9200';
 
-        expect(config.node).toBe('http://localhost:9200');
-        expect(config.auth.username).toBe('elastic');
-        expect(config.auth.password).toBe('dummy_password');
-        expect(mock_config_service.get).toHaveBeenCalledWith('ELASTICSEARCH_NODE');
-        expect(mock_config_service.get).toHaveBeenCalledWith('ELASTICSEARCH_USERNAME');
-        expect(mock_config_service.get).toHaveBeenCalledWith('ELASTICSEARCH_PASSWORD');
+        expect(node).toBe('http://custom:9200');
     });
 
-    it('should use custom configuration when provided', () => {
+    it('should use custom username when ELASTICSEARCH_USERNAME is provided', () => {
+        const mock_config_service = {
+            get: jest.fn().mockReturnValue('custom-user'),
+        };
+
+        const username = mock_config_service.get('ELASTICSEARCH_USERNAME') || 'elastic';
+
+        expect(username).toBe('custom-user');
+    });
+
+    it('should use custom password when ELASTICSEARCH_PASSWORD is provided', () => {
+        const mock_config_service = {
+            get: jest.fn().mockReturnValue('custom-pass'),
+        };
+
+        const password = mock_config_service.get('ELASTICSEARCH_PASSWORD') || 'dummy_password';
+
+        expect(password).toBe('custom-pass');
+    });
+
+    it('should use all custom values when all env vars are provided', () => {
         const mock_config_service = {
             get: jest.fn((key: string) => {
                 const config = {
@@ -147,14 +153,15 @@ describe('ElasticsearchModule - Configuration', () => {
         expect(config.node).toBe('http://custom:9200');
         expect(config.auth.username).toBe('custom-user');
         expect(config.auth.password).toBe('custom-pass');
-        expect(mock_config_service.get).toHaveBeenCalledWith('ELASTICSEARCH_NODE');
-        expect(mock_config_service.get).toHaveBeenCalledWith('ELASTICSEARCH_USERNAME');
-        expect(mock_config_service.get).toHaveBeenCalledWith('ELASTICSEARCH_PASSWORD');
     });
+});
 
-    it('should set TLS rejectUnauthorized to false', () => {
+describe('mixed configuration (some custom, some default)', () => {
+    it('should use custom node but default credentials', () => {
         const mock_config_service = {
-            get: jest.fn().mockReturnValue(undefined),
+            get: jest.fn((key: string) => {
+                return key === 'ELASTICSEARCH_NODE' ? 'http://custom:9200' : undefined;
+            }),
         };
 
         const config = {
@@ -163,6 +170,39 @@ describe('ElasticsearchModule - Configuration', () => {
                 username: mock_config_service.get('ELASTICSEARCH_USERNAME') || 'elastic',
                 password: mock_config_service.get('ELASTICSEARCH_PASSWORD') || 'dummy_password',
             },
+        };
+
+        expect(config.node).toBe('http://custom:9200');
+        expect(config.auth.username).toBe('elastic');
+        expect(config.auth.password).toBe('dummy_password');
+    });
+
+    it('should use default node but custom credentials', () => {
+        const mock_config_service = {
+            get: jest.fn((key: string) => {
+                if (key === 'ELASTICSEARCH_USERNAME') return 'custom-user';
+                if (key === 'ELASTICSEARCH_PASSWORD') return 'custom-pass';
+                return undefined;
+            }),
+        };
+
+        const config = {
+            node: mock_config_service.get('ELASTICSEARCH_NODE') || 'http://localhost:9200',
+            auth: {
+                username: mock_config_service.get('ELASTICSEARCH_USERNAME') || 'elastic',
+                password: mock_config_service.get('ELASTICSEARCH_PASSWORD') || 'dummy_password',
+            },
+        };
+
+        expect(config.node).toBe('http://localhost:9200');
+        expect(config.auth.username).toBe('custom-user');
+        expect(config.auth.password).toBe('custom-pass');
+    });
+});
+
+describe('TLS configuration', () => {
+    it('should always set rejectUnauthorized to false', () => {
+        const config = {
             tls: {
                 rejectUnauthorized: false,
             },
