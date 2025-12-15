@@ -5,6 +5,9 @@ import { Repository } from 'typeorm';
 import { UserInterests } from 'src/user/entities/user-interests.entity';
 import { TweetCategory } from 'src/tweets/entities/tweet-category.entity';
 import { Tweet } from 'src/tweets/entities/tweet.entity';
+import { Category } from 'src/category/entities/category.entity';
+import { InitTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
+import { JOB_DELAYS } from 'src/background-jobs/constants/queue.constants';
 
 export interface ICandidateTweet {
     tweet_id: string;
@@ -25,40 +28,36 @@ export class TimelineCandidatesService {
         private readonly tweet_category_repository: Repository<TweetCategory>,
         @InjectRepository(Tweet)
         private readonly tweet_repository: Repository<Tweet>,
-        private readonly config_service: ConfigService
+        @InjectRepository(Category)
+        private readonly category_repository: Repository<Category>,
+        private readonly config_service: ConfigService,
+        private readonly init_timeline_queue_job_service: InitTimelineQueueJobService
     ) {
         this.tweet_freshness_days = this.config_service.get<number>(
             'TIMELINE_TWEET_FRESHNESS_DAYS',
             7
         );
 
-        this.LIMIT_FACTOR = 500; // Factor to over-fetch for filtering
+        this.LIMIT_FACTOR = 500;
     }
 
-    /**
-     * Get candidate tweets based on user's interests
-     * @param user_id User ID
-     * @param excluded_tweet_ids Tweet IDs to exclude (already seen)
-     * @param limit Maximum number of candidates to return
-     * @returns Array of candidate tweets
-     */
     async getCandidates(
         user_id: string,
         excluded_tweet_ids: Set<string>,
         limit: number
     ): Promise<ICandidateTweet[]> {
-        // console.log(
-        //     `[Candidates] Getting ${limit} candidates for user ${user_id}, excluding ${excluded_tweet_ids.size} tweets`
-        // );
         const user_interests = await this.user_interests_repository.find({
             where: { user_id },
             order: { score: 'DESC' },
         });
-        // console.log(`[Candidates] Found ${user_interests.length} interests for user ${user_id}`);
 
         if (user_interests.length === 0) {
-            console.log(`[Candidates] No interests found, using random fallback`);
-            // Fallback: Get random fresh tweets if user has no interests
+            console.log(`[Candidates] No interests found, assigning 3 random interests`);
+            // No interests means that the user makes a refresh before inserting their interests
+            // Assign 3 random interests and trigger the init timeline queue job
+            await this.assignRandomInterests(user_id);
+            await this.init_timeline_queue_job_service.queueInitTimelineQueue({ user_id });
+            // for now, return random tweets while the background job processes
             return this.getRandomFreshTweets(user_id, excluded_tweet_ids, limit);
         }
 
@@ -298,5 +297,35 @@ export class TimelineCandidatesService {
         }
 
         return candidates;
+    }
+
+    private async assignRandomInterests(user_id: string): Promise<void> {
+        try {
+            const random_categories = await this.category_repository
+                .createQueryBuilder('category')
+                .orderBy('RANDOM()')
+                .limit(3)
+                .getMany();
+
+            if (random_categories.length === 0) {
+                console.error(`[Candidates] No categories available to assign`);
+                return;
+            }
+
+            const user_interests = random_categories.map((category) =>
+                this.user_interests_repository.create({
+                    user_id,
+                    category_id: String(category.id),
+                    score: 100,
+                })
+            );
+
+            await this.user_interests_repository.save(user_interests);
+        } catch (error) {
+            console.error(
+                `[Candidates] Error assigning random interests to user ${user_id}:`,
+                error
+            );
+        }
     }
 }

@@ -30,11 +30,9 @@ export class ForyouService {
         cursor?: string, // Keep for API compatibility but not used
         limit: number = 20
     ): Promise<{
-        // data: ScoredCandidateDTO[];
         data: TweetResponseDTO[];
         pagination: { next_cursor: string | null; has_more: boolean };
     }> {
-        // Get or create cursor for this user
         let timeline_cursor = await this.timeline_cursor_repository.findOne({
             where: { user_id },
         });
@@ -66,7 +64,6 @@ export class ForyouService {
             );
 
             // Fallback: Fetch tweets directly from candidates service
-            // This handles the case where frontend calls immediately after assigning interests
             const candidates = await this.timeline_candidates_service.getCandidates(
                 user_id,
                 new Set(), // No exclusions for fresh start
@@ -88,7 +85,7 @@ export class ForyouService {
             );
             return {
                 data: fallback_tweets,
-                pagination: { next_cursor: null, has_more: false },
+                pagination: { next_cursor: 'next', has_more: true },
             };
         }
 
