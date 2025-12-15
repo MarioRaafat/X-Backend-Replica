@@ -1658,7 +1658,6 @@ export class NotificationsService implements OnModuleInit {
             switch (notification.type) {
                 case NotificationType.LIKE: {
                     const like_notification = notification as any;
-                    // Create key based on type + sorted user IDs + sorted tweet IDs
                     const user_ids =
                         like_notification.likers
                             ?.map((u: any) => u.id)
@@ -1672,7 +1671,6 @@ export class NotificationsService implements OnModuleInit {
                     key = `like:${user_ids}:${tweet_ids}`;
 
                     if (map.has(key)) {
-                        // Keep the one with the most recent created_at
                         const existing = map.get(key)!;
                         if (new Date(notification.created_at) > new Date(existing.created_at)) {
                             map.set(key, notification);
@@ -1684,7 +1682,6 @@ export class NotificationsService implements OnModuleInit {
                 }
                 case NotificationType.REPOST: {
                     const repost_notification = notification as any;
-                    // Create key based on type + sorted user IDs + sorted tweet IDs
                     const user_ids =
                         repost_notification.reposters
                             ?.map((u: any) => u.id)
@@ -1698,7 +1695,6 @@ export class NotificationsService implements OnModuleInit {
                     key = `repost:${user_ids}:${tweet_ids}`;
 
                     if (map.has(key)) {
-                        // Keep the one with the most recent created_at
                         const existing = map.get(key)!;
                         if (new Date(notification.created_at) > new Date(existing.created_at)) {
                             map.set(key, notification);
@@ -1710,7 +1706,6 @@ export class NotificationsService implements OnModuleInit {
                 }
                 case NotificationType.FOLLOW: {
                     const follow_notification = notification as any;
-                    // Create key based on type + sorted user IDs
                     const user_ids =
                         follow_notification.followers
                             ?.map((u: any) => u.id)
@@ -1719,7 +1714,6 @@ export class NotificationsService implements OnModuleInit {
                     key = `follow:${user_ids}`;
 
                     if (map.has(key)) {
-                        // Keep the one with the most recent created_at
                         const existing = map.get(key)!;
                         if (new Date(notification.created_at) > new Date(existing.created_at)) {
                             map.set(key, notification);
@@ -1730,7 +1724,6 @@ export class NotificationsService implements OnModuleInit {
                     break;
                 }
                 default:
-                    // For REPLY and QUOTE, use unique key (no deduplication)
                     key = `${notification.type}:${notification.created_at.toString()}:${Math.random()}`;
                     map.set(key, notification);
                     break;
@@ -1742,7 +1735,6 @@ export class NotificationsService implements OnModuleInit {
 
     async deleteNotificationsByTweetIds(user_id: string, tweet_ids: string[]): Promise<void> {
         try {
-            // Delete notifications where any tweet-related field matches the provided tweet IDs
             for (const tweet_id of tweet_ids) {
                 await this.notificationModel.updateOne(
                     { user: user_id },
@@ -1772,9 +1764,7 @@ export class NotificationsService implements OnModuleInit {
         missing_user_ids: string[]
     ): Promise<void> {
         try {
-            // Remove user IDs from arrays in aggregated notifications (FOLLOW, LIKE, REPOST)
             for (const missing_user_id of missing_user_ids) {
-                // Remove from follower_id arrays in FOLLOW notifications
                 await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -1784,7 +1774,6 @@ export class NotificationsService implements OnModuleInit {
                     }
                 );
 
-                // Remove from liked_by arrays in LIKE notifications
                 await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -1794,7 +1783,6 @@ export class NotificationsService implements OnModuleInit {
                     }
                 );
 
-                // Remove from reposted_by arrays in REPOST notifications
                 await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -1804,7 +1792,6 @@ export class NotificationsService implements OnModuleInit {
                     }
                 );
 
-                // Remove entire notifications where the user is the primary actor (QUOTE, REPLY, MENTION)
                 await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -1821,7 +1808,6 @@ export class NotificationsService implements OnModuleInit {
                 );
             }
 
-            // Clean up notifications with empty arrays (FOLLOW, LIKE, REPOST)
             await this.notificationModel.updateOne(
                 { user: user_id },
                 {
@@ -1844,12 +1830,10 @@ export class NotificationsService implements OnModuleInit {
 
     async removeFollowNotification(user_id: string, follower_id: string): Promise<string | null> {
         try {
-            // Calculate the date 1 day ago
             const one_day_ago = new Date();
             one_day_ago.setDate(one_day_ago.getDate() - 1);
             const now = new Date();
 
-            // Fetch first to get ID
             const user_document = await this.notificationModel.findOne({ user: user_id }).lean();
             if (!user_document || !user_document.notifications) return null;
 
@@ -1867,7 +1851,6 @@ export class NotificationsService implements OnModuleInit {
             const notification = user_document.notifications[notification_index] as any;
             const notification_id = notification._id ? notification._id.toString() : null;
 
-            // First, try to remove the follower from an aggregated notification
             const result = await this.notificationModel.updateOne(
                 { user: user_id },
                 {
@@ -1888,7 +1871,6 @@ export class NotificationsService implements OnModuleInit {
                 }
             );
 
-            // Then, remove any follow notifications with empty follower_id arrays
             const cleanup_result = await this.notificationModel.updateOne(
                 { user: user_id },
                 {
@@ -1902,7 +1884,6 @@ export class NotificationsService implements OnModuleInit {
                 }
             );
 
-            // Return true if any modification was made
             return result.modifiedCount > 0 || cleanup_result.modifiedCount > 0
                 ? notification_id
                 : null;
@@ -1918,7 +1899,6 @@ export class NotificationsService implements OnModuleInit {
         liked_by: string
     ): Promise<string | null> {
         try {
-            // Calculate the date 1 day ago
             const one_day_ago = new Date();
             one_day_ago.setDate(one_day_ago.getDate() - 1);
             const now = new Date();
@@ -1930,7 +1910,6 @@ export class NotificationsService implements OnModuleInit {
                 return null;
             }
 
-            // Find the notification that contains the like
             const notification_index = user_document.notifications.findIndex((n: any) => {
                 if (n.type !== NotificationType.LIKE) return false;
                 if (new Date(n.created_at) < one_day_ago) return false;
@@ -1954,13 +1933,11 @@ export class NotificationsService implements OnModuleInit {
                 ? notification.liked_by
                 : [notification.liked_by];
 
-            // Determine if this is aggregated by tweet or by person
             const is_single_tweet = tweet_id_array.length === 1;
             const is_single_person = liked_by_array.length === 1;
             let modified = false;
 
             if (is_single_tweet && is_single_person) {
-                // Not aggregated
                 const result = await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -1976,7 +1953,6 @@ export class NotificationsService implements OnModuleInit {
                 );
                 modified = result.modifiedCount > 0;
             } else if (is_single_tweet) {
-                // Aggregated by tweet, remove the person
                 const result = await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -1999,7 +1975,6 @@ export class NotificationsService implements OnModuleInit {
                 );
                 modified = result.modifiedCount > 0;
             } else if (is_single_person) {
-                // Aggregated by person, remove the tweet
                 const result = await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -2023,7 +1998,6 @@ export class NotificationsService implements OnModuleInit {
                 modified = result.modifiedCount > 0;
             }
 
-            // Clean up notifications with empty arrays
             const cleanup_result = await this.notificationModel.updateOne(
                 { user: user_id },
                 {
@@ -2050,19 +2024,16 @@ export class NotificationsService implements OnModuleInit {
         reposted_by: string
     ): Promise<string | null> {
         try {
-            // Calculate the date 1 day ago
             const one_day_ago = new Date();
             one_day_ago.setDate(one_day_ago.getDate() - 1);
             const now = new Date();
 
-            // First, check for aggregated notifications
             const user_document = await this.notificationModel.findOne({ user: user_id }).lean();
 
             if (!user_document || !user_document.notifications) {
                 return null;
             }
 
-            // Find the notification that contains the repost
             const notification_index = user_document.notifications.findIndex((n: any) => {
                 if (n.type !== NotificationType.REPOST) return false;
                 if (new Date(n.created_at) < one_day_ago) return false;
@@ -2088,13 +2059,11 @@ export class NotificationsService implements OnModuleInit {
                 ? notification.reposted_by
                 : [notification.reposted_by];
 
-            // Determine if this is aggregated by tweet or by person
             const is_single_tweet = tweet_id_array.length === 1;
             const is_single_person = reposted_by_array.length === 1;
             let modified = false;
 
             if (is_single_tweet && is_single_person) {
-                // Not aggregated
                 const result = await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -2110,7 +2079,6 @@ export class NotificationsService implements OnModuleInit {
                 );
                 modified = result.modifiedCount > 0;
             } else if (is_single_tweet) {
-                // Aggregated by tweet, remove the person
                 const result = await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -2133,7 +2101,6 @@ export class NotificationsService implements OnModuleInit {
                 );
                 modified = result.modifiedCount > 0;
             } else if (is_single_person) {
-                // Aggregated by person, remove the tweet
                 const result = await this.notificationModel.updateOne(
                     { user: user_id },
                     {
@@ -2157,7 +2124,6 @@ export class NotificationsService implements OnModuleInit {
                 modified = result.modifiedCount > 0;
             }
 
-            // Clean up notifications with empty arrays
             const cleanup_result = await this.notificationModel.updateOne(
                 { user: user_id },
                 {
@@ -2184,11 +2150,9 @@ export class NotificationsService implements OnModuleInit {
         replied_by: string
     ): Promise<string | null> {
         try {
-            // Calculate the date 1 day ago
             const one_day_ago = new Date();
             one_day_ago.setDate(one_day_ago.getDate() - 1);
 
-            // Fetch first
             const user_document = await this.notificationModel.findOne({ user: user_id }).lean();
             if (!user_document || !user_document.notifications) return null;
 
@@ -2232,11 +2196,9 @@ export class NotificationsService implements OnModuleInit {
         quoted_by: string
     ): Promise<string | null> {
         try {
-            // Calculate the date 1 day ago
             const one_day_ago = new Date();
             one_day_ago.setDate(one_day_ago.getDate() - 1);
 
-            // Fetch first
             const user_document = await this.notificationModel.findOne({ user: user_id }).lean();
             if (!user_document || !user_document.notifications) return null;
 
@@ -2283,7 +2245,6 @@ export class NotificationsService implements OnModuleInit {
             const one_day_ago = new Date();
             one_day_ago.setDate(one_day_ago.getDate() - 1);
 
-            // Fetch first
             const user_document = await this.notificationModel.findOne({ user: user_id }).lean();
             if (!user_document || !user_document.notifications) return null;
 
