@@ -508,5 +508,203 @@ describe('FCMService', () => {
                 ])
             );
         });
+
+        it('should handle LIKE notification with multiple likers', async () => {
+            const payload = {
+                likers: [{ name: 'User1' }, { name: 'User2' }, { name: 'User3' }],
+                tweets: [{ content: 'Tweet content', id: 'tweet-123' }],
+                tweet_id: 'tweet-123',
+            };
+
+            await service.sendNotificationToUserDevice('user-123', NotificationType.LIKE, payload);
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        title: 'Liked by User1 and 2 others',
+                    }),
+                ])
+            );
+        });
+
+        it('should handle REPOST notification with multiple reposters', async () => {
+            const payload = {
+                reposters: [{ name: 'User1' }, { name: 'User2' }],
+                tweets: [{ content: 'Tweet content', id: 'tweet-123' }],
+            };
+
+            await service.sendNotificationToUserDevice(
+                'user-123',
+                NotificationType.REPOST,
+                payload
+            );
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        title: 'Reposted by User1 and 1 other:',
+                    }),
+                ])
+            );
+        });
+
+        it('should handle FOLLOW notification with follower object', async () => {
+            const payload = {
+                follower: {
+                    username: 'newuser',
+                    name: 'New User',
+                    id: 'user-new',
+                },
+            };
+
+            await service.sendNotificationToUserDevice(
+                'user-123',
+                NotificationType.FOLLOW,
+                payload
+            );
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        body: '@newuser followed you!',
+                        data: expect.objectContaining({
+                            type: 'user',
+                            user_id: 'user-new',
+                        }),
+                    }),
+                ])
+            );
+        });
+
+        it('should handle QUOTE notification with quoter object', async () => {
+            const payload = {
+                quoter: {
+                    username: 'quoter',
+                    name: 'Quoter Name',
+                },
+                quote_tweet: { content: 'Quote text', id: 'tweet-quote' },
+            };
+
+            await service.sendNotificationToUserDevice('user-123', NotificationType.QUOTE, payload);
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        body: '@quoter quoted your post and said: Quote text',
+                    }),
+                ])
+            );
+        });
+
+        it('should handle MENTION notification with mentioner object', async () => {
+            const payload = {
+                mentioner: {
+                    name: 'Mentioner',
+                },
+                tweet: { content: 'Mention tweet', id: 'tweet-mention' },
+            };
+
+            await service.sendNotificationToUserDevice(
+                'user-123',
+                NotificationType.MENTION,
+                payload
+            );
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        title: 'Mentioned by Mentioner:',
+                        body: 'Mention tweet',
+                    }),
+                ])
+            );
+        });
+
+        it('should handle REPLY notification with replier object', async () => {
+            const payload = {
+                replier: {
+                    name: 'Replier Name',
+                },
+                reply_tweet: { content: 'Reply text', id: 'tweet-reply' },
+            };
+
+            await service.sendNotificationToUserDevice('user-123', NotificationType.REPLY, payload);
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        title: 'Replier Name replied:',
+                        body: 'Reply text',
+                    }),
+                ])
+            );
+        });
+
+        it('should handle MESSAGE notification with sender object', async () => {
+            const payload = {
+                sender: {
+                    name: 'Sender Name',
+                    id: 'sender-id',
+                },
+                content: 'Message content',
+                chat_id: 'chat-123',
+            };
+
+            await service.sendNotificationToUserDevice(
+                'user-123',
+                NotificationType.MESSAGE,
+                payload
+            );
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        title: 'Sender Name',
+                        body: 'Message content',
+                        data: expect.objectContaining({
+                            type: 'chat',
+                            chat_id: 'chat-123',
+                        }),
+                    }),
+                ])
+            );
+        });
+
+        it('should truncate long tweet content in notification body', async () => {
+            const long_content = 'A'.repeat(200);
+            const payload = {
+                likers: [{ name: 'User' }],
+                tweets: [{ content: long_content, id: 'tweet-123' }],
+                tweet_id: 'tweet-123',
+            };
+
+            await service.sendNotificationToUserDevice('user-123', NotificationType.LIKE, payload);
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        body: expect.stringMatching(/^A{100}\.\.\./),
+                    }),
+                ])
+            );
+        });
+
+        it('should handle empty arrays in aggregated notifications', async () => {
+            const payload = {
+                likers: [],
+                tweets: [],
+            };
+
+            await service.sendNotificationToUserDevice('user-123', NotificationType.LIKE, payload);
+
+            expect(mock_expo_instance.sendPushNotificationsAsync).toHaveBeenCalledWith(
+                expect.arrayContaining([
+                    expect.objectContaining({
+                        title: 'Liked by Someone',
+                        body: 'your post',
+                    }),
+                ])
+            );
+        });
     });
 });

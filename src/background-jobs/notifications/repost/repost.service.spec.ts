@@ -176,5 +176,82 @@ describe('RepostJobService', () => {
 
             expect(result).toEqual({ success: true, job_id: 'job-missing' });
         });
+
+        it('should handle repost with complete tweet data', async () => {
+            const dto: RepostBackGroundNotificationJobDTO = {
+                repost_to: 'author-full',
+                reposted_by: 'reposter-full',
+                tweet_id: 'tweet-full',
+                tweet: {
+                    tweet_id: 'tweet-full',
+                    content: 'Complete tweet with all data',
+                    user: { id: 'author-full', username: 'author' },
+                    created_at: new Date(),
+                    likes_count: 10,
+                    reposts_count: 5,
+                } as any,
+                action: 'add',
+            };
+
+            const mock_job = { id: 'job-full' };
+            queue.add.mockResolvedValue(mock_job as any);
+
+            const result = await service.queueRepostNotification(dto);
+
+            expect(result).toEqual({ success: true, job_id: 'job-full' });
+        });
+
+        it('should apply default job configuration', async () => {
+            const dto: RepostBackGroundNotificationJobDTO = {
+                repost_to: 'author-defaults',
+                reposted_by: 'reposter-defaults',
+                tweet_id: 'tweet-defaults',
+                action: 'add',
+            };
+
+            const mock_job = { id: 'job-defaults' };
+            queue.add.mockResolvedValue(mock_job as any);
+
+            const result = await service.queueRepostNotification(dto);
+
+            expect(queue.add).toHaveBeenCalledWith(
+                expect.any(String),
+                dto,
+                expect.objectContaining({
+                    attempts: 3,
+                    backoff: expect.any(Object),
+                    removeOnComplete: 10,
+                    removeOnFail: 5,
+                })
+            );
+            expect(result.success).toBe(true);
+        });
+
+        it('should handle rapid repost/unrepost cycles', async () => {
+            const add_dto: RepostBackGroundNotificationJobDTO = {
+                repost_to: 'author-cycle',
+                reposted_by: 'reposter-cycle',
+                tweet_id: 'tweet-cycle',
+                action: 'add',
+            };
+
+            const remove_dto: RepostBackGroundNotificationJobDTO = {
+                repost_to: 'author-cycle',
+                reposted_by: 'reposter-cycle',
+                tweet_id: 'tweet-cycle',
+                action: 'remove',
+            };
+
+            queue.add
+                .mockResolvedValueOnce({ id: 'job-add' } as any)
+                .mockResolvedValueOnce({ id: 'job-remove' } as any);
+
+            const add_result = await service.queueRepostNotification(add_dto);
+            const remove_result = await service.queueRepostNotification(remove_dto);
+
+            expect(add_result).toEqual({ success: true, job_id: 'job-add' });
+            expect(remove_result).toEqual({ success: true, job_id: 'job-remove' });
+            expect(queue.add).toHaveBeenCalledTimes(2);
+        });
     });
 });

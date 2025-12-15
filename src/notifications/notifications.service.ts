@@ -61,14 +61,11 @@ export class NotificationsService implements OnModuleInit {
         if (!notification_data.created_at) notification_data.created_at = new Date();
         if (!notification_data._id) notification_data._id = new Types.ObjectId();
 
-        // Normalize notification data to ensure arrays
         this.normalizeNotificationData(notification_data);
 
-        // Check if we can aggregate this notification
         const aggregation_result = await this.tryAggregateNotification(user_id, notification_data);
 
         if (!aggregation_result.aggregated) {
-            // If not aggregated, add as new notification and increment newest_count
             await this.notificationModel.updateOne(
                 { user: user_id },
                 {
@@ -244,15 +241,12 @@ export class NotificationsService implements OnModuleInit {
                     }
                 }
             } else if (notification_data.type === NotificationType.FOLLOW) {
-                console.log('payload.follower_avatar_url', payload);
-                // Wrap follower data in a follower object
                 enriched_payload.follower = {
                     id: payload.follower_id,
                     username: payload.follower_username,
                     name: payload.follower_name,
                     avatar_url: payload.follower_avatar_url,
                 };
-                // Remove flat follower fields from enriched_payload
                 delete enriched_payload.follower_id;
                 delete enriched_payload.follower_username;
                 delete enriched_payload.follower_name;
@@ -280,13 +274,11 @@ export class NotificationsService implements OnModuleInit {
                 );
             }
         } else {
-            // Increment newest_count for aggregated notification
             await this.notificationModel.updateOne(
                 { user: user_id },
                 { $inc: { newest_count: 1 } }
             );
 
-            // Fetch and populate the aggregated notification with full data
             const aggregated_notification_with_data = await this.fetchNotificationWithData(
                 user_id,
                 aggregation_result.updated_notification
@@ -302,7 +294,6 @@ export class NotificationsService implements OnModuleInit {
                     old_notification: aggregation_result.old_notification,
                 });
             } else {
-                console.log('Send Expo Push Notification');
                 await this.fcmService.sendNotificationToUserDevice(
                     user_id,
                     notification_data.type,
@@ -926,7 +917,6 @@ export class NotificationsService implements OnModuleInit {
         const tweet_ids = new Set<string>();
         const tweet_ids_needing_interactions = new Set<string>();
 
-        // sort the returned notifications by created_at descending
         user_notifications.notifications.sort(
             (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
         );
@@ -954,7 +944,6 @@ export class NotificationsService implements OnModuleInit {
                         }
                     }
                     if (like_notification.tweet_id) {
-                        // Collect ALL tweet IDs for aggregated notifications
                         if (Array.isArray(like_notification.tweet_id)) {
                             like_notification.tweet_id.forEach((id) => tweet_ids.add(id));
                         } else {
@@ -1004,7 +993,6 @@ export class NotificationsService implements OnModuleInit {
                         }
                     }
                     if (repost_notification.tweet_id) {
-                        // Collect ALL tweet IDs for aggregated notifications
                         if (Array.isArray(repost_notification.tweet_id)) {
                             repost_notification.tweet_id.forEach((id) => tweet_ids.add(id));
                         } else {
@@ -1054,7 +1042,6 @@ export class NotificationsService implements OnModuleInit {
             (id) => !user_ids_needing_relationships.has(id)
         );
 
-        // Fetch all data in parallel
         const [
             users_with_rel,
             users_without_rel,
@@ -1373,7 +1360,6 @@ export class NotificationsService implements OnModuleInit {
             })
             .filter((notification) => notification !== null);
 
-        // Deduplicate notifications: merge those with same type, same people, and same tweet
         const deduplicated_notifications = this.deduplicateNotifications(response_notifications);
 
         // Clean notifications with missing tweets
@@ -1434,7 +1420,6 @@ export class NotificationsService implements OnModuleInit {
     }> {
         const page_size = 10;
 
-        // Get all notifications from MongoDB
         const user_notifications = await this.notificationModel
             .findOne({ user: user_id })
             .lean()
@@ -1456,7 +1441,6 @@ export class NotificationsService implements OnModuleInit {
             };
         }
 
-        // Filter to only include mentions and replies from raw MongoDB data
         const filtered_notifications = user_notifications.notifications.filter(
             (notification: any) =>
                 notification.type === NotificationType.MENTION ||
@@ -1475,7 +1459,6 @@ export class NotificationsService implements OnModuleInit {
             };
         }
 
-        // Collect user IDs and tweet IDs from filtered notifications
         const user_ids = new Set<string>();
         const user_ids_needing_relationships = new Set<string>();
         const tweet_ids = new Set<string>();
@@ -1527,7 +1510,6 @@ export class NotificationsService implements OnModuleInit {
             (id) => !user_ids_needing_relationships.has(id)
         );
 
-        // Fetch all required data in parallel
         const [
             users_with_rel,
             users_without_rel,
