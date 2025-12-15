@@ -49,6 +49,8 @@ import { EsUpdateUserJobService } from 'src/background-jobs/elasticsearch/es-upd
 import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
 import { UserRelationsResponseDto } from './dto/user-relations-response.dto';
+import { RedisService } from 'src/redis/redis.service';
+import { REFRESH_TOKEN_KEY, USER_REFRESH_TOKENS_KEY } from 'src/constants/redis';
 
 @Injectable()
 export class UserService {
@@ -64,7 +66,8 @@ export class UserService {
         private readonly follow_job_service: FollowJobService,
         private readonly es_update_user_job_service: EsUpdateUserJobService,
         private readonly es_delete_user_job_service: EsDeleteUserJobService,
-        private readonly es_follow_job_service: EsFollowJobService
+        private readonly es_follow_job_service: EsFollowJobService,
+        private readonly redis_service: RedisService
     ) {}
 
     async getUsersByIds(
@@ -645,6 +648,34 @@ export class UserService {
 
         await this.user_repository.softDelete(current_user_id);
 
+        const user_tokens_key = USER_REFRESH_TOKENS_KEY(current_user_id);
+        const refresh_token_jtis = await this.redis_service.smembers(user_tokens_key);
+
+        if (refresh_token_jtis && refresh_token_jtis.length > 0) {
+            const delete_promises = refresh_token_jtis.map((jti) => {
+                const token_key = REFRESH_TOKEN_KEY(jti);
+                return this.redis_service.del(token_key);
+            });
+
+            await Promise.all(delete_promises);
+            console.log('deleted tokens successfully');
+        }
+
+        await this.redis_service.del(user_tokens_key);
+
+        try {
+            const ttl_string = process.env.JWT_TOKEN_EXPIRATION_TIME || '12h';
+            const ttl_seconds = this.parseDurationToSeconds(ttl_string);
+
+            await this.redis_service.set(
+                `deleted_user:${current_user_id}`,
+                current_user_id,
+                ttl_seconds
+            );
+        } catch (error) {
+            console.warn('Failed to store deleted user ID in Redis:', error.message);
+        }
+
         if (user.avatar_url) {
             const file_name = this.azure_storage_service.extractFileName(user.avatar_url);
 
@@ -833,5 +864,28 @@ export class UserService {
         ]);
 
         return { blocked_count, muted_count };
+    }
+
+    private parseDurationToSeconds(duration: string): number {
+        const match = duration.match(/^(\d+)([smhd])$/);
+        if (!match) {
+            return 12 * 60 * 60;
+        }
+
+        const value = parseInt(match[1]);
+        const unit = match[2];
+
+        switch (unit) {
+            case 's':
+                return value;
+            case 'm':
+                return value * 60;
+            case 'h':
+                return value * 60 * 60;
+            case 'd':
+                return value * 24 * 60 * 60;
+            default:
+                return 12 * 60 * 60;
+        }
     }
 }
