@@ -39,7 +39,7 @@ export class WhoToFollowService {
             const needed = limit - recommendations.length;
             const existing_ids = new Set(recommendations.map((r) => r.id));
 
-            const additional_users = await this.getPopularUsers(needed * 2); // Get extra to filter
+            const additional_users = await this.getPopularUsers(needed * 2, current_user_id); // Get extra to filter
             const filtered_additional = additional_users
                 .filter((user) => !existing_ids.has(user.id))
                 .slice(0, needed);
@@ -50,8 +50,8 @@ export class WhoToFollowService {
         return recommendations;
     }
 
-    private async getPopularUsers(limit: number) {
-        const users = await this.user_repository
+    private async getPopularUsers(limit: number, current_user_id?: string) {
+        let query = this.user_repository
             .createQueryBuilder('user')
             .select([
                 'user.id',
@@ -63,7 +63,19 @@ export class WhoToFollowService {
                 'user.followers',
                 'user.following',
             ])
-            .where('user.deleted_at IS NULL')
+            .where('user.deleted_at IS NULL');
+
+        // If current_user_id is provided, exclude the current user and their followed users
+        if (current_user_id) {
+            query = query.andWhere('user.id != :current_user_id', { current_user_id }).andWhere(
+                `user.id NOT IN (
+                        SELECT followed_id FROM user_follows WHERE follower_id = :current_user_id
+                    )`,
+                { current_user_id }
+            );
+        }
+
+        const users = await query
             .orderBy('user.followers', 'DESC')
             .addOrderBy('user.verified', 'DESC')
             .limit(limit)
