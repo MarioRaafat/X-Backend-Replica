@@ -112,6 +112,10 @@ export class TweetsRepository extends Repository<Tweet> {
                     { user_id }
                 )
                 .andWhere(
+                    'tweet.tweet_author_id NOT IN (SELECT blocked_id FROM user_blocks WHERE blocker_id = :user_id)',
+                    { user_id }
+                )
+                .andWhere(
                     new Brackets((qb) =>
                         qb
                             .where('tweet.conversation_user_id IS NULL')
