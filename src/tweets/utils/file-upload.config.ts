@@ -1,11 +1,12 @@
 import { BadRequestException } from '@nestjs/common';
 import { ERROR_MESSAGES } from '../../constants/swagger-messages';
+import { ALLOWED_IMAGE_MIME_TYPES } from 'src/constants/variables';
 
 // Image configuration
 export const image_file_filter = (req: any, file: any, callback: any) => {
-    const allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
+    // const allowed_mime_types = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
-    if (!allowed_mime_types.includes(file.mimetype)) {
+    if (!ALLOWED_IMAGE_MIME_TYPES.includes(file.mimetype)) {
         return callback(new BadRequestException(ERROR_MESSAGES.INVALID_FILE_TYPE), false);
     }
     callback(null, true);
