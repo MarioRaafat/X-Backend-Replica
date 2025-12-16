@@ -182,7 +182,7 @@ export class TrendService {
         await pipeline.exec();
     }
 
-    @Cron(CronExpression.EVERY_HOUR, {
+    @Cron(CronExpression.EVERY_10_HOURS, {
         name: 'trend-calculation-job',
         timeZone: 'UTC',
     })
