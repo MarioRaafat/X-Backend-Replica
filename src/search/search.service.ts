@@ -16,6 +16,7 @@ import { SuggestedUserDto } from './dto/suggested-user.dto';
 import { TweetResponseDTO } from 'src/tweets/dto';
 import { RedisService } from 'src/redis/redis.service';
 import { TweetType } from 'src/shared/enums/tweet-types.enum';
+import { STRING_MAX_LENGTH } from 'src/constants/variables';
 
 @Injectable()
 export class SearchService {
@@ -1140,7 +1141,8 @@ export class SearchService {
                 .replace(/[,;:]+$/, '')
                 .trim();
 
-            if (completion.length < query.length + 3) return;
+            if (completion.length < query.length + 3 || completion.length > STRING_MAX_LENGTH)
+                return;
             if (!completion.toLowerCase().startsWith(query_lower)) return;
             const middle_content = completion.substring(0, completion.length - 1);
             if (/[.!?]/.test(middle_content)) return;
