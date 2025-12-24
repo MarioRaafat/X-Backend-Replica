@@ -1,6 +1,5 @@
-import { PartialType } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { CreateTweetDTO } from './create-tweet.dto';
-import { ApiProperty } from '@nestjs/swagger';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import { STRING_MAX_LENGTH } from 'src/constants/variables';
 

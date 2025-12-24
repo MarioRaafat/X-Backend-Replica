@@ -38,25 +38,44 @@ export class ExploreJobsProcessor {
         };
 
         try {
-            //count total tweets to process
+            // STEP 1: Recalculate existing Redis top-N tweets
+            this.logger.log(`[Job ${job.id}] Step 1: Recalculating existing top tweets in Redis`);
             await job.progress(5);
+
+            const step1_result = await this.exploreJobsService.recalculateExistingTopTweets();
+
+            this.logger.log(
+                `[Job ${job.id}] Step 1 Complete - Categories: ${step1_result.categories_processed}, ` +
+                    `Tweets Recalculated: ${step1_result.tweets_recalculated}`
+            );
+
+            await job.progress(15);
+
+            // STEP 2: Process recent engagement tweets
+            this.logger.log(`[Job ${job.id}] Step 2: Processing recent engagement tweets`);
+
             const total_tweets = await this.exploreJobsService.countTweetsForRecalculation(
                 since_hours,
                 max_age_hours,
                 force_all
             );
 
-            this.logger.log(`[Job ${job.id}] Found ${total_tweets} tweets to process`);
+            this.logger.log(`[Job ${job.id}] Found ${total_tweets} recent tweets to process`);
 
             if (total_tweets === 0) {
                 result.duration_ms = Date.now() - start_time;
+                result.tweets_updated = step1_result.tweets_recalculated;
                 await job.progress(100);
+                this.logger.log(
+                    `[Job ${job.id}] Completed - Only Step 1 executed (no recent engagement tweets)`
+                );
                 return result;
             }
 
             //  process in batches
             let processed_count = 0;
             let page = 0;
+            const all_categories_updated = new Set<string>();
 
             while (processed_count < total_tweets) {
                 const skip = page * batch_size;
@@ -75,34 +94,28 @@ export class ExploreJobsProcessor {
                 }
 
                 try {
-                    // calculate scores for batch
-                    const tweet_scores = batch.map((tweet) => ({
+                    // Calculate scores and prepare for Redis update
+                    const tweets_with_categories = batch.map((tweet) => ({
                         tweet_id: tweet.tweet_id,
                         score: this.exploreJobsService.calculateScore(tweet),
-                    }));
-
-                    // update Redis with new scores
-                    const tweets_with_categories = batch.map((tweet, index) => ({
-                        tweet_id: tweet.tweet_id,
-                        score: tweet_scores[index].score,
                         categories: tweet.categories || [],
                     }));
 
-                    const categories_updated =
-                        await this.exploreJobsService.updateRedisCategoryScores(
-                            tweets_with_categories
-                        );
-                    result.categories_updated = Math.max(
-                        result.categories_updated,
-                        categories_updated
-                    );
+                    // Track unique categories from this batch
+                    for (const tweet of tweets_with_categories) {
+                        for (const cat of tweet.categories) {
+                            all_categories_updated.add(cat.category_id);
+                        }
+                    }
+
+                    await this.exploreJobsService.updateRedisCategoryScores(tweets_with_categories);
 
                     processed_count += batch.length;
                     result.tweets_processed += batch.length;
                     result.tweets_updated += batch.length;
 
-                    // update job progress (debugging purpose)
-                    const progress = Math.floor(10 + (processed_count / total_tweets) * 85);
+                    // update job progress (Step 1: 0-15%, Step 2: 15-100%)
+                    const progress = Math.floor(15 + (processed_count / total_tweets) * 85);
                     await job.progress(progress);
 
                     this.logger.debug(
@@ -117,13 +130,22 @@ export class ExploreJobsProcessor {
                 page++;
             }
 
+            // Add Step 1 tweets to total updated count
+            result.tweets_updated += step1_result.tweets_recalculated;
+
+            // Set final unique categories count
+            result.categories_updated = all_categories_updated.size;
+
             result.duration_ms = Date.now() - start_time;
 
             await job.progress(100);
 
             this.logger.log(
-                `[Job ${job.id}] Completed - Processed: ${result.tweets_processed}, ` +
-                    `Categories Updated (Max): ${result.categories_updated}, ` +
+                `[Job ${job.id}] Completed - ` +
+                    `Step 1: ${step1_result.tweets_recalculated} tweets, ` +
+                    `Step 2: ${result.tweets_processed} tweets, ` +
+                    `Total Updated: ${result.tweets_updated}, ` +
+                    `Categories: ${result.categories_updated}, ` +
                     `Duration: ${result.duration_ms}ms`
             );
 

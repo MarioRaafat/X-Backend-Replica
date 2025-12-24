@@ -1,4 +1,3 @@
-/* eslint-disable */
 import {
     BadRequestException,
     ForbiddenException,
@@ -6,14 +5,7 @@ import {
     NotFoundException,
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import {
-    DataSource,
-    In,
-    QueryRunner,
-    Repository,
-    SelectQueryBuilder,
-    ObjectLiteral,
-} from 'typeorm';
+import { DataSource, In, QueryRunner, Repository } from 'typeorm';
 import { UploadMediaResponseDTO } from './dto/upload-media.dto';
 import {
     CreateTweetDTO,
@@ -21,8 +13,6 @@ import {
     PaginatedTweetRepostsResponseDTO,
     UpdateTweetDTO,
 } from './dto';
-import { promises as fs } from 'fs';
-import * as path from 'path';
 import { TweetResponseDTO } from './dto/tweet-response.dto';
 import { PostgresErrorCodes } from '../shared/enums/postgres-error-codes';
 import { Tweet } from './entities/tweet.entity';
@@ -31,23 +21,20 @@ import { TweetRepost } from './entities/tweet-repost.entity';
 import { TweetQuote } from './entities/tweet-quote.entity';
 import { TweetReply } from './entities/tweet-reply.entity';
 import { TweetBookmark } from './entities/tweet-bookmark.entity';
+import { TweetHashtag } from './entities/tweet-hashtag.entity';
 import { Hashtag } from './entities/hashtags.entity';
 import { UserFollows } from '../user/entities/user-follows.entity';
 import { User } from '../user/entities/user.entity';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { BlobServiceClient } from '@azure/storage-blob';
 import { TweetsRepository } from './tweets.repository';
-import { TimelinePaginationDto } from 'src/timeline/dto/timeline-pagination.dto';
 import { GetTweetRepliesQueryDto } from './dto';
 import { plainToInstance } from 'class-transformer';
 import { TweetQuoteResponseDTO } from './dto/tweet-quote-reponse';
-import { AzureStorageService } from 'src/azure-storage/azure-storage.service';
 import { TweetReplyResponseDTO } from './dto/tweet-reply-response';
 import { TweetType } from 'src/shared/enums/tweet-types.enum';
-import { UserPostsView } from './entities/user-posts-view.entity';
-import e from 'express';
 import { tweet_fields_slect } from './queries/tweet-fields-select.query';
-import { categorize_prompt, summarize_prompt, TOPICS } from './constants';
+import { categorize_prompt, TOPICS } from './constants';
 import { CompressVideoJobService } from 'src/background-jobs/videos/compress-video.service';
 import { ReplyJobService } from 'src/background-jobs/notifications/reply/reply.service';
 import { LikeJobService } from 'src/background-jobs/notifications/like/like.service';
@@ -66,9 +53,9 @@ import { TweetSummary } from './entities/tweet-summary.entity';
 import { TweetSummaryResponseDTO } from './dto/tweet-summary-response.dto';
 
 ffmpeg.setFfmpegPath(ffmpegInstaller.path);
-import { TrendService } from 'src/trend/trend.service';
 import { HashtagJobService } from 'src/background-jobs/hashtag/hashtag.service';
 
+import { extractHashtags } from 'twitter-text';
 @Injectable()
 export class TweetsService {
     constructor(
@@ -84,16 +71,13 @@ export class TweetsService {
         private readonly tweet_reply_repository: Repository<TweetReply>,
         @InjectRepository(TweetBookmark)
         private readonly tweet_bookmark_repository: Repository<TweetBookmark>,
-        @InjectRepository(UserFollows)
-        private readonly user_follows_repository: Repository<UserFollows>,
-        @InjectRepository(UserPostsView)
-        private readonly user_posts_view_repository: Repository<UserPostsView>,
+        @InjectRepository(User)
+        private readonly user_repository: Repository<User>,
         @InjectRepository(TweetSummary)
         private readonly tweet_summary_repository: Repository<TweetSummary>,
-        private data_source: DataSource,
+        private readonly data_source: DataSource,
         private readonly paginate_service: PaginationService,
         private readonly tweets_repository: TweetsRepository,
-        private readonly azure_storage_service: AzureStorageService,
         private readonly reply_job_service: ReplyJobService,
         private readonly like_job_service: LikeJobService,
         private readonly hashtag_job_service: HashtagJobService,
@@ -112,6 +96,20 @@ export class TweetsService {
     private readonly groq = new Groq({
         apiKey: process.env.GROQ_API_KEY ?? '',
     });
+
+    private async incrementTweetViewsAsync(tweet_ids: string[]): Promise<void> {
+        if (!tweet_ids.length) return;
+
+        try {
+            // Call PostgreSQL function to increment views in batch
+            await this.data_source.query('SELECT increment_tweet_views_batch($1::uuid[])', [
+                tweet_ids,
+            ]);
+        } catch (error) {
+            // Log error but don't fail the request
+            console.error('Failed to increment tweet views:', error);
+        }
+    }
 
     /**
      * Handles image upload processing
@@ -193,13 +191,13 @@ export class TweetsService {
      */
     private convertToCompressedMp4(video_buffer: Buffer): Promise<Buffer> {
         return new Promise((resolve, reject) => {
-            const inputStream = new Readable();
-            inputStream.push(video_buffer);
-            inputStream.push(null);
+            const input_stream = new Readable();
+            input_stream.push(video_buffer);
+            input_stream.push(null);
 
-            const outputChunks: Buffer[] = [];
+            const output_chunks: Buffer[] = [];
 
-            ffmpeg(inputStream)
+            ffmpeg(input_stream)
                 .outputOptions([
                     '-vcodec libx264',
                     '-crf 28',
@@ -214,11 +212,11 @@ export class TweetsService {
                 })
                 .on('end', () => {
                     console.log('FFmpeg conversion completed');
-                    resolve(Buffer.concat(outputChunks));
+                    resolve(Buffer.concat(output_chunks));
                 })
                 .pipe()
                 .on('data', (chunk: Buffer) => {
-                    outputChunks.push(chunk);
+                    output_chunks.push(chunk);
                 })
                 .on('error', (error) => {
                     console.error('Stream error:', error);
@@ -299,24 +297,35 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const mentions = await this.extractDataFromTweets(tweet, user_id, query_runner);
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
+                tweet,
+                user_id,
+                query_runner
+            );
+
             // watch the error which could exist if user id not found here
             const new_tweet = query_runner.manager.create(Tweet, {
                 user_id,
                 type: TweetType.TWEET,
+                mentions: mentioned_usernames,
                 ...tweet,
             });
             const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
+
+            // Extract normalized hashtags to insert into tweet_hashtags table
+            const { content } = tweet;
+            await this.insertTweetHashtags(content, saved_tweet.tweet_id, user_id, query_runner);
+
             await query_runner.commitTransaction();
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: saved_tweet.tweet_id,
             });
 
+            console.log(mentioned_user_ids);
+
             // Send mention notifications after tweet is saved
-            if (mentions.length > 0) {
-                await this.mentionNotification(mentions, user_id, saved_tweet);
-            }
+            await this.mentionNotification(mentioned_user_ids, user_id, saved_tweet, 'add');
 
             return plainToInstance(TweetResponseDTO, saved_tweet, {
                 excludeExtraneousValues: true,
@@ -344,18 +353,27 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const mentions = await this.extractDataFromTweets(tweet, user_id, query_runner);
-
             const tweet_to_update = await query_runner.manager.findOne(Tweet, {
                 where: { tweet_id },
             });
 
             if (!tweet_to_update) throw new NotFoundException('Tweet not found');
 
-            query_runner.manager.merge(Tweet, tweet_to_update, { ...tweet });
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
+                tweet,
+                user_id,
+                query_runner
+            );
+
+            query_runner.manager.merge(Tweet, tweet_to_update, {
+                ...tweet,
+                mentions: mentioned_usernames,
+            });
 
             if (tweet_to_update.user_id !== user_id)
                 throw new BadRequestException('User is not allowed to update this tweet');
+
+            await query_runner.manager.delete(TweetSummary, { tweet_id });
 
             const updated_tweet = await query_runner.manager.save(Tweet, tweet_to_update);
             await query_runner.commitTransaction();
@@ -365,11 +383,8 @@ export class TweetsService {
             });
 
             // Send mention notifications for updated tweet
-            if (mentions.length > 0) {
-                await this.mentionNotification(mentions, user_id, updated_tweet);
-            }
+            await this.mentionNotification(mentioned_user_ids, user_id, updated_tweet, 'add');
 
-            // return TweetMapper.toDTO(tweet_with_type_info);
             return plainToInstance(TweetResponseDTO, updated_tweet, {
                 excludeExtraneousValues: true,
             });
@@ -385,8 +400,12 @@ export class TweetsService {
 
     // hard delete tweet
     async deleteTweet(tweet_id: string, user_id: string): Promise<void> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
         try {
-            const tweet = await this.tweet_repository.findOne({
+            const tweet = await query_runner.manager.findOne(Tweet, {
                 where: { tweet_id },
                 select: ['tweet_id', 'user_id', 'type'],
             });
@@ -397,69 +416,72 @@ export class TweetsService {
                 throw new BadRequestException('User is not allowed to delete this tweet');
             }
 
-            await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id);
+            // If it's a reply, decrement reply count for all parent tweets
+            await this.queueRepostAndQuoteDeleteJobs(tweet, tweet.type, user_id, query_runner);
 
-            await this.tweet_repository.delete({ tweet_id });
+            await query_runner.manager.delete(Tweet, { tweet_id });
+            await query_runner.commitTransaction();
 
             await this.es_delete_tweet_service.queueDeleteTweet({
-                tweet_id,
+                tweet_ids: [tweet_id],
             });
         } catch (error) {
             console.error(error);
+            if (query_runner.isTransactionActive) {
+                await query_runner.rollbackTransaction();
+            }
             throw error;
+        } finally {
+            await query_runner.release();
         }
     }
 
     async getTweetSummary(tweet_id: string): Promise<TweetSummaryResponseDTO> {
-        try {
-            const tweet = await this.tweet_repository.findOne({
-                where: { tweet_id },
-                select: ['content', 'tweet_id'],
-            });
-            if (!tweet) throw new NotFoundException('Tweet not found');
+        const tweet = await this.tweet_repository.findOne({
+            where: { tweet_id },
+            select: ['content', 'tweet_id'],
+        });
+        if (!tweet) throw new NotFoundException('Tweet not found');
 
-            const cleanedContent = tweet.content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
-                .replace(/\s+/g, ' ')
-                .trim();
+        const cleaned_content = tweet.content
+            .replaceAll(/#[a-zA-Z0-9_]+/g, '')
+            .replaceAll(/\s+/g, ' ')
+            .trim();
 
-            if (cleanedContent.length < 120) {
-                throw new BadRequestException('Tweet content too short for summary generation.');
-            }
-
-            let tweet_summary = await this.tweet_summary_repository.findOne({
-                where: { tweet_id },
-            });
-
-            if (!tweet_summary) {
-                // Queue the summary generation job
-                await this.ai_summary_job_service.queueGenerateSummary({
-                    tweet_id,
-                    content: tweet.content,
-                });
-
-                // Wait for the job to complete (with polling)
-                for (let i = 0; i < 15; i++) {
-                    await new Promise((resolve) => setTimeout(resolve, 250));
-                    tweet_summary = await this.tweet_summary_repository.findOne({
-                        where: { tweet_id },
-                    });
-                    if (tweet_summary) {
-                        return {
-                            tweet_id,
-                            summary: tweet_summary.summary,
-                        };
-                    }
-                }
-                throw new NotFoundException('Failed to generate summary after retry.');
-            }
-            return {
-                tweet_id,
-                summary: tweet_summary.summary,
-            };
-        } catch (error) {
-            throw error;
+        if (cleaned_content.length < 120) {
+            throw new BadRequestException('Tweet content too short for summary generation.');
         }
+
+        let tweet_summary = await this.tweet_summary_repository.findOne({
+            where: { tweet_id },
+        });
+
+        if (!tweet_summary) {
+            // Queue the summary generation job
+            await this.ai_summary_job_service.queueGenerateSummary({
+                tweet_id,
+                content: tweet.content,
+            });
+
+            // Wait for the job to complete (with polling)
+            for (let i = 0; i < 15; i++) {
+                await new Promise((resolve) => setTimeout(resolve, 250));
+                tweet_summary = await this.tweet_summary_repository.findOne({
+                    where: { tweet_id },
+                });
+                if (tweet_summary) {
+                    return {
+                        tweet_id,
+                        summary: tweet_summary.summary,
+                    };
+                }
+            }
+            throw new NotFoundException('Failed to generate summary after retry.');
+        }
+        return {
+            tweet_id,
+            summary: tweet_summary.summary,
+        };
     }
 
     async getTweetById(tweet_id: string, current_user_id?: string): Promise<TweetResponseDTO> {
@@ -501,17 +523,14 @@ export class TweetsService {
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_likes', 1);
             await query_runner.commitTransaction();
 
-            if (tweet.user_id !== user_id)
+            if (tweet.user_id !== user_id) {
                 this.like_job_service.queueLikeNotification({
                     tweet,
                     like_to: tweet.user_id,
                     liked_by: user_id,
                     action: 'add',
                 });
-
-            await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id,
-            });
+            }
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id,
@@ -630,13 +649,18 @@ export class TweetsService {
         await query_runner.startTransaction();
 
         try {
-            const parentTweet = await this.getTweetWithUserById(tweet_id, user_id, false);
+            const parent_tweet = await this.getTweetWithUserById(tweet_id, user_id, false);
 
-            const mentions = await this.extractDataFromTweets(quote, user_id, query_runner);
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
+                quote,
+                user_id,
+                query_runner
+            );
 
             const new_quote_tweet = query_runner.manager.create(Tweet, {
                 ...quote,
                 user_id,
+                mentions: mentioned_usernames,
                 type: TweetType.QUOTE,
             });
             const saved_quote_tweet = await query_runner.manager.save(Tweet, new_quote_tweet);
@@ -649,49 +673,54 @@ export class TweetsService {
 
             await query_runner.manager.save(TweetQuote, tweet_quote);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_quotes', 1);
+
+            const { content } = quote;
+            await this.insertTweetHashtags(
+                content,
+                saved_quote_tweet.tweet_id,
+                user_id,
+                query_runner
+            );
+            await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
 
             await this.es_index_tweet_service.queueIndexTweet({
                 tweet_id: saved_quote_tweet.tweet_id,
-                parent_id: saved_quote_tweet.tweet_id,
-            });
-
-            await this.es_index_tweet_service.queueIndexTweet({
-                tweet_id: saved_quote_tweet.tweet_id,
-                parent_id: saved_quote_tweet.tweet_id,
+                parent_id: tweet_id,
             });
 
             const response = plainToInstance(TweetQuoteResponseDTO, {
                 ...saved_quote_tweet,
-                quoted_tweet: plainToInstance(TweetResponseDTO, parentTweet, {
+                quoted_tweet: plainToInstance(TweetResponseDTO, parent_tweet, {
                     excludeExtraneousValues: true,
                 }),
             });
 
-            console.log('parentTweet', parentTweet);
-
-            if (parentTweet.user?.id && user_id !== parentTweet.user.id)
+            if (parent_tweet.user?.id && user_id !== parent_tweet.user.id)
                 this.quote_job_service.queueQuoteNotification({
-                    quote_to: parentTweet.user.id,
+                    quote_to: parent_tweet.user.id,
                     quoted_by: user_id,
                     quote_tweet: saved_quote_tweet,
-                    parent_tweet: parentTweet,
+                    parent_tweet: parent_tweet,
                     action: 'add',
                 });
 
-            // Send mention notifications for quote tweet
-            if (mentions.length > 0) {
-                await this.mentionNotification(
-                    mentions,
-                    user_id,
-                    saved_quote_tweet,
-                    plainToInstance(TweetResponseDTO, parentTweet, {
-                        excludeExtraneousValues: true,
-                    })
-                );
-            }
+            const mentioned_user_ids_without_original_author = mentioned_user_ids.filter(
+                (mentioned_user_id) => mentioned_user_id !== parent_tweet.user.id
+            );
 
-            // I guess this should vbe returned, it was not returned before
+            // Send mention notifications for quote tweet
+            await this.mentionNotification(
+                mentioned_user_ids_without_original_author,
+                user_id,
+                saved_quote_tweet,
+                'add',
+                plainToInstance(TweetResponseDTO, parent_tweet, {
+                    excludeExtraneousValues: true,
+                })
+            );
+
+            // I guess this should be returned, it was not returned before
             return response;
         } catch (error) {
             await query_runner.rollbackTransaction();
@@ -716,6 +745,7 @@ export class TweetsService {
             await query_runner.manager.insert(TweetRepost, new_repost);
             await query_runner.manager.increment(Tweet, { tweet_id }, 'num_reposts', 1);
             await query_runner.commitTransaction();
+            // await this.data_source.query('REFRESH MATERIALIZED VIEW user_posts_view');
 
             if (tweet.user_id !== user_id)
                 this.repost_job_service.queueRepostNotification({
@@ -799,7 +829,6 @@ export class TweetsService {
             const [original_tweet, original_reply] = await Promise.all([
                 query_runner.manager.findOne(Tweet, {
                     where: { tweet_id: original_tweet_id },
-                    select: ['tweet_id', 'user_id'],
                 }),
                 query_runner.manager.findOne(TweetReply, {
                     where: { reply_tweet_id: original_tweet_id },
@@ -808,12 +837,17 @@ export class TweetsService {
 
             if (!original_tweet) throw new NotFoundException('Original tweet not found');
 
-            const mentions = await this.extractDataFromTweets(reply_dto, user_id, query_runner);
+            const { mentioned_user_ids, mentioned_usernames } = await this.extractDataFromTweets(
+                reply_dto,
+                user_id,
+                query_runner
+            );
 
             // Create the reply tweet
             const new_reply_tweet = query_runner.manager.create(Tweet, {
                 ...reply_dto,
                 user_id,
+                mentions: mentioned_usernames,
                 type: TweetType.REPLY,
             });
             const saved_reply_tweet = await query_runner.manager.save(Tweet, new_reply_tweet);
@@ -827,12 +861,19 @@ export class TweetsService {
             });
             await query_runner.manager.save(TweetReply, tweet_reply);
 
-            // Increment reply count on original tweet
             await query_runner.manager.increment(
                 Tweet,
                 { tweet_id: original_tweet_id },
                 'num_replies',
                 1
+            );
+            // Extract normalized hashtags to insert into tweet_hashtags table
+            const { content } = reply_dto;
+            await this.insertTweetHashtags(
+                content,
+                saved_reply_tweet.tweet_id,
+                user_id,
+                query_runner
             );
 
             await query_runner.commitTransaction();
@@ -840,17 +881,23 @@ export class TweetsService {
             if (user_id !== original_tweet.user_id)
                 this.reply_job_service.queueReplyNotification({
                     reply_tweet: saved_reply_tweet,
-                    original_tweet_id: original_tweet_id,
+                    original_tweet: original_tweet,
                     replied_by: user_id,
                     reply_to: original_tweet.user_id,
                     conversation_id: original_reply?.conversation_id || original_tweet_id,
                     action: 'add',
                 });
 
-            // Send mention notifications for reply
-            if (mentions.length > 0) {
-                await this.mentionNotification(mentions, user_id, saved_reply_tweet);
-            }
+            const mentioned_user_ids_without_original_author = mentioned_user_ids.filter(
+                (mentioned_user_id) => mentioned_user_id !== original_tweet.user_id
+            );
+
+            await this.mentionNotification(
+                mentioned_user_ids_without_original_author,
+                user_id,
+                saved_reply_tweet,
+                'add'
+            );
 
             const returned_reply = plainToInstance(
                 TweetReplyResponseDTO,
@@ -876,6 +923,84 @@ export class TweetsService {
         } finally {
             await query_runner.release();
         }
+    }
+
+    async getTweetReplies(
+        tweet_id: string,
+        current_user_id: string,
+        query_dto: GetTweetRepliesQueryDto
+    ): Promise<{
+        data: TweetResponseDTO[];
+        count: number;
+        next_cursor: string | null;
+        has_more: boolean;
+    }> {
+        // Verify the tweet exists
+        const original_tweet = await this.tweet_repository.findOne({
+            where: { tweet_id },
+            select: ['tweet_id'],
+        });
+
+        if (!original_tweet) {
+            throw new NotFoundException('Tweet not found');
+        }
+
+        const limit = query_dto.limit ?? 20;
+
+        // Build query to get only direct replies (one level)
+        let query = this.tweet_repository
+            .createQueryBuilder('tweet')
+            .leftJoinAndSelect('tweet.user', 'user')
+            .innerJoin('tweet_replies', 'reply', 'reply.reply_tweet_id = tweet.tweet_id')
+            .where('reply.original_tweet_id = :tweet_id', { tweet_id })
+            .select(tweet_fields_slect)
+            .orderBy('tweet.created_at', 'DESC')
+            .take(limit + 1);
+
+        // Attach user interaction flags (is_liked, is_reposted, is_bookmarked, is_following_author)
+        query = this.tweets_repository.attachUserTweetInteractionFlags(
+            query,
+            current_user_id,
+            'tweet'
+        );
+
+        this.paginate_service.applyCursorPagination(
+            query,
+            query_dto.cursor,
+            'tweet',
+            'created_at',
+            'tweet_id'
+        );
+
+        const tweets = await query.getMany();
+
+        // Increment views for reply tweets
+        const tweet_ids = tweets.map((t) => t.tweet_id).filter(Boolean);
+        this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
+        const tweets_dto = plainToInstance(TweetResponseDTO, tweets, {
+            excludeExtraneousValues: true,
+        });
+
+        let has_more = false;
+        let next_cursor: string | null = null;
+        if (tweets_dto.length > limit) {
+            tweets_dto.pop();
+            has_more = true;
+        } else {
+            next_cursor = this.paginate_service.generateNextCursor(
+                tweets_dto,
+                'created_at',
+                'tweet_id'
+            );
+        }
+
+        return {
+            data: tweets_dto,
+            count: tweets_dto.length,
+            next_cursor,
+            has_more: has_more,
+        };
     }
 
     async incrementTweetViews(tweet_id: string): Promise<{ success: boolean }> {
@@ -1097,6 +1222,10 @@ export class TweetsService {
 
         const quotes = await query.getMany();
 
+        // Increment views for quote tweets
+        const tweet_ids = quotes.map((q) => q.quote_tweet?.tweet_id).filter(Boolean);
+        this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
+
         // Map to DTOs
         const quote_dtos = quotes.map((quote) => {
             const quote_temp = plainToInstance(TweetQuoteResponseDTO, quote.quote_tweet, {
@@ -1127,57 +1256,82 @@ export class TweetsService {
     private async queueRepostAndQuoteDeleteJobs(
         tweet: Tweet,
         type: TweetType,
-        user_id: string
+        user_id: string,
+        query_runner: QueryRunner
     ): Promise<void> {
         try {
             if (type === TweetType.REPLY) {
-                const tweet_reply = await this.tweet_reply_repository.findOne({
+                const reply_info = await query_runner.manager.findOne(TweetReply, {
                     where: { reply_tweet_id: tweet.tweet_id },
+                    select: ['original_tweet_id'],
                 });
 
-                if (tweet_reply?.original_tweet_id) {
-                    const original_tweet = await this.tweet_repository.findOne({
-                        where: { tweet_id: tweet_reply.original_tweet_id },
+                if (reply_info?.original_tweet_id) {
+                    // Decrement reply count only on the direct parent tweet
+                    await query_runner.manager.decrement(
+                        Tweet,
+                        { tweet_id: reply_info.original_tweet_id },
+                        'num_replies',
+                        1
+                    );
+
+                    const original_tweet = await query_runner.manager.findOne(Tweet, {
+                        where: { tweet_id: reply_info.original_tweet_id },
                         select: ['user_id'],
                     });
                     const parent_owner_id = original_tweet?.user_id || null;
 
-                    if (!parent_owner_id) return;
-
-                    this.reply_job_service.queueReplyNotification({
-                        reply_tweet_id: tweet.tweet_id,
-                        reply_to: parent_owner_id || user_id,
-                        replied_by: user_id,
-                        action: 'remove',
-                    });
+                    if (parent_owner_id) {
+                        this.reply_job_service.queueReplyNotification({
+                            reply_tweet_id: tweet.tweet_id,
+                            reply_to: parent_owner_id,
+                            replied_by: user_id,
+                            action: 'remove',
+                        });
+                    }
                 }
             } else if (type === TweetType.QUOTE) {
-                const tweet_quote = await this.tweet_quote_repository.findOne({
+                const tweet_quote = await query_runner.manager.findOne(TweetQuote, {
                     where: { quote_tweet_id: tweet.tweet_id },
                 });
 
                 if (tweet_quote?.original_tweet_id) {
-                    const original_tweet = await this.tweet_repository.findOne({
+                    // Decrement quote count on direct parent only
+                    await query_runner.manager.decrement(
+                        Tweet,
+                        { tweet_id: tweet_quote.original_tweet_id },
+                        'num_quotes',
+                        1
+                    );
+
+                    await query_runner.manager.decrement(
+                        Tweet,
+                        { tweet_id: tweet_quote.original_tweet_id },
+                        'num_reposts',
+                        1
+                    );
+
+                    const original_tweet = await query_runner.manager.findOne(Tweet, {
                         where: { tweet_id: tweet_quote.original_tweet_id },
                         select: ['user_id'],
                     });
                     const parent_owner_id = original_tweet?.user_id || null;
 
-                    if (!parent_owner_id) return;
-
-                    this.quote_job_service.queueQuoteNotification({
-                        quote_tweet_id: tweet.tweet_id,
-                        quote_to: parent_owner_id,
-                        quoted_by: user_id,
-                        action: 'remove',
-                    });
+                    if (parent_owner_id) {
+                        this.quote_job_service.queueQuoteNotification({
+                            quote_tweet_id: tweet.tweet_id,
+                            quote_to: parent_owner_id,
+                            quoted_by: user_id,
+                            action: 'remove',
+                        });
+                    }
                 }
             }
 
             // Handle mention notifications removal for any tweet type
             await this.queueMentionDeleteJobs(tweet, user_id);
         } catch (error) {
-            console.error('Error fetching parent tweet owner:', error);
+            console.error('Error in queueRepostAndQuoteDeleteJobs:', error);
         }
     }
 
@@ -1195,17 +1349,7 @@ export class TweetsService {
             const mentions = full_tweet.content.match(/@([a-zA-Z0-9_]+)/g) || [];
             if (mentions.length === 0) return;
 
-            // Remove @ symbol and make unique
-            const clean_usernames = [...new Set(mentions.map((u) => u.replace('@', '')))];
-
-            // Queue mention removal notification (background job will fetch user IDs)
-            await this.mention_job_service.queueMentionNotification({
-                tweet_id: tweet.tweet_id,
-                mentioned_by: user_id,
-                mentioned_usernames: clean_usernames,
-                tweet_type: 'tweet',
-                action: 'remove',
-            });
+            await this.mentionNotification(mentions, user_id, tweet, 'remove');
         } catch (error) {
             console.error('Error queueing mention removal notifications:', error);
         }
@@ -1214,9 +1358,7 @@ export class TweetsService {
     private async getTweetWithUserById(
         tweet_id: string,
         current_user_id?: string,
-        flag: boolean = true,
-        include_replies: boolean = true,
-        replies_limit: number = 3
+        flag: boolean = true
     ): Promise<TweetResponseDTO> {
         try {
             let query = this.tweet_repository
@@ -1235,6 +1377,9 @@ export class TweetsService {
             const tweet = await query.getOne();
             if (!tweet) throw new NotFoundException('Tweet not found');
 
+            // Increment view count asynchronously
+            this.incrementTweetViewsAsync([tweet_id]).catch(() => {});
+
             // Transform current tweet to DTO
             const tweet_dto = plainToInstance(TweetResponseDTO, tweet, {
                 excludeExtraneousValues: true,
@@ -1251,16 +1396,6 @@ export class TweetsService {
                 if (reply_info.parent_tweet_id) {
                     tweet_dto.parent_tweet_id = reply_info.parent_tweet_id;
                 }
-            }
-
-            // Fetch limited replies if requested and tweet has replies
-            if (include_replies && tweet.num_replies > 0) {
-                const replies_result = await this.tweets_repository.getReplies(
-                    tweet_id,
-                    current_user_id,
-                    { limit: replies_limit }
-                );
-                tweet_dto.replies = replies_result.tweets;
             }
 
             return tweet_dto;
@@ -1283,6 +1418,10 @@ export class TweetsService {
             if (!reply_chain || reply_chain.length === 0) {
                 throw new NotFoundException('Tweet not found');
             }
+
+            // Increment views for all tweets in the reply chain
+            const tweet_ids = reply_chain.map((t) => t.tweet_id).filter(Boolean);
+            this.incrementTweetViewsAsync(tweet_ids).catch(() => {});
 
             // Build nested structure from deepest parent to starting tweet
             let parent_tweet_dto: TweetResponseDTO | null = null;
@@ -1325,38 +1464,73 @@ export class TweetsService {
     private async extractDataFromTweets(
         tweet: CreateTweetDTO | UpdateTweetDTO,
         user_id: string,
-        query_runner: QueryRunner
-    ): Promise<string[]> {
+        query_runner: QueryRunner,
+        skip_extract_topics: boolean = false,
+        predefined_hashtag_topics?: Record<string, Record<string, number>>
+    ): Promise<{ mentioned_user_ids: string[]; mentioned_usernames: string[] }> {
+        if (!tweet?.content) return { mentioned_user_ids: [], mentioned_usernames: [] };
         const { content } = tweet;
-        if (!content) return [];
+
         console.log('content:', content);
 
         // Extract mentions and return them for later processing
-        const mentions = content.match(/@([a-zA-Z0-9_]+)/g) || [];
+        const mentions =
+            content.match(/@([a-zA-Z0-9_]+)/g)?.map((mention) => mention.slice(1)) || [];
 
         // Extract hashtags and remove duplicates
-        // Extract hashtags and remove duplicates
-        const hashtags =
-            content.match(/#([a-zA-Z0-9_]+)/g)?.map((hashtag) => hashtag.slice(1)) || [];
+        const hashtags = content.match(/#([\p{L}\p{N}_]+)/gu)?.map((h) => h.slice(1)) || [];
         const unique_hashtags = [...new Set(hashtags)];
-        await this.updateHashtags(unique_hashtags, user_id, query_runner);
-
-        // Extract topics using Groq AI
-        const topics = await this.extractTopics(content, unique_hashtags);
-        console.log('Extracted topics:', topics);
-
-        //Insert Hashtag with Topics in redis
-
-        await this.hashtag_job_service.queueHashtag({
-            hashtags: topics.hashtags,
-            timestamp: Date.now(),
+        const normalized_hashtags = hashtags.map((hashtag) => {
+            return hashtag.toLowerCase();
         });
 
-        // You can store topics in the tweet entity or use them for recommendations
-        // For example, you could add a 'topics' field to your Tweet entity
-        // tweet.topics = topics;
+        // Extract topics using Groq AI or use predefined topics
+        if (!skip_extract_topics) {
+            const topics = await this.extractTopics(content, unique_hashtags);
+            console.log('Extracted topics:', topics);
 
-        return mentions;
+            //Insert Hashtag with Topics in redis
+            await this.hashtag_job_service.queueHashtag({
+                hashtags: topics.hashtags,
+                timestamp: Date.now(),
+            });
+        } else if (predefined_hashtag_topics) {
+            // For fake trends: use predefined topics
+            console.log('Using predefined hashtag topics for fake trend');
+
+            await this.hashtag_job_service.queueHashtag({
+                hashtags: predefined_hashtag_topics,
+                timestamp: Date.now(),
+            });
+        }
+
+        const mentioned_users = await this.user_repository.find({
+            where: { username: In(mentions) },
+            select: ['username', 'id'],
+        });
+
+        const mapped_users = new Map<string, string>();
+
+        for (const mention of mentions) {
+            const found = mentioned_users.find((u) => u.username === mention);
+            if (found) mapped_users.set(mention, found.id);
+        }
+
+        const mentioned_user_ids: string[] = [];
+        const mentioned_usernames: string[] = [];
+
+        mentions.forEach((mention, index) => {
+            const id = mapped_users.get(mention);
+
+            if (id) {
+                tweet.content = tweet.content?.replace(`@${mention}`, `\u200B$(${index})\u200C`);
+
+                mentioned_usernames.push(mention);
+                mentioned_user_ids.push(id);
+            }
+        });
+
+        return { mentioned_user_ids, mentioned_usernames };
     }
 
     async extractTopics(
@@ -1378,11 +1552,11 @@ export class TweetsService {
 
                 return { tweet: empty, hashtags: result };
             }
-
+            console.log('HASHTAGS: ', hashtags);
             // remove hashtags and extra spaces
             content = content
-                .replace(/#[a-zA-Z0-9_]+/g, '')
-                .replace(/\s+/g, ' ')
+                .replaceAll(/#[^\s]+/g, '') // remove anything starting with
+                .replaceAll(/\s+/g, ' ')
                 .trim();
 
             const prompt = categorize_prompt(content, hashtags);
@@ -1393,8 +1567,8 @@ export class TweetsService {
                 temperature: 0,
             });
 
-            const rawText = response.choices?.[0]?.message?.content?.trim() ?? '';
-            if (!rawText) {
+            const raw_text = response.choices?.[0]?.message?.content?.trim() ?? '';
+            if (!raw_text) {
                 console.warn('Groq returned empty response');
                 const empty: Record<string, number> = {};
                 TOPICS.forEach((t) => (empty[t] = 0));
@@ -1406,11 +1580,11 @@ export class TweetsService {
                 return { tweet: empty, hashtags: result };
             }
 
-            let jsonText = rawText;
-            const m = rawText.match(/\{[\s\S]*\}/);
-            if (m) jsonText = m[0];
+            let json_text = raw_text;
+            const m = raw_text.match(/\{[\s\S]*\}/);
+            if (m) json_text = m[0];
 
-            let parsed = JSON.parse(jsonText);
+            const parsed = JSON.parse(json_text);
 
             const text_total = Object.values<number>(parsed.text).reduce(
                 (a, b) => a + Number(b),
@@ -1459,26 +1633,26 @@ export class TweetsService {
     }
 
     private async mentionNotification(
-        usernames: string[],
+        mentioned_user_ids: string[],
         user_id: string,
         tweet: Tweet,
+        action: 'add' | 'remove',
         parent_tweet?: TweetResponseDTO
     ): Promise<void> {
-        if (usernames.length === 0) return;
+        if (mentioned_user_ids.length === 0) return;
+
+        const unique_mentioned_user_ids = Array.from(new Set(mentioned_user_ids));
 
         try {
-            // Remove @ symbol from usernames and make them unique
-            const clean_usernames = [...new Set(usernames.map((u) => u.replace('@', '')))];
-
             // Queue mention notification with usernames (background job will fetch user IDs)
             await this.mention_job_service.queueMentionNotification({
                 tweet,
                 tweet_id: tweet.tweet_id,
                 parent_tweet,
                 mentioned_by: user_id,
-                mentioned_usernames: clean_usernames,
+                mentioned_user_ids: unique_mentioned_user_ids,
                 tweet_type: tweet.type,
-                action: 'add',
+                action,
             });
         } catch (error) {
             console.error('Error queueing mention notifications:', error);
@@ -1488,54 +1662,30 @@ export class TweetsService {
     private async updateHashtags(
         names: string[],
         user_id: string,
-        query_runner: QueryRunner
+        query_runner: QueryRunner,
+        tweet_id?: string
     ): Promise<void> {
         if (names.length === 0) return;
 
-        const hashtags = names.map((name) => ({ name, created_by: { id: user_id } }) as Hashtag);
+        const hashtags = names.map((name) => ({ name }) as Hashtag);
         await query_runner.manager.upsert(Hashtag, hashtags, {
             conflictPaths: ['name'],
             upsertType: 'on-conflict-do-update',
         });
         await query_runner.manager.increment(Hashtag, { name: In(names) }, 'usage_count', 1);
-    }
 
-    async getTweetReplies(
-        tweet_id: string,
-        current_user_id: string,
-        query_dto: GetTweetRepliesQueryDto
-    ): Promise<{
-        data: TweetResponseDTO[];
-        count: number;
-        next_cursor: string | null;
-        has_more: boolean;
-    }> {
-        // First, check if the tweet exists
-        const tweet = await this.tweet_repository.findOne({
-            where: { tweet_id },
-        });
+        // Insert hashtag-tweet associations if tweet_id is provided
+        if (tweet_id) {
+            const tweet_hashtags = names.map((hashtag_name) => ({
+                tweet_id,
+                hashtag_name,
+            }));
 
-        if (!tweet) {
-            throw new NotFoundException('Tweet not found');
+            await query_runner.manager.insert(TweetHashtag, tweet_hashtags);
+            console.log(
+                `Inserted ${tweet_hashtags.length} hashtag associations for tweet ${tweet_id}`
+            );
         }
-
-        const pagination: TimelinePaginationDto = {
-            limit: query_dto.limit ?? 20,
-            cursor: query_dto.cursor,
-        };
-
-        const { tweets, next_cursor } = await this.tweets_repository.getReplies(
-            tweet_id,
-            current_user_id,
-            pagination
-        );
-
-        return {
-            data: tweets,
-            count: tweets.length,
-            next_cursor,
-            has_more: next_cursor !== null,
-        };
     }
 
     async getUserBookmarks(
@@ -1550,7 +1700,7 @@ export class TweetsService {
             has_more: boolean;
         };
     }> {
-        let query = this.tweet_bookmark_repository
+        const query = this.tweet_bookmark_repository
             .createQueryBuilder('bookmark')
             .leftJoinAndSelect('bookmark.tweet', 'tweet')
             .leftJoinAndSelect('tweet.user', 'user')
@@ -1585,9 +1735,7 @@ export class TweetsService {
                 return await this.getTweetWithUserById(
                     bookmark.tweet.tweet_id,
                     user_id,
-                    true, // flag to include parent tweets
-                    false, // don't include replies
-                    0 // replies_limit
+                    true // flag to include parent tweets
                 );
             })
         );
@@ -1607,5 +1755,164 @@ export class TweetsService {
                 has_more: bookmarks.length === limit,
             },
         };
+    }
+    /////////////////////////////////////////////////////////// Fake Trend Tweets Methods /////////////////////////////////////////////////
+
+    /**
+     * Builds default hashtag topics structure for fake trend tweets
+     * Maps hashtags to a specified category with 100% weight
+     */
+    buildDefaultHashtagTopics(
+        hashtags: string[],
+        topic: 'Sports' | 'Entertainment' | 'News'
+    ): Record<string, Record<string, number>> {
+        const topics_distribution: Record<
+            'Sports' | 'Entertainment' | 'News',
+            Record<string, number>
+        > = {
+            Sports: { Sports: 100, Entertainment: 0, News: 0 },
+            Entertainment: { Sports: 0, Entertainment: 100, News: 0 },
+            News: { Sports: 0, Entertainment: 0, News: 100 },
+        };
+
+        const result: Record<string, Record<string, number>> = {};
+        hashtags.forEach((hashtag) => {
+            // Remove # symbol if present
+            const clean_hashtag = hashtag.startsWith('#') ? hashtag.slice(1) : hashtag;
+            result[clean_hashtag] = topics_distribution[topic];
+        });
+
+        return result;
+    }
+
+    /**
+     * Creates a fake trend tweet with predefined hashtag topics
+     * Skips Groq AI extraction for performance
+     */
+    async createFakeTrendTweet(
+        content: string,
+        user_id: string,
+        hashtag_topics: Record<string, Record<string, number>>
+    ): Promise<TweetResponseDTO> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
+        try {
+            const mentions = await this.extractDataFromTweets(
+                { content },
+                user_id,
+                query_runner,
+                true, // skip_extract_topics flag
+                hashtag_topics
+            );
+
+            const new_tweet = query_runner.manager.create(Tweet, {
+                user_id,
+                type: TweetType.TWEET,
+                content,
+            });
+
+            const saved_tweet = await query_runner.manager.save(Tweet, new_tweet);
+
+            // Extract and insert hashtags into tweet_hashtags table
+
+            await this.insertTweetHashtags(content, saved_tweet.tweet_id, user_id, query_runner);
+
+            await query_runner.commitTransaction();
+
+            await this.es_index_tweet_service.queueIndexTweet({
+                tweet_id: saved_tweet.tweet_id,
+            });
+
+            if (mentions.mentioned_user_ids.length > 0) {
+                await this.mentionNotification(
+                    mentions.mentioned_user_ids,
+                    user_id,
+                    saved_tweet,
+                    'add'
+                );
+            }
+
+            return plainToInstance(TweetResponseDTO, saved_tweet, {
+                excludeExtraneousValues: true,
+            });
+        } catch (error) {
+            console.error('Error in createFakeTrendTweet:', error);
+            if (query_runner.isTransactionActive) {
+                await query_runner.rollbackTransaction();
+            }
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+    async deleteTweetsByUserId(user_id: string): Promise<void> {
+        const query_runner = this.data_source.createQueryRunner();
+        await query_runner.connect();
+        await query_runner.startTransaction();
+
+        try {
+            console.log(user_id);
+            const tweets = await this.tweet_repository.find({
+                where: { user_id },
+                select: ['tweet_id', 'user_id', 'type'],
+            });
+
+            if (tweets.length === 0) {
+                console.log(`No tweets found for user ${user_id}`);
+                return;
+            }
+
+            for (const tweet of tweets) {
+                try {
+                    // Queue repost and quote delete jobs, handle mentions
+                    await this.queueRepostAndQuoteDeleteJobs(
+                        tweet,
+                        tweet.type,
+                        user_id,
+                        query_runner
+                    );
+                    await query_runner.commitTransaction();
+
+                    // Hard delete the tweet
+                    await this.tweet_repository.delete({ tweet_id: tweet.tweet_id });
+
+                    // Queue elasticsearch deletion
+                    await this.es_delete_tweet_service.queueDeleteTweet({
+                        tweet_ids: [tweet.tweet_id],
+                    });
+                } catch (error) {
+                    console.error(`Error deleting tweet ${tweet.tweet_id}:`, error);
+                    // Continue deleting other tweets even if one fails
+                }
+            }
+
+            console.log(`Successfully deleted ${tweets.length} tweets for user ${user_id}`);
+        } catch (error) {
+            if (query_runner.isTransactionActive) {
+                await query_runner.rollbackTransaction();
+            }
+            console.error('Error deleting tweets by user:', error);
+            throw error;
+        } finally {
+            await query_runner.release();
+        }
+    }
+
+    async insertTweetHashtags(
+        content: string,
+        tweet_id: string,
+        user_id: string,
+        query_runner: QueryRunner
+    ): Promise<void> {
+        if (content) {
+            const hashtags = extractHashtags(content) || [];
+            const unique_hashtags = [...new Set(hashtags)];
+            // const normalized_hashtags = unique_hashtags.map((h) => h.toLowerCase());
+            if (unique_hashtags.length > 0) {
+                await this.updateHashtags(unique_hashtags, user_id, query_runner, tweet_id);
+            }
+        }
     }
 }

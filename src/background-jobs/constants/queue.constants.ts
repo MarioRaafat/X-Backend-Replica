@@ -15,9 +15,6 @@ export const JOB_NAMES = {
     EMAIL: {
         SEND_OTP: 'send-otp-email',
     },
-    TIMELINE: {
-        PREPARE_FEED: 'prepare-user-feed',
-    },
     FEED: {
         INDEX_TWEET: 'index-tweet-to-elastic',
     },
@@ -46,6 +43,11 @@ export const JOB_NAMES = {
     },
     AI_SUMMARY: {
         GENERATE_TWEET_SUMMARY: 'generate-tweet-summary',
+    },
+    TIMELINE: {
+        INIT_QUEUE: 'init-timeline-queue',
+        REFILL_QUEUE: 'refill-timeline-queue',
+        CLEANUP_OLD_TWEETS: 'cleanup-old-tweets',
     },
     HASHTAG: {
         UPDATE_HASHTAG: 'update-hashtag',
@@ -78,10 +80,12 @@ export const EXPLORE_CONFIG = {
     DEFAULT_SINCE_HOURS: 1,
     DEFAULT_BATCH_SIZE: 500,
     MIN_SCORE_THRESHOLD: 0.001,
-    MAX_CATEGORY_SIZE: 20,
+    MAX_CATEGORY_SIZE: 50,
 } as const;
 
 export const EXPLORE_CRON_SCHEDULE = '30 * * * *'; // Every hour at minute 30
+export const TREND_CRON_SCHEDULE = '0 * * * *'; // Every hour at minute 0
+export const FAKE_TREND_CRON_SCHEDULE = '*/20 * * * *'; // Every 20 minutes
 
 export const EXPLORE_JOB_PRIORITIES = {
     HIGH: 1,

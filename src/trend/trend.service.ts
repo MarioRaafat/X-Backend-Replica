@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { RedisService } from 'src/redis/redis.service';
 import { IHashtagScore } from './hashtag-score.interface';
-import { Cron } from '@nestjs/schedule';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { Hashtag } from 'src/tweets/entities/hashtags.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { In, Repository } from 'typeorm';
@@ -19,20 +19,28 @@ export class TrendService {
     ) {}
 
     private readonly WEIGHTS = {
-        VOLUME: 0.35,
-        ACCELERATION: 0.4,
-        RECENCY: 0.25,
+        VOLUME: 0.7, // Most important
+        ACCELERATION: 0.25, // Growth matters
+        RECENCY: 0.05, // Just a small boost
     };
-
     private readonly CATEGORIES = ['Sports', 'News', 'Entertainment'];
     private readonly GENERAL_CATEGORY = 'Only on Yapper';
+    private readonly RECENCY_MIN_SCORE = 5;
+    private readonly TRENDING_WINDOW_HOURS = 6;
 
     private readonly TOP_N = 30;
-    private readonly MIN_BUCKETS = 5 * 60 * 1000;
+    private readonly MIN_BUCKETS = 30 * 60 * 1000;
     private readonly CATEGORY_THRESHOLD = 30;
+    private readonly RECENCY_FULL_SCORE_MINUTES = 30;
 
     async getTrending(category?: string, limit: number = 30) {
-        const key = category ? `trending:${category}` : 'trending:global';
+        const normalized_category = category?.trim()
+            ? category.trim()[0].toUpperCase() + category.trim().slice(1).toLowerCase()
+            : null;
+
+        const valid_category = this.CATEGORIES.includes(normalized_category || '') || null;
+
+        const key = valid_category ? `trending:${normalized_category}` : 'trending:global';
 
         const trending = await this.redis_service.zrevrange(key, 0, limit - 1, 'WITHSCORES');
 
@@ -42,7 +50,7 @@ export class TrendService {
         for (let i = 0; i < trending.length; i += 2) {
             result.push({
                 hashtag: trending[i],
-                score: parseFloat(trending[i + 1]),
+                score: Number.parseFloat(trending[i + 1]),
             });
             hashtag_names.push(trending[i]);
         }
@@ -51,15 +59,21 @@ export class TrendService {
             where: { name: In(hashtag_names) },
             select: ['name', 'usage_count'],
         });
-        const hashtag_categories = await this.getHashtagCategories(hashtag_names);
-        console.log(hashtag_categories);
 
-        const trends: HashtagResponseDto[] = result.map((item, index) => {
+        const existing_hashtag_names = new Set(hashtags.map((h) => h.name));
+
+        // Filter out hashtags that don't exist in the database
+        const filtered_result = result.filter((item) => existing_hashtag_names.has(item.hashtag));
+        const filtered_hashtag_names = filtered_result.map((item) => item.hashtag);
+
+        const hashtag_categories = await this.getHashtagCategories(filtered_hashtag_names);
+
+        const trends: HashtagResponseDto[] = filtered_result.map((item, index) => {
             const hashtag_data = hashtags.find((h) => h.name === item.hashtag);
 
             return {
                 text: '#' + item.hashtag,
-                posts_count: hashtag_data ? hashtag_data.usage_count : 0,
+                posts_count: hashtag_data!.usage_count,
                 trend_rank: index + 1,
                 category: hashtag_categories[item.hashtag] || this.GENERAL_CATEGORY,
                 reference_id: item.hashtag.toLowerCase(),
@@ -78,14 +92,12 @@ export class TrendService {
 
         for (const hashtag of hashtag_names) {
             for (const category of this.CATEGORIES) {
-                console.log(hashtag, category);
                 pipeline.zscore(`candidates:${category}`, hashtag);
             }
         }
         const results = await pipeline.exec();
 
         const hashtag_categories: Record<string, string> = {};
-        console.log(results);
 
         if (!results) {
             // Return default categories if pipeline fails
@@ -105,8 +117,9 @@ export class TrendService {
             for (const category of this.CATEGORIES) {
                 const result = results[result_index];
                 // Check if result exists and has valid data
+
                 if (result && result[1] !== null && result[1] !== undefined) {
-                    const score = parseFloat(result[1] as string);
+                    const score = Number.parseFloat(result[1] as string);
                     if (score > max_score) {
                         max_score = score;
                         max_category = category;
@@ -128,7 +141,7 @@ export class TrendService {
 
         //Expire after 2 hours
         // We may delegate it to trend worker
-        await this.redis_service.expire('candidates:active', 2 * 60 * 60);
+        await this.redis_service.expire('candidates:active', 24 * 60 * 60);
     }
     async insertCandidateCategories(hashtags: HashtagJobDto) {
         const pipeline = this.redis_service.pipeline();
@@ -142,7 +155,7 @@ export class TrendService {
                 if (percent >= this.CATEGORY_THRESHOLD) {
                     // Store hashtag with its category percentage as score
                     pipeline.zadd(`candidates:${category_name}`, percent, hashtag);
-                    pipeline.expire(`candidates:${category_name}`, 2 * 60 * 60);
+                    pipeline.expire(`candidates:${category_name}`, 24 * 60 * 60);
                 }
             }
         }
@@ -163,26 +176,29 @@ export class TrendService {
 
             await this.redis_service.zincrby(`hashtag:${hashtag}`, 1, time_bucket.toString());
 
-            await this.redis_service.expire(`hashtag:${hashtag}`, 1 * 60 * 60);
+            await this.redis_service.expire(`hashtag:${hashtag}`, 24 * 60 * 60);
         }
 
         await pipeline.exec();
     }
 
-    @Cron('0 * * * *')
+    @Cron(CronExpression.EVERY_HOUR, {
+        name: 'trend-calculation-job',
+        timeZone: 'UTC',
+    })
     async calculateTrend() {
         try {
             console.log('Calculate Trend.....');
             const now = Date.now();
-            const one_hour_ago = now - 60 * 60 * 1000;
+            const hours_ago = now - this.TRENDING_WINDOW_HOURS * 60 * 60 * 1000;
 
             // 1. Get active candidates (last hour)
             const active_hashtags = await this.redis_service.zrangebyscore(
                 'candidates:active',
-                one_hour_ago,
+                hours_ago,
                 '+inf'
             );
-
+            console.log(active_hashtags.length, ' active hashtags found');
             // 2. Calculate base scores once for all hashtags
             const hashtag_scores: Map<string, IHashtagScore> = new Map();
 
@@ -198,9 +214,7 @@ export class TrendService {
             global_scored.sort((a, b) => b.score - a.score);
             const global_top_30 = global_scored.slice(0, this.TOP_N);
             await this.updateTrendingList('trending:global', global_top_30);
-            await this.calculateCategoryTrendsFromScores(hashtag_scores, one_hour_ago);
-
-            console.log(global_top_30);
+            await this.calculateCategoryTrendsFromScores(hashtag_scores, hours_ago);
         } catch (err) {
             console.log(err);
             throw err;
@@ -209,7 +223,7 @@ export class TrendService {
 
     private async calculateCategoryTrendsFromScores(
         hashtag_scores: Map<string, IHashtagScore>,
-        one_hour_ago: number
+        hours_ago: number
     ) {
         for (const category of this.CATEGORIES) {
             try {
@@ -229,7 +243,7 @@ export class TrendService {
 
                 for (let i = 0; i < category_candidates.length; i += 2) {
                     const hashtag = category_candidates[i];
-                    const category_percent = parseFloat(category_candidates[i + 1]);
+                    const category_percent = Number.parseFloat(category_candidates[i + 1]);
 
                     // Use pre-calculated score
                     const base_score_data = hashtag_scores.get(hashtag);
@@ -269,20 +283,21 @@ export class TrendService {
             const bucket_data: Array<{ timestamp: number; count: number }> = [];
             for (let i = 0; i < buckets_5m.length; i += 2) {
                 bucket_data.push({
-                    timestamp: parseInt(buckets_5m[i]),
-                    count: parseFloat(buckets_5m[i + 1]),
+                    timestamp: Number.parseInt(buckets_5m[i]),
+                    count: Number.parseFloat(buckets_5m[i + 1]),
                 });
             }
 
             // Calculate individual scores
             const volume_score = this.calculateTweetVolume(bucket_data);
-            // const acceleration_score = this.calculateAccelerationScore(bucket_data);
             const acceleration_score = this.velocity_calculator.calculateFinalMomentum(bucket_data);
-            console.log(acceleration_score);
 
             const last_seen = await this.redis_service.zscore('candidates:active', hashtag);
-            const last_seen_time = last_seen ? parseInt(last_seen) : null;
+            const last_seen_time = last_seen ? Number.parseInt(last_seen) : null;
             const recency_score = this.calculateRecencyScore(last_seen_time);
+            console.log(
+                `Hashtag: ${hashtag}, Volume: ${volume_score.toFixed(2)}, Acceleration: ${acceleration_score.toFixed(2)}, Recency: ${recency_score.toFixed(2)}`
+            );
 
             const final_score = this.calculateFinalScore(
                 volume_score,
@@ -351,11 +366,17 @@ export class TrendService {
 
         const minutes_ago = (Date.now() - last_seen) / (60 * 1000);
 
-        if (minutes_ago <= 1) return 100;
+        // Full score for recent hashtags
+        if (minutes_ago <= this.RECENCY_FULL_SCORE_MINUTES) return 100;
 
-        const score = 100 - (minutes_ago / 60) * 100;
+        // Linear decay over the trending window
+        const hours_ago = minutes_ago / 60;
 
-        return Math.max(0, score);
+        // Decay from 100 to RECENCY_MIN_SCORE instead of 0
+        const score =
+            100 - (hours_ago / this.TRENDING_WINDOW_HOURS) * (100 - this.RECENCY_MIN_SCORE);
+
+        return Math.max(this.RECENCY_MIN_SCORE, Math.min(100, score));
     }
 
     private calculateFinalScore(volume: number, acceleration: number, recency: number): number {

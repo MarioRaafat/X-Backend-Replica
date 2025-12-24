@@ -20,6 +20,7 @@ describe('SearchController', () => {
             searchUsers: jest.fn(),
             searchPosts: jest.fn(),
             searchLatestPosts: jest.fn(),
+            getMentionSuggestions: jest.fn(),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -75,13 +76,13 @@ describe('SearchController', () => {
 
             const get_suggestions = jest
                 .spyOn(search_service, 'getSuggestions')
-                .mockResolvedValueOnce(undefined);
+                .mockResolvedValueOnce(mock_response);
 
             const result = await controller.getSuggestions(current_user_id, query_dto);
 
             expect(get_suggestions).toHaveBeenCalledWith(current_user_id, query_dto);
             expect(get_suggestions).toHaveBeenCalledTimes(1);
-            expect(result).toEqual(undefined);
+            expect(result).toEqual(mock_response);
         });
     });
 
@@ -162,6 +163,7 @@ describe('SearchController', () => {
                             'https://example.com/image2.jpg',
                         ],
                         videos: ['https://example.com/video1.mp4'],
+                        mentions: [],
                         user: {
                             id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
                             username: 'alyaa2242',
@@ -182,6 +184,7 @@ describe('SearchController', () => {
                                 'https://example.com/image2.jpg',
                             ],
                             videos: ['https://example.com/video1.mp4'],
+                            mentions: ['blah'],
                             user: {
                                 id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
                                 username: 'alyaa2242',
@@ -244,6 +247,7 @@ describe('SearchController', () => {
                             'https://example.com/image2.jpg',
                         ],
                         videos: ['https://example.com/video1.mp4'],
+                        mentions: [],
                         user: {
                             id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
                             username: 'alyaa2242',
@@ -264,6 +268,7 @@ describe('SearchController', () => {
                                 'https://example.com/image2.jpg',
                             ],
                             videos: ['https://example.com/video1.mp4'],
+                            mentions: ['blah'],
                             user: {
                                 id: '323926cd-4fdb-4880-85f5-a31aa983bc79',
                                 username: 'alyaa2242',
@@ -309,6 +314,44 @@ describe('SearchController', () => {
 
             expect(search_posts).toHaveBeenCalledWith(current_user_id, query_dto);
             expect(search_posts).toHaveBeenCalledTimes(1);
+            expect(result).toEqual(mock_response);
+        });
+    });
+
+    describe('getMentionSuggestions', () => {
+        it('should call search_service.getMentionSuggestions with the current user id and query dto', async () => {
+            const mock_response = [
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alyaa Ali',
+                    username: 'Alyaali242',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: true,
+                    is_follower: false,
+                },
+                {
+                    user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                    name: 'Alia Mohamed',
+                    username: 'alyaa#222',
+                    avatar_url: 'https://cdn.app.com/profiles/u877.jpg',
+                    is_following: false,
+                    is_follower: false,
+                },
+            ];
+
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const query_dto: BasicQueryDto = {
+                query: 'aly',
+            };
+
+            const get_suggestions = jest
+                .spyOn(search_service, 'getMentionSuggestions')
+                .mockResolvedValueOnce(mock_response);
+
+            const result = await controller.getMentionSuggestions(current_user_id, query_dto);
+
+            expect(get_suggestions).toHaveBeenCalledWith(current_user_id, query_dto);
+            expect(get_suggestions).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_response);
         });
     });

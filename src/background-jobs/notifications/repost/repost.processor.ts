@@ -38,23 +38,23 @@ export class RepostProcessor {
                 if (tweet_entity) tweet_owner_id = tweet_entity.user_id;
                 else this.logger.warn(`Tweet with ID ${tweet_id} not found.`);
 
-                let was_deleted = false;
+                let notification_id: string | null = null;
                 if (tweet_id) {
-                    was_deleted = await this.notifications_service.removeRepostNotification(
+                    notification_id = await this.notifications_service.removeRepostNotification(
                         tweet_owner_id,
                         tweet_id,
                         reposted_by
                     );
                 }
 
-                if (was_deleted) {
+                if (notification_id) {
                     this.notifications_service.sendNotificationOnly(
                         NotificationType.REPOST,
                         tweet_owner_id,
                         {
-                            type: NotificationType.REPOST,
+                            id: notification_id,
                             ...job.data,
-                            reposted_by,
+                            action: 'remove',
                         }
                     );
                 }

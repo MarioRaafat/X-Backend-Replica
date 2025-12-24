@@ -9,6 +9,9 @@ export const tweets_index_config = {
                     tokenizer: 'standard',
                     filter: ['lowercase', 'stop', 'snowball'],
                 },
+                arabic_analyzer: {
+                    type: 'arabic',
+                },
                 autocomplete_analyzer: {
                     type: 'custom',
                     tokenizer: 'autocomplete_tokenizer',
@@ -51,9 +54,16 @@ export const tweets_index_config = {
                         analyzer: 'autocomplete_analyzer',
                         search_analyzer: 'autocomplete_search_analyzer',
                     },
+                    arabic: {
+                        type: 'text',
+                        analyzer: 'arabic_analyzer',
+                    },
                 },
             },
             hashtags: {
+                type: 'keyword',
+            },
+            mentions: {
                 type: 'keyword',
             },
             created_at: {
@@ -86,6 +96,15 @@ export const tweets_index_config = {
                     keyword: {
                         type: 'keyword',
                         ignore_above: 256,
+                    },
+                    autocomplete: {
+                        type: 'text',
+                        analyzer: 'autocomplete_analyzer',
+                        search_analyzer: 'autocomplete_search_analyzer',
+                    },
+                    arabic: {
+                        type: 'text',
+                        analyzer: 'arabic_analyzer',
                     },
                 },
             },

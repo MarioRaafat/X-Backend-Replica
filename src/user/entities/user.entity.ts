@@ -1,6 +1,5 @@
 import { Exclude } from 'class-transformer';
 import { Tweet } from '../../tweets/entities/tweet.entity';
-import { Hashtag } from '../../tweets/entities/hashtags.entity';
 import {
     Column,
     DeleteDateColumn,
@@ -88,11 +87,8 @@ export class User {
     @Column({ type: 'int', default: 0 })
     following: number;
 
-    @Column({ name: 'fcm_token', type: 'varchar', unique: true, nullable: true })
+    @Column({ name: 'fcm_token', type: 'varchar', unique: true, nullable: true, select: false })
     fcm_token?: string | null;
-
-    @OneToMany(() => Hashtag, (hashtags) => hashtags.created_by, { onDelete: 'CASCADE' })
-    hashtags: Hashtag[];
 
     @OneToMany(() => Tweet, (tweet) => tweet.user, {})
     tweets: Tweet[];

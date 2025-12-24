@@ -8,7 +8,7 @@ import { PaginationService } from 'src/shared/services/pagination/pagination.ser
 import { BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { ERROR_MESSAGES } from '../constants/swagger-messages';
 import { MessageType } from './entities/message.entity';
-import { FCMService } from '../fcm/fcm.service';
+import { FCMService } from '../expo/expo.service';
 import { MessagesGateway } from './messages.gateway';
 import { MessageJobService } from '../background-jobs/notifications/message/message.service';
 import { EncryptionService } from '../shared/services/encryption/encryption.service';
@@ -119,6 +119,8 @@ describe('MessagesService', () => {
                     useValue: {
                         uploadFromUrl: jest.fn(),
                         deleteBlob: jest.fn(),
+                        generateFileName: jest.fn(),
+                        uploadFile: jest.fn(),
                     },
                 },
                 {
@@ -664,6 +666,159 @@ describe('MessagesService', () => {
             expect((result[0] as any).emoji).toBe('❤️');
             expect((result[0] as any).count).toBe(2);
             expect((result[0] as any).user_reacted).toBe(true);
+        });
+    });
+
+    describe('uploadVoiceNote', () => {
+        const mock_duration = '30';
+
+        it('should throw BadRequestException if file not provided', async () => {
+            await expect(
+                service.uploadVoiceNote(mock_user_id, null as any, mock_duration)
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw BadRequestException if file buffer is missing', async () => {
+            const file_without_buffer = {
+                fieldname: 'file',
+                originalname: 'voice.mp3',
+                encoding: '7bit',
+                mimetype: 'audio/mpeg',
+                size: 1024,
+            } as any;
+
+            await expect(
+                service.uploadVoiceNote(mock_user_id, file_without_buffer, mock_duration)
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw BadRequestException for invalid voice file format', async () => {
+            const invalid_file = {
+                fieldname: 'file',
+                originalname: 'test.txt',
+                encoding: '7bit',
+                mimetype: 'text/plain',
+                buffer: Buffer.from('test'),
+                size: 1024,
+            } as any;
+
+            await expect(
+                service.uploadVoiceNote(mock_user_id, invalid_file, mock_duration)
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should throw BadRequestException if voice file too large', async () => {
+            const large_file = {
+                fieldname: 'file',
+                originalname: 'voice.mp3',
+                encoding: '7bit',
+                mimetype: 'audio/mpeg',
+                buffer: Buffer.from('test'),
+                size: 100 * 1024 * 1024, // 100MB
+            } as any;
+
+            await expect(
+                service.uploadVoiceNote(mock_user_id, large_file, mock_duration)
+            ).rejects.toThrow(BadRequestException);
+        });
+
+        it('should upload voice note successfully', async () => {
+            const valid_file = {
+                fieldname: 'file',
+                originalname: 'voice.mp3',
+                encoding: '7bit',
+                mimetype: 'audio/mpeg',
+                buffer: Buffer.from('test audio data'),
+                size: 1024 * 500, // 500KB
+            } as any;
+
+            const mock_voice_url = 'https://storage.azure.com/voices/voice-123.mp3';
+            const azure_service = (service as any).azure_storage_service;
+            jest.spyOn(azure_service, 'generateFileName').mockReturnValue('voice-123.mp3');
+            jest.spyOn(azure_service, 'uploadFile').mockResolvedValue(mock_voice_url);
+
+            const result = await service.uploadVoiceNote(mock_user_id, valid_file, mock_duration);
+
+            expect(result.voice_note_url).toBe(mock_voice_url);
+            expect(result.duration).toBe(mock_duration);
+            expect(azure_service.generateFileName).toHaveBeenCalledWith(mock_user_id, 'voice.mp3');
+        });
+
+        it('should throw BadRequestException if upload fails', async () => {
+            const valid_file = {
+                fieldname: 'file',
+                originalname: 'voice.mp3',
+                encoding: '7bit',
+                mimetype: 'audio/mpeg',
+                buffer: Buffer.from('test audio data'),
+                size: 1024 * 500,
+            } as any;
+
+            const azure_service = (service as any).azure_storage_service;
+            jest.spyOn(azure_service, 'generateFileName').mockReturnValue('voice-123.mp3');
+            jest.spyOn(azure_service, 'uploadFile').mockRejectedValue(new Error('Upload failed'));
+
+            await expect(
+                service.uploadVoiceNote(mock_user_id, valid_file, mock_duration)
+            ).rejects.toThrow(BadRequestException);
+        });
+    });
+
+    describe('sendVoiceMessage', () => {
+        it('should send voice message successfully', async () => {
+            const voice_url = 'https://storage.azure.com/voices/voice-123.mp3';
+            const duration = '45';
+
+            chat_repository.findOne.mockResolvedValue(mock_chat as any);
+            message_repository.createMessage.mockResolvedValue({
+                ...mock_message,
+                message_type: MessageType.VOICE,
+                voice_note_url: voice_url,
+                voice_note_duration: duration,
+            } as any);
+
+            const result = await service.sendVoiceMessage(
+                mock_user_id,
+                mock_chat_id,
+                voice_url,
+                duration
+            );
+
+            expect(message_repository.createMessage).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_chat_id,
+                expect.objectContaining({
+                    content: '',
+                    message_type: MessageType.VOICE,
+                    voice_note_url: voice_url,
+                    voice_note_duration: duration,
+                    is_first_message: false,
+                }),
+                false
+            );
+            expect(result.message_type).toBe(MessageType.VOICE);
+        });
+
+        it('should send voice message as first message', async () => {
+            const voice_url = 'https://storage.azure.com/voices/voice-123.mp3';
+            const duration = '30';
+
+            chat_repository.findOne.mockResolvedValue(mock_chat as any);
+            message_repository.createMessage.mockResolvedValue({
+                ...mock_message,
+                message_type: MessageType.VOICE,
+            } as any);
+
+            await service.sendVoiceMessage(mock_user_id, mock_chat_id, voice_url, duration, true);
+
+            expect(message_repository.createMessage).toHaveBeenCalledWith(
+                mock_user_id,
+                mock_chat_id,
+                expect.objectContaining({
+                    is_first_message: true,
+                }),
+                false
+            );
         });
     });
 });

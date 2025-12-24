@@ -1,14 +1,20 @@
-import { Controller, Get, Query } from '@nestjs/common';
+import { Controller, Delete, Get, Post, Query, UseGuards } from '@nestjs/common';
 import { TrendService } from './trend.service';
-import { ApiOkResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOkResponse, ApiOperation, ApiQuery } from '@nestjs/swagger';
 import { SUCCESS_MESSAGES } from 'src/constants/swagger-messages';
 import { ResponseMessage } from 'src/decorators/response-message.decorator';
 import { trending_swagger } from 'src/explore/explore.swagger';
 import { TrendsDto } from './dto/trends.dto';
-
+import { JwtAuthGuard } from 'src/auth/guards/jwt.guard';
+import { FakeTrendService } from './fake-trend.service';
+@ApiBearerAuth('JWT-auth')
+@UseGuards(JwtAuthGuard)
 @Controller('trend')
 export class TrendController {
-    constructor(private readonly trend_service: TrendService) {}
+    constructor(
+        private readonly trend_service: TrendService,
+        private readonly fake_trend_service: FakeTrendService
+    ) {}
 
     @ApiOperation(trending_swagger.operation)
     @ApiOkResponse(trending_swagger.responses.success)
@@ -18,5 +24,25 @@ export class TrendController {
     @Get('')
     async getTrending(@Query() trends_dto?: TrendsDto) {
         return await this.trend_service.getTrending(trends_dto?.category, trends_dto?.limit);
+    }
+
+    @Get('/calculate-trends')
+    async calculateTrends() {
+        return await this.trend_service.calculateTrend();
+    }
+
+    @Post('/fake-trends')
+    async fakeTrends() {
+        return await this.fake_trend_service.fakeTrends();
+    }
+
+    @Delete('/fake-trends')
+    async deleteFakeTrends() {
+        return await this.fake_trend_service.deleteFakeTrends();
+    }
+
+    @Post('/seed-trends')
+    async seedTrends() {
+        return await this.fake_trend_service.seedTrend();
     }
 }

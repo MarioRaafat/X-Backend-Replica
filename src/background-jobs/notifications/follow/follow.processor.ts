@@ -25,20 +25,18 @@ export class FollowProcessor {
             const { followed_id, follower_id, action } = job.data;
 
             if (action === 'remove') {
-                // Remove the notification from MongoDB
-                const was_deleted = await this.notifications_service.removeFollowNotification(
+                const notification_id = await this.notifications_service.removeFollowNotification(
                     followed_id,
                     follower_id
                 );
 
-                // Only send socket notification if deletion succeeded
-                if (was_deleted) {
+                if (notification_id) {
                     this.notifications_service.sendNotificationOnly(
                         NotificationType.FOLLOW,
                         followed_id,
                         {
-                            type: NotificationType.FOLLOW,
-                            ...job.data,
+                            id: notification_id,
+                            action: 'remove',
                         }
                     );
                 }

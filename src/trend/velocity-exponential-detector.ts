@@ -13,15 +13,11 @@ interface IVelocityAnalysis {
 
 interface IExponentialAnalysis {
     growth_rate: number; // 'b' in y = ae^(bx)
-    r_squared: number; // fit quality (0-1)
-    double_time: number; // minutes to double
     is_exponential: boolean; // fits exponential pattern?
-    prediction: number; // predicted next bucket
 }
 
 interface IMomentumResult {
     score: number; // 0-100 momentum score
-    confidence: 'LOW' | 'MEDIUM' | 'HIGH';
     velocity: IVelocityAnalysis;
     exponential: IExponentialAnalysis;
 }
@@ -53,10 +49,8 @@ export class VelocityExponentialDetector {
         // Phase 3: Combined Scoring
         const score = this.calculateCombinedScore(velocity_analysis, exponential_analysis);
 
-        const confidence = this.calculateConfidence(exponential_analysis.r_squared, sorted.length);
         return {
             score,
-            confidence,
             velocity: velocity_analysis,
             exponential: exponential_analysis,
         };
@@ -121,48 +115,30 @@ export class VelocityExponentialDetector {
 
         // Fit exponential curve: y = a * e^(b*x)
         let growth_rate = 0;
-        let r_squared = 0;
-        let prediction = 0;
         let exponential_result;
 
         try {
             exponential_result = regression.exponential(data_points);
 
-            // Extract parameters
-            const a = exponential_result.equation[0]; // coefficient
+            // // Extract parameters
             const b = exponential_result.equation[1]; // exponent (growth rate)
 
             growth_rate = b;
-            r_squared = exponential_result.r2;
-
-            // Predict next bucket (5 minutes ahead)
-            const last_x = data_points[data_points.length - 1][0];
-            prediction = exponential_result.predict(last_x + 5)[1];
         } catch (error) {
             // Exponential fit failed (data might be flat or declining)
             // Fall back to linear
             const linear_result = regression.linear(data_points);
-            r_squared = linear_result.r2;
-            prediction = linear_result.predict(data_points[data_points.length - 1][0] + 5)[1];
             const m = linear_result.equation[0]; // slope
 
             growth_rate = m;
         }
 
-        // Calculate doubling time (how long to 2x current size)
-        // Formula: t = ln(2) / b
-        const double_time = growth_rate > 0 ? Math.log(2) / growth_rate : Infinity;
-
         // Determine if truly exponential
-        const is_exponential =
-            growth_rate >= this.EXPONENTIAL_THRESHOLD && r_squared >= this.MEDIUM_CONFIDENCE_R2;
+        const is_exponential = growth_rate >= this.EXPONENTIAL_THRESHOLD;
 
         return {
             growth_rate: Math.round(growth_rate * 10000) / 10000,
-            r_squared: Math.round(r_squared * 10000) / 10000,
-            double_time: Math.round(double_time * 100) / 100,
             is_exponential,
-            prediction: Math.round(prediction),
         };
     }
     /**
@@ -184,29 +160,19 @@ export class VelocityExponentialDetector {
 
         // Fit Quality Score (0-100)
         // R² directly translates to 0-100
-        const fit_score = exponential.r_squared * 100;
 
         // Weighted combination
-        const final_score = velocity_score * 0.4 + exponential_score * 0.4 + fit_score * 0.2;
+        const final_score = velocity_score * 0.6 + exponential_score * 0.4;
 
         // Bonus: Add acceleration boost
         const acceleration_bonus = velocity.is_accelerating ? 10 : 0;
 
         return Math.min(100, Math.max(0, final_score + acceleration_bonus));
     }
-    /**
-     * Calculate confidence based on fit quality and data points
-     */
-    private calculateConfidence(r_squared: number, data_points: number): 'LOW' | 'MEDIUM' | 'HIGH' {
-        if (data_points < 3) return 'LOW';
-        if (r_squared >= this.HIGH_CONFIDENCE_R2) return 'HIGH';
-        if (r_squared >= this.MEDIUM_CONFIDENCE_R2) return 'MEDIUM';
-        return 'LOW';
-    }
+
     private getEmptyResult(): IMomentumResult {
         return {
             score: 0,
-            confidence: 'LOW',
             velocity: {
                 velocities: [],
                 current_velocity: 0,
@@ -216,10 +182,7 @@ export class VelocityExponentialDetector {
             },
             exponential: {
                 growth_rate: 0,
-                r_squared: 0,
-                double_time: Infinity,
                 is_exponential: false,
-                prediction: 0,
             },
         };
     }

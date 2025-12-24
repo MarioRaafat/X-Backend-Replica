@@ -12,7 +12,7 @@ import { ClearBackGroundNotificationJobDTO } from './clear.dto';
 
 @Injectable()
 export class ClearJobService extends BackgroundJobsService<ClearBackGroundNotificationJobDTO> {
-    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private clear_queue: Queue) {
+    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private readonly clear_queue: Queue) {
         super(clear_queue, JOB_NAMES.NOTIFICATION.CLEAR, JOB_PRIORITIES.HIGH, JOB_DELAYS.IMMEDIATE);
     }
 

@@ -6,6 +6,7 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
 
 @ViewEntity({
     name: 'user_posts_view',
+    materialized: false,
     expression: `
         SELECT 
             t.tweet_id::text AS id,
@@ -13,7 +14,7 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.user_id AS tweet_author_id,
             t.tweet_id,
             NULL::uuid AS repost_id,
-            'tweet' AS post_type,
+            t.type::text AS post_type,
             t.created_at AS post_date,
             t.type::text AS type,
             t.content,
@@ -24,6 +25,8 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_views,
             t.num_quotes,
             t.num_replies,
+            t.num_bookmarks,
+            t.mentions,
             t.created_at,
             t.updated_at,
             u.username,
@@ -35,12 +38,18 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             u.verified,
             u.bio,
             NULL::text AS reposted_by_name,
+            NULL::text AS reposted_by_username,
             COALESCE(tq.original_tweet_id, trep.original_tweet_id) AS parent_id,
-            trep.conversation_id AS conversation_id
+            trep.conversation_id AS conversation_id,
+            conv_tweet.user_id AS conversation_user_id,
+            COALESCE(orig_quote_tweet.user_id, orig_reply_tweet.user_id) AS parent_user_id
         FROM tweets t
         INNER JOIN "user" u ON t.user_id = u.id
         LEFT JOIN tweet_quotes tq ON t.tweet_id = tq.quote_tweet_id
         LEFT JOIN tweet_replies trep ON t.tweet_id = trep.reply_tweet_id
+        LEFT JOIN tweets conv_tweet ON trep.conversation_id = conv_tweet.tweet_id
+        LEFT JOIN tweets orig_quote_tweet ON tq.original_tweet_id = orig_quote_tweet.tweet_id
+        LEFT JOIN tweets orig_reply_tweet ON trep.original_tweet_id = orig_reply_tweet.tweet_id
         
         UNION ALL
         
@@ -61,6 +70,8 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             t.num_views,
             t.num_quotes,
             t.num_replies,
+            t.num_bookmarks,
+            t.mentions,
             t.created_at,
             t.updated_at,
             u.username,
@@ -72,8 +83,11 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
             u.verified,
             u.bio,
             reposter.name AS reposted_by_name,
+            reposter.username AS reposted_by_username,
             COALESCE(tq.original_tweet_id, trep.original_tweet_id) AS parent_id,
-            trep.conversation_id AS conversation_id
+            trep.conversation_id AS conversation_id,
+            conv_tweet.user_id AS conversation_user_id,
+            COALESCE(orig_quote_tweet.user_id, orig_reply_tweet.user_id) AS parent_user_id
 
         FROM tweet_reposts tr
         INNER JOIN tweets t ON tr.tweet_id = t.tweet_id
@@ -81,6 +95,9 @@ import { UserFollows } from '../../user/entities/user-follows.entity';
         INNER JOIN "user" reposter ON tr.user_id = reposter.id
         LEFT JOIN tweet_quotes tq ON t.tweet_id = tq.quote_tweet_id
         LEFT JOIN tweet_replies trep ON t.tweet_id = trep.reply_tweet_id
+        LEFT JOIN tweets conv_tweet ON trep.conversation_id = conv_tweet.tweet_id
+        LEFT JOIN tweets orig_quote_tweet ON tq.original_tweet_id = orig_quote_tweet.tweet_id
+        LEFT JOIN tweets orig_reply_tweet ON trep.original_tweet_id = orig_reply_tweet.tweet_id
     `,
 })
 export class UserPostsView {
@@ -133,6 +150,12 @@ export class UserPostsView {
     num_replies: number;
 
     @ViewColumn()
+    num_bookmarks: number;
+
+    @ViewColumn()
+    mentions: string[];
+
+    @ViewColumn()
     created_at: Date;
 
     @ViewColumn()
@@ -166,10 +189,19 @@ export class UserPostsView {
     reposted_by_name: string | null;
 
     @ViewColumn()
+    reposted_by_username: string | null;
+
+    @ViewColumn()
     parent_id: string | null;
 
     @ViewColumn()
     conversation_id: string | null;
+
+    @ViewColumn()
+    conversation_user_id: string | null;
+
+    @ViewColumn()
+    parent_user_id: string | null;
 
     // Virtual relations for joins (tweet author)
     @ManyToOne(() => User)

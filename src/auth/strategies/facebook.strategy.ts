@@ -8,8 +8,8 @@ import { FacebookLoginDTO } from '../dto/facebook-login.dto';
 @Injectable()
 export class FacebookStrategy extends PassportStrategy(Strategy) {
     constructor(
-        private config_service: ConfigService,
-        private auth_service: AuthService
+        private readonly config_service: ConfigService,
+        private readonly auth_service: AuthService
     ) {
         super({
             clientID: config_service.get('FACEBOOK_CLIENT_ID') || '',

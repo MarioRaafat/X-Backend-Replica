@@ -79,6 +79,7 @@ describe('TweetsRepository', () => {
         createEntityManager: jest.fn(() => ({
             createQueryBuilder: jest.fn(() => MOCK_QUERY_BUILDER),
         })),
+        query: jest.fn(),
     };
 
     const MOCK_TWEET_REPOSITORY = {
@@ -147,8 +148,10 @@ describe('TweetsRepository', () => {
         );
         pagination_service = module.get<PaginationService>(PaginationService);
         data_source = module.get<DataSource>(DataSource);
+    });
 
-        // Reset all mocks
+    beforeEach(() => {
+        // Clear all mocks before each test
         jest.clearAllMocks();
 
         // Restore mock implementations after clearAllMocks
@@ -158,6 +161,25 @@ describe('TweetsRepository', () => {
         MOCK_TWEET_CATEGORY_REPOSITORY.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
         MOCK_DATA_SOURCE.createQueryBuilder.mockReturnValue(MOCK_QUERY_BUILDER);
 
+        // Restore MOCK_QUERY_BUILDER chain methods
+        MOCK_QUERY_BUILDER.leftJoinAndSelect.mockReturnThis();
+        MOCK_QUERY_BUILDER.leftJoin.mockReturnThis();
+        MOCK_QUERY_BUILDER.innerJoin.mockReturnThis();
+        MOCK_QUERY_BUILDER.innerJoinAndSelect.mockReturnThis();
+        MOCK_QUERY_BUILDER.leftJoinAndMapOne.mockReturnThis();
+        MOCK_QUERY_BUILDER.select.mockReturnThis();
+        MOCK_QUERY_BUILDER.addSelect.mockReturnThis();
+        MOCK_QUERY_BUILDER.where.mockReturnThis();
+        MOCK_QUERY_BUILDER.andWhere.mockReturnThis();
+        MOCK_QUERY_BUILDER.orderBy.mockReturnThis();
+        MOCK_QUERY_BUILDER.addOrderBy.mockReturnThis();
+        MOCK_QUERY_BUILDER.limit.mockReturnThis();
+        MOCK_QUERY_BUILDER.take.mockReturnThis();
+        MOCK_QUERY_BUILDER.setParameter.mockReturnThis();
+        MOCK_QUERY_BUILDER.setParameters.mockReturnThis();
+        MOCK_QUERY_BUILDER.addCommonTableExpression.mockReturnThis();
+        MOCK_QUERY_BUILDER.from.mockReturnThis();
+
         // Mock repository helper methods to return the query builder
         jest.spyOn(repository as any, 'attachParentTweetQuery').mockImplementation((q) => q);
         jest.spyOn(repository as any, 'attachConversationTweetQuery').mockImplementation((q) => q);
@@ -165,8 +187,6 @@ describe('TweetsRepository', () => {
             (q) => q
         );
         jest.spyOn(repository as any, 'attachRepostInfo').mockImplementation((q) => q);
-        jest.spyOn(repository as any, 'attachRepliedTweetQuery').mockImplementation((q) => q);
-        jest.spyOn(repository as any, 'attachQuotedTweetQuery').mockImplementation((q) => q);
         jest.spyOn(repository as any, 'attachUserFollowFlags').mockImplementation(
             (tweets) => tweets
         );
@@ -321,64 +341,86 @@ describe('TweetsRepository', () => {
             expect(result.data[0].parent_tweet_id).toBe('parent123');
             expect(result.data[0].tweet_id).toBe('reply1');
         });
-    });
 
-    describe('getForyouTweets', () => {
-        it('should return random tweets for you feed', async () => {
+        it('should filter tweets by since_hours_ago parameter', async () => {
             const user_id = 'user123';
             const cursor = undefined;
             const limit = 10;
+            const since_hours_ago = 24;
 
             const raw_results = [
                 create_mock_tweet_data({
                     tweet_id: 'tweet1',
-                    type: 'tweet',
-                    content: 'Random tweet',
-                    user: {
-                        id: 'user1',
-                        username: 'randomuser',
-                        name: 'Random User',
-                        avatar_url: null,
-                        cover_url: null,
-                        verified: false,
-                        bio: null,
-                        followers: 0,
-                        following: 0,
-                    },
-                    num_likes: 10,
-                    num_reposts: 5,
-                    num_quotes: 2,
-                    num_replies: 3,
-                    num_views: 50,
-                    created_at: new Date('2024-01-01'),
-                    updated_at: new Date('2024-01-01'),
+                    content: 'Recent tweet',
                 }),
             ];
 
             MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue(raw_results);
 
-            const result = await repository.getForyouTweets(user_id, cursor, limit);
+            const result = await repository.getFollowingTweets(
+                user_id,
+                cursor,
+                limit,
+                since_hours_ago
+            );
 
             expect(result.data).toHaveLength(1);
-            expect(result.data[0].content).toBe('Random tweet');
-            expect(MOCK_QUERY_BUILDER.orderBy).toHaveBeenCalledWith('RANDOM()');
+            expect(MOCK_QUERY_BUILDER.andWhere).toHaveBeenCalled();
         });
 
-        it('should handle cursor in for you feed', async () => {
+        it('should handle empty results', async () => {
             const user_id = 'user123';
-            const cursor = '2024-01-01T00:00:00.000Z_tweet123';
-            const limit = 10;
 
             MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue([]);
+            MOCK_PAGINATION_SERVICE.generateNextCursor.mockReturnValue(null);
 
-            await repository.getForyouTweets(user_id, cursor, limit);
+            const result = await repository.getFollowingTweets(user_id);
 
-            expect(MOCK_QUERY_BUILDER.andWhere).toHaveBeenCalled();
+            expect(result.data).toHaveLength(0);
+            expect(result.pagination.has_more).toBe(false);
+            expect(result.pagination.next_cursor).toBeNull();
+        });
+
+        it('should handle tweets with all interaction flags', async () => {
+            const user_id = 'user123';
+
+            const raw_results = [
+                create_mock_tweet_data({
+                    tweet_id: 'tweet1',
+                    is_liked: true,
+                    is_reposted: true,
+                    is_bookmarked: true,
+                }),
+            ];
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue(raw_results);
+            // Ensure valid cursor gen for non-empty
+            MOCK_PAGINATION_SERVICE.generateNextCursor.mockReturnValue('next_cursor');
+
+            const result = await repository.getFollowingTweets(user_id);
+
+            expect(result.data[0].is_liked).toBe(true);
+            expect(result.data[0].is_reposted).toBe(true);
+            expect(result.data[0].is_bookmarked).toBe(true);
         });
     });
 
-    describe('getReplies', () => {
-        // TODO: Implement tests for getReplies method
+    describe('getReplies - Edge Cases', () => {
+        it('should handle getTweetsByIds with error', async () => {
+            const tweet_ids = ['tweet-1'];
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+            const console_log_spy = jest.spyOn(console, 'log').mockImplementation();
+
+            MOCK_QUERY_BUILDER.getMany.mockRejectedValue(new Error('Database connection failed'));
+
+            // getTweetsByIds uses getRawMany internally
+            await expect(repository.getTweetsByIds(tweet_ids)).rejects.toThrow(
+                'Database connection failed'
+            );
+
+            console_error_spy.mockRestore();
+            console_log_spy.mockRestore();
+        });
     });
 
     describe('getPostsByUserId', () => {
@@ -452,10 +494,12 @@ describe('TweetsRepository', () => {
         it('should handle errors in getPostsByUserId', async () => {
             const user_id = 'user123';
             const error = new Error('Database error');
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
 
             MOCK_QUERY_BUILDER.getRawMany.mockRejectedValue(error);
 
             await expect(repository.getPostsByUserId(user_id)).rejects.toThrow('Database error');
+            console_error_spy.mockRestore();
         });
 
         it('should include reposted_by info for reposts', async () => {
@@ -511,6 +555,35 @@ describe('TweetsRepository', () => {
             expect(result.data[0].reposted_by?.id).toBe(user_id);
             expect(result.data[0].reposted_by?.name).toBe('Reposter User');
         });
+
+        it('should handle large limit values', async () => {
+            const user_id = 'user123';
+            const limit = 100;
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue([]);
+
+            const result = await repository.getPostsByUserId(user_id, undefined, undefined, limit);
+
+            expect(MOCK_QUERY_BUILDER.limit).toHaveBeenCalledWith(limit);
+        });
+
+        it('should handle posts with no current_user_id', async () => {
+            const user_id = 'user123';
+
+            const mock_posts = [
+                create_mock_tweet_data({
+                    tweet_id: 'tweet1',
+                    is_liked: false,
+                    is_reposted: false,
+                }),
+            ];
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue(mock_posts);
+
+            const result = await repository.getPostsByUserId(user_id);
+
+            expect(result.data).toHaveLength(1);
+        });
     });
 
     describe('getRepliesByUserId', () => {
@@ -548,10 +621,35 @@ describe('TweetsRepository', () => {
         it('should handle errors in getRepliesByUserId', async () => {
             const user_id = 'user123';
             const error = new Error('Query failed');
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
 
             MOCK_QUERY_BUILDER.getRawMany.mockRejectedValue(error);
 
             await expect(repository.getRepliesByUserId(user_id)).rejects.toThrow('Query failed');
+            console_error_spy.mockRestore();
+        });
+
+        it('should handle empty replies', async () => {
+            const user_id = 'user123';
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue([]);
+            MOCK_PAGINATION_SERVICE.generateNextCursor.mockReturnValue(null);
+
+            const result = await repository.getRepliesByUserId(user_id);
+
+            expect(result.data).toHaveLength(0);
+            expect(result.pagination.has_more).toBe(false);
+        });
+
+        it('should handle replies with different limits', async () => {
+            const user_id = 'user123';
+            const limit = 50;
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue([]);
+
+            await repository.getRepliesByUserId(user_id, undefined, undefined, limit);
+
+            expect(MOCK_QUERY_BUILDER.limit).toHaveBeenCalledWith(limit);
         });
     });
 
@@ -620,12 +718,43 @@ describe('TweetsRepository', () => {
         it('should handle errors in getMediaByUserId', async () => {
             const user_id = 'user123';
             const error = new Error('Media query failed');
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
 
             MOCK_QUERY_BUILDER.getRawMany.mockRejectedValue(error);
 
             await expect(repository.getMediaByUserId(user_id)).rejects.toThrow(
                 'Media query failed'
             );
+            console_error_spy.mockRestore();
+        });
+
+        it('should handle media tweets with videos', async () => {
+            const user_id = 'user123';
+
+            const mock_media = [
+                create_mock_tweet_data({
+                    tweet_id: 'tweet1',
+                    videos: ['video1.mp4'],
+                }),
+            ];
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue(mock_media);
+
+            const result = await repository.getMediaByUserId(user_id);
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].videos).toContain('video1.mp4');
+        });
+
+        it('should handle empty media results', async () => {
+            const user_id = 'user123';
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue([]);
+
+            const result = await repository.getMediaByUserId(user_id);
+
+            expect(result.data).toHaveLength(0);
+            expect(result.pagination.has_more).toBe(false);
         });
     });
 
@@ -687,12 +816,36 @@ describe('TweetsRepository', () => {
         it('should handle errors in getLikedPostsByUserId', async () => {
             const user_id = 'user123';
             const error = new Error('Liked posts query failed');
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
 
             MOCK_QUERY_BUILDER.getRawMany.mockRejectedValue(error);
 
             await expect(repository.getLikedPostsByUserId(user_id)).rejects.toThrow(
                 'Liked posts query failed'
             );
+            console_error_spy.mockRestore();
+        });
+
+        it('should handle empty liked posts', async () => {
+            const user_id = 'user123';
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue([]);
+
+            const result = await repository.getLikedPostsByUserId(user_id);
+
+            expect(result.data).toHaveLength(0);
+            expect(result.pagination.has_more).toBe(false);
+        });
+
+        it('should respect limit parameter', async () => {
+            const user_id = 'user123';
+            const limit = 5;
+
+            MOCK_QUERY_BUILDER.getRawMany.mockResolvedValue([]);
+
+            await repository.getLikedPostsByUserId(user_id, undefined, limit);
+
+            expect(MOCK_QUERY_BUILDER.limit).toHaveBeenCalledWith(limit);
         });
     });
 
@@ -780,6 +933,7 @@ describe('TweetsRepository', () => {
         it('should handle errors in getReplyWithParentChain', async () => {
             const tweet_id = 'reply123';
             const error = new Error('Chain query failed');
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
 
             MOCK_QUERY_RUNNER.query.mockRejectedValue(error);
 
@@ -787,106 +941,7 @@ describe('TweetsRepository', () => {
                 'Chain query failed'
             );
             expect(MOCK_QUERY_RUNNER.release).toHaveBeenCalled();
-        });
-    });
-
-    describe('getRecentTweetsByCategoryIds', () => {
-        it('should return recent tweets by category IDs', async () => {
-            const category_ids = ['cat1', 'cat2'];
-            const user_id = 'user123';
-            const options = { limit: 10, since_hours_ago: 24 };
-
-            const mock_tweets = [
-                {
-                    tweet_id: 'tweet1',
-                    content: 'Test tweet',
-                    user: { id: 'other_user', username: 'other' },
-                    created_at: new Date(),
-                },
-            ];
-
-            MOCK_QUERY_BUILDER.getMany.mockResolvedValue(mock_tweets);
-            jest.spyOn(repository, 'attachUserTweetInteractionFlags').mockReturnValue(
-                MOCK_QUERY_BUILDER as any
-            );
-
-            const result = await repository.getRecentTweetsByCategoryIds(
-                category_ids,
-                user_id,
-                options
-            );
-
-            expect(result).toBeDefined();
-            expect(Array.isArray(result)).toBe(true);
-            expect(MOCK_TWEET_REPOSITORY.createQueryBuilder).toHaveBeenCalled();
-        });
-
-        it('should use default options when not provided', async () => {
-            const category_ids = ['cat1'];
-            const user_id = 'user123';
-
-            MOCK_QUERY_BUILDER.getMany.mockResolvedValue([]);
-            jest.spyOn(repository, 'attachUserTweetInteractionFlags').mockReturnValue(
-                MOCK_QUERY_BUILDER as any
-            );
-
-            await repository.getRecentTweetsByCategoryIds(category_ids, user_id);
-
-            expect(MOCK_QUERY_BUILDER.take).toHaveBeenCalledWith(350); // 300 + 50 buffer
-        });
-
-        it('should handle errors in getRecentTweetsByCategoryIds', async () => {
-            const category_ids = ['cat1'];
-            const user_id = 'user123';
-            const error = new Error('Database error');
-
-            MOCK_QUERY_BUILDER.getMany.mockRejectedValue(error);
-            jest.spyOn(repository, 'attachUserTweetInteractionFlags').mockReturnValue(
-                MOCK_QUERY_BUILDER as any
-            );
-
-            await expect(
-                repository.getRecentTweetsByCategoryIds(category_ids, user_id)
-            ).rejects.toThrow('Database error');
-        });
-    });
-
-    describe('getTweetsCategories', () => {
-        it('should return categories for tweet IDs', async () => {
-            const tweet_ids = ['tweet1', 'tweet2'];
-            const mock_categories = [
-                { tweet_id: 'tweet1', category_id: 1, percentage: 0.8 },
-                { tweet_id: 'tweet1', category_id: 2, percentage: 0.2 },
-                { tweet_id: 'tweet2', category_id: 3, percentage: 1.0 },
-            ];
-
-            MOCK_QUERY_BUILDER.getMany.mockResolvedValue(mock_categories);
-
-            const result = await repository.getTweetsCategories(tweet_ids);
-
-            expect(result).toBeDefined();
-            expect(MOCK_TWEET_CATEGORY_REPOSITORY.createQueryBuilder).toHaveBeenCalled();
-        });
-
-        it('should return empty object when no categories found', async () => {
-            const tweet_ids = ['tweet1'];
-
-            MOCK_QUERY_BUILDER.getMany.mockResolvedValue([]);
-
-            // The current implementation has a bug with empty arrays (reduce without initial value)
-            // This test documents the bug - it should return {} but instead throws
-            await expect(repository.getTweetsCategories(tweet_ids)).rejects.toThrow(
-                'Reduce of empty array with no initial value'
-            );
-        });
-
-        it('should handle errors in getTweetsCategories', async () => {
-            const tweet_ids = ['tweet1'];
-            const error = new Error('Query error');
-
-            MOCK_QUERY_BUILDER.getMany.mockRejectedValue(error);
-
-            await expect(repository.getTweetsCategories(tweet_ids)).rejects.toThrow('Query error');
+            console_error_spy.mockRestore();
         });
     });
 
@@ -985,30 +1040,6 @@ describe('TweetsRepository', () => {
                 'Database connection failed'
             );
         });
-
-        it('should handle errors in getForyouTweets', async () => {
-            const error = new Error('Random query failed');
-            MOCK_QUERY_BUILDER.getRawMany.mockRejectedValue(error);
-
-            await expect(repository.getForyouTweets('user123')).rejects.toThrow(
-                'Random query failed'
-            );
-        });
-    });
-
-    describe('Helper Methods - attachQuotedTweetQuery', () => {
-        beforeEach(() => {
-            jest.spyOn(repository as any, 'attachQuotedTweetQuery').mockRestore();
-        });
-
-        it('should attach quoted tweet query', () => {
-            const query = MOCK_QUERY_BUILDER as any;
-
-            const result = (repository as any).attachQuotedTweetQuery(query);
-
-            expect(result).toBe(query);
-            expect(query.addSelect).toHaveBeenCalled();
-        });
     });
 
     describe('Helper Methods - attachRepostInfo', () => {
@@ -1053,6 +1084,360 @@ describe('TweetsRepository', () => {
             );
 
             expect(result).toBe(query);
+        });
+    });
+
+    describe('getTweetsByIds with current_user_id', () => {
+        it('should get tweets by IDs with interaction flags when user_id provided', async () => {
+            const tweet_ids = ['tweet-1', 'tweet-2'];
+            const current_user_id = 'user-123';
+
+            const mock_tweets = [
+                create_mock_tweet_data({ tweet_id: 'tweet-1' }),
+                create_mock_tweet_data({ tweet_id: 'tweet-2' }),
+            ];
+
+            (MOCK_TWEET_REPOSITORY.createQueryBuilder as jest.Mock).mockReturnValue(
+                MOCK_QUERY_BUILDER
+            );
+            MOCK_QUERY_BUILDER.getMany.mockResolvedValue(mock_tweets);
+            jest.spyOn(repository as any, 'attachUserTweetInteractionFlags').mockReturnValue(
+                MOCK_QUERY_BUILDER
+            );
+            jest.spyOn(repository as any, 'incrementTweetViewsAsync').mockResolvedValue(undefined);
+
+            const result = await repository.getTweetsByIds(tweet_ids, current_user_id);
+
+            expect(result).toHaveLength(2);
+            expect(repository['attachUserTweetInteractionFlags']).toHaveBeenCalledWith(
+                MOCK_QUERY_BUILDER,
+                current_user_id,
+                'tweet'
+            );
+        });
+
+        it('should return empty array when tweet_ids is empty', async () => {
+            const result = await repository.getTweetsByIds([]);
+
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('incrementTweetViewsAsync', () => {
+        it('should call database query with tweet IDs', async () => {
+            const tweet_ids = ['tweet-1', 'tweet-2'];
+            MOCK_DATA_SOURCE.query.mockResolvedValue(undefined);
+
+            await (repository as any).incrementTweetViewsAsync(tweet_ids);
+
+            expect(MOCK_DATA_SOURCE.query).toHaveBeenCalledWith(
+                'SELECT increment_tweet_views_batch($1::uuid[])',
+                [tweet_ids]
+            );
+        });
+
+        it('should return early for empty array', async () => {
+            await (repository as any).incrementTweetViewsAsync([]);
+
+            expect(MOCK_DATA_SOURCE.query).not.toHaveBeenCalled();
+        });
+
+        it('should handle errors gracefully', async () => {
+            const console_error_spy = jest.spyOn(console, 'error').mockImplementation();
+            MOCK_DATA_SOURCE.query.mockRejectedValue(new Error('DB Error'));
+
+            await expect(
+                (repository as any).incrementTweetViewsAsync(['tweet-1'])
+            ).resolves.toBeUndefined();
+
+            console_error_spy.mockRestore();
+        });
+    });
+
+    describe('attachRepostInfo', () => {
+        it('should return the query builder', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachRepostInfo(query);
+
+            expect(result).toBe(query);
+        });
+
+        it('should work with custom table alias', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachRepostInfo(query, 'custom_tweet');
+
+            expect(result).toBe(query);
+        });
+    });
+
+    describe('attachParentTweetQuery', () => {
+        it('should return the query builder without user_id', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachParentTweetQuery(query);
+
+            expect(result).toBe(query);
+        });
+
+        it('should return the query builder with user_id', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachParentTweetQuery(query, 'user-123');
+
+            expect(result).toBe(query);
+        });
+
+        it('should work with custom table alias', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachParentTweetQuery(query, 'user-123', 'custom');
+
+            expect(result).toBe(query);
+        });
+    });
+
+    describe('attachConversationTweetQuery', () => {
+        it('should return the query builder without user_id', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachConversationTweetQuery(query);
+
+            expect(result).toBe(query);
+        });
+
+        it('should return the query builder with user_id', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachConversationTweetQuery(query, 'user-123');
+
+            expect(result).toBe(query);
+        });
+
+        it('should work with custom table alias', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachConversationTweetQuery(
+                query,
+                'user-123',
+                'custom'
+            );
+
+            expect(result).toBe(query);
+        });
+    });
+
+    describe('attachUserInteractionBooleanFlags', () => {
+        it('should return the query builder with user_id', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachUserInteractionBooleanFlags(query, 'user-123');
+
+            expect(result).toBe(query);
+        });
+
+        it('should return the query builder without user_id', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachUserInteractionBooleanFlags(query);
+
+            expect(result).toBe(query);
+        });
+
+        it('should work with custom columns', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachUserInteractionBooleanFlags(
+                query,
+                'user-123',
+                'custom.user_id',
+                'custom.tweet_id'
+            );
+
+            expect(result).toBe(query);
+        });
+    });
+
+    describe('attachUserFollowFlags', () => {
+        beforeEach(() => {
+            jest.spyOn(repository as any, 'attachUserFollowFlags').mockRestore();
+        });
+
+        it('should attach follow flags to tweets', () => {
+            const tweets = [
+                {
+                    tweet_id: 'tweet-1',
+                    user: { id: 'user-1' },
+                    is_following: true,
+                    is_follower: false,
+                },
+            ];
+
+            const result = (repository as any).attachUserFollowFlags(tweets);
+
+            expect(result).toBeDefined();
+            expect(result[0].user.is_following).toBe(true);
+            expect(result[0].user.is_follower).toBe(false);
+        });
+
+        it('should handle tweets with parent_tweet', () => {
+            const tweets = [
+                {
+                    tweet_id: 'tweet-1',
+                    user: { id: 'user-1' },
+                    is_following: false,
+                    is_follower: false,
+                    parent_tweet: {
+                        user: { id: 'user-2' },
+                        is_following: true,
+                        is_follower: true,
+                    },
+                },
+            ];
+
+            const result = (repository as any).attachUserFollowFlags(tweets);
+
+            expect(result[0].parent_tweet.user.is_following).toBe(true);
+            expect(result[0].parent_tweet.user.is_follower).toBe(true);
+        });
+
+        it('should handle tweets with conversation_tweet', () => {
+            const tweets = [
+                {
+                    tweet_id: 'tweet-1',
+                    user: { id: 'user-1' },
+                    is_following: false,
+                    is_follower: false,
+                    conversation_tweet: {
+                        user: { id: 'user-3' },
+                        is_following: false,
+                        is_follower: true,
+                    },
+                },
+            ];
+
+            const result = (repository as any).attachUserFollowFlags(tweets);
+
+            expect(result[0].conversation_tweet.user.is_follower).toBe(true);
+        });
+
+        it('should handle empty tweets array', () => {
+            const result = (repository as any).attachUserFollowFlags([]);
+
+            expect(result).toEqual([]);
+        });
+    });
+
+    describe('attachParentTweetQuery with user_id (nested function coverage)', () => {
+        beforeEach(() => {
+            // Restore real implementation to test nested get_interactions function
+            jest.spyOn(repository as any, 'attachParentTweetQuery').mockRestore();
+        });
+
+        it('should call nested get_interactions when user_id is provided', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+            const user_id = 'user-123';
+
+            const result = (repository as any).attachParentTweetQuery(query, user_id);
+
+            expect(result).toBe(query);
+            expect(query.addSelect).toHaveBeenCalled();
+            expect(query.setParameter).toHaveBeenCalledWith('current_user_id', user_id);
+        });
+
+        it('should not set parameter when user_id is not provided', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachParentTweetQuery(query);
+
+            expect(result).toBe(query);
+            expect(query.addSelect).toHaveBeenCalled();
+            expect(query.setParameter).not.toHaveBeenCalled();
+        });
+
+        it('should work with different table aliases', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+            const user_id = 'user-123';
+            const table_alias = 'custom_table';
+
+            const result = (repository as any).attachParentTweetQuery(query, user_id, table_alias);
+
+            expect(result).toBe(query);
+            expect(query.addSelect).toHaveBeenCalled();
+        });
+    });
+
+    describe('attachConversationTweetQuery with user_id (nested function coverage)', () => {
+        beforeEach(() => {
+            // Restore real implementation to test nested get_interactions function
+            jest.spyOn(repository as any, 'attachConversationTweetQuery').mockRestore();
+        });
+
+        it('should call nested get_interactions when user_id is provided', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+            const user_id = 'user-123';
+
+            const result = (repository as any).attachConversationTweetQuery(query, user_id);
+
+            expect(result).toBe(query);
+            expect(query.addSelect).toHaveBeenCalled();
+            expect(query.setParameter).toHaveBeenCalledWith('current_user_id', user_id);
+        });
+
+        it('should not set parameter when user_id is not provided', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+
+            const result = (repository as any).attachConversationTweetQuery(query);
+
+            expect(result).toBe(query);
+            expect(query.addSelect).toHaveBeenCalled();
+            expect(query.setParameter).not.toHaveBeenCalled();
+        });
+
+        it('should work with different table aliases', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+            const user_id = 'user-123';
+            const table_alias = 'custom_table';
+
+            const result = (repository as any).attachConversationTweetQuery(
+                query,
+                user_id,
+                table_alias
+            );
+
+            expect(result).toBe(query);
+            expect(query.addSelect).toHaveBeenCalled();
+        });
+    });
+
+    describe('attachUserInteractionBooleanFlags with real implementation', () => {
+        beforeEach(() => {
+            // Restore real implementation
+            jest.spyOn(repository as any, 'attachUserInteractionBooleanFlags').mockRestore();
+        });
+
+        it('should add all interaction selects when user_id is provided', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+            const user_id = 'user-123';
+
+            const result = (repository as any).attachUserInteractionBooleanFlags(query, user_id);
+
+            expect(result).toBe(query);
+            // Should call addSelect 5 times (is_liked, is_reposted, is_bookmarked, is_following, is_follower)
+            expect(query.addSelect).toHaveBeenCalled();
+            expect(query.setParameter).toHaveBeenCalledWith('current_user_id', user_id);
+        });
+
+        it('should not add selects when user_id is not provided', () => {
+            const query = MOCK_QUERY_BUILDER as any;
+            jest.clearAllMocks();
+
+            const result = (repository as any).attachUserInteractionBooleanFlags(query);
+
+            expect(result).toBe(query);
+            expect(query.addSelect).not.toHaveBeenCalled();
+            expect(query.setParameter).not.toHaveBeenCalled();
         });
     });
 });

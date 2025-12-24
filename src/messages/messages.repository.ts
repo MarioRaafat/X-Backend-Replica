@@ -1,6 +1,6 @@
 import { Injectable, InternalServerErrorException } from '@nestjs/common';
-import { DataSource, LessThan, Not, Repository } from 'typeorm';
-import { GetMessagesQueryDto, SendMessageDto, UpdateMessageDto } from './dto';
+import { DataSource, Repository } from 'typeorm';
+import { GetMessagesQueryDto, SendMessageDto } from './dto';
 import { Message, MessageType } from './entities/message.entity';
 import { ERROR_MESSAGES } from 'src/constants/swagger-messages';
 import { PaginationService } from '../shared/services/pagination/pagination.service';
@@ -10,9 +10,9 @@ import { Chat } from 'src/chat/entities/chat.entity';
 @Injectable()
 export class MessageRepository extends Repository<Message> {
     constructor(
-        private data_source: DataSource,
-        private pagination_service: PaginationService,
-        private encryption_service: EncryptionService
+        private readonly data_source: DataSource,
+        private readonly pagination_service: PaginationService,
+        private readonly encryption_service: EncryptionService
     ) {
         super(Message, data_source.createEntityManager());
     }

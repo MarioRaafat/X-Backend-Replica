@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { ExploreController } from './explore.controller';
 import { ExploreService } from './explore.service';
+import { WhoToFollowService } from './who-to-follow.service';
 import { RedisModuleConfig } from '../redis/redis.module';
 import { Category } from '../category/entities/category.entity';
 import { TweetsModule } from '../tweets/tweets.module';
@@ -18,7 +19,7 @@ import { TrendModule } from 'src/trend/trend.module';
         TrendModule,
     ],
     controllers: [ExploreController],
-    providers: [ExploreService],
-    exports: [ExploreService],
+    providers: [ExploreService, WhoToFollowService],
+    exports: [ExploreService, WhoToFollowService],
 })
 export class ExploreModule {}

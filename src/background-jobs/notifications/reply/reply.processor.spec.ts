@@ -31,12 +31,17 @@ describe('ReplyProcessor', () => {
         content: 'This is a reply',
     } as any;
 
+    const mock_original_tweet = {
+        tweet_id: 'original-tweet-123',
+        content: 'This is the original tweet',
+    } as any;
+
     const mock_job_data: ReplyBackGroundNotificationJobDTO = {
         reply_to: 'user-123',
         replied_by: 'user-456',
         reply_tweet: mock_tweet,
         reply_tweet_id: 'reply-tweet-123',
-        original_tweet_id: 'original-tweet-123',
+        original_tweet: mock_original_tweet,
         conversation_id: 'conversation-123',
         action: 'add',
     };
@@ -242,7 +247,9 @@ describe('ReplyProcessor', () => {
 
     describe('handleSendReplyNotification - remove action', () => {
         it('should remove reply notification successfully', async () => {
-            notifications_service.removeReplyNotification = jest.fn().mockResolvedValue(true);
+            notifications_service.removeReplyNotification = jest
+                .fn()
+                .mockResolvedValue('notification-id-123');
             notifications_service.sendNotificationOnly = jest.fn();
 
             const remove_job_data: ReplyBackGroundNotificationJobDTO = {
@@ -271,14 +278,16 @@ describe('ReplyProcessor', () => {
             expect(notifications_service.sendNotificationOnly).toHaveBeenCalledWith(
                 NotificationType.REPLY,
                 'user-123',
-                expect.objectContaining({
-                    replied_by: 'user-456',
-                })
+                {
+                    id: 'notification-id-123',
+                    ...remove_job_data,
+                    action: 'remove',
+                }
             );
         });
 
         it('should not send notification if removal failed', async () => {
-            notifications_service.removeReplyNotification = jest.fn().mockResolvedValue(false);
+            notifications_service.removeReplyNotification = jest.fn().mockResolvedValue(null);
             notifications_service.sendNotificationOnly = jest.fn();
 
             const remove_job_data: ReplyBackGroundNotificationJobDTO = {

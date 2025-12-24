@@ -3,6 +3,9 @@ import { UserService } from './user.service';
 import { UserRepository } from './user.repository';
 import { UserProfileDto } from './dto/user-profile.dto';
 import { DetailedUserProfileDto } from './dto/detailed-user-profile.dto';
+import { InitTimelineQueueJobService } from 'src/background-jobs/timeline/timeline.service';
+import { TimelineRedisService } from 'src/timeline/services/timeline-redis.service';
+import { TimelineCandidatesService } from 'src/timeline/services/timeline-candidates.service';
 import {
     BadRequestException,
     ConflictException,
@@ -25,7 +28,7 @@ import { User } from './entities';
 import { UploadFileResponseDto } from './dto/upload-file-response.dto';
 import { DeleteFileDto } from './dto/delete-file.dto';
 import { AssignInterestsDto } from './dto/assign-interests.dto';
-import { DeleteResult, In, Repository } from 'typeorm';
+import { DeleteResult, EntityManager, In, Repository } from 'typeorm';
 import { ChangeLanguageDto } from './dto/change-language.dto';
 import { ChangeLanguageResponseDto } from './dto/change-language-response.dto';
 import { UserListResponseDto } from './dto/user-list-response.dto';
@@ -39,6 +42,7 @@ import { FollowJobService } from 'src/background-jobs/notifications/follow/follo
 import { EsUpdateUserJobService } from 'src/background-jobs/elasticsearch/es-update-user.service';
 import { EsDeleteUserJobService } from 'src/background-jobs/elasticsearch/es-delete-user.service';
 import { EsFollowJobService } from 'src/background-jobs/elasticsearch/es-follow.service';
+import { RedisService } from 'src/redis/redis.service';
 
 describe('UserService', () => {
     let service: UserService;
@@ -48,10 +52,24 @@ describe('UserService', () => {
     let pagination_service: jest.Mocked<PaginationService>;
     let azure_storage_service: jest.Mocked<AzureStorageService>;
     let config_service: jest.Mocked<ConfigService>;
+    let redis_service: jest.Mocked<RedisService>;
     let category_repository: jest.Mocked<Repository<Category>>;
     let follow_job_service: jest.Mocked<FollowJobService>;
+    let es_delete_user_job_service: jest.Mocked<EsDeleteUserJobService>;
+    let es_update_user_job_service: jest.Mocked<EsUpdateUserJobService>;
+    let manager: jest.Mocked<EntityManager>;
 
     beforeEach(async () => {
+        const mock_manager = {
+            count: jest.fn(),
+            find: jest.fn(),
+            findOne: jest.fn(),
+            save: jest.fn(),
+            delete: jest.fn(),
+            query: jest.fn(),
+            transaction: jest.fn(),
+        };
+
         const mock_user_repository = {
             getFollowersList: jest.fn(),
             getFollowingList: jest.fn(),
@@ -76,6 +94,7 @@ describe('UserService', () => {
             delete: jest.fn(),
             softDelete: jest.fn(),
             exists: jest.fn(),
+            manager: mock_manager,
         };
 
         const mock_tweet_repository = {
@@ -127,8 +146,27 @@ describe('UserService', () => {
             get: jest.fn(),
         };
 
+        const mock_redis_service = {
+            smembers: jest.fn(),
+            del: jest.fn(),
+            set: jest.fn(),
+        };
+
         const mock_category_repository = {
             findBy: jest.fn(),
+        };
+
+        const mock_init_timeline_queue_job_service = {
+            addJob: jest.fn(),
+        };
+
+        const mock_timeline_redis_service = {
+            initializeQueue: jest.fn(),
+            getTweetIdsInQueue: jest.fn().mockResolvedValue(new Set()),
+        };
+
+        const mock_timeline_candidates_service = {
+            getCandidates: jest.fn().mockResolvedValue([]),
         };
 
         const module: TestingModule = await Test.createTestingModule({
@@ -138,6 +176,7 @@ describe('UserService', () => {
                 { provide: TweetsRepository, useValue: mock_tweet_repository },
                 { provide: AzureStorageService, useValue: mock_azure_storage_service },
                 { provide: ConfigService, useValue: mock_config_service },
+                { provide: RedisService, useValue: mock_redis_service },
                 { provide: getRepositoryToken(Category), useValue: mock_category_repository },
                 { provide: UsernameService, useValue: mock_username_service },
                 { provide: PaginationService, useValue: mock_pagination_service },
@@ -145,6 +184,12 @@ describe('UserService', () => {
                 { provide: EsUpdateUserJobService, useValue: mock_es_update_user_job_service },
                 { provide: EsDeleteUserJobService, useValue: mock_es_delete_user_job_service },
                 { provide: EsFollowJobService, useValue: mock_es_follow_job_service },
+                {
+                    provide: InitTimelineQueueJobService,
+                    useValue: mock_init_timeline_queue_job_service,
+                },
+                { provide: TimelineRedisService, useValue: mock_timeline_redis_service },
+                { provide: TimelineCandidatesService, useValue: mock_timeline_candidates_service },
             ],
         }).compile();
 
@@ -153,10 +198,14 @@ describe('UserService', () => {
         tweets_repository = module.get(TweetsRepository);
         azure_storage_service = module.get(AzureStorageService);
         config_service = module.get(ConfigService);
+        redis_service = module.get(RedisService);
         category_repository = module.get(getRepositoryToken(Category));
         username_service = module.get(UsernameService);
         pagination_service = module.get(PaginationService);
         follow_job_service = module.get(FollowJobService);
+        es_delete_user_job_service = module.get(EsDeleteUserJobService);
+        es_update_user_job_service = module.get(EsUpdateUserJobService);
+        manager = user_repository.manager as jest.Mocked<EntityManager>;
     });
 
     afterEach(() => jest.clearAllMocks());
@@ -635,6 +684,17 @@ describe('UserService', () => {
             expect(get_my_profile_spy).toHaveBeenCalledWith(user_id);
             expect(get_my_profile_spy).toHaveBeenCalledTimes(1);
             expect(result).toEqual(mock_response);
+        });
+
+        it('should throw if target user not found', async () => {
+            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const exists_spy = jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(null);
+
+            await expect(service.getMe(user_id)).rejects.toThrow(ERROR_MESSAGES.USER_NOT_FOUND);
+
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: user_id } });
+            expect(exists_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -1270,6 +1330,10 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({
+                id: current_user_id,
+            } as any);
+
             const validate_spy = jest
                 .spyOn(user_repository, 'validateRelationshipRequest')
                 .mockResolvedValueOnce({
@@ -1359,6 +1423,10 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({
+                id: current_user_id,
+            } as any);
+
             const validate_spy = jest
                 .spyOn(user_repository, 'validateRelationshipRequest')
                 .mockResolvedValueOnce({
@@ -1397,6 +1465,10 @@ describe('UserService', () => {
         it('should throw ForbiddenException when blocked by target user', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({
+                id: current_user_id,
+            } as any);
 
             const validate_spy = jest
                 .spyOn(user_repository, 'validateRelationshipRequest')
@@ -1437,6 +1509,10 @@ describe('UserService', () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
             const target_user_id = 'b2d59899-f706-4c8f-97d7-ba2e9fc22d90';
 
+            jest.spyOn(user_repository, 'findOne').mockResolvedValue({
+                id: current_user_id,
+            } as any);
+
             const validate_spy = jest
                 .spyOn(user_repository, 'validateRelationshipRequest')
                 .mockResolvedValueOnce({
@@ -1470,6 +1546,20 @@ describe('UserService', () => {
             expect(validate_spy).toHaveBeenCalledTimes(1);
             expect(verify_permissions_spy).toHaveBeenCalledWith(current_user_id, target_user_id);
             expect(verify_permissions_spy).toHaveBeenCalledTimes(1);
+        });
+
+        it('should throw if current user not found', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const target_user_id = '0b059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const exists_spy = jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(null);
+
+            await expect(service.followUser(current_user_id, target_user_id)).rejects.toThrow(
+                ERROR_MESSAGES.USER_NOT_FOUND
+            );
+
+            expect(exists_spy).toHaveBeenCalledWith({ where: { id: current_user_id } });
+            expect(exists_spy).toHaveBeenCalledTimes(1);
         });
     });
 
@@ -1863,123 +1953,505 @@ describe('UserService', () => {
     });
 
     describe('updateUser', () => {
-        it('should update user and return updated profile', async () => {
-            const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+        const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+        it('should update user successfully', async () => {
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                bio: 'Old bio',
+                avatar_url: null,
+                cover_url: null,
+            };
+
             const update_user_dto: UpdateUserDto = {
                 name: 'Updated Name',
                 bio: 'Updated bio',
-                avatar_url: 'https://cdn.app.com/profiles/updated.jpg',
             };
 
-            const existing_user: User = {
-                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                name: 'Alyaa Ali',
-                username: 'Alyaa242',
-                password: 'hashed-password',
-                email: 'example@gmail.com',
-                created_at: new Date('2025-10-21T09:26:17.432Z'),
-                updated_at: new Date('2025-10-21T09:26:17.432Z'),
-                deleted_at: null,
-                language: 'ar',
-                bio: 'Software developer and tech enthusiast.',
-                avatar_url: 'https://example.com/images/profile.jpg',
-                cover_url: 'https://example.com/images/cover.jpg',
-                birth_date: new Date('2003-05-14'),
-                country: null,
-                verified: false,
-                online: false,
-                followers: 10,
-                following: 15,
-                hashtags: [],
-                tweets: [],
-            };
-
-            const updated_user: User = {
-                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+            const updated_user = {
+                ...existing_user,
                 name: 'Updated Name',
-                username: 'Alyaa242',
-                password: 'hashed-password',
-                email: 'example@gmail.com',
-                created_at: new Date('2025-10-21T09:26:17.432Z'),
-                updated_at: new Date('2025-10-21T09:26:17.432Z'),
-                deleted_at: null,
-                language: 'ar',
                 bio: 'Updated bio',
-                avatar_url: 'https://cdn.app.com/profiles/updated.jpg',
-                cover_url: 'https://example.com/images/cover.jpg',
-                birth_date: new Date('2003-05-14'),
-                country: null,
-                verified: false,
-                online: false,
-                followers: 10,
-                following: 15,
-                hashtags: [],
-                tweets: [],
             };
 
-            const mock_response = {
-                user_id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
-                name: 'Updated Name',
-                username: 'Alyaa242',
-                bio: 'Updated bio',
-                avatar_url: 'https://cdn.app.com/profiles/updated.jpg',
-                cover_url: 'https://example.com/images/cover.jpg',
-                country: null,
-                created_at: new Date('2025-10-21T09:26:17.432Z'),
-                birth_date: new Date('2003-05-14'),
-                followers_count: 10,
-                following_count: 15,
-                email: 'example@gmail.com',
-                num_likes: undefined,
-                num_media: undefined,
-                num_posts: undefined,
-                num_replies: undefined,
-            };
-
-            const find_one_spy = jest
-                .spyOn(user_repository, 'findOne')
-                .mockResolvedValueOnce(existing_user);
-
-            const save_spy = jest
-                .spyOn(user_repository, 'save')
-                .mockResolvedValueOnce(updated_user);
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
 
             const result = await service.updateUser(user_id, update_user_dto);
 
-            expect(find_one_spy).toHaveBeenCalledWith({
+            expect(user_repository.findOne).toHaveBeenCalledWith({
                 where: { id: user_id },
             });
-            expect(find_one_spy).toHaveBeenCalledTimes(1);
-            expect(save_spy).toHaveBeenCalledWith(updated_user);
-            expect(save_spy).toHaveBeenCalledTimes(1);
-            expect(result).toEqual(mock_response);
+            expect(user_repository.save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'Updated Name',
+                    bio: 'Updated bio',
+                })
+            );
+            expect(es_update_user_job_service.queueUpdateUser).toHaveBeenCalledWith({
+                user_id,
+            });
+            expect(result).toMatchObject({
+                name: 'Updated Name',
+                bio: 'Updated bio',
+            });
         });
 
         it('should throw NotFoundException when user does not exist', async () => {
-            const user_id = 'nonexistent-user-id';
             const update_user_dto: UpdateUserDto = {
                 name: 'Updated Name',
             };
 
-            const find_one_spy = jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(null);
+            user_repository.findOne.mockResolvedValueOnce(null);
 
+            await expect(service.updateUser(user_id, update_user_dto)).rejects.toThrow(
+                NotFoundException
+            );
             await expect(service.updateUser(user_id, update_user_dto)).rejects.toThrow(
                 ERROR_MESSAGES.USER_NOT_FOUND
             );
+            expect(user_repository.save).not.toHaveBeenCalled();
+        });
 
-            expect(find_one_spy).toHaveBeenCalledWith({
-                where: { id: user_id },
+        it('should update only provided fields and skip undefined fields', async () => {
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                bio: 'Old bio',
+                location: 'Old location',
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                name: 'Updated Name',
+                bio: undefined,
+            };
+
+            const updated_user = {
+                ...existing_user,
+                name: 'Updated Name',
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+
+            await service.updateUser(user_id, update_user_dto);
+
+            expect(user_repository.save).toHaveBeenCalledWith(
+                expect.objectContaining({
+                    name: 'Updated Name',
+                    bio: 'Old bio',
+                })
+            );
+        });
+
+        it('should update avatar and delete old avatar file', async () => {
+            const old_avatar_url = 'https://storage.azure.com/profiles/old-avatar.jpg';
+            const new_avatar_url = 'https://storage.azure.com/profiles/new-avatar.jpg';
+
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: old_avatar_url,
+                cover_url: null,
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                avatar_url: new_avatar_url,
+            };
+
+            const updated_user = {
+                ...existing_user,
+                avatar_url: new_avatar_url,
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+            azure_storage_service.extractFileName.mockReturnValueOnce('old-avatar.jpg');
+            config_service.get.mockReturnValueOnce('profile-images-container');
+
+            const result = await service.updateUser(user_id, update_user_dto);
+
+            expect(azure_storage_service.extractFileName).toHaveBeenCalledWith(old_avatar_url);
+            expect(config_service.get).toHaveBeenCalledWith(
+                'AZURE_STORAGE_PROFILE_IMAGE_CONTAINER'
+            );
+            expect(azure_storage_service.deleteFile).toHaveBeenCalledWith(
+                'old-avatar.jpg',
+                'profile-images-container'
+            );
+            expect(result.avatar_url).toBe(new_avatar_url);
+        });
+
+        it('should update cover and delete old cover file', async () => {
+            const old_cover_url = 'https://storage.azure.com/covers/old-cover.jpg';
+            const new_cover_url = 'https://storage.azure.com/covers/new-cover.jpg';
+
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: null,
+                cover_url: old_cover_url,
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                cover_url: new_cover_url,
+            };
+
+            const updated_user = {
+                ...existing_user,
+                cover_url: new_cover_url,
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+            azure_storage_service.extractFileName.mockReturnValueOnce('old-cover.jpg');
+            config_service.get.mockReturnValueOnce('cover-images-container');
+
+            const result = await service.updateUser(user_id, update_user_dto);
+
+            expect(azure_storage_service.extractFileName).toHaveBeenCalledWith(old_cover_url);
+            expect(config_service.get).toHaveBeenCalledWith('AZURE_STORAGE_COVER_IMAGE_CONTAINER');
+            expect(azure_storage_service.deleteFile).toHaveBeenCalledWith(
+                'old-cover.jpg',
+                'cover-images-container'
+            );
+            expect(result.cover_url).toBe(new_cover_url);
+        });
+
+        it('should not delete old avatar when user has no previous avatar', async () => {
+            const new_avatar_url = 'https://storage.azure.com/profiles/new-avatar.jpg';
+
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: null,
+                cover_url: null,
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                avatar_url: new_avatar_url,
+            };
+
+            const updated_user = {
+                ...existing_user,
+                avatar_url: new_avatar_url,
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+
+            await service.updateUser(user_id, update_user_dto);
+
+            expect(azure_storage_service.extractFileName).not.toHaveBeenCalled();
+            expect(azure_storage_service.deleteFile).not.toHaveBeenCalled();
+        });
+
+        it('should not delete old cover when user has no previous cover', async () => {
+            const new_cover_url = 'https://storage.azure.com/covers/new-cover.jpg';
+
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: null,
+                cover_url: null,
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                cover_url: new_cover_url,
+            };
+
+            const updated_user = {
+                ...existing_user,
+                cover_url: new_cover_url,
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+
+            await service.updateUser(user_id, update_user_dto);
+
+            expect(azure_storage_service.extractFileName).not.toHaveBeenCalled();
+            expect(azure_storage_service.deleteFile).not.toHaveBeenCalled();
+        });
+
+        it('should continue when deleting old avatar fails', async () => {
+            const old_avatar_url = 'https://storage.azure.com/profiles/old-avatar.jpg';
+            const new_avatar_url = 'https://storage.azure.com/profiles/new-avatar.jpg';
+
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: old_avatar_url,
+                cover_url: null,
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                avatar_url: new_avatar_url,
+            };
+
+            const updated_user = {
+                ...existing_user,
+                avatar_url: new_avatar_url,
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+            azure_storage_service.extractFileName.mockReturnValueOnce('old-avatar.jpg');
+            config_service.get.mockReturnValueOnce('profile-images-container');
+            azure_storage_service.deleteFile.mockRejectedValueOnce(
+                new Error('File not found in storage')
+            );
+
+            const console_warn_spy = jest.spyOn(console, 'warn').mockImplementation();
+
+            const result = await service.updateUser(user_id, update_user_dto);
+
+            expect(result.avatar_url).toBe(new_avatar_url);
+            expect(console_warn_spy).toHaveBeenCalledWith(
+                'Failed to delete old avatar file:',
+                'File not found in storage'
+            );
+            expect(es_update_user_job_service.queueUpdateUser).toHaveBeenCalled();
+
+            console_warn_spy.mockRestore();
+        });
+
+        it('should continue when deleting old cover fails', async () => {
+            const old_cover_url = 'https://storage.azure.com/covers/old-cover.jpg';
+            const new_cover_url = 'https://storage.azure.com/covers/new-cover.jpg';
+
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: null,
+                cover_url: old_cover_url,
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                cover_url: new_cover_url,
+            };
+
+            const updated_user = {
+                ...existing_user,
+                cover_url: new_cover_url,
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+            azure_storage_service.extractFileName.mockReturnValueOnce('old-cover.jpg');
+            config_service.get.mockReturnValueOnce('cover-images-container');
+            azure_storage_service.deleteFile.mockRejectedValueOnce(
+                new Error('Storage service unavailable')
+            );
+
+            const console_warn_spy = jest.spyOn(console, 'warn').mockImplementation();
+
+            const result = await service.updateUser(user_id, update_user_dto);
+
+            expect(result.cover_url).toBe(new_cover_url);
+            expect(console_warn_spy).toHaveBeenCalledWith(
+                'Failed to delete old cover file:',
+                'Storage service unavailable'
+            );
+            expect(es_update_user_job_service.queueUpdateUser).toHaveBeenCalled();
+
+            console_warn_spy.mockRestore();
+        });
+
+        it('should update both avatar and cover simultaneously', async () => {
+            const old_avatar_url = 'https://storage.azure.com/profiles/old-avatar.jpg';
+            const old_cover_url = 'https://storage.azure.com/covers/old-cover.jpg';
+            const new_avatar_url = 'https://storage.azure.com/profiles/new-avatar.jpg';
+            const new_cover_url = 'https://storage.azure.com/covers/new-cover.jpg';
+
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: old_avatar_url,
+                cover_url: old_cover_url,
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                avatar_url: new_avatar_url,
+                cover_url: new_cover_url,
+            };
+
+            const updated_user = {
+                ...existing_user,
+                avatar_url: new_avatar_url,
+                cover_url: new_cover_url,
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+            azure_storage_service.extractFileName
+                .mockReturnValueOnce('old-avatar.jpg')
+                .mockReturnValueOnce('old-cover.jpg');
+            config_service.get
+                .mockReturnValueOnce('profile-images-container')
+                .mockReturnValueOnce('cover-images-container');
+
+            const result = await service.updateUser(user_id, update_user_dto);
+
+            expect(azure_storage_service.deleteFile).toHaveBeenCalledTimes(2);
+            expect(azure_storage_service.deleteFile).toHaveBeenCalledWith(
+                'old-avatar.jpg',
+                'profile-images-container'
+            );
+            expect(azure_storage_service.deleteFile).toHaveBeenCalledWith(
+                'old-cover.jpg',
+                'cover-images-container'
+            );
+            expect(result.avatar_url).toBe(new_avatar_url);
+            expect(result.cover_url).toBe(new_cover_url);
+        });
+
+        it('should update multiple user fields at once', async () => {
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Old Name',
+                bio: 'Old bio',
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                name: 'New Name',
+                bio: 'New bio',
+            };
+
+            const updated_user = {
+                ...existing_user,
+                ...update_user_dto,
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+
+            const result = await service.updateUser(user_id, update_user_dto);
+
+            expect(result.name).toBe('New Name');
+            expect(result.bio).toBe('New bio');
+        });
+
+        it('should queue elasticsearch update after successful user update', async () => {
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                name: 'Updated Name',
+            };
+
+            const updated_user = {
+                ...existing_user,
+                name: 'Updated Name',
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+
+            await service.updateUser(user_id, update_user_dto);
+
+            expect(es_update_user_job_service.queueUpdateUser).toHaveBeenCalledWith({
+                user_id,
             });
-            expect(find_one_spy).toHaveBeenCalledTimes(1);
+            expect(es_update_user_job_service.queueUpdateUser).toHaveBeenCalledTimes(1);
+        });
+
+        it('should not call deleteFile when avatar_url is undefined in update', async () => {
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: 'https://storage.azure.com/profiles/avatar.jpg',
+                cover_url: null,
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                name: 'Updated Name',
+            };
+
+            const updated_user = {
+                ...existing_user,
+                name: 'Updated Name',
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+
+            await service.updateUser(user_id, update_user_dto);
+
+            expect(azure_storage_service.deleteFile).not.toHaveBeenCalled();
+        });
+
+        it('should not call deleteFile when cover_url is undefined in update', async () => {
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+                avatar_url: null,
+                cover_url: 'https://storage.azure.com/covers/cover.jpg',
+            };
+
+            const update_user_dto: UpdateUserDto = {
+                bio: 'Updated bio',
+            };
+
+            const updated_user = {
+                ...existing_user,
+                bio: 'Updated bio',
+            };
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(updated_user as any);
+
+            await service.updateUser(user_id, update_user_dto);
+
+            expect(azure_storage_service.deleteFile).not.toHaveBeenCalled();
+        });
+
+        it('should handle empty update DTO', async () => {
+            const existing_user = {
+                id: user_id,
+                username: 'testuser',
+                name: 'Test User',
+            };
+
+            const update_user_dto: UpdateUserDto = {};
+
+            user_repository.findOne.mockResolvedValueOnce(existing_user as any);
+            user_repository.save.mockResolvedValueOnce(existing_user as any);
+
+            const result = await service.updateUser(user_id, update_user_dto);
+
+            expect(user_repository.save).toHaveBeenCalledWith(existing_user);
+            expect(result.name).toBe('Test User');
         });
     });
 
     describe('deleteUser', () => {
-        it('should delete user successfully', async () => {
+        beforeEach(() => {
+            process.env.JWT_TOKEN_EXPIRATION_TIME = '12h';
+        });
+
+        it('should delete user successfully with all cleanup operations', async () => {
             const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            const mock_jtis = ['jti-1', 'jti-2', 'jti-3'];
 
             const existing_user: User = {
-                id: '0c059899-f706-4c8f-97d7-ba2e9fc22d6d',
+                id: current_user_id,
                 name: 'Alyaa Ali',
                 username: 'Alyaa242',
                 password: 'hashed-password',
@@ -1997,7 +2469,7 @@ describe('UserService', () => {
                 online: false,
                 followers: 10,
                 following: 15,
-                hashtags: [],
+                // hashtags: [],
                 tweets: [],
             };
 
@@ -2005,18 +2477,394 @@ describe('UserService', () => {
                 .spyOn(user_repository, 'findOne')
                 .mockResolvedValueOnce(existing_user);
 
-            const delete_spy = jest
+            const soft_delete_spy = jest
                 .spyOn(user_repository, 'softDelete')
                 .mockResolvedValueOnce({ affected: 1, raw: {}, generatedMaps: [] });
+
+            const smembers_spy = jest
+                .spyOn(redis_service, 'smembers')
+                .mockResolvedValueOnce(mock_jtis);
+
+            const redis_del_spy = jest.spyOn(redis_service, 'del').mockResolvedValue(1);
+
+            const redis_set_spy = jest.spyOn(redis_service, 'set').mockResolvedValueOnce('OK');
+
+            const extract_avatar_spy = jest
+                .spyOn(azure_storage_service, 'extractFileName')
+                .mockReturnValueOnce('profile.jpg');
+
+            const extract_cover_spy = jest
+                .spyOn(azure_storage_service, 'extractFileName')
+                .mockReturnValueOnce('cover.jpg');
+
+            const delete_avatar_spy = jest
+                .spyOn(azure_storage_service, 'deleteFile')
+                .mockResolvedValueOnce(undefined);
+
+            const delete_cover_spy = jest
+                .spyOn(azure_storage_service, 'deleteFile')
+                .mockResolvedValueOnce(undefined);
+
+            const queue_delete_spy = jest
+                .spyOn(es_delete_user_job_service, 'queueDeleteUser')
+                .mockResolvedValueOnce({ success: true, job_id: 'job-123' });
+
+            const config_spy = jest
+                .spyOn(config_service, 'get')
+                .mockReturnValueOnce('profile-container')
+                .mockReturnValueOnce('cover-container');
 
             await service.deleteUser(current_user_id);
 
             expect(find_one_spy).toHaveBeenCalledWith({
                 where: { id: current_user_id },
             });
-            expect(find_one_spy).toHaveBeenCalledTimes(1);
-            expect(delete_spy).toHaveBeenCalledWith(current_user_id);
-            expect(delete_spy).toHaveBeenCalledTimes(1);
+            expect(soft_delete_spy).toHaveBeenCalledWith(current_user_id);
+
+            expect(smembers_spy).toHaveBeenCalledWith(`user:${current_user_id}:refreshTokens`);
+            expect(redis_del_spy).toHaveBeenCalledWith('refresh:jti-1');
+            expect(redis_del_spy).toHaveBeenCalledWith('refresh:jti-2');
+            expect(redis_del_spy).toHaveBeenCalledWith('refresh:jti-3');
+            expect(redis_del_spy).toHaveBeenCalledWith(`user:${current_user_id}:refreshTokens`);
+
+            expect(redis_set_spy).toHaveBeenCalledWith(
+                `deleted_user:${current_user_id}`,
+                current_user_id,
+                43200
+            );
+
+            expect(extract_avatar_spy).toHaveBeenCalledWith(existing_user.avatar_url);
+            expect(delete_avatar_spy).toHaveBeenCalledWith('profile.jpg', 'profile-container');
+
+            expect(extract_cover_spy).toHaveBeenCalledWith(existing_user.cover_url);
+            expect(delete_cover_spy).toHaveBeenCalledWith('cover.jpg', 'cover-container');
+
+            expect(queue_delete_spy).toHaveBeenCalledWith({
+                user_id: current_user_id,
+            });
+        });
+
+        it('should delete user without refresh tokens', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const existing_user: User = {
+                id: current_user_id,
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
+                language: 'ar',
+                bio: 'blah',
+                avatar_url: null,
+                cover_url: null,
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                tweets: [],
+            };
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(existing_user);
+            jest.spyOn(user_repository, 'softDelete').mockResolvedValueOnce({
+                affected: 1,
+                raw: {},
+                generatedMaps: [],
+            });
+
+            const smembers_spy = jest.spyOn(redis_service, 'smembers').mockResolvedValueOnce([]);
+
+            const redis_del_spy = jest.spyOn(redis_service, 'del').mockResolvedValue(1);
+
+            const redis_set_spy = jest.spyOn(redis_service, 'set').mockResolvedValueOnce('OK');
+
+            const queue_delete_spy = jest
+                .spyOn(es_delete_user_job_service, 'queueDeleteUser')
+                .mockResolvedValueOnce({ success: true, job_id: 'job-123' });
+
+            await service.deleteUser(current_user_id);
+
+            expect(smembers_spy).toHaveBeenCalledWith(`user:${current_user_id}:refreshTokens`);
+            expect(redis_del_spy).toHaveBeenCalledWith(`user:${current_user_id}:refreshTokens`);
+            expect(redis_set_spy).toHaveBeenCalled();
+            expect(queue_delete_spy).toHaveBeenCalled();
+        });
+
+        it('should delete user without avatar and cover images', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const existing_user: User = {
+                id: current_user_id,
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
+                language: 'ar',
+                bio: 'blah',
+                avatar_url: null,
+                cover_url: null,
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                tweets: [],
+            };
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(existing_user);
+            jest.spyOn(user_repository, 'softDelete').mockResolvedValueOnce({
+                affected: 1,
+                raw: {},
+                generatedMaps: [],
+            });
+            jest.spyOn(redis_service, 'smembers').mockResolvedValueOnce([]);
+            jest.spyOn(redis_service, 'del').mockResolvedValue(1);
+            jest.spyOn(redis_service, 'set').mockResolvedValueOnce('OK');
+            jest.spyOn(es_delete_user_job_service, 'queueDeleteUser').mockResolvedValueOnce({
+                success: true,
+                job_id: 'job-123',
+            });
+
+            const extract_file_spy = jest.spyOn(azure_storage_service, 'extractFileName');
+            const delete_file_spy = jest.spyOn(azure_storage_service, 'deleteFile');
+
+            await service.deleteUser(current_user_id);
+
+            expect(extract_file_spy).not.toHaveBeenCalled();
+            expect(delete_file_spy).not.toHaveBeenCalled();
+        });
+
+        it('should continue deletion even if Redis set operation fails', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const existing_user: User = {
+                id: current_user_id,
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
+                language: 'ar',
+                bio: 'blah',
+                avatar_url: null,
+                cover_url: null,
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                tweets: [],
+            };
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(existing_user);
+            jest.spyOn(user_repository, 'softDelete').mockResolvedValueOnce({
+                affected: 1,
+                raw: {},
+                generatedMaps: [],
+            });
+            jest.spyOn(redis_service, 'smembers').mockResolvedValueOnce([]);
+            jest.spyOn(redis_service, 'del').mockResolvedValue(1);
+
+            const redis_set_spy = jest
+                .spyOn(redis_service, 'set')
+                .mockRejectedValueOnce(new Error('Redis connection failed'));
+
+            const console_warn_spy = jest.spyOn(console, 'warn').mockImplementation();
+
+            const queue_delete_spy = jest
+                .spyOn(es_delete_user_job_service, 'queueDeleteUser')
+                .mockResolvedValueOnce({ success: true, job_id: 'job-123' });
+
+            await service.deleteUser(current_user_id);
+
+            expect(redis_set_spy).toHaveBeenCalled();
+            expect(console_warn_spy).toHaveBeenCalledWith(
+                'Failed to store deleted user ID in Redis:',
+                'Redis connection failed'
+            );
+            expect(queue_delete_spy).toHaveBeenCalled();
+
+            console_warn_spy.mockRestore();
+        });
+
+        it('should continue deletion even if avatar deletion fails', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const existing_user: User = {
+                id: current_user_id,
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
+                language: 'ar',
+                bio: 'blah',
+                avatar_url: 'https://example.com/images/profile.jpg',
+                cover_url: null,
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                tweets: [],
+            };
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(existing_user);
+            jest.spyOn(user_repository, 'softDelete').mockResolvedValueOnce({
+                affected: 1,
+                raw: {},
+                generatedMaps: [],
+            });
+            jest.spyOn(redis_service, 'smembers').mockResolvedValueOnce([]);
+            jest.spyOn(redis_service, 'del').mockResolvedValue(1);
+            jest.spyOn(redis_service, 'set').mockResolvedValueOnce('OK');
+            jest.spyOn(azure_storage_service, 'extractFileName').mockReturnValueOnce('profile.jpg');
+            jest.spyOn(config_service, 'get').mockReturnValueOnce('profile-container');
+
+            const delete_file_spy = jest
+                .spyOn(azure_storage_service, 'deleteFile')
+                .mockRejectedValueOnce(new Error('Azure storage error'));
+
+            const console_warn_spy = jest.spyOn(console, 'warn').mockImplementation();
+
+            const queue_delete_spy = jest
+                .spyOn(es_delete_user_job_service, 'queueDeleteUser')
+                .mockResolvedValueOnce({ success: true, job_id: 'job-123' });
+
+            await service.deleteUser(current_user_id);
+
+            expect(delete_file_spy).toHaveBeenCalled();
+            expect(console_warn_spy).toHaveBeenCalledWith(
+                'Failed to delete avatar file:',
+                'Azure storage error'
+            );
+            expect(queue_delete_spy).toHaveBeenCalled();
+
+            console_warn_spy.mockRestore();
+        });
+
+        it('should continue deletion even if cover deletion fails', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+            const existing_user: User = {
+                id: current_user_id,
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
+                language: 'ar',
+                bio: 'blah',
+                avatar_url: null,
+                cover_url: 'https://example.com/images/cover.jpg',
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                tweets: [],
+            };
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(existing_user);
+            jest.spyOn(user_repository, 'softDelete').mockResolvedValueOnce({
+                affected: 1,
+                raw: {},
+                generatedMaps: [],
+            });
+            jest.spyOn(redis_service, 'smembers').mockResolvedValueOnce([]);
+            jest.spyOn(redis_service, 'del').mockResolvedValue(1);
+            jest.spyOn(redis_service, 'set').mockResolvedValueOnce('OK');
+            jest.spyOn(azure_storage_service, 'extractFileName').mockReturnValueOnce('cover.jpg');
+            jest.spyOn(config_service, 'get').mockReturnValueOnce('cover-container');
+
+            const delete_file_spy = jest
+                .spyOn(azure_storage_service, 'deleteFile')
+                .mockRejectedValueOnce(new Error('Azure storage error'));
+
+            const console_warn_spy = jest.spyOn(console, 'warn').mockImplementation();
+
+            const queue_delete_spy = jest
+                .spyOn(es_delete_user_job_service, 'queueDeleteUser')
+                .mockResolvedValueOnce({ success: true, job_id: 'job-123' });
+
+            await service.deleteUser(current_user_id);
+
+            expect(delete_file_spy).toHaveBeenCalled();
+            expect(console_warn_spy).toHaveBeenCalledWith(
+                'Failed to delete cover file:',
+                'Azure storage error'
+            );
+            expect(queue_delete_spy).toHaveBeenCalled();
+
+            console_warn_spy.mockRestore();
+        });
+
+        it('should parse TTL correctly from environment variable', async () => {
+            const current_user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+            process.env.JWT_TOKEN_EXPIRATION_TIME = '24h';
+
+            const existing_user: User = {
+                id: current_user_id,
+                name: 'Alyaa Ali',
+                username: 'Alyaa242',
+                password: 'hashed-password',
+                email: 'example@gmail.com',
+                created_at: new Date('2025-10-21T09:26:17.432Z'),
+                updated_at: new Date('2025-10-21T09:26:17.432Z'),
+                deleted_at: null,
+                language: 'ar',
+                bio: 'blah',
+                avatar_url: null,
+                cover_url: null,
+                birth_date: new Date('2003-05-14'),
+                country: null,
+                verified: false,
+                online: false,
+                followers: 10,
+                following: 15,
+                tweets: [],
+            };
+
+            jest.spyOn(user_repository, 'findOne').mockResolvedValueOnce(existing_user);
+            jest.spyOn(user_repository, 'softDelete').mockResolvedValueOnce({
+                affected: 1,
+                raw: {},
+                generatedMaps: [],
+            });
+            jest.spyOn(redis_service, 'smembers').mockResolvedValueOnce([]);
+            jest.spyOn(redis_service, 'del').mockResolvedValue(1);
+
+            const redis_set_spy = jest.spyOn(redis_service, 'set').mockResolvedValueOnce('OK');
+
+            jest.spyOn(es_delete_user_job_service, 'queueDeleteUser').mockResolvedValueOnce({
+                success: true,
+                job_id: 'job-123',
+            });
+
+            await service.deleteUser(current_user_id);
+
+            expect(redis_set_spy).toHaveBeenCalledWith(
+                `deleted_user:${current_user_id}`,
+                current_user_id,
+                86400
+            );
         });
 
         it('should throw NotFoundException when user does not exist', async () => {
@@ -2500,7 +3348,6 @@ describe('UserService', () => {
                 online: false,
                 followers: 10,
                 following: 15,
-                hashtags: [],
                 tweets: [],
             };
 
@@ -3434,6 +4281,183 @@ describe('UserService', () => {
 
             expect(find_one_spy).toHaveBeenCalledWith({ where: { id: user_id } });
             expect(find_one_spy).toHaveBeenCalledTimes(1);
+        });
+    });
+
+    describe('getUserRelationsCounts', () => {
+        const user_id = '0c059899-f706-4c8f-97d7-ba2e9fc22d6d';
+
+        it('should return blocked and muted counts', async () => {
+            manager.count.mockResolvedValueOnce(5).mockResolvedValueOnce(10);
+
+            const result = await service.getUserRelationsCounts(user_id);
+
+            expect(manager.count).toHaveBeenCalledTimes(2);
+            expect(manager.count).toHaveBeenNthCalledWith(1, 'user_blocks', {
+                where: { blocker_id: user_id },
+            });
+            expect(manager.count).toHaveBeenNthCalledWith(2, 'user_mutes', {
+                where: { muter_id: user_id },
+            });
+            expect(result).toEqual({
+                blocked_count: 5,
+                muted_count: 10,
+            });
+        });
+
+        it('should return zero counts when user has no blocks or mutes', async () => {
+            manager.count.mockResolvedValueOnce(0).mockResolvedValueOnce(0);
+
+            const result = await service.getUserRelationsCounts(user_id);
+
+            expect(result).toEqual({
+                blocked_count: 0,
+                muted_count: 0,
+            });
+        });
+
+        it('should return only blocked count when user has no mutes', async () => {
+            manager.count.mockResolvedValueOnce(25).mockResolvedValueOnce(0);
+
+            const result = await service.getUserRelationsCounts(user_id);
+
+            expect(result).toEqual({
+                blocked_count: 25,
+                muted_count: 0,
+            });
+        });
+
+        it('should return only muted count when user has no blocks', async () => {
+            manager.count.mockResolvedValueOnce(0).mockResolvedValueOnce(15);
+
+            const result = await service.getUserRelationsCounts(user_id);
+
+            expect(result).toEqual({
+                blocked_count: 0,
+                muted_count: 15,
+            });
+        });
+
+        it('should handle large counts', async () => {
+            manager.count.mockResolvedValueOnce(1000).mockResolvedValueOnce(500);
+
+            const result = await service.getUserRelationsCounts(user_id);
+
+            expect(result).toEqual({
+                blocked_count: 1000,
+                muted_count: 500,
+            });
+        });
+
+        it('should execute both queries in parallel', async () => {
+            const blocked_promise = Promise.resolve(5);
+            const muted_promise = Promise.resolve(10);
+
+            manager.count
+                .mockReturnValueOnce(blocked_promise as any)
+                .mockReturnValueOnce(muted_promise as any);
+
+            await service.getUserRelationsCounts(user_id);
+
+            expect(manager.count).toHaveBeenCalledTimes(2);
+
+            expect(manager.count).toHaveBeenNthCalledWith(1, 'user_blocks', {
+                where: { blocker_id: user_id },
+            });
+            expect(manager.count).toHaveBeenNthCalledWith(2, 'user_mutes', {
+                where: { muter_id: user_id },
+            });
+        });
+
+        it('should throw error when blocked count query fails', async () => {
+            manager.count.mockRejectedValueOnce(new Error('Database connection failed'));
+
+            await expect(service.getUserRelationsCounts(user_id)).rejects.toThrow(
+                'Database connection failed'
+            );
+        });
+
+        it('should throw error when muted count query fails', async () => {
+            manager.count
+                .mockResolvedValueOnce(5)
+                .mockRejectedValueOnce(new Error('Query timeout'));
+
+            await expect(service.getUserRelationsCounts(user_id)).rejects.toThrow('Query timeout');
+        });
+
+        it('should throw error when both queries fail', async () => {
+            manager.count
+                .mockRejectedValueOnce(new Error('Database error'))
+                .mockRejectedValueOnce(new Error('Another error'));
+
+            await expect(service.getUserRelationsCounts(user_id)).rejects.toThrow('Database error');
+        });
+
+        it('should use correct entity manager', async () => {
+            manager.count.mockResolvedValueOnce(5).mockResolvedValueOnce(10);
+
+            await service.getUserRelationsCounts(user_id);
+
+            expect(user_repository.manager).toBe(manager);
+            expect(manager.count).toHaveBeenCalled();
+        });
+
+        it('should return UserRelationsResponseDto structure', async () => {
+            manager.count.mockResolvedValueOnce(3).mockResolvedValueOnce(7);
+
+            const result = await service.getUserRelationsCounts(user_id);
+
+            expect(result).toHaveProperty('blocked_count');
+            expect(result).toHaveProperty('muted_count');
+            expect(typeof result.blocked_count).toBe('number');
+            expect(typeof result.muted_count).toBe('number');
+        });
+
+        it('should handle different user IDs correctly', async () => {
+            const another_user_id = '1a8e9906-65bb-4fa4-a614-ecc6a434ee94';
+
+            manager.count.mockResolvedValueOnce(2).mockResolvedValueOnce(3);
+
+            await service.getUserRelationsCounts(another_user_id);
+
+            expect(manager.count).toHaveBeenCalledWith('user_blocks', {
+                where: { blocker_id: another_user_id },
+            });
+            expect(manager.count).toHaveBeenCalledWith('user_mutes', {
+                where: { muter_id: another_user_id },
+            });
+        });
+
+        it('should query correct tables with correct where conditions', async () => {
+            manager.count.mockResolvedValueOnce(5).mockResolvedValueOnce(10);
+
+            await service.getUserRelationsCounts(user_id);
+
+            expect(manager.count).toHaveBeenNthCalledWith(1, 'user_blocks', {
+                where: { blocker_id: user_id },
+            });
+
+            expect(manager.count).toHaveBeenNthCalledWith(2, 'user_mutes', {
+                where: { muter_id: user_id },
+            });
+        });
+
+        it('should handle very large count numbers', async () => {
+            manager.count.mockResolvedValueOnce(999999).mockResolvedValueOnce(888888);
+
+            const result = await service.getUserRelationsCounts(user_id);
+
+            expect(result.blocked_count).toBe(999999);
+            expect(result.muted_count).toBe(888888);
+        });
+
+        it('should return counts with correct types', async () => {
+            manager.count.mockResolvedValueOnce(5).mockResolvedValueOnce(10);
+
+            const result = await service.getUserRelationsCounts(user_id);
+
+            expect(Number.isInteger(result.blocked_count)).toBe(true);
+            expect(Number.isInteger(result.muted_count)).toBe(true);
         });
     });
 });

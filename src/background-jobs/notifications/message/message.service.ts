@@ -12,7 +12,7 @@ import type { Queue } from 'bull';
 
 @Injectable()
 export class MessageJobService extends BackgroundJobsService<MessageBackGroundNotificationJobDTO> {
-    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private message_queue: Queue) {
+    constructor(@InjectQueue(QUEUE_NAMES.NOTIFICATION) private readonly message_queue: Queue) {
         super(
             message_queue,
             JOB_NAMES.NOTIFICATION.MESSAGE,

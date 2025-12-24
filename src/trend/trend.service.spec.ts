@@ -230,7 +230,7 @@ describe('TrendService', () => {
                 expect.any(Number),
                 expect.any(String)
             );
-            expect(redis_service.expire).toHaveBeenCalledWith('candidates:active', 2 * 60 * 60);
+            expect(redis_service.expire).toHaveBeenCalledWith('candidates:active', 24 * 60 * 60);
         });
     });
 
@@ -301,7 +301,7 @@ describe('TrendService', () => {
             await trend_service.updateHashtagCounts(hashtag_job);
 
             expect(redis_service.zincrby).toHaveBeenCalled();
-            expect(redis_service.expire).toHaveBeenCalledWith('hashtag:#trending', 1 * 60 * 60);
+            expect(redis_service.expire).toHaveBeenCalledWith('hashtag:#trending', 24 * 60 * 60);
             expect(mock_pipeline.exec).toHaveBeenCalled();
         });
     });
@@ -419,6 +419,231 @@ describe('TrendService', () => {
 
             expect(mock_pipeline.del).not.toHaveBeenCalled();
             expect(mock_pipeline.exec).not.toHaveBeenCalled();
+        });
+    });
+
+    describe('Error Handling', () => {
+        it('getTrending should handle redis errors gracefully', async () => {
+            jest.spyOn(redis_service, 'zrevrange').mockRejectedValue(
+                new Error('Redis connection failed')
+            );
+
+            await expect(trend_service.getTrending()).rejects.toThrow('Redis connection failed');
+        });
+
+        it('getHashtagCategories should handle empty hashtag list', async () => {
+            const hashtag_names: string[] = [];
+
+            const mock_pipeline = {
+                zscore: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+
+            jest.spyOn(redis_service, 'pipeline').mockReturnValue(mock_pipeline as any);
+
+            const result = await trend_service.getHashtagCategories(hashtag_names);
+
+            expect(result).toEqual({});
+        });
+
+        it('insertCandidateHashtags should handle empty hashtags', async () => {
+            const hashtag_job: HashtagJobDto = {
+                hashtags: {},
+                timestamp: Date.now(),
+            };
+
+            jest.spyOn(redis_service, 'zadd').mockResolvedValue(0 as any);
+
+            await expect(trend_service.insertCandidateHashtags(hashtag_job)).resolves.not.toThrow();
+        });
+
+        it('insertCandidateCategories should handle redis errors', async () => {
+            const hashtag_job: HashtagJobDto = {
+                hashtags: {
+                    '#test': { Sports: 50, News: 30 },
+                },
+                timestamp: Date.now(),
+            };
+
+            const mock_pipeline = {
+                zadd: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockRejectedValue(new Error('Pipeline failed')),
+            };
+
+            jest.spyOn(redis_service, 'pipeline').mockReturnValue(mock_pipeline as any);
+
+            await expect(trend_service.insertCandidateCategories(hashtag_job)).rejects.toThrow(
+                'Pipeline failed'
+            );
+        });
+
+        it('updateHashtagCounts should handle database errors', async () => {
+            const hashtag_job: HashtagJobDto = {
+                hashtags: {
+                    '#test': { Sports: 50 },
+                },
+                timestamp: Date.now(),
+            };
+
+            jest.spyOn(redis_service, 'zincrby').mockRejectedValue(
+                new Error('Redis increment failed')
+            );
+
+            await expect(trend_service.updateHashtagCounts(hashtag_job)).rejects.toThrow(
+                'Redis increment failed'
+            );
+        });
+    });
+
+    describe('Edge Cases', () => {
+        it('getTrending should handle very large limit', async () => {
+            const large_limit = 1000;
+
+            jest.spyOn(redis_service, 'zrevrange').mockResolvedValue([]);
+            jest.spyOn(hashtag_repo, 'find').mockResolvedValue([]);
+            jest.spyOn(trend_service as any, 'getHashtagCategories').mockResolvedValue({});
+
+            const result = await trend_service.getTrending(undefined, large_limit);
+
+            expect(redis_service.zrevrange).toHaveBeenCalledWith(
+                'trending:global',
+                0,
+                large_limit - 1,
+                'WITHSCORES'
+            );
+            expect(result.data).toEqual([]);
+        });
+
+        it('getTrending should handle special characters in hashtags', async () => {
+            const mock_trending_data = ['مصر', '100.5'];
+            const mock_hashtags = [{ name: 'مصر', usage_count: 500 }];
+            const mock_categories = { مصر: 'News' };
+
+            jest.spyOn(redis_service, 'zrevrange').mockResolvedValue(mock_trending_data as any);
+            jest.spyOn(hashtag_repo, 'find').mockResolvedValue(mock_hashtags as any);
+            jest.spyOn(trend_service as any, 'getHashtagCategories').mockResolvedValue(
+                mock_categories
+            );
+
+            const result = await trend_service.getTrending();
+
+            expect(result.data).toHaveLength(1);
+            expect(result.data[0].text).toBe('#مصر');
+        });
+
+        it('insertCandidateCategories should only include categories above threshold', async () => {
+            const hashtag_job: HashtagJobDto = {
+                hashtags: {
+                    '#test': { Sports: 25, News: 25, Entertainment: 50 }, // Only Entertainment >= 30
+                },
+                timestamp: Date.now(),
+            };
+
+            const mock_pipeline = {
+                zadd: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+
+            jest.spyOn(redis_service, 'pipeline').mockReturnValue(mock_pipeline as any);
+
+            await trend_service.insertCandidateCategories(hashtag_job);
+
+            // Verify zadd was called with Entertainment category
+            expect(mock_pipeline.zadd).toHaveBeenCalled();
+        });
+
+        it('getHashtagCategories should handle scores correctly', async () => {
+            const hashtag_names = ['#test'];
+
+            const mock_pipeline = {
+                zscore: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([
+                    [null, '100'], // Sports: 100
+                    [null, '50'], // News: 50
+                    [null, '30'], // Entertainment: 30
+                ]),
+            };
+
+            jest.spyOn(redis_service, 'pipeline').mockReturnValue(mock_pipeline as any);
+
+            const result = await trend_service.getHashtagCategories(hashtag_names);
+
+            // Should return the category with highest score
+            expect(result['#test']).toBe('Sports');
+        });
+    });
+
+    describe('Integration Scenarios', () => {
+        it('should process complete hashtag job workflow', async () => {
+            const hashtag_job: HashtagJobDto = {
+                hashtags: {
+                    '#test': { Sports: 100, News: 0, Entertainment: 0 },
+                },
+                timestamp: Date.now(),
+            };
+
+            // Mock all redis operations
+            jest.spyOn(redis_service, 'zadd').mockResolvedValue(1 as any);
+            jest.spyOn(redis_service, 'expire').mockResolvedValue(true as any);
+            jest.spyOn(redis_service, 'zincrby').mockResolvedValue('1' as any);
+
+            const mock_pipeline = {
+                zadd: jest.fn().mockReturnThis(),
+                expire: jest.fn().mockReturnThis(),
+                exec: jest.fn().mockResolvedValue([]),
+            };
+
+            jest.spyOn(redis_service, 'pipeline').mockReturnValue(mock_pipeline as any);
+
+            // Execute all trend operations
+            await trend_service.insertCandidateHashtags(hashtag_job);
+            await trend_service.insertCandidateCategories(hashtag_job);
+            await trend_service.updateHashtagCounts(hashtag_job);
+
+            expect(redis_service.zadd).toHaveBeenCalled();
+            expect(redis_service.zincrby).toHaveBeenCalled();
+        });
+
+        it('getTrending should return properly formatted response', async () => {
+            const mock_trending_data = [
+                'javascript',
+                '100.5',
+                'typescript',
+                '95.3',
+                'nestjs',
+                '89.2',
+            ];
+            const mock_hashtags = [
+                { name: 'javascript', usage_count: 1500 },
+                { name: 'typescript', usage_count: 1200 },
+                { name: 'nestjs', usage_count: 980 },
+            ];
+            const mock_categories = {
+                javascript: 'News',
+                typescript: 'Entertainment',
+                nestjs: 'Only on Yapper',
+            };
+
+            jest.spyOn(redis_service, 'zrevrange').mockResolvedValue(mock_trending_data as any);
+            jest.spyOn(hashtag_repo, 'find').mockResolvedValue(mock_hashtags as any);
+            jest.spyOn(trend_service as any, 'getHashtagCategories').mockResolvedValue(
+                mock_categories
+            );
+
+            const result = await trend_service.getTrending();
+
+            // Verify structure
+            expect(result).toHaveProperty('data');
+            expect(Array.isArray(result.data)).toBe(true);
+            result.data.forEach((trend: any) => {
+                expect(trend).toHaveProperty('text');
+                expect(trend).toHaveProperty('posts_count');
+                expect(trend).toHaveProperty('trend_rank');
+                expect(trend).toHaveProperty('category');
+                expect(trend).toHaveProperty('reference_id');
+            });
         });
     });
 });

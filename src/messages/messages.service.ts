@@ -21,7 +21,7 @@ import { MessageType } from './entities/message.entity';
 import { ChatRepository } from 'src/chat/chat.repository';
 import { PaginationService } from 'src/shared/services/pagination/pagination.service';
 import { EncryptionService } from 'src/shared/services/encryption/encryption.service';
-import { FCMService } from 'src/fcm/fcm.service';
+import { FCMService } from 'src/expo/expo.service';
 import { NotificationType } from 'src/notifications/enums/notification-types';
 import { MessagesGateway } from './messages.gateway';
 import { MessageJobService } from 'src/background-jobs/notifications/message/message.service';
@@ -31,16 +31,14 @@ import {
     ALLOWED_IMAGE_MIME_TYPES,
     ALLOWED_VOICE_MIME_TYPES,
     MAX_IMAGE_FILE_SIZE,
-    MAX_VOICE_DURATION,
     MAX_VOICE_FILE_SIZE,
-    MIN_VOICE_DURATION,
 } from 'src/constants/variables';
 import { MessageReactionRepository } from './message-reaction.repository';
 
 @Injectable()
 export class MessagesService {
-    private message_images_container: string;
-    private message_voices_container: string;
+    private readonly message_images_container: string;
+    private readonly message_voices_container: string;
 
     constructor(
         private readonly message_repository: MessageRepository,
@@ -149,6 +147,7 @@ export class MessagesService {
                     sender: {
                         name: sender.name,
                         username: sender.username,
+                        chat_id,
                     },
                 }
             );

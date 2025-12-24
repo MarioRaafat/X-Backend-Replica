@@ -3,6 +3,7 @@ import { UserResponseDTO } from './user-response.dto';
 import { RepostedByUserDTO } from './reposted-by-user.dto';
 import { Expose, Transform, Type } from 'class-transformer';
 import { TweetType } from 'src/shared/enums/tweet-types.enum';
+import { IsOptional } from 'class-validator';
 
 export class TweetResponseDTO {
     @Expose()
@@ -27,6 +28,15 @@ export class TweetResponseDTO {
         enum: TweetType,
     })
     type: TweetType;
+
+    @Expose()
+    @ApiProperty({
+        description: 'Tweet type: tweet (actual)',
+        example: 'tweet',
+        enum: TweetType,
+    })
+    @IsOptional()
+    post_type?: TweetType;
 
     @Expose()
     @ApiProperty({
@@ -159,7 +169,7 @@ export class TweetResponseDTO {
     is_reposted?: boolean = false;
 
     @Expose()
-    @Transform(({ obj }) => !!obj.current_user_bookmark)
+    @Transform(({ obj }) => !!obj.current_user_bookmark || obj.is_bookmarked)
     @ApiProperty({
         description: 'Whether the current user has bookmarked this tweet',
         example: false,
@@ -174,6 +184,13 @@ export class TweetResponseDTO {
         required: false,
     })
     reposted_by?: RepostedByUserDTO;
+
+    @Expose()
+    @ApiProperty({
+        description: 'mentions array containing usernames mentioned in the tweet',
+        type: [String],
+    })
+    mentions: string[];
 
     @Expose()
     @ApiProperty({

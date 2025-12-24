@@ -8,6 +8,7 @@ export class CreateTweetDTO {
         example: 'This is my first tweet!',
         maxLength: POST_CONTENT_LENGTH,
     })
+    // @Transform(({ value }) => value.trim().replace(/@([a-zA-Z0-9_]+)/g, ''))
     @IsString()
     @MaxLength(POST_CONTENT_LENGTH)
     content: string;

@@ -34,23 +34,23 @@ export class QuoteProcessor {
                 job.data;
 
             if (action === 'remove') {
-                let was_deleted = false;
+                let notification_id: string | null = null;
                 if (quote_to && quote_tweet_id) {
-                    was_deleted = await this.notifications_service.removeQuoteNotification(
+                    notification_id = await this.notifications_service.removeQuoteNotification(
                         quote_to,
                         quote_tweet_id,
                         quoted_by
                     );
                 }
 
-                if (was_deleted) {
+                if (notification_id) {
                     this.notifications_service.sendNotificationOnly(
                         NotificationType.QUOTE,
                         quote_to,
                         {
-                            type: NotificationType.QUOTE,
+                            id: notification_id,
                             ...job.data,
-                            quoted_by,
+                            action: 'remove',
                         }
                     );
                 }
