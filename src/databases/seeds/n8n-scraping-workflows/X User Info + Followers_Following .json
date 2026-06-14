@@ -1,0 +1,914 @@
+{
+  "name": "Twitter User Info + Followers/Following - Complete",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        352,
+        240
+      ],
+      "id": "8b41e8a0-56af-4bd4-9972-739a42389d0e",
+      "name": "When clicking 'Execute workflow'"
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1R67GZWogMEl4tjt9HIWeN-oDsvwLbw0sBZZQDSmZzeo",
+          "mode": "list",
+          "cachedResultName": "Copy of X_Scraper"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Sheet1"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        128
+      ],
+      "id": "bcd19382-26ca-4f5c-a41c-78e25f359694",
+      "name": "Get Tweets",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aWrzYCtEAQJAxGYY",
+          "name": "Amira Khaled"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1R67GZWogMEl4tjt9HIWeN-oDsvwLbw0sBZZQDSmZzeo",
+          "mode": "list",
+          "cachedResultName": "Copy of X_Scraper"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2135281714,
+          "mode": "list",
+          "cachedResultName": "Q"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        240
+      ],
+      "id": "cf967ca2-9bec-48ec-9c15-813aa822d2cd",
+      "name": "Get Quotes",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aWrzYCtEAQJAxGYY",
+          "name": "Amira Khaled"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1R67GZWogMEl4tjt9HIWeN-oDsvwLbw0sBZZQDSmZzeo",
+          "mode": "list",
+          "cachedResultName": "Copy of X_Scraper"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 521547567,
+          "mode": "list",
+          "cachedResultName": "Replies"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        672,
+        336
+      ],
+      "id": "f536c585-217e-4399-ad9d-1ee412651044",
+      "name": "Get Replies",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aWrzYCtEAQJAxGYY",
+          "name": "Amira Khaled"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "numberInputs": 3
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        992,
+        240
+      ],
+      "id": "9124ae1b-e802-44ec-9b22-42a8ab528737",
+      "name": "Merge All Sheets"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allItems = $input.all();\n\n// Extract unique author IDs\nconst authorIds = allItems\n  .map(item => item.json.authorId)\n  .filter(id => id && id !== '');\n\nconst uniqueIds = [...new Set(authorIds)];\n\nconsole.log(`Total unique author IDs: ${uniqueIds.length}`);\n\n// Create batches of 25 users (reduced to avoid rate limits)\nconst batchSize = 25;\nconst batches = [];\n\nfor (let i = 0; i < uniqueIds.length; i += batchSize) {\n  const batch = uniqueIds.slice(i, i + batchSize);\n  batches.push({\n    json: {\n      userIds: batch.join(','),\n      userIdsArray: batch,\n      batchNumber: Math.floor(i / batchSize) + 1,\n      totalBatches: Math.ceil(uniqueIds.length / batchSize)\n    }\n  });\n}\n\nconsole.log(`Created ${batches.length} batches`);\nreturn batches;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1280,
+        240
+      ],
+      "id": "a85a2cd9-6ce9-4963-acd1-67fb64e24880",
+      "name": "Extract Unique Author IDs"
+    },
+    {
+      "parameters": {
+        "amount": 10
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        1520,
+        240
+      ],
+      "id": "ed87786e-7866-4a9f-865f-43954a979fd8",
+      "name": "Wait Before User Info Call",
+      "webhookId": "user-info-wait"
+    },
+    {
+      "parameters": {
+        "url": "https://api.twitterapi.io/twitter/user/batch_info_by_ids",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "userIds",
+              "value": "={{ $json.userIds }}"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 10000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        1760,
+        240
+      ],
+      "id": "73a2b984-b986-4d4b-8a54-06646c979449",
+      "name": "Get User Info",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0BplfOdWHsyjHuTR",
+          "name": "Bonus Credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const allUsers = [];\n\nfor (const item of $input.all()) {\n  const users = item.json.users || [];\n  allUsers.push(...users);\n}\n\nif (allUsers.length === 0) {\n  return [];\n}\n\nreturn allUsers.map(user => ({\n  json: {\n    userId: user.id || '',\n    userName: user.userName || '',\n    url: user.url || '',\n    name: user.name || '',\n    isBlueVerified: user.isBlueVerified || false,\n    verifiedType: user.verifiedType || '',\n    profilePicture: user.profilePicture || '',\n    coverPicture: user.coverPicture || '',\n    description: user.description || '',\n    location: user.location || '',\n    followers: user.followers || 0,\n    following: user.following || 0,\n    canDm: user.canDm || false,\n    createdAt: user.createdAt || '',\n    favouritesCount: user.favouritesCount || 0,\n    hasCustomTimelines: user.hasCustomTimelines || false,\n    isTranslator: user.isTranslator || false,\n    mediaCount: user.mediaCount || 0,\n    statusesCount: user.statusesCount || 0\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2000,
+        240
+      ],
+      "id": "71ab7bf7-40bb-4bc0-bdce-3ee3580a684b",
+      "name": "Format User Info"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1R67GZWogMEl4tjt9HIWeN-oDsvwLbw0sBZZQDSmZzeo",
+          "mode": "list",
+          "cachedResultName": "Copy of X_Scraper"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1020687119,
+          "mode": "list",
+          "cachedResultName": "users",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1R67GZWogMEl4tjt9HIWeN-oDsvwLbw0sBZZQDSmZzeo/edit#gid=1020687119"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "userId",
+              "displayName": "userId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "userName",
+              "displayName": "userName",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "isBlueVerified",
+              "displayName": "isBlueVerified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "verifiedType",
+              "displayName": "verifiedType",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "profilePicture",
+              "displayName": "profilePicture",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "coverPicture",
+              "displayName": "coverPicture",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "followers",
+              "displayName": "followers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "following",
+              "displayName": "following",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "canDm",
+              "displayName": "canDm",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "createdAt",
+              "displayName": "createdAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "favouritesCount",
+              "displayName": "favouritesCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "hasCustomTimelines",
+              "displayName": "hasCustomTimelines",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "isTranslator",
+              "displayName": "isTranslator",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "mediaCount",
+              "displayName": "mediaCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "statusesCount",
+              "displayName": "statusesCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        2240,
+        240
+      ],
+      "id": "2616e615-913b-4d39-aa73-a23b7601d413",
+      "name": "Save User Info to Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aWrzYCtEAQJAxGYY",
+          "name": "Amira Khaled"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        2480,
+        240
+      ],
+      "id": "9fcf3067-d1c4-413b-9018-8319be783545",
+      "name": "Loop Over Users"
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2720,
+        128
+      ],
+      "id": "c07a619f-788d-4795-8ba2-be6fe5c30bad",
+      "name": "Wait Before Followers Call",
+      "webhookId": "followers-wait"
+    },
+    {
+      "parameters": {
+        "url": "https://api.twitterapi.io/twitter/user/followers",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "userId",
+              "value": "={{ $json.userId }}"
+            },
+            {
+              "name": "count",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 15000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2960,
+        128
+      ],
+      "id": "c62e521e-fe9a-4614-bce8-2e880fa9a59a",
+      "name": "Get Followers",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0BplfOdWHsyjHuTR",
+          "name": "Bonus Credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const userId = $('Loop Over Users').item.json.userId;\nconst followers = $input.item.json.users || [];\n\nif (followers.length === 0) {\n  return [];\n}\n\nreturn followers.map(follower => ({\n  json: {\n    userId: userId,\n    followerId: follower.id || '',\n    followerUserName: follower.userName || '',\n    followerName: follower.name || '',\n    followerProfilePicture: follower.profilePicture || '',\n    followerIsVerified: follower.isBlueVerified || false,\n    followerFollowersCount: follower.followers || 0,\n    followerFollowingCount: follower.following || 0\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        128
+      ],
+      "id": "fc2ee075-1c19-4570-9d81-85e2b1028f0a",
+      "name": "Format Followers"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1R67GZWogMEl4tjt9HIWeN-oDsvwLbw0sBZZQDSmZzeo",
+          "mode": "list",
+          "cachedResultName": "Copy of X_Scraper"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=followers",
+          "mode": "list",
+          "cachedResultName": "Followers"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3440,
+        128
+      ],
+      "id": "e6fa230f-f748-438a-af94-9f5d4700865c",
+      "name": "Save Followers to Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aWrzYCtEAQJAxGYY",
+          "name": "Amira Khaled"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 15
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        2720,
+        336
+      ],
+      "id": "ca7ea11d-1ce7-48a7-99bd-f8c9472f61a1",
+      "name": "Wait Before Following Call",
+      "webhookId": "following-wait"
+    },
+    {
+      "parameters": {
+        "url": "https://api.twitterapi.io/twitter/user/following",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "userId",
+              "value": "={{ $json.userId }}"
+            },
+            {
+              "name": "count",
+              "value": "100"
+            }
+          ]
+        },
+        "options": {
+          "batching": {
+            "batch": {
+              "batchSize": 1,
+              "batchInterval": 15000
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        2960,
+        336
+      ],
+      "id": "179bd332-5324-43ff-a722-f950fd61ebf3",
+      "name": "Get Following",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "0BplfOdWHsyjHuTR",
+          "name": "Bonus Credits"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const userId = $('Loop Over Users').item.json.userId;\nconst following = $input.item.json.users || [];\n\nif (following.length === 0) {\n  return [];\n}\n\nreturn following.map(followedUser => ({\n  json: {\n    userId: userId,\n    followingId: followedUser.id || '',\n    followingUserName: followedUser.userName || '',\n    followingName: followedUser.name || '',\n    followingProfilePicture: followedUser.profilePicture || '',\n    followingIsVerified: followedUser.isBlueVerified || false,\n    followingFollowersCount: followedUser.followers || 0,\n    followingFollowingCount: followedUser.following || 0\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3200,
+        336
+      ],
+      "id": "60bae91b-2b3f-483c-b1c1-871d2685d2f6",
+      "name": "Format Following"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1R67GZWogMEl4tjt9HIWeN-oDsvwLbw0sBZZQDSmZzeo",
+          "mode": "list",
+          "cachedResultName": "Copy of X_Scraper"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1966215308,
+          "mode": "list",
+          "cachedResultName": "Followings",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1R67GZWogMEl4tjt9HIWeN-oDsvwLbw0sBZZQDSmZzeo/edit#gid=1966215308"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        3440,
+        336
+      ],
+      "id": "5f2fdba4-5a59-42cb-827e-0adf3bf2bfde",
+      "name": "Save Following to Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "aWrzYCtEAQJAxGYY",
+          "name": "Amira Khaled"
+        }
+      }
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        3680,
+        240
+      ],
+      "id": "f7c0a231-44cc-487c-bda6-d9e51f4889d6",
+      "name": "Merge Followers & Following"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Execute workflow'": {
+      "main": [
+        [
+          {
+            "node": "Get Tweets",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Quotes",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Tweets": {
+      "main": [
+        [
+          {
+            "node": "Merge All Sheets",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Quotes": {
+      "main": [
+        []
+      ]
+    },
+    "Get Replies": {
+      "main": [
+        []
+      ]
+    },
+    "Merge All Sheets": {
+      "main": [
+        [
+          {
+            "node": "Extract Unique Author IDs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Unique Author IDs": {
+      "main": [
+        [
+          {
+            "node": "Wait Before User Info Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before User Info Call": {
+      "main": [
+        [
+          {
+            "node": "Get User Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get User Info": {
+      "main": [
+        [
+          {
+            "node": "Format User Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format User Info": {
+      "main": [
+        [
+          {
+            "node": "Save User Info to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save User Info to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Users": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait Before Followers Call",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Wait Before Following Call",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Followers Call": {
+      "main": [
+        [
+          {
+            "node": "Get Followers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Followers": {
+      "main": [
+        [
+          {
+            "node": "Format Followers",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Followers": {
+      "main": [
+        [
+          {
+            "node": "Save Followers to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Followers to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Merge Followers & Following",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Following Call": {
+      "main": [
+        [
+          {
+            "node": "Get Following",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Following": {
+      "main": [
+        [
+          {
+            "node": "Format Following",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Following": {
+      "main": [
+        [
+          {
+            "node": "Save Following to Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Following to Sheet": {
+      "main": [
+        [
+          {
+            "node": "Merge Followers & Following",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge Followers & Following": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "3777bbcd-76f8-4f27-acee-81da10162b32",
+  "meta": {
+    "instanceId": "d3a2bea18391ec0a281734cb502d01ab25581ba14eecd5b1d0d839ca44b0412c"
+  },
+  "id": "nb3BK5rPDSWSMHyr",
+  "tags": []
+}

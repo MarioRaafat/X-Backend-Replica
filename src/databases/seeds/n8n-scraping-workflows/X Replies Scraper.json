@@ -1,0 +1,703 @@
+{
+  "name": "X Replies Scraper",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        -2384,
+        208
+      ],
+      "id": "7a9761dd-3748-44ce-b2e6-db6a28912d0b",
+      "name": "When clicking 'Test workflow'"
+    },
+    {
+      "parameters": {
+        "url": "https://api.twitterapi.io/twitter/tweet/replies",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "tweetId",
+              "value": "={{ $json.tweetId }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        -1104,
+        224
+      ],
+      "id": "6cac2ca9-ea94-4376-9a75-776c57aa6e29",
+      "name": "Get Replies",
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "eumTrbOh3VPDjpNM",
+          "name": "Header Auth account 4"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "function formatDate(dateString) {\n  if (!dateString) return '';\n  \n  try {\n    const date = new Date(dateString);\n    return date.toLocaleString('en-US', {\n      year: 'numeric',\n      month: 'long',\n      day: 'numeric',\n      hour: '2-digit',\n      minute: '2-digit'\n    });\n  } catch (error) {\n    console.log(\"Error formatting date:\", error);\n    return dateString;\n  }\n}\n\nfunction extractMedia(tweet) {\n  const mediaItems = [];\n  \n  if (tweet.extendedEntities && tweet.extendedEntities.media && Array.isArray(tweet.extendedEntities.media)) {\n    tweet.extendedEntities.media.forEach(media => {\n      if (media.type === 'photo') {\n        if (media.media_url_https) {\n          mediaItems.push({\n            type: 'photo',\n            url: media.media_url_https\n          });\n        }\n      } else if (media.type === 'video' || media.type === 'animated_gif') {\n        if (media.video_info && media.video_info.variants && Array.isArray(media.video_info.variants)) {\n          // Filter for MP4 variants and find the one with the highest bitrate\n          const mp4Variants = media.video_info.variants.filter(v => v.content_type === 'video/mp4');\n          if (mp4Variants.length > 0) {\n            const bestVariant = mp4Variants.reduce((prev, curr) => {\n              return (curr.bitrate || 0) > (prev.bitrate || 0) ? curr : prev;\n            });\n            if (bestVariant.url) {\n              mediaItems.push({\n                type: media.type,\n                url: bestVariant.url\n              });\n            }\n          }\n        }\n      }\n    });\n  }\n  \n  return mediaItems;\n}\n\nif ($input.item.json.tweets && Array.isArray($input.item.json.tweets) && $input.item.json.tweets.length > 0) {\n  const items = $input.item.json.tweets.map(tweet => {\n    return {\n      json: {\n        referenced_tweetId: tweet.conversationId,\n        tweetId: tweet.id || '',\n        authorId: tweet.author?.id || '',\n        url: tweet.url || '',\n        content: tweet.text || '',\n        likeCount: tweet.likeCount || 0,\n        retweetCount: tweet.retweetCount || 0,\n        replyCount: tweet.replyCount || 0,\n        quoteCount: tweet.quoteCount || 0,\n        viewCount: tweet.viewCount || 0,\n        createdAt: formatDate(tweet.createdAt),\n        media: extractMedia(tweet)\n      }\n    };\n  });\n  \n  console.log(`Processing ${items.length} tweets`);\n  return items;\n} else {\n  const tweetData = {\n    referenced_tweetId: $input.item.json.conversationId || '',\n    tweetId: $input.item.json.id || '',\n    authorId: $input.item.json.author?.id || '',\n    url: $input.item.json.url || '',\n    content: $input.item.json.text || '',\n    likeCount: $input.item.json.likeCount || 0,\n    retweetCount: $input.item.json.retweetCount || 0,\n    replyCount: $input.item.json.replyCount || 0,\n    quoteCount: $input.item.json.quoteCount || 0,\n    viewCount: $input.item.json.viewCount || 0,\n    createdAt: formatDate($input.item.json.createdAt),\n    media: extractMedia($input.item.json)\n  };\n  \n  console.log(\"Processing single tweet\");\n  return { json: tweetData };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -912,
+        336
+      ],
+      "id": "0287b625-a2f1-4990-959c-611daffaa61c",
+      "name": "Extract Reply Info"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k",
+          "mode": "list",
+          "cachedResultName": "sports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 585740812,
+          "mode": "list",
+          "cachedResultName": "replies",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k/edit#gid=585740812"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "referenced_tweetId",
+              "displayName": "referenced_tweetId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "tweetId",
+              "displayName": "tweetId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "authorId",
+              "displayName": "authorId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "content",
+              "displayName": "content",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "likeCount",
+              "displayName": "likeCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "retweetCount",
+              "displayName": "retweetCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "replyCount",
+              "displayName": "replyCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "quoteCount",
+              "displayName": "quoteCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "viewCount",
+              "displayName": "viewCount",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "createdAt",
+              "displayName": "createdAt",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "media",
+              "displayName": "media",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -560,
+        336
+      ],
+      "id": "723c5671-da2a-4ee4-96bb-5c268ffe6a06",
+      "name": "Add to Replies Sheet",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NshX0YONdOQNi6Jd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "amount": 6
+      },
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        -1280,
+        224
+      ],
+      "id": "ec0c3feb-1aca-48cb-842e-78c089515eed",
+      "name": "Wait Before Each Reply",
+      "webhookId": "771eb262-5422-45cd-a550-683dd8ddc021"
+    },
+    {
+      "parameters": {
+        "options": {
+          "reset": false
+        }
+      },
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        -1520,
+        224
+      ],
+      "id": "bfc0a583-cc72-4698-bc1b-e770f406d154",
+      "name": "Loop Over Replies"
+    },
+    {
+      "parameters": {
+        "content": "# Fetching Replies",
+        "height": 416,
+        "width": 1224,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -1584,
+        128
+      ],
+      "id": "9b1a8b23-a9d9-482e-aaf3-d65663e884f8",
+      "name": "Sticky Note4"
+    },
+    {
+      "parameters": {
+        "content": "# Reading already fetched tweets",
+        "height": 260,
+        "width": 960,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -2640,
+        128
+      ],
+      "id": "64b4eb0b-8dbf-4c92-a25d-e92b3e71f283",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "jsCode": "console.log(\"Input item structure:\", JSON.stringify($input.item, null, 2));\n\nif ($input.first().json.tweets && $input.first().json.tweets.length == 0) {\n  return {\n    json: {\n      data: \"none\"\n    }\n  }\n}\n\nfunction formatDate(dateString) {\n  if (!dateString) return '';\n  \n  try {\n    const date = new Date(dateString);\n    // Format: \"March 13, 2025 at 19:25\"\n    return date.toLocaleString('en-US', {\n      year: 'numeric',\n      month: 'long',\n      day: 'numeric',\n      hour: '2-digit',\n      minute: '2-digit'\n    });\n  } catch (error) {\n    console.log(\"Error formatting date:\", error);\n    return dateString; // Return original if parsing fails\n  }\n}\n\n// Check if this is a Twitter Search result with multiple tweets\nif ($input.item.json.tweets && Array.isArray($input.item.json.tweets) && $input.item.json.tweets.length > 0) {\n  const items = $input.item.json.tweets.map(tweet => {\n    const author = tweet.author;\n    return {\n      json: {\n        userId: author.id || '',\n        url: author.url || '',\n        user_name: author.userName || '',\n        name: author.name || '',\n        is_verified: author.isBlueVerified || '',\n        avatar_url: author.profilePicture || '',\n        cover_url: author.profilePicture || '',\n        description: author.description || '',\n        location: author.location || '',\n        followers: author.followers || 0,\n        following: author.following || 0,\n        bio_description: author.profile_bio?.description || '',\n        created_at: formatDate(author.createdAt)\n      }\n    };\n  });\n  \n  console.log(`Processing ${items.length} tweets`);\n  \n  // Return all items\n  return items;\n} else {\n  // This is a single tweet, just extract and return its data\n  const item = $input.item.json;\n  const author = item.author\n\n  const tweetData = {\n    userId: author.id || '',\n    url: author.url || '',\n    user_name: author.userName || '',\n    name: author.name || '',\n    is_verified: author.isBlueVerified || 'FALSE',\n    avatar_url: author.profilePicture || '',\n    cover_url: author.profilePicture || '',\n    description: author.description || '',\n    location: author.location || '',\n    followers: author.followers || 0,\n    following: author.following || 0,\n    bio_description: author.profile_bio?.description || '',\n    created_at: formatDate(author.createdAt)\n  };\n  \n  console.log(\"Processing single tweet\");\n  \n  // Return as a single item\n  return {\n    json: tweetData\n  };\n}"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -912,
+        144
+      ],
+      "id": "a861c594-9743-44d5-9a44-e5bf6447dc03",
+      "name": "Extract authors"
+    },
+    {
+      "parameters": {
+        "jsCode": "const allTweets = [];\nlet i =0;\nfor (const item of $input.all()) {\n  i++;\n  if (i < 0) {\n    continue;\n  }\n  if (item.json.replyCount) {\n    allTweets.push(item.json);\n  } \n}\n\nif (allTweets.length === 0) {\n  return [];\n}\n\n// ---- Take 40% of the tweets (rounded down) ----\nconst fortyPercentCount = Math.floor(allTweets.length * 0.6);\nconst sample = allTweets.slice(0, fortyPercentCount);\n// ----------------------------------------------\n\nreturn sample.map(tweet => ({\n  json: {\n    tweetId: tweet.tweetId || '',\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -1856,
+        208
+      ],
+      "id": "8eb2aa83-457b-4881-aecb-d58bb711b03c",
+      "name": "Format User Info",
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "928894d0-2876-4996-9b1e-3d365b903771",
+              "leftValue": "={{ $json.userId }}",
+              "rightValue": {},
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -736,
+        144
+      ],
+      "id": "afb896b5-b045-42f8-9f27-70da651388ae",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "928894d0-2876-4996-9b1e-3d365b903771",
+              "leftValue": "={{ $json.referenced_tweetId }}",
+              "rightValue": {},
+              "operator": {
+                "type": "string",
+                "operation": "exists",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        -736,
+        336
+      ],
+      "id": "7f75a810-61c1-4d8e-bc1d-7ac6dc36b161",
+      "name": "If2"
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k",
+          "mode": "list",
+          "cachedResultName": "sports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "users",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "userId",
+              "displayName": "userId",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "url",
+              "displayName": "url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "user_name",
+              "displayName": "user_name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "name",
+              "displayName": "name",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "is_verified",
+              "displayName": "is_verified",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "avatar_url",
+              "displayName": "avatar_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "cover_url",
+              "displayName": "cover_url",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "description",
+              "displayName": "description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "location",
+              "displayName": "location",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "followers",
+              "displayName": "followers",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "following",
+              "displayName": "following",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "bio_description",
+              "displayName": "bio_description",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "created_at",
+              "displayName": "created_at",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        -560,
+        144
+      ],
+      "id": "2e37973f-a47a-4298-b8dd-8250e9b40db3",
+      "name": "Add users",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NshX0YONdOQNi6Jd",
+          "name": "Google Sheets account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "documentId": {
+          "__rl": true,
+          "value": "1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k",
+          "mode": "list",
+          "cachedResultName": "sports",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1205105101,
+          "mode": "list",
+          "cachedResultName": "tweets",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/1xIOHhp6eOV9A7kgVAQC7PNKZOjWrDt8b4TQ2fGPMP8k/edit#gid=1205105101"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        -2096,
+        208
+      ],
+      "id": "09cd5f65-43d5-47ca-a23a-b248c35f0621",
+      "name": "Read tweetIds",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "NshX0YONdOQNi6Jd",
+          "name": "Google Sheets account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "When clicking 'Test workflow'": {
+      "main": [
+        [
+          {
+            "node": "Read tweetIds",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Replies": {
+      "main": [
+        [
+          {
+            "node": "Extract Reply Info",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Extract authors",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Reply Info": {
+      "main": [
+        [
+          {
+            "node": "If2",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add to Replies Sheet": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Wait Before Each Reply": {
+      "main": [
+        [
+          {
+            "node": "Get Replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Loop Over Replies": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Wait Before Each Reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract authors": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format User Info": {
+      "main": [
+        [
+          {
+            "node": "Loop Over Replies",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Add users",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "If2": {
+      "main": [
+        [
+          {
+            "node": "Add to Replies Sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
+      ]
+    },
+    "Read tweetIds": {
+      "main": [
+        [
+          {
+            "node": "Format User Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "76691c4a-e2c2-46cb-a6a7-4501e7fac7b3",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "3689fe0648bfb982b2a67b7e1ad2610f7b004a8fe7441bcf8070bf768a05df27"
+  },
+  "id": "DIzYTWOCLQC4wLHG",
+  "tags": []
+}
