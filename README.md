@@ -1,98 +1,147 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
-</p>
+# Yapper Backend (X Replica)
 
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
+This repository contains the backend service for a social-media-style platform implemented with NestJS. It provides authentication, user management, timelines, search, trends, notifications, chat, and utilities for seeding and testing.
 
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
-</p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+## Features
 
-## Description
+- Authentication
+  - JWT access/refresh tokens with secure rotation
+  - OAuth 2.0 (Google, GitHub)
+  - Email verification (OTP + "Not me" verification link)
+  - Forgot / Reset password flows
+  - Logout single device or revoke all refresh tokens (logout from all devices)
+  - Captcha integration
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
+- User & Settings
+  - Follow / unfollow users
+  - Block users, mute users
+  - Update profile (display name, bio, avatar)
+  - Change language and other user preferences
 
-## Project setup
+- Timeline
+  - Create, update, delete posts (tweets)
+  - "For you" feed: personalized recommendations based on user interests
+  - "Following" feed: posts from followed users
+
+- Trend
+  - Daily-updated top hashtag trends across categories
+
+- Search
+  - User search via PostgreSQL Full-Text Search (FTS) with boosted ranking for followed users
+  - Post search via Elasticsearch using ranking signals (trending hashtags, interaction counts, author popularity)
+  - Exact-match hashtag searches for precise results
+
+- Notifications
+  - Real-time notifications using WebSockets
+  - Push notifications using Firebase Cloud Messaging (FCM)
+  - Notifications are updated or removed when the trigger content changes or is deleted
+
+- Chat
+  - Real-time chat via WebSockets
+  - Message reactions and basic presence indicators
+
+- Database Seeding
+  - Seeder script imports scraped data (via n8n) into the databases for testing and local development
+
+- Testing
+  - Unit tests for every module (Jest)
+  - Integration/e2e tests where applicable
+
+## Tech Stack
+
+- NestJS (TypeScript)
+- PostgreSQL (primary relational store)
+- MongoDB (for notifications)
+- Redis (cache, rate limiting, session/refresh token store, BullMQ backend)
+- Elasticsearch (post search)
+- Firebase Cloud Messaging (push notifications)
+- BullMQ (background jobs / queues)
+
+## Repository Layout (high level)
+
+- `src/` — application source code and modules (auth, user, timeline, search, notifications, chat...)
+- `test/` — e2e and test configuration
+- `docker/` — dockerfiles and compose files for local development
+- `assets/` — seed data and testing assets
+
+## Getting Started (Local)
+
+Prerequisites:
+
+- Node.js 18+ and npm/yarn
+- PostgreSQL
+- Redis
+- Elasticsearch
+- MongoDB
+
+Install dependencies:
 
 ```bash
-$ npm install
+npm install
 ```
 
-## Compile and run the project
+Copy example environment variables and fill values:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+cp config/local.env .env
+# edit .env and set DATABASE_URL, REDIS_URL, ELASTIC_URL, JWT secrets, OAuth credentials, FCM key, etc.
 ```
 
-## Run tests
+Start the application (recommended via Docker Compose):
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+docker-compose -f docker/docker-compose.local.yml up -d
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Run app in development:
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+npm run start:dev
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+## Seeding Data
 
-## Resources
+The project provides a seeding script that imports scrapped data (collected via n8n) into the database. Typical usage:
 
-Check out a few resources that may come in handy when working with NestJS:
+```bash
+npm run seed
+npm run es:reset 
+npm run es:seed 
+```
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+Adjust the path or flags based on your implementation in `package.json`.
 
-## Support
+## Tests
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+- Run unit tests:
 
-## Stay in touch
+```bash
+npm run test
+```
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- Run e2e tests:
 
-## License
+```bash
+npm run test:e2e
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- Test coverage:
+
+```bash
+npm run test:cov
+```
+
+Each module contains its unit tests next to implementation files (e.g., `src/auth/*.spec.ts`).
+
+
+## Contributors
+
+
+| Avatar | Name | Username |
+|--------|------|--------|
+| <img src="https://avatars.githubusercontent.com/MarioRaafat?v=4" width="60" height="60" style="border-radius:50%"> | Mario Raafat | [@MarioRaafat](https://github.com/MarioRaafat) |
+| <img src="https://avatars.githubusercontent.com/AmiraKhalid04?v=4" width="60" height="60" style="border-radius:50%"> | Amira Khalid | [@AmiraKhalid04](https://github.com/AmiraKhalid04) |
+| <img src="https://avatars.githubusercontent.com/MoBahgat010?v=4" width="60" height="60" style="border-radius:50%"> | Mohamed Bahgat | [@MoBahgat010](https://github.com/MoBahgat010) |
+| <img src="https://avatars.githubusercontent.com/alyaa242?v=4" width="60" height="60" style="border-radius:50%"> | Alyaa Ali | [@alyaa242](https://github.com/alyaa242) |
+| <img src="https://avatars.githubusercontent.com/shady-2004?v=4" width="60" height="60" style="border-radius:50%"> | Shady Mohamed | [@shady-2004](https://github.com/shady-2004) |
+
