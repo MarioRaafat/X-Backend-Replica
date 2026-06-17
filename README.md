@@ -5,47 +5,79 @@ This repository contains the backend service for a social-media-style platform i
 ## Features
 
 - Authentication
-  - JWT access/refresh tokens with secure rotation
-  - OAuth 2.0 (Google, GitHub)
-  - Email verification (OTP + "Not me" verification link)
-  - Forgot / Reset password flows
-  - Logout single device or revoke all refresh tokens (logout from all devices)
-  - Captcha integration
+    - JWT access/refresh tokens with secure rotation
+    - OAuth 2.0 (Google, GitHub)
+    - Email verification (OTP + "Not me" verification link)
+    - Forgot / Reset password flows
+    - Logout single device or revoke all refresh tokens (logout from all devices)
+    - Captcha integration
 
 - User & Settings
-  - Follow / unfollow users
-  - Block users, mute users
-  - Update profile (display name, bio, avatar)
-  - Change language and other user preferences
+    - Follow / unfollow users
+    - Block users, mute users
+    - Update profile (display name, bio, avatar)
+    - Change language and other user preferences
 
 - Timeline
-  - Create, update, delete posts (tweets)
-  - "For you" feed: personalized recommendations based on user interests
-  - "Following" feed: posts from followed users
+    - Create, update, delete posts (tweets)
+    - "For you" feed: personalized recommendations based on user interests
+    - "Following" feed: posts from followed users
 
 - Trend
-  - Daily-updated top hashtag trends across categories
+    - Daily-updated top hashtag trends across categories
+    - Redis-backed ranking of active hashtags using tweet volume, momentum, and recency signals
+    - Supports global trends plus category-filtered trends for Sports, News, and Entertainment
 
 - Search
-  - User search via PostgreSQL Full-Text Search (FTS) with boosted ranking for followed users
-  - Post search via Elasticsearch using ranking signals (trending hashtags, interaction counts, author popularity)
-  - Exact-match hashtag searches for precise results
+    - User search via PostgreSQL Full-Text Search (FTS) with boosted ranking for followed users
+    - Post search via Elasticsearch using ranking signals (trending hashtags, interaction counts, author popularity)
+    - Exact-match hashtag searches for precise results
 
 - Notifications
-  - Real-time notifications using WebSockets
-  - Push notifications using Firebase Cloud Messaging (FCM)
-  - Notifications are updated or removed when the trigger content changes or is deleted
+    - Real-time notifications using WebSockets
+    - Push notifications using Firebase Cloud Messaging (FCM)
+    - Notifications are updated or removed when the trigger content changes or is deleted
 
 - Chat
-  - Real-time chat via WebSockets
-  - Message reactions and basic presence indicators
+    - Real-time chat via WebSockets
+    - Message reactions and basic presence indicators
 
 - Database Seeding
-  - Seeder script imports scraped data (via n8n) into the databases for testing and local development
+    - Seeder imports n8n-scraped X data into the database
+    - Seed dataset includes about 60,000 users and 78,000 posts across 30 X topics
 
 - Testing
-  - Unit tests for every module (Jest)
-  - Integration/e2e tests where applicable
+    - Unit tests for every module (Jest)
+    - Integration/e2e tests where applicable
+
+## X Scraping Workflows
+
+We use n8n scraping workflows to get real user data through @[twitterapi.io](https://twitterapi.io/). Each workflow can be configured to fetch more or fewer items.
+
+- **Tweets scraping:**
+    - Uses the Twitter advanced_search endpoint to collect tweets (example: query="sports").
+    - Extracts tweet fields (id, url, text, counts, createdAt) and media (photos, best MP4 variant for videos/GIFs).
+    - Paginates via cursor and uses a counter/limit loop with short Wait nodes to avoid hitting rate limits.
+    - Appends tweets to the “tweets” sheet and also extracts tweet authors (saved to the “users” sheet).
+
+- **Replies scraping:**
+    - Reads tweet IDs from the sheet and calls the replies endpoint for each tweet.
+    - Formats replies similarly to tweets (conversationId, tweetId, authorId, content, counts, media).
+    - Uses split-in-batches + Wait nodes for per-item throttling.
+    - Appends replies to the “replies” sheet and extracts reply authors to the “users” sheet.
+    - Includes sampling logic to limit load (the workflow processes a subset of tweets/replies to reduce API calls).
+- **Users / Followers / Following scraping:**
+    - Read input: three Google Sheets nodes load Tweets, Quotes and Replies.
+    - Merge & extract: merged rows are scanned to build a unique list of author IDs and split into batches.
+    - User info:each batch is sent to the Twitter API (batch_user_info_by_ids). Returned users are formatted and appended to the “users” sheet.
+    - Per-user loop: the workflow splits over each saved user and, calls the Twitter API to get up to 100 followers and 100 following per user.
+
+**Notes and tips**
+
+- Configure your excel sheets names and API credentials before starting.
+- Respect API rate limits and legal/privacy constraints when scraping.
+- Start with small limits during testing the workflow to avoid being rate-limited.
+- Tune batchSize and wait durations if you encounter rate-limit errors.
 
 ## Tech Stack
 
@@ -105,8 +137,8 @@ The project provides a seeding script that imports scrapped data (collected via 
 
 ```bash
 npm run seed
-npm run es:reset 
-npm run es:seed 
+npm run es:reset
+npm run es:seed
 ```
 
 Adjust the path or flags based on your implementation in `package.json`.
@@ -133,15 +165,12 @@ npm run test:cov
 
 Each module contains its unit tests next to implementation files (e.g., `src/auth/*.spec.ts`).
 
-
 ## Contributors
 
-
-| Avatar | Name | Username |
-|--------|------|--------|
-| <img src="https://avatars.githubusercontent.com/MarioRaafat?v=4" width="60" height="60" style="border-radius:50%"> | Mario Raafat | [@MarioRaafat](https://github.com/MarioRaafat) |
-| <img src="https://avatars.githubusercontent.com/AmiraKhalid04?v=4" width="60" height="60" style="border-radius:50%"> | Amira Khalid | [@AmiraKhalid04](https://github.com/AmiraKhalid04) |
-| <img src="https://avatars.githubusercontent.com/MoBahgat010?v=4" width="60" height="60" style="border-radius:50%"> | Mohamed Bahgat | [@MoBahgat010](https://github.com/MoBahgat010) |
-| <img src="https://avatars.githubusercontent.com/alyaa242?v=4" width="60" height="60" style="border-radius:50%"> | Alyaa Ali | [@alyaa242](https://github.com/alyaa242) |
-| <img src="https://avatars.githubusercontent.com/shady-2004?v=4" width="60" height="60" style="border-radius:50%"> | Shady Mohamed | [@shady-2004](https://github.com/shady-2004) |
-
+| Avatar                                                                                                               | Name           | Username                                           |
+| -------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------- |
+| <img src="https://avatars.githubusercontent.com/MarioRaafat?v=4" width="60" height="60" style="border-radius:50%">   | Mario Raafat   | [@MarioRaafat](https://github.com/MarioRaafat)     |
+| <img src="https://avatars.githubusercontent.com/AmiraKhalid04?v=4" width="60" height="60" style="border-radius:50%"> | Amira Khalid   | [@AmiraKhalid04](https://github.com/AmiraKhalid04) |
+| <img src="https://avatars.githubusercontent.com/MoBahgat010?v=4" width="60" height="60" style="border-radius:50%">   | Mohamed Bahgat | [@MoBahgat010](https://github.com/MoBahgat010)     |
+| <img src="https://avatars.githubusercontent.com/alyaa242?v=4" width="60" height="60" style="border-radius:50%">      | Alyaa Ali      | [@alyaa242](https://github.com/alyaa242)           |
+| <img src="https://avatars.githubusercontent.com/shady-2004?v=4" width="60" height="60" style="border-radius:50%">    | Shady Mohamed  | [@shady-2004](https://github.com/shady-2004)       |
