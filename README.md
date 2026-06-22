@@ -1,8 +1,16 @@
-# Yapper Backend (X Replica)
-
+<div align="center">
+<h1> Yapper Backend (X Replica) </h1>
+<p>
+  <img width="240" height ="240" align="center" src="./assets/Y_Logo.jpg" alt="Yapper"/>
+</p>
+<p>
 This repository contains the backend service for a social-media-style platform implemented with NestJS. It provides authentication, user management, timelines, search, trends, notifications, chat, and utilities for seeding and testing.
+</p>
+</div>
 
-## Features
+
+
+## <img src="https://i.postimg.cc/3xnXZ25p/yapper-features-png.png" width="21" /> Features
 
 - Authentication
     - JWT access/refresh tokens with secure rotation
@@ -46,7 +54,7 @@ This repository contains the backend service for a social-media-style platform i
     - Seeder imports n8n-scraped X data into the database
     - Seed dataset includes about 60,000 users and 78,000 posts across 30 X topics
 
-## X Scraping Workflows
+## <img src="https://i.postimg.cc/g2fJp5mH/iteration.png" width="21" /> X Scraping Workflows
 
 We use n8n scraping workflows to get real user data through @[twitterapi.io](https://twitterapi.io/). Each workflow can be configured to fetch more or fewer items.
 
@@ -75,7 +83,7 @@ We use n8n scraping workflows to get real user data through @[twitterapi.io](htt
 - Start with small limits during testing the workflow to avoid being rate-limited.
 - Tune batchSize and wait durations if you encounter rate-limit errors.
 
-## Tech Stack
+## <img src="https://i.postimg.cc/Gp566wC6/tech-service-(1).png" width="21" /> Tech Stack
 
 - NestJS (TypeScript)
 - PostgreSQL (primary relational store)
@@ -85,7 +93,7 @@ We use n8n scraping workflows to get real user data through @[twitterapi.io](htt
 - Firebase Cloud Messaging (push notifications)
 - BullMQ (background jobs / queues)
 
-## Repository Layout
+## <img src="https://i.postimg.cc/8zq5G3NB/open-folder.png" width="21" /> Repository Layout
 
 ```
 .
@@ -195,7 +203,7 @@ We use n8n scraping workflows to get real user data through @[twitterapi.io](htt
 └── README.md                         # Project's Readme file
 ```
 
-## Getting Started (Local)
+## <img src="https://i.postimg.cc/QdRtDPhm/startup.png" width="21" /> Getting Started (Local)
 
 Prerequisites:
 
@@ -230,7 +238,7 @@ Run app in development:
 npm run start:dev
 ```
 
-## Seeding Data
+## <img src="https://i.postimg.cc/MG7jFxVX/database.png" width="21" /> Seeding Data
 
 The project provides a seeding script that imports scrapped data (collected via n8n) into the database. Typical usage:
 
@@ -242,7 +250,7 @@ npm run es:seed
 
 Adjust the path or flags based on your implementation in `package.json`.
 
-## Tests
+## <img src="https://i.postimg.cc/8zq5G3NH/software-testing.png" width="21" /> Tests
 
 - Run unit tests:
 
@@ -264,7 +272,7 @@ npm run test:cov
 
 Each module contains its unit tests next to implementation files (e.g., `src/auth/*.spec.ts`).
 
-## Contributors
+## <img src="https://i.postimg.cc/sX3ZF845/management.png" width="21" /> Contributors
 
 | Avatar                                                                                                               | Name           | Username                                           |
 | -------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------- |
