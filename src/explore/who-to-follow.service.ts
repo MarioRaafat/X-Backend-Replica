@@ -4,13 +4,11 @@ import { UserRepository } from '../user/user.repository';
 @Injectable()
 export class WhoToFollowService {
     private readonly CONFIG = {
-        // thresholds
         MAX_MUTUAL_CONNECTIONS_THRESHOLD: 10,
         MAX_LIKES_THRESHOLD: 10,
         MAX_REPLIES_THRESHOLD: 10,
         MAX_COMMON_CATEGORIES_THRESHOLD: 2,
 
-        // Distribution percentages
         DISTRIBUTION: {
             FRIENDS_OF_FRIENDS: 40,
             LIKES: 25,
@@ -23,9 +21,7 @@ export class WhoToFollowService {
         CANDIDATE_MULTIPLIER: 3,
     };
 
-    /* istanbul ignore start */
     constructor(private readonly user_repository: UserRepository) {}
-    /* istanbul ignore stop */
 
     async getWhoToFollow(current_user_id?: string, limit: number = 30) {
         if (!current_user_id) {
@@ -34,12 +30,11 @@ export class WhoToFollowService {
 
         const recommendations = await this.getPersonalizedRecommendations(current_user_id, limit);
 
-        // If we don't have enough recommendations, fill with popular users
         if (recommendations.length < limit) {
             const needed = limit - recommendations.length;
             const existing_ids = new Set(recommendations.map((r) => r.id));
 
-            const additional_users = await this.getPopularUsers(needed * 2); // Get extra to filter
+            const additional_users = await this.getPopularUsers(needed * 2, current_user_id);
             const filtered_additional = additional_users
                 .filter((user) => !existing_ids.has(user.id))
                 .slice(0, needed);
@@ -50,8 +45,8 @@ export class WhoToFollowService {
         return recommendations;
     }
 
-    private async getPopularUsers(limit: number) {
-        const users = await this.user_repository
+    private async getPopularUsers(limit: number, current_user_id?: string) {
+        let query = this.user_repository
             .createQueryBuilder('user')
             .select([
                 'user.id',
@@ -63,7 +58,18 @@ export class WhoToFollowService {
                 'user.followers',
                 'user.following',
             ])
-            .where('user.deleted_at IS NULL')
+            .where('user.deleted_at IS NULL');
+
+        if (current_user_id) {
+            query = query.andWhere('user.id != :current_user_id', { current_user_id }).andWhere(
+                `user.id NOT IN (
+                        SELECT followed_id FROM user_follows WHERE follower_id = :current_user_id
+                    )`,
+                { current_user_id }
+            );
+        }
+
+        const users = await query
             .orderBy('user.followers', 'DESC')
             .addOrderBy('user.verified', 'DESC')
             .limit(limit)
@@ -97,7 +103,6 @@ export class WhoToFollowService {
                 candidate_multiplier,
         };
 
-        //queries in parallel
         const [
             friends_of_friends,
             interest_based,
@@ -112,14 +117,6 @@ export class WhoToFollowService {
             this.getFollowersNotFollowed(current_user_id, limits.followers),
         ]);
 
-        // console.log('\n=== WHO TO FOLLOW DEBUG ===');
-        // console.log(`Friends of Friends: ${friends_of_friends.length} users`);
-        // console.log(`Interest-Based: ${interest_based.length} users`);
-        // console.log(`Liked Users: ${liked_users.length} users`);
-        // console.log(`Replied Users: ${replied_users.length} users`);
-        // console.log(`Followers Not Followed: ${followers_not_followed.length} users`);
-
-        // Combine users from different sources with distribution-based approach
         const combined_users_with_metadata = this.combineByDistribution(
             friends_of_friends,
             interest_based,
@@ -168,7 +165,6 @@ export class WhoToFollowService {
 
         const user_map = new Map(users.map((u) => [u.user_id, u]));
 
-        // Map with metadata and filter out missing users
         const users_with_scores = combined_users_with_metadata
             .map((metadata) => {
                 const user = user_map.get(metadata.user_id);
@@ -181,15 +177,6 @@ export class WhoToFollowService {
                 };
             })
             .filter((u) => u !== null);
-
-        // console.log('\n=== FINAL RECOMMENDATIONS (ordered by score) ===');
-        // users_with_scores.forEach((item, index) => {
-        //     console.log(
-        //         `${index + 1}. @${item.user.user_username} - Score: ${item.score.toFixed(2)} - Source: ${item.source} - Data:`,
-        //         item.source_data
-        //     );
-        // });
-        // console.log('=========================\n');
 
         return users_with_scores.map((item) => ({
             id: item.user.user_id,
@@ -325,7 +312,6 @@ export class WhoToFollowService {
             [];
         const seen = new Set<string>();
 
-        // Take top users from each source according to distribution
         const add_from_source = (users: any[], count: number) => {
             let added = 0;
             for (const user of users) {

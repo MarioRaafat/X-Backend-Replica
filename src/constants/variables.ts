@@ -20,6 +20,7 @@ export const ALLOWED_IMAGE_MIME_TYPES = [
     'image/tiff',
     'image/svg+xml',
     'image/x-icon',
+    'image/heic',
 ] as const;
 export const MAX_IMAGE_FILE_SIZE = 5 * 1024 * 1024; // 5MB
 

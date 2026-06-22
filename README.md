@@ -1,98 +1,283 @@
-<p align="center">
-  <a href="http://nestjs.com/" target="blank"><img src="https://nestjs.com/img/logo-small.svg" width="120" alt="Nest Logo" /></a>
+<div align="center">
+<h1> Yapper Backend (X Replica) </h1>
+<p>
+  <img width="240" height ="240" align="center" src="./assets/Y_Logo.jpg" alt="Yapper"/>
 </p>
-
-[circleci-image]: https://img.shields.io/circleci/build/github/nestjs/nest/master?token=abc123def456
-[circleci-url]: https://circleci.com/gh/nestjs/nest
-
-  <p align="center">A progressive <a href="http://nodejs.org" target="_blank">Node.js</a> framework for building efficient and scalable server-side applications.</p>
-    <p align="center">
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/v/@nestjs/core.svg" alt="NPM Version" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/l/@nestjs/core.svg" alt="Package License" /></a>
-<a href="https://www.npmjs.com/~nestjscore" target="_blank"><img src="https://img.shields.io/npm/dm/@nestjs/common.svg" alt="NPM Downloads" /></a>
-<a href="https://circleci.com/gh/nestjs/nest" target="_blank"><img src="https://img.shields.io/circleci/build/github/nestjs/nest/master" alt="CircleCI" /></a>
-<a href="https://discord.gg/G7Qnnhy" target="_blank"><img src="https://img.shields.io/badge/discord-online-brightgreen.svg" alt="Discord"/></a>
-<a href="https://opencollective.com/nest#backer" target="_blank"><img src="https://opencollective.com/nest/backers/badge.svg" alt="Backers on Open Collective" /></a>
-<a href="https://opencollective.com/nest#sponsor" target="_blank"><img src="https://opencollective.com/nest/sponsors/badge.svg" alt="Sponsors on Open Collective" /></a>
-  <a href="https://paypal.me/kamilmysliwiec" target="_blank"><img src="https://img.shields.io/badge/Donate-PayPal-ff3f59.svg" alt="Donate us"/></a>
-    <a href="https://opencollective.com/nest#sponsor"  target="_blank"><img src="https://img.shields.io/badge/Support%20us-Open%20Collective-41B883.svg" alt="Support us"></a>
-  <a href="https://twitter.com/nestframework" target="_blank"><img src="https://img.shields.io/twitter/follow/nestframework.svg?style=social&label=Follow" alt="Follow us on Twitter"></a>
+<p>
+This repository contains the backend service for a social-media-style platform implemented with NestJS. It provides authentication, user management, timelines, search, trends, notifications, chat, and utilities for seeding and testing.
 </p>
-  <!--[![Backers on Open Collective](https://opencollective.com/nest/backers/badge.svg)](https://opencollective.com/nest#backer)
-  [![Sponsors on Open Collective](https://opencollective.com/nest/sponsors/badge.svg)](https://opencollective.com/nest#sponsor)-->
+</div>
 
-## Description
 
-[Nest](https://github.com/nestjs/nest) framework TypeScript starter repository.
 
-## Project setup
+## <img src="https://i.postimg.cc/3xnXZ25p/yapper-features-png.png" width="21" /> Features
 
-```bash
-$ npm install
+- Authentication
+    - JWT access/refresh tokens with secure rotation
+    - OAuth 2.0 (Google, GitHub)
+    - Email verification (OTP + "Not me" verification link)
+    - Forgot / Reset password flows
+    - Logout single device or revoke all refresh tokens (logout from all devices)
+    - Captcha integration
+
+- User & Settings
+    - Follow / unfollow users
+    - Block users, mute users
+    - Update profile (display name, bio, avatar)
+    - Change language and other user preferences
+
+- Timeline
+    - Create, update, delete posts (tweets)
+    - "For you" feed: personalized recommendations based on user interests
+    - "Following" feed: posts from followed users
+
+- Trend
+    - Daily-updated top hashtag trends across categories
+    - Redis-backed ranking of active hashtags using tweet volume, momentum, and recency signals
+    - Supports global trends plus category-filtered trends for Sports, News, and Entertainment
+
+- Search
+    - User search via PostgreSQL Full-Text Search (FTS) with boosted ranking for followed users
+    - Post search via Elasticsearch using ranking signals (trending hashtags, interaction counts, author popularity)
+    - Exact-match hashtag searches for precise results
+
+- Notifications
+    - Real-time notifications using WebSockets
+    - Push notifications using Firebase Cloud Messaging (FCM)
+    - Notifications are updated or removed when the trigger content changes or is deleted
+
+- Chat
+    - Real-time chat via WebSockets
+    - Message reactions and basic presence indicators
+
+- Database Seeding
+    - Seeder imports n8n-scraped X data into the database
+    - Seed dataset includes about 60,000 users and 78,000 posts across 30 X topics
+
+## <img src="https://i.postimg.cc/g2fJp5mH/iteration.png" width="21" /> X Scraping Workflows
+
+We use n8n scraping workflows to get real user data through @[twitterapi.io](https://twitterapi.io/). Each workflow can be configured to fetch more or fewer items.
+
+- **Tweets scraping:**
+    - Uses the Twitter advanced_search endpoint to collect tweets (example: query="sports").
+    - Extracts tweet fields (id, url, text, counts, createdAt) and media (photos, best MP4 variant for videos/GIFs).
+    - Paginates via cursor and uses a counter/limit loop with short Wait nodes to avoid hitting rate limits.
+    - Appends tweets to the “tweets” sheet and also extracts tweet authors (saved to the “users” sheet).
+
+- **Replies scraping:**
+    - Reads tweet IDs from the sheet and calls the replies endpoint for each tweet.
+    - Formats replies similarly to tweets (conversationId, tweetId, authorId, content, counts, media).
+    - Uses split-in-batches + Wait nodes for per-item throttling.
+    - Appends replies to the “replies” sheet and extracts reply authors to the “users” sheet.
+    - Includes sampling logic to limit load (the workflow processes a subset of tweets/replies to reduce API calls).
+- **Users / Followers / Following scraping:**
+    - Read input: three Google Sheets nodes load Tweets, Quotes and Replies.
+    - Merge & extract: merged rows are scanned to build a unique list of author IDs and split into batches.
+    - User info:each batch is sent to the Twitter API (batch_user_info_by_ids). Returned users are formatted and appended to the “users” sheet.
+    - Per-user loop: the workflow splits over each saved user and, calls the Twitter API to get up to 100 followers and 100 following per user.
+
+**Notes and tips**
+
+- Configure your excel sheets names and API credentials before starting.
+- Respect API rate limits and legal/privacy constraints when scraping.
+- Start with small limits during testing the workflow to avoid being rate-limited.
+- Tune batchSize and wait durations if you encounter rate-limit errors.
+
+## <img src="https://i.postimg.cc/Gp566wC6/tech-service-(1).png" width="21" /> Tech Stack
+
+- NestJS (TypeScript)
+- PostgreSQL (primary relational store)
+- MongoDB (for notifications)
+- Redis (cache, rate limiting, session/refresh token store, BullMQ backend)
+- Elasticsearch (post search)
+- Firebase Cloud Messaging (push notifications)
+- BullMQ (background jobs / queues)
+
+## <img src="https://i.postimg.cc/8zq5G3NB/open-folder.png" width="21" /> Repository Layout
+
+```
+.
+├── src/                              # Main application source code
+│   ├── auth/                         # Authentication module (JWT, OAuth, OTP, captcha)
+│   │   ├── dto/                      # Data transfer objects (login, register, token)
+│   │   ├── entities/                 # Auth-related entities
+│   │   ├── guards/                   # Auth guards (JwtGuard, RolesGuard, etc.)
+│   │   ├── strategies/               # Passport strategies (JWT, Google, GitHub)
+│   │   ├── auth.service.ts           # Core auth logic
+│   │   ├── auth.controller.ts        # Auth endpoints
+│   │   └── [*.spec.ts]               # Unit tests
+│   ├── user/                         # User management module
+│   │   ├── dto/                      # User DTOs (profile, settings)
+│   │   ├── entities/                 # User, Profile, Settings entities
+│   │   ├── user.service.ts           # User operations (follow, block, mute, profile)
+│   │   ├── user.repository.ts        # User database queries
+│   │   ├── user.controller.ts        # User endpoints
+│   │   └── [*.spec.ts]
+│   ├── timeline/                     # Posts/Tweets module
+│   │   ├── dto/                      # Post/Tweet DTOs
+│   │   ├── entities/                 # Post, Tweet, Interaction entities
+│   │   ├── timeline.service.ts       # Post creation, feeds ("For You", "Following")
+│   │   ├── timeline.repository.ts    # Post database queries
+│   │   ├── timeline.controller.ts
+│   │   └── [*.spec.ts]
+│   ├── search/                       # Search functionality module
+│   │   ├── dto/                      # Search request/response DTOs
+│   │   ├── search.service.ts         # User & post search (FTS, Elasticsearch)
+│   │   ├── search.repository.ts      # Search queries
+│   │   ├── search.controller.ts
+│   │   └── [*.spec.ts]
+│   ├── trend/                        # Trending hashtags module
+│   │   ├── dto/                      # Trend DTOs
+│   │   ├── entities/                 # Hashtag, Trend entities
+│   │   ├── trend.service.ts          # Redis-backed hashtag trends
+│   │   ├── trend.repository.ts       # Trend queries
+│   │   ├── trend.controller.ts
+│   │   └── [*.spec.ts]
+│   ├── notifications/                # Notifications module (WebSocket & FCM)
+│   │   ├── dto/                      # Notification DTOs
+│   │   ├── entities/                 # Notification entity
+│   │   ├── notifications.service.ts  # Real-time & push notifications
+│   │   ├── notifications.gateway.ts  # WebSocket gateway
+│   │   ├── notifications.repository.ts
+│   │   └── [*.spec.ts]
+│   ├── chat/                         # Real-time chat module
+│   │   ├── dto/                      # Message, Reaction DTOs
+│   │   ├── entities/                 # Message, Conversation, Reaction entities
+│   │   ├── chat.service.ts           # Message handling & reactions
+│   │   ├── chat.gateway.ts           # WebSocket gateway
+│   │   ├── chat.repository.ts        # Message database queries
+│   │   └── [*.spec.ts]
+│   ├── category/                     # Category management
+│   │   ├── dto/                      # Category DTOs
+│   │   ├── entities/                 # Category entity
+│   │   └── category.repository.ts
+│   ├── communication/                # Communication utilities
+│   ├── background-jobs/              # BullMQ background job queues
+│   │   ├── ai-summary/               # AI summary jobs
+│   │   ├── email/                    # Email sending jobs
+│   │   ├── elasticsearch/            # ES indexing jobs
+│   │   ├── notifications/            # Notification jobs
+│   │   ├── timeline/                 # Timeline processing jobs
+│   │   └── [other queues...]
+│   ├── elasticsearch/                # Elasticsearch integration
+│   ├── redis/                        # Redis integration
+│   ├── azure-storage/                # Azure blob storage integration
+│   ├── gateway/                      # WebSocket gateways
+│   ├── databases/                    # Database configurations
+│   ├── middlewares/                  # Express middlewares
+│   ├── decorators/                   # Custom NestJS decorators
+│   ├── interceptor/                  # Request/response interceptors
+│   ├── messages/                     # Message templates & constants
+│   ├── validations/                  # Custom validation pipes
+│   ├── verification/                 # Email/OTP verification
+│   ├── constants/                    # App-wide constants
+│   ├── shared/                       # Shared utilities & helpers
+│   ├── templates/                    # Email & notification templates
+│   ├── app.module.ts                 # Root module
+│   ├── app.service.ts
+│   ├── app.controller.ts
+│   └── main.ts                       # Bootstrap file
+├── test/
+│   ├── app.e2e-spec.ts               # End-to-end tests
+│   └── jest-e2e.json                 # Jest E2E configuration
+├── docker/                           # Docker & containerization
+│   ├── Dockerfile                    # NestJS app container
+│   ├── docker-compose.local.yml      # Local development stack
+│   ├── docker-compose.prod.yml       # Production stack
+│   ├── build-docker.sh               # Build script
+│   └── DEPLOYMENT.md                 # Deployment guide
+├── config/
+│   └── local.env                     # Local environment template
+├── assets/                           # Seed data & test fixtures
+│   └── testing data/
+│       ├── avatars/                  # User avatar images
+│       ├── user1/, user2/, user3/    # Sample test users
+├── coverage/                         # Jest test coverage reports
+├── certs/                            # SSL certificates
+├── package.json                      # Dependencies & scripts
+├── tsconfig.json                     # TypeScript base config
+├── tsconfig.build.json               # TypeScript build config
+├── nest-cli.json                     # NestJS CLI config
+├── eslint.config.mjs                 # ESLint configuration
+├── sonar-project.properties          # SonarQube configuration
+└── README.md                         # Project's Readme file
 ```
 
-## Compile and run the project
+## <img src="https://i.postimg.cc/QdRtDPhm/startup.png" width="21" /> Getting Started (Local)
+
+Prerequisites:
+
+- Node.js 18+ and npm/yarn
+- PostgreSQL
+- Redis
+- Elasticsearch
+- MongoDB
+
+Install dependencies:
 
 ```bash
-# development
-$ npm run start
-
-# watch mode
-$ npm run start:dev
-
-# production mode
-$ npm run start:prod
+npm install
 ```
 
-## Run tests
+Copy example environment variables and fill values:
 
 ```bash
-# unit tests
-$ npm run test
-
-# e2e tests
-$ npm run test:e2e
-
-# test coverage
-$ npm run test:cov
+cp config/local.env .env
+# edit .env and set DATABASE_URL, REDIS_URL, ELASTIC_URL, JWT secrets, OAuth credentials, FCM key, etc.
 ```
 
-## Deployment
-
-When you're ready to deploy your NestJS application to production, there are some key steps you can take to ensure it runs as efficiently as possible. Check out the [deployment documentation](https://docs.nestjs.com/deployment) for more information.
-
-If you are looking for a cloud-based platform to deploy your NestJS application, check out [Mau](https://mau.nestjs.com), our official platform for deploying NestJS applications on AWS. Mau makes deployment straightforward and fast, requiring just a few simple steps:
+Start the application (recommended via Docker Compose):
 
 ```bash
-$ npm install -g @nestjs/mau
-$ mau deploy
+docker-compose -f docker/docker-compose.local.yml up -d
 ```
 
-With Mau, you can deploy your application in just a few clicks, allowing you to focus on building features rather than managing infrastructure.
+Run app in development:
 
-## Resources
+```bash
+npm run start:dev
+```
 
-Check out a few resources that may come in handy when working with NestJS:
+## <img src="https://i.postimg.cc/MG7jFxVX/database.png" width="21" /> Seeding Data
 
-- Visit the [NestJS Documentation](https://docs.nestjs.com) to learn more about the framework.
-- For questions and support, please visit our [Discord channel](https://discord.gg/G7Qnnhy).
-- To dive deeper and get more hands-on experience, check out our official video [courses](https://courses.nestjs.com/).
-- Deploy your application to AWS with the help of [NestJS Mau](https://mau.nestjs.com) in just a few clicks.
-- Visualize your application graph and interact with the NestJS application in real-time using [NestJS Devtools](https://devtools.nestjs.com).
-- Need help with your project (part-time to full-time)? Check out our official [enterprise support](https://enterprise.nestjs.com).
-- To stay in the loop and get updates, follow us on [X](https://x.com/nestframework) and [LinkedIn](https://linkedin.com/company/nestjs).
-- Looking for a job, or have a job to offer? Check out our official [Jobs board](https://jobs.nestjs.com).
+The project provides a seeding script that imports scrapped data (collected via n8n) into the database. Typical usage:
 
-## Support
+```bash
+npm run seed
+npm run es:reset
+npm run es:seed
+```
 
-Nest is an MIT-licensed open source project. It can grow thanks to the sponsors and support by the amazing backers. If you'd like to join them, please [read more here](https://docs.nestjs.com/support).
+Adjust the path or flags based on your implementation in `package.json`.
 
-## Stay in touch
+## <img src="https://i.postimg.cc/8zq5G3NH/software-testing.png" width="21" /> Tests
 
-- Author - [Kamil Myśliwiec](https://twitter.com/kammysliwiec)
-- Website - [https://nestjs.com](https://nestjs.com/)
-- Twitter - [@nestframework](https://twitter.com/nestframework)
+- Run unit tests:
 
-## License
+```bash
+npm run test
+```
 
-Nest is [MIT licensed](https://github.com/nestjs/nest/blob/master/LICENSE).
+- Run e2e tests:
+
+```bash
+npm run test:e2e
+```
+
+- Test coverage:
+
+```bash
+npm run test:cov
+```
+
+Each module contains its unit tests next to implementation files (e.g., `src/auth/*.spec.ts`).
+
+## <img src="https://i.postimg.cc/sX3ZF845/management.png" width="21" /> Contributors
+
+| Avatar                                                                                                               | Name           | Username                                           |
+| -------------------------------------------------------------------------------------------------------------------- | -------------- | -------------------------------------------------- |
+| <img src="https://avatars.githubusercontent.com/MarioRaafat?v=4" width="60" height="60" style="border-radius:50%">   | Mario Raafat   | [@MarioRaafat](https://github.com/MarioRaafat)     |
+| <img src="https://avatars.githubusercontent.com/AmiraKhalid04?v=4" width="60" height="60" style="border-radius:50%"> | Amira Khalid   | [@AmiraKhalid04](https://github.com/AmiraKhalid04) |
+| <img src="https://avatars.githubusercontent.com/MoBahgat010?v=4" width="60" height="60" style="border-radius:50%">   | Mohamed Bahgat | [@MoBahgat010](https://github.com/MoBahgat010)     |
+| <img src="https://avatars.githubusercontent.com/alyaa242?v=4" width="60" height="60" style="border-radius:50%">      | Alyaa Ali      | [@alyaa242](https://github.com/alyaa242)           |
+| <img src="https://avatars.githubusercontent.com/shady-2004?v=4" width="60" height="60" style="border-radius:50%">    | Shady Mohamed  | [@shady-2004](https://github.com/shady-2004)       |

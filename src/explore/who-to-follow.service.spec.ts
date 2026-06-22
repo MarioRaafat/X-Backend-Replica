@@ -60,6 +60,7 @@ describe('WhoToFollowService', () => {
             const mock_query_builder = {
                 select: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
                 addOrderBy: jest.fn().mockReturnThis(),
                 limit: jest.fn().mockReturnThis(),
@@ -97,6 +98,7 @@ describe('WhoToFollowService', () => {
             const mock_query_builder = {
                 select: jest.fn().mockReturnThis(),
                 where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
                 orderBy: jest.fn().mockReturnThis(),
                 addOrderBy: jest.fn().mockReturnThis(),
                 limit: jest.fn().mockReturnThis(),
@@ -185,6 +187,89 @@ describe('WhoToFollowService', () => {
             expect(Array.isArray(result)).toBe(true);
             expect(result.length).toBeGreaterThan(0);
             expect(user_repository.query).toHaveBeenCalledTimes(5); // 5 sources
+        });
+
+        it('should exclude followed users from popular users backfill', async () => {
+            const user_id = 'current-user-123';
+
+            // Mock minimal responses from all sources (only 1 user)
+            jest.spyOn(user_repository, 'query')
+                .mockResolvedValueOnce([{ user_id: 'user-1', mutual_count: 1 }])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([])
+                .mockResolvedValueOnce([]);
+
+            const mock_recommended_users = [
+                {
+                    user_id: 'user-1',
+                    user_username: 'user1',
+                    user_name: 'User 1',
+                    user_bio: '',
+                    user_avatar_url: '',
+                    user_verified: false,
+                    user_followers: 10,
+                    user_following: 5,
+                    is_following: false,
+                    is_followed: false,
+                },
+            ];
+
+            const mock_popular_users = [
+                {
+                    id: 'popular-1',
+                    username: 'popular1',
+                    name: 'Popular User 1',
+                    bio: '',
+                    avatar_url: '',
+                    verified: true,
+                    followers: 10000,
+                    following: 100,
+                },
+                {
+                    id: 'popular-2',
+                    username: 'popular2',
+                    name: 'Popular User 2',
+                    bio: '',
+                    avatar_url: '',
+                    verified: false,
+                    followers: 5000,
+                    following: 200,
+                },
+            ];
+
+            const mock_query_builder = {
+                select: jest.fn().mockReturnThis(),
+                where: jest.fn().mockReturnThis(),
+                andWhere: jest.fn().mockReturnThis(),
+                addSelect: jest.fn().mockReturnThis(),
+                orderBy: jest.fn().mockReturnThis(),
+                addOrderBy: jest.fn().mockReturnThis(),
+                setParameter: jest.fn().mockReturnThis(),
+                limit: jest.fn().mockReturnThis(),
+                getRawMany: jest.fn().mockResolvedValue(mock_recommended_users),
+                getMany: jest.fn().mockResolvedValue(mock_popular_users),
+            };
+
+            jest.spyOn(user_repository, 'createQueryBuilder').mockReturnValue(
+                mock_query_builder as any
+            );
+
+            const result = await service.getWhoToFollow(user_id, 5);
+
+            // Verify that andWhere was called to filter out followed users
+            expect(mock_query_builder.andWhere).toHaveBeenCalledWith(
+                'user.id != :current_user_id',
+                { current_user_id: user_id }
+            );
+
+            // Verify that andWhere was called to exclude followed users
+            const and_where_calls = mock_query_builder.andWhere.mock.calls;
+            expect(and_where_calls.length).toBeGreaterThan(1);
+            const follows_filter_call = and_where_calls.find((call: any[]) =>
+                call[0].includes('user_follows')
+            );
+            expect(follows_filter_call).toBeDefined();
         });
 
         it('should backfill with popular users if recommendations are insufficient', async () => {

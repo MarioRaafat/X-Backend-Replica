@@ -41,11 +41,13 @@ If the tweet is already very short or simple, produce a **more concise rewrite**
 If the tweet contains multiple ideas, summarize in **1–2 short sentences**.
 
 Rules:
+- Begin the summary with "The tweet talks about…" (use Arabic equivalent "التغريدة تتحدث عن…" if the tweet is in Arabic).
 - Provide a summary that is **meaningfully shorter** than the original.
 - Do NOT repeat the original phrasing or structure.
 - Do NOT add any new information.
 - Keep the tone neutral and simple.
 - Remove emojis, hashtags, and usernames.
+- If the tweet is in Arabic, return the summary in Arabic. For all other languages, return the summary in English.
 
 Tweet:
 "${content}"
