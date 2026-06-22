@@ -46,10 +46,6 @@ This repository contains the backend service for a social-media-style platform i
     - Seeder imports n8n-scraped X data into the database
     - Seed dataset includes about 60,000 users and 78,000 posts across 30 X topics
 
-- Testing
-    - Unit tests for every module (Jest)
-    - Integration/e2e tests where applicable
-
 ## X Scraping Workflows
 
 We use n8n scraping workflows to get real user data through @[twitterapi.io](https://twitterapi.io/). Each workflow can be configured to fetch more or fewer items.
@@ -89,12 +85,115 @@ We use n8n scraping workflows to get real user data through @[twitterapi.io](htt
 - Firebase Cloud Messaging (push notifications)
 - BullMQ (background jobs / queues)
 
-## Repository Layout (high level)
+## Repository Layout
 
-- `src/` — application source code and modules (auth, user, timeline, search, notifications, chat...)
-- `test/` — e2e and test configuration
-- `docker/` — dockerfiles and compose files for local development
-- `assets/` — seed data and testing assets
+```
+.
+├── src/                              # Main application source code
+│   ├── auth/                         # Authentication module (JWT, OAuth, OTP, captcha)
+│   │   ├── dto/                      # Data transfer objects (login, register, token)
+│   │   ├── entities/                 # Auth-related entities
+│   │   ├── guards/                   # Auth guards (JwtGuard, RolesGuard, etc.)
+│   │   ├── strategies/               # Passport strategies (JWT, Google, GitHub)
+│   │   ├── auth.service.ts           # Core auth logic
+│   │   ├── auth.controller.ts        # Auth endpoints
+│   │   └── [*.spec.ts]               # Unit tests
+│   ├── user/                         # User management module
+│   │   ├── dto/                      # User DTOs (profile, settings)
+│   │   ├── entities/                 # User, Profile, Settings entities
+│   │   ├── user.service.ts           # User operations (follow, block, mute, profile)
+│   │   ├── user.repository.ts        # User database queries
+│   │   ├── user.controller.ts        # User endpoints
+│   │   └── [*.spec.ts]
+│   ├── timeline/                     # Posts/Tweets module
+│   │   ├── dto/                      # Post/Tweet DTOs
+│   │   ├── entities/                 # Post, Tweet, Interaction entities
+│   │   ├── timeline.service.ts       # Post creation, feeds ("For You", "Following")
+│   │   ├── timeline.repository.ts    # Post database queries
+│   │   ├── timeline.controller.ts
+│   │   └── [*.spec.ts]
+│   ├── search/                       # Search functionality module
+│   │   ├── dto/                      # Search request/response DTOs
+│   │   ├── search.service.ts         # User & post search (FTS, Elasticsearch)
+│   │   ├── search.repository.ts      # Search queries
+│   │   ├── search.controller.ts
+│   │   └── [*.spec.ts]
+│   ├── trend/                        # Trending hashtags module
+│   │   ├── dto/                      # Trend DTOs
+│   │   ├── entities/                 # Hashtag, Trend entities
+│   │   ├── trend.service.ts          # Redis-backed hashtag trends
+│   │   ├── trend.repository.ts       # Trend queries
+│   │   ├── trend.controller.ts
+│   │   └── [*.spec.ts]
+│   ├── notifications/                # Notifications module (WebSocket & FCM)
+│   │   ├── dto/                      # Notification DTOs
+│   │   ├── entities/                 # Notification entity
+│   │   ├── notifications.service.ts  # Real-time & push notifications
+│   │   ├── notifications.gateway.ts  # WebSocket gateway
+│   │   ├── notifications.repository.ts
+│   │   └── [*.spec.ts]
+│   ├── chat/                         # Real-time chat module
+│   │   ├── dto/                      # Message, Reaction DTOs
+│   │   ├── entities/                 # Message, Conversation, Reaction entities
+│   │   ├── chat.service.ts           # Message handling & reactions
+│   │   ├── chat.gateway.ts           # WebSocket gateway
+│   │   ├── chat.repository.ts        # Message database queries
+│   │   └── [*.spec.ts]
+│   ├── category/                     # Category management
+│   │   ├── dto/                      # Category DTOs
+│   │   ├── entities/                 # Category entity
+│   │   └── category.repository.ts
+│   ├── communication/                # Communication utilities
+│   ├── background-jobs/              # BullMQ background job queues
+│   │   ├── ai-summary/               # AI summary jobs
+│   │   ├── email/                    # Email sending jobs
+│   │   ├── elasticsearch/            # ES indexing jobs
+│   │   ├── notifications/            # Notification jobs
+│   │   ├── timeline/                 # Timeline processing jobs
+│   │   └── [other queues...]
+│   ├── elasticsearch/                # Elasticsearch integration
+│   ├── redis/                        # Redis integration
+│   ├── azure-storage/                # Azure blob storage integration
+│   ├── gateway/                      # WebSocket gateways
+│   ├── databases/                    # Database configurations
+│   ├── middlewares/                  # Express middlewares
+│   ├── decorators/                   # Custom NestJS decorators
+│   ├── interceptor/                  # Request/response interceptors
+│   ├── messages/                     # Message templates & constants
+│   ├── validations/                  # Custom validation pipes
+│   ├── verification/                 # Email/OTP verification
+│   ├── constants/                    # App-wide constants
+│   ├── shared/                       # Shared utilities & helpers
+│   ├── templates/                    # Email & notification templates
+│   ├── app.module.ts                 # Root module
+│   ├── app.service.ts
+│   ├── app.controller.ts
+│   └── main.ts                       # Bootstrap file
+├── test/
+│   ├── app.e2e-spec.ts               # End-to-end tests
+│   └── jest-e2e.json                 # Jest E2E configuration
+├── docker/                           # Docker & containerization
+│   ├── Dockerfile                    # NestJS app container
+│   ├── docker-compose.local.yml      # Local development stack
+│   ├── docker-compose.prod.yml       # Production stack
+│   ├── build-docker.sh               # Build script
+│   └── DEPLOYMENT.md                 # Deployment guide
+├── config/
+│   └── local.env                     # Local environment template
+├── assets/                           # Seed data & test fixtures
+│   └── testing data/
+│       ├── avatars/                  # User avatar images
+│       ├── user1/, user2/, user3/    # Sample test users
+├── coverage/                         # Jest test coverage reports
+├── certs/                            # SSL certificates
+├── package.json                      # Dependencies & scripts
+├── tsconfig.json                     # TypeScript base config
+├── tsconfig.build.json               # TypeScript build config
+├── nest-cli.json                     # NestJS CLI config
+├── eslint.config.mjs                 # ESLint configuration
+├── sonar-project.properties          # SonarQube configuration
+└── README.md                         # Project's Readme file
+```
 
 ## Getting Started (Local)
 
